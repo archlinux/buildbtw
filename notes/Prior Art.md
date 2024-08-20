@@ -30,3 +30,4 @@
 - https://gitlab.archlinux.org/foxboron/archlinux-buildbot
 - https://gitlab.com/herecura/templates/gitlab-ci
 - https://osg-htc.org/technology/software/koji-mass-rebuilds/
+- https://github.com/foutrelis/arch-rebuilds
