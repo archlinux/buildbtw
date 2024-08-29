@@ -1,0 +1,11 @@
+[package]
+name = "buildbtw"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1.0.86", features = ["backtrace"] }
+axum = { version = "0.7.5", features = ["http2"] }
+axum-server = "0.7.1"
+clap = { version = "4.5.16", features = ["cargo", "derive", "env", "wrap_help"] }
+tokio = { version = "1.39.3", features = ["rt-multi-thread"] }
