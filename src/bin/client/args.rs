@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
-use buildbtw::GitRef;
 use clap::{Parser, Subcommand};
 
-// create-build-namespace --name rebuild-rocm rocm-core/main rocm-lib/main
+use buildbtw::GitRef;
 
 fn parse_git_changeset(value: &str) -> Result<GitRef> {
     let split_values: Vec<_> = value.split("/").collect();
@@ -38,28 +37,4 @@ pub struct Args {
 
     #[command(subcommand)]
     pub command: Command,
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let args = Args::parse();
-    match args.command {
-        Command::CreateBuildNamespace {
-            name,
-            origin_changesets,
-        } => {
-            let create = buildbtw::CreateBuildNamespace {
-                name,
-                origin_changesets,
-            };
-
-            reqwest::Client::new()
-                .post("http://0.0.0.0:8080")
-                .json(&create)
-                .send()
-                .await
-                .context("Failed to send to server")?;
-        }
-    }
-    Ok(())
 }
