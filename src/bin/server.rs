@@ -1,49 +1,14 @@
 use std::net::{IpAddr, SocketAddr};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use axum::extract::State;
+use axum::routing::post;
 use axum::{debug_handler, Router};
-use axum::{routing::get, Json};
+use axum::Json;
+use buildbtw::{worker, BuildNamespace, CreateBuildNamespace};
 use clap::{command, Parser};
-use petgraph::Graph;
-use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
-
-#[derive(Serialize, Deserialize, Debug)]
-struct BuildNamespace {
-    name: String,
-    description: String,
-    iterations: Vec<BuildSetIteration>,
-    // source repo, branch
-    origin_changesets: Vec<(String, String)>,
-    // gitlab group epic, state repo mr, ...
-    tracking_thing: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct PackageNode {
-    pkgbase: String,
-    // repo url, commit sha
-    package_changeset: (String, String),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct PackageBuildDependency {}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct BuildSetIteration {
-    id: Uuid,
-    // This is slow to compute: when it's None, it's not computed yet
-    packages_to_be_built: Graph<PackageNode, PackageBuildDependency>,
-}
-
-impl BuildSetIteration {
-    async fn compute_new() -> Self {
-        BuildSetIteration {
-            id: uuid::Uuid::new_v4(),
-            packages_to_be_built: Graph::new(),
-        }
-    }
-}
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP address
 fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
@@ -51,18 +16,29 @@ fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
 }
 
 #[debug_handler]
-async fn generate_build_namespace() -> Json<BuildNamespace> {
-    Json(BuildNamespace {
-        name: "foo".to_string(),
-        description: "rebuild some stuff I guess".to_string(),
+async fn generate_build_namespace(
+    State(state): State<AppState>,
+    Json(body): Json<CreateBuildNamespace>,
+) -> Json<BuildNamespace> {
+    let namespace = BuildNamespace {
+        id: Uuid::new_v4(),
+        name: body.name,
         iterations: Vec::new(),
-        origin_changesets: Vec::new(),
-        tracking_thing: "some url".to_string(),
-    })
+        current_origin_changesets: body.origin_changesets,
+    };
+
+    // TODO proper error handling
+    state
+        .worker_sender
+        .send(worker::Message::CreateBuildNamespace(namespace.clone()))
+        .context("Failed to dispatch worker job")
+        .unwrap();
+
+    Json(namespace)
 }
 
 #[derive(Debug, Clone, Parser)]
-#[command(name = "dummyhttp", author, about, version)]
+#[command(name = "buildbtw server", author, about, version)]
 pub struct Args {
     /// Interface to bind to
     #[arg(
@@ -84,13 +60,21 @@ pub struct Args {
     pub verbose: u8,
 }
 
+#[derive(Clone)]
+struct AppState {
+    worker_sender: UnboundedSender<worker::Message>,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
     dbg!(&args);
     let addr = SocketAddr::from((args.interface, args.port));
 
-    let app = Router::new().route("/", get(generate_build_namespace));
+    let worker_sender = worker::start();
+    let app = Router::new()
+        .route("/", post(generate_build_namespace))
+        .with_state(AppState { worker_sender });
 
     axum_server::bind(addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
