@@ -1,5 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
+use anyhow::{Context, Result};
+use git2::{BranchType, Repository};
+use srcinfo::Srcinfo;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::BuildNamespace;
@@ -16,6 +19,7 @@ pub fn start() -> UnboundedSender<Message> {
             match msg {
                 Message::CreateBuildNamespace(namespace) => {
                     println!("Adding namespace: {namespace:#?}");
+                    create_new_build_set_iteration(&namespace).await;
                     namespaces.insert(namespace.id, namespace);
                 }
             }
@@ -31,4 +35,26 @@ async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
     // TODO build new dependent graph and check if there are new nodes
 }
 
-async fn create_new_build_set_iteration() {}
+async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
+    for (repo, branch) in &namespace.current_origin_changesets {
+        let repo = git2::Repository::open(format!("./source_repos/{repo}"))?;
+        let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
+        println!("{srcinfo:?}");
+    }
+    Ok(())
+}
+
+fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<Srcinfo> {
+    let branch = repo.find_branch(branch, BranchType::Local)?;
+    let file_oid = branch
+        .get()
+        .peel_to_tree()?
+        .get_path(Path::new(".SRCINFO"))?
+        .id();
+
+    let file_blob = repo.find_blob(file_oid)?;
+
+    assert!(!file_blob.is_binary());
+
+    srcinfo::Srcinfo::parse_buf(file_blob.content()).context("Failed to parse .SRCINFO")
+}
