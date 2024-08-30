@@ -25,9 +25,8 @@ pub struct BuildNamespace {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PackageNode {
-    pub pkgbase: String,
-    // repo url, commit sha
-    pub package_changeset: GitRef,
+    pub pkgname: String,
+    pub commit_hash: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,14 +38,4 @@ pub struct BuildSetIteration {
     // This is slow to compute: when it's None, it's not computed yet
     packages_to_be_built: Graph<PackageNode, PackageBuildDependency>,
     origin_changesets: Vec<GitRef>,
-}
-
-impl BuildSetIteration {
-    async fn compute_new(namespace: BuildNamespace) -> Self {
-        BuildSetIteration {
-            id: uuid::Uuid::new_v4(),
-            packages_to_be_built: Graph::new(),
-            origin_changesets: namespace.current_origin_changesets.clone(),
-        }
-    }
 }

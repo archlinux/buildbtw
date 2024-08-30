@@ -1,25 +1,9 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 
-use buildbtw::GitRef;
-
 use crate::args::{Args, Command};
 
 mod args;
-
-fn parse_git_changeset(value: &str) -> Result<GitRef> {
-    let split_values: Vec<_> = value.split("/").collect();
-    Ok((
-        split_values
-            .first()
-            .context("Invalid package source reference")?
-            .to_string(),
-        split_values
-            .get(1)
-            .context("Invalid package source reference")?
-            .to_string(),
-    ))
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {

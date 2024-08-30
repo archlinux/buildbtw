@@ -13,5 +13,5 @@ petgraph = { version = "0.6.5", features = ["serde", "serde-1", "serde_derive"] 
 reqwest = { version = "0.12.7", features = ["json"] }
 serde = { version = "1.0.209", features = ["serde_derive"] }
 srcinfo = "1.1.0"
-tokio = { version = "1.39.3", features = ["rt-multi-thread"] }
+tokio = { version = "1.39.3", features = ["fs", "rt-multi-thread"] }
 uuid = { version = "1.10.0", features = ["serde", "v4"] }
