@@ -1,24 +1,28 @@
-use std::{collections::HashMap, fs::read_dir, path::Path};
-
-use anyhow::{Context, Result};
+use crate::{BuildNamespace, GitRef, PackageBuildDependency, PackageNode, Pkgbase};
+use anyhow::{anyhow, Context, Result};
 use git2::{BranchType, Repository};
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use srcinfo::Srcinfo;
+use std::{collections::HashMap, fs::read_dir, path::Path};
 use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
-
-use crate::{BuildNamespace, PackageBuildDependency, PackageNode};
 
 pub enum Message {
     CreateBuildNamespace(BuildNamespace),
 }
 
 pub fn start() -> UnboundedSender<Message> {
+    println!("Starting worker");
+
     let mut namespaces = HashMap::new();
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
     tokio::spawn(async move {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::CreateBuildNamespace(namespace) => {
+                    // TODO: fetch all packaging repositories in a better place
+                    fetch_all_packaging_repositories()
+                        .expect("Failed to fetch all packaging repositories");
+
                     println!("Adding namespace: {namespace:#?}");
                     if let Err(e) = create_new_build_set_iteration(&namespace).await {
                         println!("{e}");
@@ -46,35 +50,69 @@ fn clone_packaging_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
     )?)
 }
 
-fn fetch_repository(branch: &&String, repo: &Repository) -> Result<()> {
+fn fetch_repository(repo: &Repository) -> Result<()> {
     let mut remote = repo.find_remote("origin")?;
     let mut fo = git2::FetchOptions::new();
     fo.download_tags(git2::AutotagOption::All);
-    remote.fetch(&["+refs/heads/*:refs/remotes/origin/*"], Some(&mut fo), None)?;
+    remote.fetch(
+        &["+refs/heads/*:refs/remotes/origin/*"],
+        Some(&mut fo),
+        None,
+    )?;
     // TODO: cleanup remote branches that are orphan
     Ok(())
 }
 
-fn clone_or_fetch_repository(pkgbase: &String, branch: &String) -> Result<git2::Repository> {
-    let repo = git2::Repository::open(format!("./source_repos/{pkgbase}")).or_else(|_| {
-        clone_packaging_repository(&pkgbase)
-    })?;
-    fetch_repository(&branch, &repo)?;
+fn clone_or_fetch_repository(pkgbase: &Pkgbase, branch: &GitRef) -> Result<git2::Repository> {
+    // TODO: do pkgbase conversion to escape GitLab path rules (look into pkgctl)
+    let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))
+        .and_then(|repo| {
+            fetch_repository(&repo).expect("Failed to fetch repository");
+            Ok(repo)
+        })
+        .map_err(|e| anyhow!("Failed to fetch repository {pkgbase} with branch {branch}: {e}"))
+        .or_else(|_| clone_packaging_repository(&pkgbase))?;
     Ok(repo)
+}
+
+fn retrieve_srcinfo_from_remote_repository(pkgbase: &Pkgbase, branch: &GitRef) -> Result<Srcinfo> {
+    let repo = clone_or_fetch_repository(pkgbase, branch)?;
+
+    // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
+    let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
+    Ok(srcinfo)
+}
+
+fn fetch_all_packaging_repositories() -> Result<()> {
+    // TODO: retrieve all packaging repositories from GitLab and clone them
+    let all_packages: Vec<Pkgbase> = vec![
+        "openimageio".to_string(),
+        "openshadinglanguage".to_string(),
+        "usd".to_string(),
+        "f3d".to_string(),
+        "blender".to_string(),
+    ];
+    for pkgbase in all_packages {
+        // TODO: fetch all remote refs, not just main
+        let _ref = "main".to_string();
+        clone_or_fetch_repository(&pkgbase, &_ref)?;
+    }
+    Ok(())
 }
 
 async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
     let mut build_set_graph: Graph<PackageNode, PackageBuildDependency> = Graph::new();
-    for (pkgbase, branch) in &namespace.current_origin_changesets {
-        let repo = clone_or_fetch_repository(pkgbase, branch)?;
 
-        // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
-        let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
+    // add root nodes from our build namespace so we can start walking the graph
+    for (pkgbase, branch) in &namespace.current_origin_changesets {
+        let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase, branch)?;
+        let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
         build_set_graph.add_node(PackageNode {
             pkgname: srcinfo.base.pkgbase.clone(),
             commit_hash: get_branch_commit_sha(&repo, branch)?,
         });
     }
+
     let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone()).await?;
     let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map).await?;
 
@@ -133,21 +171,24 @@ async fn build_global_dependent_graph(
         pkgname_to_node_index_map.insert(pkgname.clone(), index);
     }
 
-    for (dependent_pkgname, (dependent_srcinfo, _commit_hash)) in pkgname_to_srcinfo_map {
-        let dependent_index =
-            pkgname_to_node_index_map
-                .get(&dependent_pkgname)
-                .context(format!(
-                    "Failed to get node index for dependent pgkname: {dependent_pkgname}"
-                ))?;
+    // Add edges to the graph for every package that depends on another package
+    for (dependent_pkgname, (dependent_srcinfo, _commit_hash)) in &pkgname_to_srcinfo_map {
+        // get graph index of the current package
+        let dependent_index = pkgname_to_node_index_map
+            .get(dependent_pkgname)
+            .context(format!(
+                "Failed to get node index for dependent pgkname: {dependent_pkgname}"
+            ))?;
+        // get all dependencies of the current package
         for arch_vec in dependent_srcinfo
             .pkgs
             .iter()
-            .find(|p| p.pkgname == dependent_pkgname)
+            .find(|p| p.pkgname == dependent_pkgname.clone())
             .context("Failed to get srcinfo for dependent pkgname")?
             .depends
             .iter()
         {
+            // Add edge between current package and its dependencies
             for dependency in &arch_vec.vec {
                 let dependency_index = pkgname_to_node_index_map.get(dependency).context(
                     format!("Failed to get node index for dependency pkgname: {dependency}"),
