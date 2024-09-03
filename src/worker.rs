@@ -1,4 +1,4 @@
-use crate::{BuildNamespace, GitRef, PackageBuildDependency, PackageNode, Pkgbase};
+use crate::{BuildNamespace, GitRef, PackageBuildDependency, PackageNode, Pkgbase, Pkgname};
 use anyhow::{anyhow, Context, Result};
 use git2::{BranchType, Repository};
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
@@ -33,6 +33,14 @@ pub fn start() -> UnboundedSender<Message> {
         }
     });
     sender
+}
+
+// TODO strip_pkgname_version_constraint
+fn strip_pkgname_version_constraint(pkgname: &Pkgname) -> Pkgname {
+    let pkgname = pkgname.split('=').next().unwrap();
+    let pkgname = pkgname.split('>').next().unwrap();
+    let pkgname = pkgname.split('<').next().unwrap();
+    pkgname.to_string()
 }
 
 async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
@@ -157,10 +165,10 @@ async fn build_pkgname_to_srcinfo_map(
 // Build a graph where nodes point towards their dependents, e.g.
 // gzip -> sed
 async fn build_global_dependent_graph(
-    pkgname_to_srcinfo_map: HashMap<Pkgbase, (Srcinfo, GitRef)>,
+    pkgname_to_srcinfo_map: HashMap<Pkgname, (Srcinfo, GitRef)>,
 ) -> Result<StableGraph<PackageNode, PackageBuildDependency>> {
     let mut global_graph: StableGraph<PackageNode, PackageBuildDependency> = StableGraph::new();
-    let mut pkgname_to_node_index_map: HashMap<Pkgbase, NodeIndex> = HashMap::new();
+    let mut pkgname_to_node_index_map: HashMap<Pkgname, NodeIndex> = HashMap::new();
 
     // Add all nodes to the graph and build a map of pkgname -> node index
     for (pkgname, (_srcinfo, commit_hash)) in &pkgname_to_srcinfo_map {
@@ -190,7 +198,8 @@ async fn build_global_dependent_graph(
         {
             // Add edge between current package and its dependencies
             for dependency in &arch_vec.vec {
-                let dependency_index = pkgname_to_node_index_map.get(dependency).context(
+                let dependency = strip_pkgname_version_constraint(dependency);
+                let dependency_index = pkgname_to_node_index_map.get(&dependency).context(
                     format!("Failed to get node index for dependency pkgname: {dependency}"),
                 )?;
                 global_graph.add_edge(
@@ -223,4 +232,45 @@ fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<Srcinfo> {
     assert!(!file_blob.is_binary());
 
     srcinfo::Srcinfo::parse_buf(file_blob.content()).context("Failed to parse .SRCINFO")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_pkgname_version_constraint_plain() {
+        let pkgname = "pkgname";
+        assert_eq!(
+            strip_pkgname_version_constraint(&pkgname.to_string()),
+            "pkgname".to_string()
+        );
+    }
+
+    #[test]
+    fn test_strip_pkgname_version_constraint_equals() {
+        let pkgname = "pkgname=1.0.0";
+        assert_eq!(
+            strip_pkgname_version_constraint(&pkgname.to_string()),
+            "pkgname".to_string()
+        );
+    }
+
+    #[test]
+    fn test_strip_pkgname_version_constraint_greater() {
+        let pkgname = "pkgname>1.0.0";
+        assert_eq!(
+            strip_pkgname_version_constraint(&pkgname.to_string()),
+            "pkgname".to_string()
+        );
+    }
+
+    #[test]
+    fn test_strip_pkgname_version_constraint_lesser() {
+        let pkgname = "pkgname<1.0.0";
+        assert_eq!(
+            strip_pkgname_version_constraint(&pkgname.to_string()),
+            "pkgname".to_string()
+        );
+    }
 }
