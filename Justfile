@@ -13,5 +13,8 @@ watch-client *args:
 warmup-server *args:
     cargo run --bin server -- warmup {{ args }}
 
+clean:
+    rm -rf source_repos
+
 test:
     cargo test
