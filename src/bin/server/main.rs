@@ -1,8 +1,9 @@
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpListener};
 
 use anyhow::{Context, Result};
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use clap::Parser;
+use listenfd::ListenFd;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -46,14 +47,23 @@ async fn main() -> Result<()> {
 
     match args.command {
         Command::Run { interface, port } => {
-            let addr = SocketAddr::from((interface, port));
-
             let worker_sender = worker::start();
             let app = Router::new()
                 .route("/", post(generate_build_namespace))
                 .with_state(AppState { worker_sender });
 
-            axum_server::bind(addr)
+            let mut listenfd = ListenFd::from_env();
+            // if listenfd doesn't take a TcpListener (i.e. we're not running via
+            // the command above), we fall back to explicitly binding to a given
+            // host:port.
+            let tcp_listener = if let Some(listener) = listenfd.take_tcp_listener(0).unwrap() {
+                listener
+            } else {
+                let addr = SocketAddr::from((interface, port));
+                TcpListener::bind(addr).unwrap()
+            };
+
+            axum_server::from_tcp(tcp_listener)
                 .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await?;
         }
@@ -61,6 +71,5 @@ async fn main() -> Result<()> {
             fetch_all_packaging_repositories().await?;
         }
     }
-
     Ok(())
 }
