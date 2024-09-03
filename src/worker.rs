@@ -1,7 +1,12 @@
-use crate::{BuildNamespace, GitRef, PackageBuildDependency, PackageNode, Pkgbase, Pkgname};
+use crate::{
+    BuildNamespace, GitRef, PackageBuildDependency, PackageNode, Pkgbase, PkgbaseMaintainers,
+    Pkgname,
+};
 use anyhow::{Context, Result};
-use git2::{BranchType, Repository};
+use git2::build::RepoBuilder;
+use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
+use reqwest::Client;
 use srcinfo::Srcinfo;
 use std::{collections::HashMap, fs::read_dir, path::Path};
 use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
@@ -48,20 +53,45 @@ async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
 
 fn clone_packaging_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
     println!("Cloning {pkgbase}");
-    Ok(git2::Repository::clone(
-        &format!("https://gitlab.archlinux.org/archlinux/packaging/packages/{pkgbase}.git"),
-        &format!("./source_repos/{pkgbase}"),
-    )?)
+
+    // Convert pkgbase to project path
+    let project_path = crate::gitlab::gitlab_project_name_to_path(pkgbase);
+
+    // Set up the callbacks to use SSH credentials
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
+
+    // Configure fetch options to use the callbacks
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+
+    let repo = RepoBuilder::new().fetch_options(fetch_options).clone(
+        &format!("git@gitlab.archlinux.org:archlinux/packaging/packages/{project_path}.git"),
+        Path::new(&format!("./source_repos/{pkgbase}")),
+    )?;
+
+    Ok(repo)
 }
 
 fn fetch_repository(repo: &Repository) -> Result<()> {
     println!("Fetching repository {:?}", repo.path());
+
+    // Set up the callbacks to use SSH credentials
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
+
+    // Configure fetch options to use the callbacks and download tags
+    let mut fetch_options = git2::FetchOptions::new();
+    fetch_options.download_tags(git2::AutotagOption::All);
+    fetch_options.remote_callbacks(callbacks);
+
+    // Find remote to fetch from
     let mut remote = repo.find_remote("origin")?;
-    let mut fo = git2::FetchOptions::new();
-    fo.download_tags(git2::AutotagOption::All);
+
+    // Fetch everything from the remote
     remote.fetch(
         &["+refs/heads/*:refs/remotes/origin/*"],
-        Some(&mut fo),
+        Some(&mut fetch_options),
         None,
     )?;
     // TODO: cleanup remote branches that are orphan
@@ -69,7 +99,6 @@ fn fetch_repository(repo: &Repository) -> Result<()> {
 }
 
 fn clone_or_fetch_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
-    // TODO: do pkgbase conversion to escape GitLab path rules (look into pkgctl)
     let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))
         .and_then(|repo| {
             fetch_repository(&repo).expect("Failed to fetch repository");
@@ -89,15 +118,14 @@ fn retrieve_srcinfo_from_remote_repository(pkgbase: &Pkgbase, branch: &GitRef) -
 
 pub async fn fetch_all_packaging_repositories() -> Result<()> {
     println!("Fetching all packaging repositories");
-    // TODO: retrieve all packaging repositories from GitLab and clone them
-    let all_packages: Vec<Pkgbase> = vec![
-        "openimageio".to_string(),
-        "openshadinglanguage".to_string(),
-        "usd".to_string(),
-        "f3d".to_string(),
-        "blender".to_string(),
-    ];
-    for pkgbase in all_packages {
+
+    // TODO: query GitLab API for all packaging repositories, otherwise we may miss none-released new depends
+    let repo_pkgbase_url = "https://archlinux.org/packages/pkgbase-maintainer";
+
+    let response = Client::new().get(repo_pkgbase_url).send().await?;
+    let maintainers: PkgbaseMaintainers = serde_json::from_str(response.text().await?.as_str())?;
+    let all_pkgbases = maintainers.keys().collect::<Vec<_>>();
+    for pkgbase in all_pkgbases {
         clone_or_fetch_repository(&pkgbase)?;
     }
     Ok(())

@@ -11,8 +11,10 @@ clap = { version = "4.5.16", features = ["cargo", "derive", "env", "wrap_help"] 
 git2 = "0.19.0"
 listenfd = "1.0.1"
 petgraph = { version = "0.6.5", features = ["serde", "serde-1", "serde_derive"] }
+regex = "1.10.6"
 reqwest = { version = "0.12.7", features = ["json"] }
 serde = { version = "1.0.209", features = ["serde_derive"] }
+serde_json = "1.0.127"
 srcinfo = "1.1.0"
 tokio = { version = "1.39.3", features = ["fs", "rt-multi-thread"] }
 uuid = { version = "1.10.0", features = ["serde", "v4"] }

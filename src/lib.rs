@@ -1,14 +1,19 @@
 use petgraph::Graph;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 pub mod worker;
+mod gitlab;
 
 pub type GitRef = String;
 pub type Pkgbase = String;
 pub type Pkgname = String;
 // source repo, branch
 pub type GitRepoRef = (Pkgbase, GitRef);
+
+pub type Packager = String;
+pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
