@@ -19,10 +19,6 @@ pub fn start() -> UnboundedSender<Message> {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::CreateBuildNamespace(namespace) => {
-                    // TODO: fetch all packaging repositories in a better place
-                    fetch_all_packaging_repositories()
-                        .expect("Failed to fetch all packaging repositories");
-
                     println!("Adding namespace: {namespace:#?}");
                     if let Err(e) = create_new_build_set_iteration(&namespace).await {
                         println!("{e}");
@@ -59,6 +55,7 @@ fn clone_packaging_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
 }
 
 fn fetch_repository(repo: &Repository) -> Result<()> {
+    println!("Fetching repository {:?}", repo.path());
     let mut remote = repo.find_remote("origin")?;
     let mut fo = git2::FetchOptions::new();
     fo.download_tags(git2::AutotagOption::All);
@@ -90,7 +87,8 @@ fn retrieve_srcinfo_from_remote_repository(pkgbase: &Pkgbase, branch: &GitRef) -
     Ok(srcinfo)
 }
 
-fn fetch_all_packaging_repositories() -> Result<()> {
+pub async fn fetch_all_packaging_repositories() -> Result<()> {
+    println!("Fetching all packaging repositories");
     // TODO: retrieve all packaging repositories from GitLab and clone them
     let all_packages: Vec<Pkgbase> = vec![
         "openimageio".to_string(),

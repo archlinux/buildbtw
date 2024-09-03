@@ -6,9 +6,9 @@ use clap::Parser;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use buildbtw::{worker, BuildNamespace, CreateBuildNamespace};
-
 use crate::args::{Args, Command};
+use buildbtw::worker::fetch_all_packaging_repositories;
+use buildbtw::{worker, BuildNamespace, CreateBuildNamespace};
 
 mod args;
 
@@ -56,6 +56,9 @@ async fn main() -> Result<()> {
             axum_server::bind(addr)
                 .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await?;
+        }
+        Command::Warmup {} => {
+            fetch_all_packaging_repositories().await?;
         }
     }
 

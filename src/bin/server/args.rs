@@ -38,4 +38,6 @@ pub enum Command {
         #[arg(short, long, default_value = "8080")]
         port: u16,
     },
+    /// Warmup the Git repository cache
+    Warmup {},
 }

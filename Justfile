@@ -9,3 +9,6 @@ run-client *args:
 
 watch-client *args:
     cargo-watch -- just run-client {{args}}
+
+warmup-server *args:
+    cargo run --bin server -- warmup {{ args }}
