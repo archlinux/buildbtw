@@ -4,13 +4,16 @@ use uuid::Uuid;
 
 pub mod worker;
 
+pub type GitRef = String;
+pub type Pkgbase = String;
+pub type Pkgname = String;
 // source repo, branch
-pub type GitRef = (String, String);
+pub type GitRepoRef = (Pkgbase, GitRef);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
     pub name: String,
-    pub origin_changesets: Vec<GitRef>,
+    pub origin_changesets: Vec<GitRepoRef>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -18,7 +21,7 @@ pub struct BuildNamespace {
     pub id: Uuid,
     pub name: String,
     pub iterations: Vec<BuildSetIteration>,
-    pub current_origin_changesets: Vec<GitRef>,
+    pub current_origin_changesets: Vec<GitRepoRef>,
     // gitlab group epic, state repo mr, ...
     // tracking_thing: String,
 }
@@ -37,5 +40,5 @@ pub struct BuildSetIteration {
     id: Uuid,
     // This is slow to compute: when it's None, it's not computed yet
     packages_to_be_built: Graph<PackageNode, PackageBuildDependency>,
-    origin_changesets: Vec<GitRef>,
+    origin_changesets: Vec<GitRepoRef>,
 }

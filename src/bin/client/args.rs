@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
-use buildbtw::GitRef;
+use buildbtw::GitRepoRef;
 
-fn parse_git_changeset(value: &str) -> Result<GitRef> {
+fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
     let split_values: Vec<_> = value.split("/").collect();
     Ok((
         split_values
@@ -23,7 +23,7 @@ pub enum Command {
         #[arg(short, long)]
         name: String,
         #[arg(value_parser(parse_git_changeset))]
-        origin_changesets: Vec<GitRef>,
+        origin_changesets: Vec<GitRepoRef>,
     },
 }
 

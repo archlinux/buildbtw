@@ -38,8 +38,7 @@ async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
     // TODO build new dependent graph and check if there are new nodes
 }
 
-fn clone_packaging_repository(pkgbase: &String) -> Result<git2::Repository> {
-    // TODO: do pkgbase conversion to escape GitLab path rules (look into pkgctl)
+fn clone_packaging_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
     println!("Cloning {pkgbase}");
     Ok(git2::Repository::clone(
         &format!("https://gitlab.archlinux.org/archlinux/packaging/packages/{pkgbase}.git"),
@@ -85,9 +84,11 @@ async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()
 
 async fn build_pkgname_to_srcinfo_map(
     namespace: BuildNamespace,
-) -> Result<HashMap<String, (Srcinfo, String)>> {
+) -> Result<HashMap<Pkgbase, (Srcinfo, GitRef)>> {
     spawn_blocking(move || {
-        let mut pkgname_to_srcinfo_map: HashMap<String, (Srcinfo, String)> = HashMap::new();
+        let mut pkgname_to_srcinfo_map: HashMap<Pkgbase, (Srcinfo, GitRef)> = HashMap::new();
+
+        // TODO: parallelize
         for dir in read_dir("./source_repos")? {
             let dir = dir?;
             let repo = Repository::open(dir.path())?;
@@ -118,10 +119,12 @@ async fn build_pkgname_to_srcinfo_map(
 // Build a graph where nodes point towards their dependents, e.g.
 // gzip -> sed
 async fn build_global_dependent_graph(
-    pkgname_to_srcinfo_map: HashMap<String, (Srcinfo, String)>,
+    pkgname_to_srcinfo_map: HashMap<Pkgbase, (Srcinfo, GitRef)>,
 ) -> Result<StableGraph<PackageNode, PackageBuildDependency>> {
     let mut global_graph: StableGraph<PackageNode, PackageBuildDependency> = StableGraph::new();
-    let mut pkgname_to_node_index_map: HashMap<String, NodeIndex> = HashMap::new();
+    let mut pkgname_to_node_index_map: HashMap<Pkgbase, NodeIndex> = HashMap::new();
+
+    // Add all nodes to the graph and build a map of pkgname -> node index
     for (pkgname, (_srcinfo, commit_hash)) in &pkgname_to_srcinfo_map {
         let index = global_graph.add_node(PackageNode {
             pkgname: pkgname.clone(),
