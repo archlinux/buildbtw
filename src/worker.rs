@@ -1,5 +1,5 @@
 use crate::{BuildNamespace, GitRef, PackageBuildDependency, PackageNode, Pkgbase, Pkgname};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use git2::{BranchType, Repository};
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use srcinfo::Srcinfo;
@@ -71,20 +71,19 @@ fn fetch_repository(repo: &Repository) -> Result<()> {
     Ok(())
 }
 
-fn clone_or_fetch_repository(pkgbase: &Pkgbase, branch: &GitRef) -> Result<git2::Repository> {
+fn clone_or_fetch_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
     // TODO: do pkgbase conversion to escape GitLab path rules (look into pkgctl)
     let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))
         .and_then(|repo| {
             fetch_repository(&repo).expect("Failed to fetch repository");
             Ok(repo)
         })
-        .map_err(|e| anyhow!("Failed to fetch repository {pkgbase} with branch {branch}: {e}"))
         .or_else(|_| clone_packaging_repository(&pkgbase))?;
     Ok(repo)
 }
 
 fn retrieve_srcinfo_from_remote_repository(pkgbase: &Pkgbase, branch: &GitRef) -> Result<Srcinfo> {
-    let repo = clone_or_fetch_repository(pkgbase, branch)?;
+    let repo = clone_or_fetch_repository(pkgbase)?;
 
     // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
     let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
@@ -101,9 +100,7 @@ fn fetch_all_packaging_repositories() -> Result<()> {
         "blender".to_string(),
     ];
     for pkgbase in all_packages {
-        // TODO: fetch all remote refs, not just main
-        let _ref = "main".to_string();
-        clone_or_fetch_repository(&pkgbase, &_ref)?;
+        clone_or_fetch_repository(&pkgbase)?;
     }
     Ok(())
 }
