@@ -1,5 +1,5 @@
 run-server *args: 
-    cargo run --bin server -- {{ args }}
+    cargo run --bin server -- run {{ args }}
 
 watch-server *args:
     cargo-watch -- just run-server {{args}}

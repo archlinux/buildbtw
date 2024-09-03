@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use buildbtw::{worker, BuildNamespace, CreateBuildNamespace};
 
-use crate::args::Args;
+use crate::args::{Args, Command};
 
 mod args;
 
@@ -43,15 +43,21 @@ struct AppState {
 async fn main() -> Result<()> {
     let args = Args::parse();
     dbg!(&args);
-    let addr = SocketAddr::from((args.interface, args.port));
 
-    let worker_sender = worker::start();
-    let app = Router::new()
-        .route("/", post(generate_build_namespace))
-        .with_state(AppState { worker_sender });
+    match args.command {
+        Command::Run { interface, port } => {
+            let addr = SocketAddr::from((interface, port));
 
-    axum_server::bind(addr)
-        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-        .await?;
+            let worker_sender = worker::start();
+            let app = Router::new()
+                .route("/", post(generate_build_namespace))
+                .with_state(AppState { worker_sender });
+
+            axum_server::bind(addr)
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+                .await?;
+        }
+    }
+
     Ok(())
 }
