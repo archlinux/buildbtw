@@ -12,3 +12,6 @@ watch-client *args:
 
 warmup-server *args:
     cargo run --bin server -- warmup {{ args }}
+
+test:
+    cargo test
