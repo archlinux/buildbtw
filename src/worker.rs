@@ -38,12 +38,38 @@ async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
     // TODO build new dependent graph and check if there are new nodes
 }
 
+fn clone_packaging_repository(pkgbase: &String) -> Result<git2::Repository> {
+    // TODO: do pkgbase conversion to escape GitLab path rules (look into pkgctl)
+    println!("Cloning {pkgbase}");
+    Ok(git2::Repository::clone(
+        &format!("https://gitlab.archlinux.org/archlinux/packaging/packages/{pkgbase}.git"),
+        &format!("./source_repos/{pkgbase}"),
+    )?)
+}
+
+fn fetch_repository(branch: &&String, repo: &Repository) -> Result<()> {
+    let mut remote = repo.find_remote("origin")?;
+    let mut fo = git2::FetchOptions::new();
+    fo.download_tags(git2::AutotagOption::All);
+    remote.fetch(&["+refs/heads/*:refs/remotes/origin/*"], Some(&mut fo), None)?;
+    // TODO: cleanup remote branches that are orphan
+    Ok(())
+}
+
+fn clone_or_fetch_repository(pkgbase: &String, branch: &String) -> Result<git2::Repository> {
+    let repo = git2::Repository::open(format!("./source_repos/{pkgbase}")).or_else(|_| {
+        clone_packaging_repository(&pkgbase)
+    })?;
+    fetch_repository(&branch, &repo)?;
+    Ok(repo)
+}
+
 async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
     let mut build_set_graph: Graph<PackageNode, PackageBuildDependency> = Graph::new();
-    for (repo, branch) in &namespace.current_origin_changesets {
-        let repo = git2::Repository::open(format!("./source_repos/{repo}"))?;
-        // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically
-        // changing srcinfo
+    for (pkgbase, branch) in &namespace.current_origin_changesets {
+        let repo = clone_or_fetch_repository(pkgbase, branch)?;
+
+        // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
         let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
         build_set_graph.add_node(PackageNode {
             pkgname: srcinfo.base.pkgbase.clone(),
