@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::{collections::HashMap, fs::read_dir};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use git2::Repository;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use srcinfo::Srcinfo;
@@ -146,7 +146,7 @@ pub async fn build_pkgname_to_srcinfo_map(
                     }
                 }
                 Err(e) => {
-                    println!("⚠️ {e:?}:");
+                    println!("⚠️ {e:#}:");
                 }
             }
         }
@@ -165,12 +165,22 @@ pub async fn build_global_dependent_graph(
     let mut pkgname_to_node_index_map: HashMap<Pkgname, NodeIndex> = HashMap::new();
 
     // Add all nodes to the graph and build a map of pkgname -> node index
-    for (pkgname, (_srcinfo, commit_hash)) in &pkgname_to_srcinfo_map {
+    for (pkgname, (srcinfo, commit_hash)) in &pkgname_to_srcinfo_map {
         let index = global_graph.add_node(PackageNode {
             pkgname: pkgname.clone(),
             commit_hash: commit_hash.clone(),
         });
         pkgname_to_node_index_map.insert(pkgname.clone(), index);
+
+        // Add every "provides" value to the index map as well
+        let srcinfo_package = srcinfo
+            .pkg(pkgname)
+            .ok_or_else(|| anyhow!("Failed to look up package {pkgname} in srcinfo map"))?;
+        for provide_vec in &srcinfo_package.provides {
+            for provide in provide_vec.vec.clone() {
+                pkgname_to_node_index_map.insert(strip_pkgname_version_constraint(&provide), index);
+            }
+        }
     }
 
     // Add edges to the graph for every package that depends on another package
@@ -203,7 +213,7 @@ pub async fn build_global_dependent_graph(
                         );
                     }
                     Err(e) => {
-                        println!("⚡ {e:?}");
+                        println!("⚠️ {e:#}");
                     }
                 }
             }
