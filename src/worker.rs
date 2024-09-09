@@ -133,15 +133,22 @@ pub async fn build_pkgname_to_srcinfo_map(
                 // TODO create new branch for dependents that need to be bumped and released
                 "main".to_string()
             };
-            let srcinfo = read_srcinfo_from_repo(&repo, &branch).context(format!(
+            match read_srcinfo_from_repo(&repo, &branch).context(format!(
                 "Failed to read srcinfo from repo at {:?}",
                 dir.path()
-            ))?;
-            for package in &srcinfo.pkgs {
-                pkgname_to_srcinfo_map.insert(
-                    package.pkgname.clone(),
-                    (srcinfo.clone(), get_branch_commit_sha(&repo, &branch)?),
-                );
+            )) {
+                Ok(srcinfo) => {
+                    for package in &srcinfo.pkgs {
+                        pkgname_to_srcinfo_map.insert(
+                            package.pkgname.clone(),
+                            (srcinfo.clone(), get_branch_commit_sha(&repo, &branch)?),
+                        );
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️ failed to read .SRCINFO at {:?}:", dir.path());
+                    println!("    {}", e.root_cause())
+                }
             }
         }
         Ok(pkgname_to_srcinfo_map)
