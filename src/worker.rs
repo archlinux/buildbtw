@@ -1,37 +1,46 @@
+use std::sync::Arc;
+use std::{collections::HashMap, fs::read_dir};
+
+use anyhow::{Context, Result};
+use git2::Repository;
+use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
+use srcinfo::Srcinfo;
+use tokio::sync::Mutex;
+use tokio::task::JoinSet;
+use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
+use uuid::Uuid;
+
 use crate::git::{
     get_branch_commit_sha, read_srcinfo_from_repo, retrieve_srcinfo_from_remote_repository,
 };
 use crate::{
     BuildNamespace, BuildSetGraph, GitRef, PackageBuildDependency, PackageNode, Pkgbase, Pkgname,
+    DATABASE,
 };
-use anyhow::{Context, Result};
-use git2::Repository;
-use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
-use srcinfo::Srcinfo;
-use std::sync::Arc;
-use std::{collections::HashMap, fs::read_dir};
-use tokio::sync::Mutex;
-use tokio::task::JoinSet;
-use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 
 pub enum Message {
-    CreateBuildNamespace(BuildNamespace),
+    CalculateBuildNamespace(Uuid),
 }
 
 pub fn start() -> UnboundedSender<Message> {
     println!("Starting worker");
 
-    let mut namespaces = HashMap::new();
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
     tokio::spawn(async move {
         while let Some(msg) = receiver.recv().await {
             match msg {
-                Message::CreateBuildNamespace(namespace) => {
+                Message::CalculateBuildNamespace(namespace_id) => {
+                    let namespace = {
+                        let db = DATABASE.lock().await;
+                        db.get(&namespace_id)
+                            .expect(&format!("No build namespace for id: {namespace_id}"))
+                            .clone()
+                    };
+
                     println!("Adding namespace: {namespace:#?}");
                     if let Err(e) = create_new_build_set_iteration(&namespace).await {
                         println!("{e:?}");
                     };
-                    namespaces.insert(namespace.id, namespace);
                 }
             }
         }
@@ -104,7 +113,7 @@ async fn add_pkg_node_to_build_set_graph(
     Ok(())
 }
 
-async fn build_pkgname_to_srcinfo_map(
+pub async fn build_pkgname_to_srcinfo_map(
     namespace: BuildNamespace,
 ) -> Result<HashMap<Pkgbase, (Srcinfo, GitRef)>> {
     spawn_blocking(move || {
@@ -143,7 +152,7 @@ async fn build_pkgname_to_srcinfo_map(
 
 // Build a graph where nodes point towards their dependents, e.g.
 // gzip -> sed
-async fn build_global_dependent_graph(
+pub async fn build_global_dependent_graph(
     pkgname_to_srcinfo_map: HashMap<Pkgname, (Srcinfo, GitRef)>,
 ) -> Result<StableGraph<PackageNode, PackageBuildDependency>> {
     let mut global_graph: StableGraph<PackageNode, PackageBuildDependency> = StableGraph::new();

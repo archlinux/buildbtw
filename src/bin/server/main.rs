@@ -1,6 +1,7 @@
 use std::net::{SocketAddr, TcpListener};
 
 use anyhow::{Context, Result};
+use axum::extract::Path;
 use axum::response::Html;
 use axum::{
     debug_handler,
@@ -8,8 +9,9 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use buildbtw::git::fetch_all_packaging_repositories;
 use clap::Parser;
+use layout::backends::svg::SVGWriter;
+use layout::gv::{parser::DotParser, GraphBuilder};
 use listenfd::ListenFd;
 use minijinja::context;
 use reqwest::StatusCode;
@@ -17,7 +19,9 @@ use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
 use crate::args::{Args, Command};
-use buildbtw::{worker, BuildNamespace, CreateBuildNamespace};
+use buildbtw::git::fetch_all_packaging_repositories;
+use buildbtw::worker::{build_global_dependent_graph, build_pkgname_to_srcinfo_map};
+use buildbtw::{worker, BuildNamespace, CreateBuildNamespace, DATABASE};
 
 mod args;
 
@@ -32,11 +36,15 @@ async fn generate_build_namespace(
         iterations: Vec::new(),
         current_origin_changesets: body.origin_changesets,
     };
+    DATABASE
+        .lock()
+        .await
+        .insert(namespace.id, namespace.clone());
 
     // TODO proper error handling
     state
         .worker_sender
-        .send(worker::Message::CreateBuildNamespace(namespace.clone()))
+        .send(worker::Message::CalculateBuildNamespace(namespace.id))
         .context("Failed to dispatch worker job")
         .unwrap();
 
@@ -44,12 +52,43 @@ async fn generate_build_namespace(
 }
 
 #[debug_handler]
-async fn render_build_namespace(State(state): State<AppState>) -> Result<Html<String>, StatusCode> {
-    let template = state.jinja_env.get_template("build_namespace").unwrap();
+async fn render_build_namespace(
+    Path(namespace_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Result<Html<String>, StatusCode> {
+    let namespace = {
+        let db = DATABASE.lock().await;
+        db.get(&namespace_id)
+            .expect(&format!("No build namespace for id: {namespace_id}"))
+            .clone()
+    };
+
+    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone())
+        .await
+        .unwrap();
+    let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map)
+        .await
+        .unwrap();
+
+    let template = state
+        .jinja_env
+        .get_template("render_build_namespace")
+        .unwrap();
+
+    let dot_output = petgraph::dot::Dot::new(&global_graph);
+    let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
+    let tree = dot_parser.process();
+    let mut gb = GraphBuilder::new();
+    let g = tree.unwrap();
+    gb.visit_graph(&g);
+    let mut vg = gb.get();
+    let mut svg = SVGWriter::new();
+    vg.do_it(false, false, false, &mut svg);
+    let svg_content = svg.finalize();
 
     let rendered = template
         .render(context! {
-            lol => "rofl",
+            svg => svg_content,
         })
         .unwrap();
 
@@ -81,7 +120,7 @@ async fn main() -> Result<()> {
                 "build_namespace",
                 include_str!(concat!(
                     env!("CARGO_MANIFEST_DIR"),
-                    "/templates/build_namespace.jinja"
+                    "/templates/render_build_namespace.jinja"
                 )),
             )?;
             let worker_sender = worker::start();

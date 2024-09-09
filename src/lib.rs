@@ -1,6 +1,8 @@
+use std::{collections::HashMap, sync::LazyLock};
+
 use petgraph::Graph;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub mod git;
@@ -17,6 +19,10 @@ pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
 pub type BuildSetGraph = Graph<PackageNode, PackageBuildDependency>;
+
+// TODO This simulates a database. Add a proper database at some point.
+pub static DATABASE: LazyLock<Mutex<HashMap<Uuid, BuildNamespace>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
