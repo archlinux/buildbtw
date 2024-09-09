@@ -1,9 +1,17 @@
 use std::net::{SocketAddr, TcpListener};
 
 use anyhow::{Context, Result};
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::response::Html;
+use axum::{
+    debug_handler,
+    extract::State,
+    routing::{get, post},
+    Json, Router,
+};
 use clap::Parser;
 use listenfd::ListenFd;
+use minijinja::context;
+use reqwest::StatusCode;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -35,9 +43,23 @@ async fn generate_build_namespace(
     Json(namespace)
 }
 
+#[debug_handler]
+async fn render_build_namespace(State(state): State<AppState>) -> Result<Html<String>, StatusCode> {
+    let template = state.jinja_env.get_template("build_namespace").unwrap();
+
+    let rendered = template
+        .render(context! {
+            lol => "rofl",
+        })
+        .unwrap();
+
+    Ok(Html(rendered))
+}
+
 #[derive(Clone)]
 struct AppState {
     worker_sender: UnboundedSender<worker::Message>,
+    jinja_env: minijinja::Environment<'static>,
 }
 
 #[tokio::main]
@@ -47,10 +69,29 @@ async fn main() -> Result<()> {
 
     match args.command {
         Command::Run { interface, port } => {
+            let mut jinja_env = minijinja::Environment::new();
+            jinja_env.add_template(
+                "layout",
+                include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/templates/layout.jinja"
+                )),
+            )?;
+            jinja_env.add_template(
+                "build_namespace",
+                include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/templates/build_namespace.jinja"
+                )),
+            )?;
             let worker_sender = worker::start();
             let app = Router::new()
                 .route("/", post(generate_build_namespace))
-                .with_state(AppState { worker_sender });
+                .route("/", get(render_build_namespace))
+                .with_state(AppState {
+                    worker_sender,
+                    jinja_env,
+                });
 
             let mut listenfd = ListenFd::from_env();
             // if listenfd doesn't take a TcpListener (i.e. we're not running via
