@@ -180,6 +180,9 @@ async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()
     let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone()).await?;
     let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map).await?;
 
+    // TODO Now we have the global graph. Based on this, find the precise graph of dependents for the
+    // given Pkgbases.
+
     println!("{:?}", petgraph::dot::Dot::new(&global_graph));
     Ok(())
 }
