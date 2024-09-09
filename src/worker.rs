@@ -29,7 +29,7 @@ pub fn start() -> UnboundedSender<Message> {
                 Message::CreateBuildNamespace(namespace) => {
                     println!("Adding namespace: {namespace:#?}");
                     if let Err(e) = create_new_build_set_iteration(&namespace).await {
-                        println!("{e}");
+                        println!("{e:?}");
                     };
                     namespaces.insert(namespace.id, namespace);
                 }
@@ -74,8 +74,12 @@ async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()
         output??;
     }
 
-    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone()).await?;
-    let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map).await?;
+    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone())
+        .await
+        .context("Error mapping package names to srcinfo")?;
+    let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map)
+        .await
+        .context("Failed to build global graph of dependents")?;
 
     // TODO Now we have the global graph. Based on this, find the precise graph of dependents for the
     // given Pkgbases.
@@ -120,7 +124,10 @@ async fn build_pkgname_to_srcinfo_map(
                 // TODO create new branch for dependents that need to be bumped and released
                 "main".to_string()
             };
-            let srcinfo = read_srcinfo_from_repo(&repo, &branch)?;
+            let srcinfo = read_srcinfo_from_repo(&repo, &branch).context(format!(
+                "Failed to read srcinfo from repo at {:?}",
+                dir.path()
+            ))?;
             for package in &srcinfo.pkgs {
                 pkgname_to_srcinfo_map.insert(
                     package.pkgname.clone(),
