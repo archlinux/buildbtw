@@ -8,6 +8,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use buildbtw::git::fetch_all_packaging_repositories;
 use clap::Parser;
 use listenfd::ListenFd;
 use minijinja::context;
@@ -16,7 +17,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
 use crate::args::{Args, Command};
-use buildbtw::worker::fetch_all_packaging_repositories;
 use buildbtw::{worker, BuildNamespace, CreateBuildNamespace};
 
 mod args;

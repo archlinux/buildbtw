@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+pub mod git;
 mod gitlab;
 pub mod worker;
 
