@@ -17,7 +17,7 @@ pub fn gitlab_project_name_to_path(project_name: &str) -> String {
     }
     let project_name = Regex::new(r"([a-zA-Z0-9]+)\+([a-zA-Z]+)")
         .unwrap()
-        .replace_all(&project_name, "$1-$2")
+        .replace_all(project_name, "$1-$2")
         .to_string();
     let project_name = Regex::new(r"\+")
         .unwrap()
@@ -38,7 +38,7 @@ pub fn gitlab_project_name_to_path(project_name: &str) -> String {
 fn gitlab_project_name_to_path_plus_signs() {
     let project_name = "archlinux++";
     assert_eq!(
-        gitlab_project_name_to_path(&project_name.to_string()),
+        gitlab_project_name_to_path(project_name),
         "archlinuxplusplus".to_string()
     );
 }
@@ -47,7 +47,7 @@ fn gitlab_project_name_to_path_plus_signs() {
 fn gitlab_project_name_to_path_plus_signs_with_suffix() {
     let project_name = "archlinux++-5.0";
     assert_eq!(
-        gitlab_project_name_to_path(&project_name.to_string()),
+        gitlab_project_name_to_path(project_name),
         "archlinuxplusplus-5.0".to_string()
     );
 }
@@ -56,7 +56,7 @@ fn gitlab_project_name_to_path_plus_signs_with_suffix() {
 fn gitlab_project_name_to_path_plus_tree() {
     let project_name = "tree";
     assert_eq!(
-        gitlab_project_name_to_path(&project_name.to_string()),
+        gitlab_project_name_to_path(project_name),
         "unix-tree".to_string()
     );
 }
@@ -65,7 +65,7 @@ fn gitlab_project_name_to_path_plus_tree() {
 fn gitlab_project_name_to_path_plus_word_separator() {
     let project_name = "arch+linux";
     assert_eq!(
-        gitlab_project_name_to_path(&project_name.to_string()),
+        gitlab_project_name_to_path(project_name),
         "arch-linux".to_string()
     );
 }
