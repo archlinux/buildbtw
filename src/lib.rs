@@ -15,6 +15,8 @@ pub type GitRepoRef = (Pkgbase, GitRef);
 pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
+pub type BuildSetGraph = Graph<PackageNode, PackageBuildDependency>;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
     pub name: String,

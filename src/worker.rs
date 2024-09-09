@@ -1,6 +1,6 @@
 use crate::{
-    BuildNamespace, GitRef, PackageBuildDependency, PackageNode, Pkgbase, PkgbaseMaintainers,
-    Pkgname,
+    BuildNamespace, BuildSetGraph, GitRef, PackageBuildDependency, PackageNode, Pkgbase,
+    PkgbaseMaintainers, Pkgname,
 };
 use anyhow::{Context, Result};
 use git2::build::RepoBuilder;
@@ -8,7 +8,10 @@ use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use reqwest::Client;
 use srcinfo::Srcinfo;
+use std::sync::Arc;
 use std::{collections::HashMap, fs::read_dir, path::Path};
+use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 
 pub enum Message {
@@ -122,10 +125,12 @@ async fn retrieve_srcinfo_from_remote_repository(
     pkgbase: Pkgbase,
     branch: &GitRef,
 ) -> Result<Srcinfo> {
-    let repo = clone_or_fetch_repository(pkgbase).await?;
+    let repo = clone_or_fetch_repository(pkgbase.clone()).await?;
 
     // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
-    let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
+    let srcinfo = read_srcinfo_from_repo(&repo, branch)
+        .context("Failed to read srcinfo")
+        .context(pkgbase)?;
     Ok(srcinfo)
 }
 
@@ -138,30 +143,60 @@ pub async fn fetch_all_packaging_repositories() -> Result<()> {
     let response = Client::new().get(repo_pkgbase_url).send().await?;
     let maintainers: PkgbaseMaintainers = serde_json::from_str(response.text().await?.as_str())?;
     let all_pkgbases = maintainers.keys().collect::<Vec<_>>();
+    let mut join_set = JoinSet::new();
     for pkgbase in all_pkgbases {
-        clone_or_fetch_repository(pkgbase.clone()).await?;
+        join_set.spawn(clone_or_fetch_repository(pkgbase.clone()));
+        while join_set.len() >= 50 {
+            join_set.join_next().await.unwrap()??;
+        }
     }
+    while let Some(output) = join_set.join_next().await {
+        output??;
+    }
+
     Ok(())
 }
 
 async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
-    let mut build_set_graph: Graph<PackageNode, PackageBuildDependency> = Graph::new();
+    let build_set_graph: Arc<Mutex<BuildSetGraph>> = Arc::new(Mutex::new(Graph::new()));
 
     // add root nodes from our build namespace so we can start walking the graph
+    let mut join_set = JoinSet::<anyhow::Result<_>>::new();
     for (pkgbase, branch) in &namespace.current_origin_changesets {
         // TODO parallelize this
-        let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase.clone(), branch).await?;
-        let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
-        build_set_graph.add_node(PackageNode {
-            pkgname: srcinfo.base.pkgbase.clone(),
-            commit_hash: get_branch_commit_sha(&repo, branch)?,
-        });
+        join_set.spawn(add_pkg_node_to_build_set_graph(
+            pkgbase.clone(),
+            branch.clone(),
+            build_set_graph.clone(),
+        ));
+        while join_set.len() >= 50 {
+            join_set.join_next().await.unwrap()??;
+        }
+    }
+    while let Some(output) = join_set.join_next().await {
+        output??;
     }
 
     let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone()).await?;
     let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map).await?;
 
     println!("{:?}", petgraph::dot::Dot::new(&global_graph));
+    Ok(())
+}
+
+async fn add_pkg_node_to_build_set_graph(
+    pkgbase: Pkgbase,
+    branch: GitRef,
+    build_set_graph: Arc<Mutex<BuildSetGraph>>,
+) -> Result<()> {
+    let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase.clone(), &branch).await?;
+
+    let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
+    build_set_graph.lock().await.add_node(PackageNode {
+        pkgname: srcinfo.base.pkgbase.clone(),
+        commit_hash: get_branch_commit_sha(&repo, &branch)?,
+    });
+
     Ok(())
 }
 
