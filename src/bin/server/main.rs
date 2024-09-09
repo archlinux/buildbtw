@@ -117,7 +117,7 @@ async fn main() -> Result<()> {
                 )),
             )?;
             jinja_env.add_template(
-                "build_namespace",
+                "render_build_namespace",
                 include_str!(concat!(
                     env!("CARGO_MANIFEST_DIR"),
                     "/templates/render_build_namespace.jinja"
@@ -126,7 +126,7 @@ async fn main() -> Result<()> {
             let worker_sender = worker::start();
             let app = Router::new()
                 .route("/", post(generate_build_namespace))
-                .route("/", get(render_build_namespace))
+                .route("/:namespace_id", get(render_build_namespace))
                 .with_state(AppState {
                     worker_sender,
                     jinja_env,
