@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub mod worker;
 mod gitlab;
+pub mod worker;
 
 pub type GitRef = String;
 pub type Pkgbase = String;

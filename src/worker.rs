@@ -51,65 +51,78 @@ async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
     // TODO build new dependent graph and check if there are new nodes
 }
 
-fn clone_packaging_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
-    println!("Cloning {pkgbase}");
+async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
+    tokio::task::spawn_blocking(move || {
+        println!("Cloning {pkgbase}");
 
-    // Convert pkgbase to project path
-    let project_path = crate::gitlab::gitlab_project_name_to_path(pkgbase);
+        // Convert pkgbase to project path
+        let project_path = crate::gitlab::gitlab_project_name_to_path(&pkgbase);
 
-    // Set up the callbacks to use SSH credentials
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
+        // Set up the callbacks to use SSH credentials
+        let mut callbacks = RemoteCallbacks::new();
+        callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
 
-    // Configure fetch options to use the callbacks
-    let mut fetch_options = FetchOptions::new();
-    fetch_options.remote_callbacks(callbacks);
+        // Configure fetch options to use the callbacks
+        let mut fetch_options = FetchOptions::new();
+        fetch_options.remote_callbacks(callbacks);
 
-    let repo = RepoBuilder::new().fetch_options(fetch_options).clone(
-        &format!("git@gitlab.archlinux.org:archlinux/packaging/packages/{project_path}.git"),
-        Path::new(&format!("./source_repos/{pkgbase}")),
-    )?;
+        let repo = RepoBuilder::new().fetch_options(fetch_options).clone(
+            &format!("git@gitlab.archlinux.org:archlinux/packaging/packages/{project_path}.git"),
+            Path::new(&format!("./source_repos/{pkgbase}")),
+        )?;
 
+        Ok(repo)
+    })
+    .await?
+}
+
+async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
+    tokio::task::spawn_blocking(move || {
+        println!("Fetching repository {:?}", &pkgbase);
+        let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
+
+        // Set up the callbacks to use SSH credentials
+        let mut callbacks = RemoteCallbacks::new();
+        callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
+
+        // Configure fetch options to use the callbacks and download tags
+        let mut fetch_options = git2::FetchOptions::new();
+        fetch_options.download_tags(git2::AutotagOption::All);
+        fetch_options.remote_callbacks(callbacks);
+
+        // Find remote to fetch from
+        let mut remote = repo.find_remote("origin")?;
+
+        // Fetch everything from the remote
+        remote.fetch(
+            &["+refs/heads/*:refs/remotes/origin/*"],
+            Some(&mut fetch_options),
+            None,
+        )?;
+        // TODO: cleanup remote branches that are orphan
+        Ok(())
+    })
+    .await?
+}
+
+async fn clone_or_fetch_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
+    let maybe_repo = git2::Repository::open(&format!("./source_repos/{pkgbase}"));
+    let repo = if let Ok(repo) = maybe_repo {
+        fetch_repository(pkgbase)
+            .await
+            .expect("Failed to fetch repository");
+        repo
+    } else {
+        clone_packaging_repository(pkgbase).await?
+    };
     Ok(repo)
 }
 
-fn fetch_repository(repo: &Repository) -> Result<()> {
-    println!("Fetching repository {:?}", repo.path());
-
-    // Set up the callbacks to use SSH credentials
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
-
-    // Configure fetch options to use the callbacks and download tags
-    let mut fetch_options = git2::FetchOptions::new();
-    fetch_options.download_tags(git2::AutotagOption::All);
-    fetch_options.remote_callbacks(callbacks);
-
-    // Find remote to fetch from
-    let mut remote = repo.find_remote("origin")?;
-
-    // Fetch everything from the remote
-    remote.fetch(
-        &["+refs/heads/*:refs/remotes/origin/*"],
-        Some(&mut fetch_options),
-        None,
-    )?;
-    // TODO: cleanup remote branches that are orphan
-    Ok(())
-}
-
-fn clone_or_fetch_repository(pkgbase: &Pkgbase) -> Result<git2::Repository> {
-    let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))
-        .and_then(|repo| {
-            fetch_repository(&repo).expect("Failed to fetch repository");
-            Ok(repo)
-        })
-        .or_else(|_| clone_packaging_repository(&pkgbase))?;
-    Ok(repo)
-}
-
-fn retrieve_srcinfo_from_remote_repository(pkgbase: &Pkgbase, branch: &GitRef) -> Result<Srcinfo> {
-    let repo = clone_or_fetch_repository(pkgbase)?;
+async fn retrieve_srcinfo_from_remote_repository(
+    pkgbase: Pkgbase,
+    branch: &GitRef,
+) -> Result<Srcinfo> {
+    let repo = clone_or_fetch_repository(pkgbase).await?;
 
     // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
     let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
@@ -126,7 +139,7 @@ pub async fn fetch_all_packaging_repositories() -> Result<()> {
     let maintainers: PkgbaseMaintainers = serde_json::from_str(response.text().await?.as_str())?;
     let all_pkgbases = maintainers.keys().collect::<Vec<_>>();
     for pkgbase in all_pkgbases {
-        clone_or_fetch_repository(&pkgbase)?;
+        clone_or_fetch_repository(pkgbase.clone()).await?;
     }
     Ok(())
 }
@@ -136,7 +149,8 @@ async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()
 
     // add root nodes from our build namespace so we can start walking the graph
     for (pkgbase, branch) in &namespace.current_origin_changesets {
-        let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase, branch)?;
+        // TODO parallelize this
+        let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase.clone(), branch).await?;
         let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
         build_set_graph.add_node(PackageNode {
             pkgname: srcinfo.base.pkgbase.clone(),
