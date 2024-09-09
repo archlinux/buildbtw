@@ -134,7 +134,7 @@ pub async fn build_pkgname_to_srcinfo_map(
                 "main".to_string()
             };
             match read_srcinfo_from_repo(&repo, &branch).context(format!(
-                "Failed to read srcinfo from repo at {:?}",
+                "Failed to read .SRCINFO from repo at {:?}",
                 dir.path()
             )) {
                 Ok(srcinfo) => {
@@ -146,8 +146,7 @@ pub async fn build_pkgname_to_srcinfo_map(
                     }
                 }
                 Err(e) => {
-                    println!("⚠️ failed to read .SRCINFO at {:?}:", dir.path());
-                    println!("    {}", e.root_cause())
+                    println!("⚠️ {e:?}:");
                 }
             }
         }
@@ -183,25 +182,30 @@ pub async fn build_global_dependent_graph(
                 "Failed to get node index for dependent pgkname: {dependent_pkgname}"
             ))?;
         // get all dependencies of the current package
-        for arch_vec in dependent_srcinfo
+        let dependencies = &dependent_srcinfo
             .pkgs
             .iter()
             .find(|p| p.pkgname == dependent_pkgname.clone())
             .context("Failed to get srcinfo for dependent pkgname")?
-            .depends
-            .iter()
-        {
+            .depends;
+        for arch_vec in dependencies.iter() {
             // Add edge between current package and its dependencies
             for dependency in &arch_vec.vec {
                 let dependency = strip_pkgname_version_constraint(dependency);
-                let dependency_index = pkgname_to_node_index_map.get(&dependency).context(
-                    format!("Failed to get node index for dependency pkgname: {dependency}"),
-                )?;
-                global_graph.add_edge(
-                    *dependency_index,
-                    *dependent_index,
-                    PackageBuildDependency {},
-                );
+                match pkgname_to_node_index_map.get(&dependency).context(format!(
+                    "Failed to get node index for dependency pkgname: {dependency}"
+                )) {
+                    Ok(dependency_index) => {
+                        global_graph.add_edge(
+                            *dependency_index,
+                            *dependent_index,
+                            PackageBuildDependency {},
+                        );
+                    }
+                    Err(e) => {
+                        println!("⚡ {e:?}");
+                    }
+                }
             }
         }
     }
