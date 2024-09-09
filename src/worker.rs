@@ -1,3 +1,4 @@
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::{collections::HashMap, fs::read_dir};
 
@@ -14,8 +15,8 @@ use crate::git::{
     get_branch_commit_sha, read_srcinfo_from_repo, retrieve_srcinfo_from_remote_repository,
 };
 use crate::{
-    BuildNamespace, BuildSetGraph, GitRef, PackageBuildDependency, PackageNode, Pkgbase, Pkgname,
-    DATABASE,
+    BuildNamespace, BuildPackageNode, BuildSetGraph, GitRef, PackageBuildDependency, PackageNode,
+    Pkgbase, Pkgname, DATABASE,
 };
 
 pub enum Message {
@@ -64,53 +65,81 @@ async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
 }
 
 async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
-    let build_set_graph: Arc<Mutex<BuildSetGraph>> = Arc::new(Mutex::new(Graph::new()));
-
-    // add root nodes from our build namespace so we can start walking the graph
-    let mut join_set = JoinSet::<anyhow::Result<_>>::new();
-    for (pkgbase, branch) in &namespace.current_origin_changesets {
-        // TODO parallelize this
-        join_set.spawn(add_pkg_node_to_build_set_graph(
-            pkgbase.clone(),
-            branch.clone(),
-            build_set_graph.clone(),
-        ));
-        while join_set.len() >= 50 {
-            join_set.join_next().await.unwrap()??;
-        }
-    }
-    while let Some(output) = join_set.join_next().await {
-        output??;
-    }
-
     let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone())
         .await
         .context("Error mapping package names to srcinfo")?;
-    let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map)
-        .await
-        .context("Failed to build global graph of dependents")?;
+    let (global_graph, pkgname_to_node_index) =
+        build_global_dependent_graph(&pkgname_to_srcinfo_map)
+            .await
+            .context("Failed to build global graph of dependents")?;
 
     // TODO Now we have the global graph. Based on this, find the precise graph of dependents for the
     // given Pkgbases.
+    let mut build_set_graph: BuildSetGraph = Graph::new();
+    let mut pkgbase_to_build_graph_node_index: HashMap<Pkgbase, NodeIndex> = HashMap::new();
+    let mut visited_global_graph_indexes = HashSet::new();
 
-    println!("{:?}", petgraph::dot::Dot::new(&global_graph));
+    // add root nodes from our build namespace so we can start walking the graph
+    let mut nodes_to_visit = VecDeque::new();
+    for (pkgbase, branch) in &namespace.current_origin_changesets {
+        let repo = Repository::open(format!("./source_repos/{pkgbase}"))?;
+        let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
+        for package in srcinfo.pkgs {
+            let pkgname = package.pkgname;
+            let node_index = pkgname_to_node_index
+                .get(&pkgname)
+                .ok_or_else(|| anyhow!("Failed to get index for pkgname {pkgname}"))?;
+            // We're going to visit all dependents of this root node
+            nodes_to_visit.extend(global_graph.neighbors(*node_index));
+        }
+    }
+
+    // Walk through all transitive neighbors of our starting nodes to build a graph of nodes
+    // that we want to rebuild
+    while let Some(package_index_to_visit) = nodes_to_visit.pop_front() {
+        // If we've visited this package already, skip it
+        if visited_global_graph_indexes.contains(&package_index_to_visit) {
+            continue;
+        }
+
+        // Find out the pkgbase of the package we're visiting
+        let package_node = global_graph
+            .node_weight(package_index_to_visit)
+            .ok_or_else(|| anyhow!("Failed to find node in global dependency graph"))?;
+        let (srcinfo, _) = pkgname_to_srcinfo_map
+            .get(&package_node.pkgname)
+            .ok_or_else(|| anyhow!("Failed to get srcinfo for pkgname {}", package_node.pkgname))?;
+        let pkgbase = srcinfo.pkg.pkgname.clone();
+
+        // Add this node and its edges to the buildset graph
+        let node_index = build_set_graph.add_node(BuildPackageNode {
+            pkgbase: pkgbase.clone(),
+            commit_hash: package_node.commit_hash.clone(),
+        });
+        pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), node_index);
+        // TODO add edges!
+
+        // Don't visit this node again
+        visited_global_graph_indexes.insert(package_index_to_visit);
+    }
+
+    println!("Build set graph calculated");
+
     Ok(())
 }
 
 async fn add_pkg_node_to_build_set_graph(
-    pkgbase: Pkgbase,
-    branch: GitRef,
-    build_set_graph: Arc<Mutex<BuildSetGraph>>,
-) -> Result<()> {
-    let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase.clone(), &branch).await?;
+    pkgbase: &Pkgbase,
+    branch: &GitRef,
+    build_set_graph: &mut BuildSetGraph,
+) -> Result<NodeIndex> {
+    let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase.clone(), branch).await?;
 
     let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
-    build_set_graph.lock().await.add_node(PackageNode {
-        pkgname: srcinfo.base.pkgbase.clone(),
-        commit_hash: get_branch_commit_sha(&repo, &branch)?,
-    });
-
-    Ok(())
+    Ok(build_set_graph.add_node(BuildPackageNode {
+        pkgbase: srcinfo.base.pkgbase.clone(),
+        commit_hash: get_branch_commit_sha(&repo, branch)?,
+    }))
 }
 
 pub async fn build_pkgname_to_srcinfo_map(
@@ -123,17 +152,7 @@ pub async fn build_pkgname_to_srcinfo_map(
         for dir in read_dir("./source_repos")? {
             let dir = dir?;
             let repo = Repository::open(dir.path())?;
-            let matching_origin_changeset = namespace
-                .current_origin_changesets
-                .iter()
-                .find(|(repo, _)| **repo == *dir.file_name());
-            let branch = if let Some((_, branch)) = matching_origin_changeset {
-                branch.clone()
-            } else {
-                // TODO create new branch for dependents that need to be bumped and released
-                "main".to_string()
-            };
-            match read_srcinfo_from_repo(&repo, &branch).context(format!(
+            match read_srcinfo_from_repo(&repo, "main").context(format!(
                 "Failed to read .SRCINFO from repo at {:?}",
                 dir.path()
             )) {
@@ -141,7 +160,7 @@ pub async fn build_pkgname_to_srcinfo_map(
                     for package in &srcinfo.pkgs {
                         pkgname_to_srcinfo_map.insert(
                             package.pkgname.clone(),
-                            (srcinfo.clone(), get_branch_commit_sha(&repo, &branch)?),
+                            (srcinfo.clone(), get_branch_commit_sha(&repo, "main")?),
                         );
                     }
                 }
@@ -159,13 +178,16 @@ pub async fn build_pkgname_to_srcinfo_map(
 // Build a graph where nodes point towards their dependents, e.g.
 // gzip -> sed
 pub async fn build_global_dependent_graph(
-    pkgname_to_srcinfo_map: HashMap<Pkgname, (Srcinfo, GitRef)>,
-) -> Result<StableGraph<PackageNode, PackageBuildDependency>> {
+    pkgname_to_srcinfo_map: &HashMap<Pkgname, (Srcinfo, GitRef)>,
+) -> Result<(
+    StableGraph<PackageNode, PackageBuildDependency>,
+    HashMap<Pkgname, NodeIndex>,
+)> {
     let mut global_graph: StableGraph<PackageNode, PackageBuildDependency> = StableGraph::new();
     let mut pkgname_to_node_index_map: HashMap<Pkgname, NodeIndex> = HashMap::new();
 
     // Add all nodes to the graph and build a map of pkgname -> node index
-    for (pkgname, (srcinfo, commit_hash)) in &pkgname_to_srcinfo_map {
+    for (pkgname, (srcinfo, commit_hash)) in pkgname_to_srcinfo_map {
         let index = global_graph.add_node(PackageNode {
             pkgname: pkgname.clone(),
             commit_hash: commit_hash.clone(),
@@ -184,7 +206,7 @@ pub async fn build_global_dependent_graph(
     }
 
     // Add edges to the graph for every package that depends on another package
-    for (dependent_pkgname, (dependent_srcinfo, _commit_hash)) in &pkgname_to_srcinfo_map {
+    for (dependent_pkgname, (dependent_srcinfo, _commit_hash)) in pkgname_to_srcinfo_map {
         // get graph index of the current package
         let dependent_index = pkgname_to_node_index_map
             .get(dependent_pkgname)
@@ -220,7 +242,7 @@ pub async fn build_global_dependent_graph(
         }
     }
 
-    Ok(global_graph)
+    Ok((global_graph, pkgname_to_node_index_map))
 }
 
 #[cfg(test)]

@@ -66,7 +66,7 @@ async fn render_build_namespace(
     let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone())
         .await
         .unwrap();
-    let global_graph = build_global_dependent_graph(pkgname_to_srcinfo_map)
+    let (global_graph, _) = build_global_dependent_graph(&pkgname_to_srcinfo_map)
         .await
         .unwrap();
 

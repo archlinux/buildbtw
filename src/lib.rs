@@ -18,7 +18,7 @@ pub type GitRepoRef = (Pkgbase, GitRef);
 pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
-pub type BuildSetGraph = Graph<PackageNode, PackageBuildDependency>;
+pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency>;
 
 // TODO This simulates a database. Add a proper database at some point.
 pub static DATABASE: LazyLock<Mutex<HashMap<Uuid, BuildNamespace>>> =
@@ -40,9 +40,18 @@ pub struct BuildNamespace {
     // tracking_thing: String,
 }
 
+/// For tracking dependencies between individual packages.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PackageNode {
     pub pkgname: String,
+    pub commit_hash: String,
+}
+
+/// Like PackageNode, but for a single PKGBUILD,
+/// identified by its pkgbase instead of the pkgname.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BuildPackageNode {
+    pub pkgbase: String,
     pub commit_hash: String,
 }
 
