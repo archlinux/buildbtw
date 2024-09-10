@@ -62,6 +62,6 @@ pub struct PackageBuildDependency {}
 pub struct BuildSetIteration {
     id: Uuid,
     // This is slow to compute: when it's None, it's not computed yet
-    packages_to_be_built: Graph<PackageNode, PackageBuildDependency>,
+    packages_to_be_built: Graph<BuildPackageNode, PackageBuildDependency>,
     origin_changesets: Vec<GitRepoRef>,
 }

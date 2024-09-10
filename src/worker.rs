@@ -12,8 +12,8 @@ use crate::git::{
     get_branch_commit_sha, read_srcinfo_from_repo, retrieve_srcinfo_from_remote_repository,
 };
 use crate::{
-    BuildNamespace, BuildPackageNode, BuildSetGraph, GitRef, PackageBuildDependency, PackageNode,
-    Pkgbase, Pkgname, DATABASE,
+    BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef,
+    PackageBuildDependency, PackageNode, Pkgbase, Pkgname, DATABASE,
 };
 
 pub enum Message {
@@ -70,9 +70,42 @@ async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()
             .await
             .context("Failed to build global graph of dependents")?;
 
-    // TODO Now we have the global graph. Based on this, find the precise graph of dependents for the
+    let packages_to_be_built = calculate_packages_to_be_built(
+        namespace,
+        &global_graph,
+        &pkgname_to_srcinfo_map,
+        &pkgname_to_node_index,
+    )
+    .await?;
+
+    let new_iteration = BuildSetIteration {
+        id: Uuid::new_v4(),
+        origin_changesets: namespace.current_origin_changesets.clone(),
+        packages_to_be_built,
+    };
+    {
+        let mut db = DATABASE.lock().await;
+        let namespace_db_entry = db
+            .get_mut(&namespace.id)
+            .ok_or_else(|| anyhow!("Failed to access namespace in DB"))?;
+
+        namespace_db_entry.iterations.push(new_iteration);
+    }
+
+    println!("Build set graph calculated");
+
+    Ok(())
+}
+
+async fn calculate_packages_to_be_built(
+    namespace: &BuildNamespace,
+    global_graph: &StableGraph<PackageNode, PackageBuildDependency>,
+    pkgname_to_srcinfo_map: &HashMap<Pkgname, (Srcinfo, GitRef)>,
+    pkgname_to_node_index: &HashMap<Pkgname, NodeIndex>,
+) -> Result<BuildSetGraph> {
+    // We have the global graph. Based on this, find the precise graph of dependents for the
     // given Pkgbases.
-    let mut build_set_graph: BuildSetGraph = Graph::new();
+    let mut packages_to_be_built: BuildSetGraph = Graph::new();
     let mut pkgbase_to_build_graph_node_index: HashMap<Pkgbase, NodeIndex> = HashMap::new();
     let mut visited_global_graph_indexes = HashSet::new();
 
@@ -109,34 +142,19 @@ async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()
         let pkgbase = srcinfo.pkg.pkgname.clone();
 
         // Add this node and its edges to the buildset graph
-        let node_index = build_set_graph.add_node(BuildPackageNode {
+        let node_index = packages_to_be_built.add_node(BuildPackageNode {
             pkgbase: pkgbase.clone(),
             commit_hash: package_node.commit_hash.clone(),
         });
         pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), node_index);
         // TODO add edges!
+        // TODO add neighbors to visit
 
         // Don't visit this node again
         visited_global_graph_indexes.insert(package_index_to_visit);
     }
 
-    println!("Build set graph calculated");
-
-    Ok(())
-}
-
-async fn add_pkg_node_to_build_set_graph(
-    pkgbase: &Pkgbase,
-    branch: &GitRef,
-    build_set_graph: &mut BuildSetGraph,
-) -> Result<NodeIndex> {
-    let srcinfo = retrieve_srcinfo_from_remote_repository(pkgbase.clone(), branch).await?;
-
-    let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
-    Ok(build_set_graph.add_node(BuildPackageNode {
-        pkgbase: srcinfo.base.pkgbase.clone(),
-        commit_hash: get_branch_commit_sha(&repo, branch)?,
-    }))
+    Ok(packages_to_be_built)
 }
 
 pub async fn build_pkgname_to_srcinfo_map() -> Result<HashMap<Pkgbase, (Srcinfo, GitRef)>> {
