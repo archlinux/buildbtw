@@ -58,7 +58,10 @@ async fn render_build_namespace(
     let namespace = {
         let db = DATABASE.lock().await;
         db.get(&namespace_id)
-            .unwrap_or_else(|| panic!("No build namespace for id: {namespace_id}"))
+            .ok_or_else(|| {
+                println!("No build namespace for id: {namespace_id}");
+                StatusCode::NOT_FOUND
+            })?
             .clone()
     };
 
