@@ -142,6 +142,7 @@ async fn calculate_packages_to_be_built(
     // that we want to rebuild
     while let Some((coming_from_node, global_node_index_to_visit)) = nodes_to_visit.pop_front() {
         // Create build graph node if it doesn't exist
+        // TODO don't create new nodes when they are for the same pkgbase
         let build_graph_node_index = if let Some(index) =
             global_graph_to_build_graph_node_index.get(&global_node_index_to_visit)
         {
