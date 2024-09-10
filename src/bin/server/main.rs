@@ -59,13 +59,11 @@ async fn render_build_namespace(
     let namespace = {
         let db = DATABASE.lock().await;
         db.get(&namespace_id)
-            .expect(&format!("No build namespace for id: {namespace_id}"))
+            .unwrap_or_else(|| panic!("No build namespace for id: {namespace_id}"))
             .clone()
     };
 
-    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone())
-        .await
-        .unwrap();
+    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map().await.unwrap();
     let (global_graph, _) = build_global_dependent_graph(&pkgname_to_srcinfo_map)
         .await
         .unwrap();

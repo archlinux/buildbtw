@@ -1,13 +1,10 @@
 use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
 use std::{collections::HashMap, fs::read_dir};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Repository;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use srcinfo::Srcinfo;
-use tokio::sync::Mutex;
-use tokio::task::JoinSet;
 use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 use uuid::Uuid;
 
@@ -34,7 +31,7 @@ pub fn start() -> UnboundedSender<Message> {
                     let namespace = {
                         let db = DATABASE.lock().await;
                         db.get(&namespace_id)
-                            .expect(&format!("No build namespace for id: {namespace_id}"))
+                            .unwrap_or_else(|| panic!("No build namespace for id: {namespace_id}"))
                             .clone()
                     };
 
@@ -65,7 +62,7 @@ async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
 }
 
 async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
-    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map(namespace.clone())
+    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map()
         .await
         .context("Error mapping package names to srcinfo")?;
     let (global_graph, pkgname_to_node_index) =
@@ -142,9 +139,7 @@ async fn add_pkg_node_to_build_set_graph(
     }))
 }
 
-pub async fn build_pkgname_to_srcinfo_map(
-    namespace: BuildNamespace,
-) -> Result<HashMap<Pkgbase, (Srcinfo, GitRef)>> {
+pub async fn build_pkgname_to_srcinfo_map() -> Result<HashMap<Pkgbase, (Srcinfo, GitRef)>> {
     spawn_blocking(move || {
         let mut pkgname_to_srcinfo_map: HashMap<Pkgbase, (Srcinfo, GitRef)> = HashMap::new();
 

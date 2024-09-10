@@ -62,7 +62,7 @@ pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
 }
 
 pub async fn clone_or_fetch_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
-    let maybe_repo = git2::Repository::open(&format!("./source_repos/{pkgbase}"));
+    let maybe_repo = git2::Repository::open(format!("./source_repos/{pkgbase}"));
     let repo = if let Ok(repo) = maybe_repo {
         fetch_repository(pkgbase)
             .await
