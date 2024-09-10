@@ -20,7 +20,7 @@ pub enum Message {
     CalculateBuildNamespace(Uuid),
 }
 
-pub fn start() -> UnboundedSender<Message> {
+pub fn start(port: u16) -> UnboundedSender<Message> {
     println!("Starting worker");
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
@@ -36,6 +36,10 @@ pub fn start() -> UnboundedSender<Message> {
                     };
 
                     println!("Adding namespace: {namespace:#?}");
+                    println!(
+                        "Rendered graph of newest iteration: http://localhost:{port}/{}",
+                        namespace.id
+                    );
                     if let Err(e) = create_new_build_set_iteration(&namespace).await {
                         println!("{e:?}");
                     };

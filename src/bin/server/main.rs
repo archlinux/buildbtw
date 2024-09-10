@@ -20,7 +20,6 @@ use uuid::Uuid;
 
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
-use buildbtw::worker::{build_global_dependent_graph, build_pkgname_to_srcinfo_map};
 use buildbtw::{worker, BuildNamespace, CreateBuildNamespace, DATABASE};
 
 mod args;
@@ -63,17 +62,18 @@ async fn render_build_namespace(
             .clone()
     };
 
-    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map().await.unwrap();
-    let (global_graph, _) = build_global_dependent_graph(&pkgname_to_srcinfo_map)
-        .await
-        .unwrap();
+    let latest_packages_to_be_built = &namespace
+        .iterations
+        .last()
+        .ok_or(StatusCode::PROCESSING)?
+        .packages_to_be_built;
 
     let template = state
         .jinja_env
         .get_template("render_build_namespace")
         .unwrap();
 
-    let dot_output = petgraph::dot::Dot::new(&global_graph);
+    let dot_output = petgraph::dot::Dot::new(latest_packages_to_be_built);
     let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
     let tree = dot_parser.process();
     let mut gb = GraphBuilder::new();
@@ -121,7 +121,7 @@ async fn main() -> Result<()> {
                     "/templates/render_build_namespace.jinja"
                 )),
             )?;
-            let worker_sender = worker::start();
+            let worker_sender = worker::start(port);
             let app = Router::new()
                 .route("/", post(generate_build_namespace))
                 .route("/:namespace_id", get(render_build_namespace))

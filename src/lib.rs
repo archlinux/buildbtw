@@ -60,8 +60,8 @@ pub struct PackageBuildDependency {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildSetIteration {
-    id: Uuid,
+    pub id: Uuid,
     // This is slow to compute: when it's None, it's not computed yet
-    packages_to_be_built: Graph<BuildPackageNode, PackageBuildDependency>,
-    origin_changesets: Vec<GitRepoRef>,
+    pub packages_to_be_built: Graph<BuildPackageNode, PackageBuildDependency>,
+    pub origin_changesets: Vec<GitRepoRef>,
 }
