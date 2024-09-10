@@ -14,6 +14,7 @@ use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use listenfd::ListenFd;
 use minijinja::context;
+use petgraph::visit::NodeRef;
 use reqwest::StatusCode;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
@@ -76,7 +77,12 @@ async fn render_build_namespace(
         .get_template("render_build_namespace")
         .unwrap();
 
-    let dot_output = petgraph::dot::Dot::new(latest_packages_to_be_built);
+    let dot_output = petgraph::dot::Dot::with_attr_getters(
+        latest_packages_to_be_built,
+        &[petgraph::dot::Config::EdgeNoLabel],
+        &|_graph, _edge| "".to_string(),
+        &|_graph, node| format!("label={}", node.weight().pkgbase),
+    );
     let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
     let tree = dot_parser.process();
     let mut gb = GraphBuilder::new();
