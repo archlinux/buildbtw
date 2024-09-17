@@ -3,8 +3,6 @@ use std::{collections::HashMap, fs::read_dir};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Repository;
-use petgraph::graph::Edge;
-use petgraph::stable_graph::EdgeReference;
 use petgraph::visit::EdgeRef;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use srcinfo::Srcinfo;
@@ -12,7 +10,7 @@ use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 use uuid::Uuid;
 
 use crate::git::{
-    get_branch_commit_sha, read_srcinfo_from_repo, retrieve_srcinfo_from_remote_repository,
+    get_branch_commit_sha, read_srcinfo_from_repo,
 };
 use crate::{
     BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef,
