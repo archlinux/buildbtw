@@ -43,6 +43,17 @@ pub enum ScheduleBuildResult {
     Scheduled(BuildNextPendingPackageResponse),
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SetBuildStatus {
+    pub status: PackageBuildStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum SetBuildStatusResult {
+    Success,
+    IterationNotFound,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildNamespace {
     pub id: Uuid,

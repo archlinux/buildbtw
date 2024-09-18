@@ -6,7 +6,7 @@ use axum::response::Html;
 use axum::{
     debug_handler,
     extract::State,
-    routing::{get, post},
+    routing::{get, patch, post},
     Json, Router,
 };
 use clap::Parser;
@@ -26,7 +26,7 @@ use buildbtw::git::fetch_all_packaging_repositories;
 use buildbtw::SetBuildStatusResult::Success;
 use buildbtw::{
     worker, BuildNamespace, BuildNextPendingPackageResponse, CreateBuildNamespace, Pkgbase,
-    ScheduleBuildResult, DATABASE,
+    ScheduleBuildResult, SetBuildStatus, SetBuildStatusResult, DATABASE,
 };
 
 mod args;
@@ -172,6 +172,44 @@ async fn schedule_build(
     Json(ScheduleBuildResult::NoPendingPackages)
 }
 
+#[debug_handler]
+async fn set_build_status(
+    Path((namespace_id, iteration_id, pkgbase)): Path<(Uuid, Uuid, Pkgbase)>,
+    State(state): State<AppState>,
+    Json(body): Json<SetBuildStatus>,
+) -> Json<SetBuildStatusResult> {
+    if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
+        println!(
+            "set package build: {:?} {:?} {:?}",
+            namespace, pkgbase, body.status
+        );
+        let iteration = namespace
+            .iterations
+            .iter_mut()
+            .filter(|i| i.id == iteration_id)
+            .next();
+        match iteration {
+            None => {
+                return Json(SetBuildStatusResult::IterationNotFound);
+            }
+            Some(iteration) => {
+                let graph = &mut iteration.packages_to_be_built;
+
+                for node_idx in graph.node_indices() {
+                    let node = &mut graph[node_idx];
+                    if node.pkgbase == pkgbase {
+                        node.status = body.status;
+
+                        return Json(SetBuildStatusResult::Success);
+                    }
+                }
+            }
+        }
+    }
+
+    Json( SetBuildStatusResult::IterationNotFound)
+}
+
 #[derive(Clone)]
 struct AppState {
     worker_sender: UnboundedSender<worker::Message>,
@@ -205,6 +243,10 @@ async fn main() -> Result<()> {
                 .route("/namespace", post(generate_build_namespace))
                 .route("/namespace/:namespace_id/graph", get(render_build_namespace))
                 .route("/namespace/:namespace_id/build", post(schedule_build))
+                .route(
+                    "/namespace/:namespace_id/iteration/:iteration/pkgbase/:pkgbase",
+                    patch(set_build_status),
+                )
                 .with_state(AppState {
                     worker_sender,
                     jinja_env,

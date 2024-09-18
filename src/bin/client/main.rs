@@ -1,6 +1,6 @@
 use crate::args::{Args, Command};
 use anyhow::{Context, Result};
-use buildbtw::{BuildNamespace, ScheduleBuildResult};
+use buildbtw::{BuildNamespace, ScheduleBuildResult, SetBuildStatusResult};
 use clap::Parser;
 
 mod args;
@@ -41,6 +41,25 @@ async fn main() -> Result<()> {
                 .await?;
 
             println!("Scheduled build: {:?}", response);
+        }
+        Command::SetBuildStatus {
+            namespace,
+            iteration,
+            pkgbase,
+            status,
+        } => {
+            let data = buildbtw::SetBuildStatus { status };
+
+            let response: SetBuildStatusResult = reqwest::Client::new()
+                .patch(format!("http://0.0.0.0:8080/namespace/{namespace}/iteration/{iteration}/pkgbase/{pkgbase}"))
+                .json(&data)
+                .send()
+                .await
+                .context("Failed to send to server")?
+                .json()
+                .await?;
+
+            println!("Set build status: {:?}", response);
         }
     }
     Ok(())

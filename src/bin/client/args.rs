@@ -29,6 +29,16 @@ pub enum Command {
         #[arg(short, long)]
         namespace: Uuid,
     },
+    SetBuildStatus {
+        #[arg(short, long)]
+        namespace: Uuid,
+        #[arg(short, long)]
+        iteration: Uuid,
+        #[arg()]
+        pkgbase: Pkgbase,
+        #[arg()]
+        status: PackageBuildStatus,
+    },
 }
 
 #[derive(Debug, Clone, Parser)]
