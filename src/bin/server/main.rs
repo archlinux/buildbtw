@@ -14,14 +14,20 @@ use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use listenfd::ListenFd;
 use minijinja::context;
+use petgraph::visit::EdgeRef;
 use petgraph::visit::NodeRef;
+use petgraph::visit::{Bfs, Walker};
 use reqwest::StatusCode;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
-use buildbtw::{worker, BuildNamespace, CreateBuildNamespace, DATABASE};
+use buildbtw::SetBuildStatusResult::Success;
+use buildbtw::{
+    worker, BuildNamespace, BuildNextPendingPackageResponse, CreateBuildNamespace, Pkgbase,
+    ScheduleBuildResult, DATABASE,
+};
 
 mod args;
 
@@ -102,6 +108,70 @@ async fn render_build_namespace(
     Ok(Html(rendered))
 }
 
+#[debug_handler]
+async fn schedule_build(
+    Path(namespace_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Json<ScheduleBuildResult> {
+    // TODO: first build scheduled source, like openimageio, then build the rest
+
+    if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
+        // TODO: may not be computed yet
+        let iteration = namespace.iterations.iter_mut().last().unwrap();
+        let graph = &mut iteration.packages_to_be_built;
+
+        // Identify root nodes (nodes with no incoming edges)
+        let root_nodes: Vec<_> = graph
+            .node_indices()
+            .filter(|&node| graph.edges_directed(node, petgraph::Incoming).count() == 0)
+            .collect();
+
+        // Traverse the graph from each root node using BFS
+        let graph_clone = graph.clone();
+        for root in root_nodes {
+            let bfs = Bfs::new(&graph_clone, root);
+            for node_idx in bfs.iter(&graph_clone) {
+                let node = &graph[node_idx];
+                match node.status {
+                    buildbtw::PackageBuildStatus::Built
+                    | buildbtw::PackageBuildStatus::Building
+                    | buildbtw::PackageBuildStatus::Failed => {
+                        continue;
+                    }
+                    _ => {}
+                }
+
+                let mut blocked = false;
+                let edges = graph.edges_directed(node_idx, petgraph::Incoming);
+                for edge in edges {
+                    let target = graph[edge.source()].clone();
+                    match target.status {
+                        buildbtw::PackageBuildStatus::Pending
+                        | buildbtw::PackageBuildStatus::Building
+                        | buildbtw::PackageBuildStatus::Failed => {
+                            blocked = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+                if !blocked {
+                    let node = &mut graph[node_idx];
+                    node.status = buildbtw::PackageBuildStatus::Building;
+
+                    let response = BuildNextPendingPackageResponse {
+                        iteration: iteration.id,
+                        pkgbase: node.pkgbase.clone(),
+                    };
+                    return Json(ScheduleBuildResult::Scheduled(response));
+                }
+            }
+        }
+    }
+
+    Json(ScheduleBuildResult::NoPendingPackages)
+}
+
 #[derive(Clone)]
 struct AppState {
     worker_sender: UnboundedSender<worker::Message>,
@@ -134,6 +204,7 @@ async fn main() -> Result<()> {
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route("/namespace/:namespace_id/graph", get(render_build_namespace))
+                .route("/namespace/:namespace_id/build", post(schedule_build))
                 .with_state(AppState {
                     worker_sender,
                     jinja_env,

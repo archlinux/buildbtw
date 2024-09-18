@@ -9,12 +9,10 @@ use srcinfo::Srcinfo;
 use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 use uuid::Uuid;
 
-use crate::git::{
-    get_branch_commit_sha, read_srcinfo_from_repo,
-};
+use crate::git::{get_branch_commit_sha, read_srcinfo_from_repo};
 use crate::{
     BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef,
-    PackageBuildDependency, PackageNode, Pkgbase, Pkgname, DATABASE,
+    PackageBuildDependency, PackageBuildStatus, PackageNode, Pkgbase, Pkgname, DATABASE,
 };
 
 pub enum Message {
@@ -166,6 +164,7 @@ async fn calculate_packages_to_be_built(
             let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {
                 pkgbase: pkgbase.clone(),
                 commit_hash: package_node.commit_hash.clone(),
+                status: PackageBuildStatus::Pending,
             });
             global_graph_to_build_graph_node_index
                 .insert(global_node_index_to_visit, build_graph_node_index);

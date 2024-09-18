@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock};
 
+use clap::ValueEnum;
 use petgraph::Graph;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -30,6 +31,18 @@ pub struct CreateBuildNamespace {
     pub origin_changesets: Vec<GitRepoRef>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BuildNextPendingPackageResponse {
+    pub iteration: Uuid,
+    pub pkgbase: Pkgbase,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ScheduleBuildResult {
+    NoPendingPackages,
+    Scheduled(BuildNextPendingPackageResponse),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildNamespace {
     pub id: Uuid,
@@ -53,10 +66,19 @@ pub struct PackageNode {
 pub struct BuildPackageNode {
     pub pkgbase: String,
     pub commit_hash: String,
+    pub status: PackageBuildStatus,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PackageBuildDependency {}
+
+#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum)]
+pub enum PackageBuildStatus {
+    Pending,
+    Building,
+    Built,
+    Failed,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildSetIteration {

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
+use buildbtw::{GitRepoRef, PackageBuildStatus, Pkgbase};
 use clap::{Parser, Subcommand};
-
-use buildbtw::GitRepoRef;
+use uuid::Uuid;
 
 fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
     let split_values: Vec<_> = value.split("/").collect();
@@ -24,6 +24,10 @@ pub enum Command {
         name: String,
         #[arg(value_parser(parse_git_changeset))]
         origin_changesets: Vec<GitRepoRef>,
+    },
+    ScheduleBuild {
+        #[arg(short, long)]
+        namespace: Uuid,
     },
 }
 

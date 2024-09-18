@@ -1,8 +1,7 @@
-use anyhow::{Context, Result};
-use buildbtw::BuildNamespace;
-use clap::Parser;
-
 use crate::args::{Args, Command};
+use anyhow::{Context, Result};
+use buildbtw::{BuildNamespace, ScheduleBuildResult};
+use clap::Parser;
 
 mod args;
 
@@ -29,6 +28,19 @@ async fn main() -> Result<()> {
                 .await?;
 
             println!("Created build namespace: {:?}", response);
+        }
+        Command::ScheduleBuild { namespace } => {
+            println!("Building pending package for namespace: {:?}", namespace);
+
+            let response: ScheduleBuildResult = reqwest::Client::new()
+                .post(format!("http://0.0.0.0:8080/namespace/{namespace}/build"))
+                .send()
+                .await
+                .context("Failed to send to server")?
+                .json()
+                .await?;
+
+            println!("Scheduled build: {:?}", response);
         }
     }
     Ok(())
