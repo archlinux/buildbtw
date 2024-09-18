@@ -38,7 +38,7 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
 
                     println!("Adding namespace: {namespace:#?}");
                     println!(
-                        "Graph of newest iteration will be available at: http://localhost:{port}/{}",
+                        "Graph of newest iteration will be available at: http://localhost:{port}/namespace/{}/graph",
                         namespace.id
                     );
                     if let Err(e) = create_new_build_set_iteration(&namespace).await {

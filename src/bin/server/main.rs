@@ -132,8 +132,8 @@ async fn main() -> Result<()> {
             )?;
             let worker_sender = worker::start(port);
             let app = Router::new()
-                .route("/", post(generate_build_namespace))
-                .route("/:namespace_id", get(render_build_namespace))
+                .route("/namespace", post(generate_build_namespace))
+                .route("/namespace/:namespace_id/graph", get(render_build_namespace))
                 .with_state(AppState {
                     worker_sender,
                     jinja_env,

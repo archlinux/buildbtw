@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use buildbtw::BuildNamespace;
 use clap::Parser;
 
 use crate::args::{Args, Command};
@@ -18,12 +19,16 @@ async fn main() -> Result<()> {
                 origin_changesets,
             };
 
-            reqwest::Client::new()
-                .post("http://0.0.0.0:8080")
+            let response: BuildNamespace = reqwest::Client::new()
+                .post("http://0.0.0.0:8080/namespace")
                 .json(&create)
                 .send()
                 .await
-                .context("Failed to send to server")?;
+                .context("Failed to send to server")?
+                .json()
+                .await?;
+
+            println!("Created build namespace: {:?}", response);
         }
     }
     Ok(())
