@@ -86,7 +86,22 @@ async fn render_build_namespace(
         latest_packages_to_be_built,
         &[petgraph::dot::Config::EdgeNoLabel],
         &|_graph, _edge| "".to_string(),
-        &|_graph, node| format!("label={}", node.weight().pkgbase),
+        &|_graph, node| {
+            let color = match node.weight().status {
+                buildbtw::PackageBuildStatus::Pending => "black",
+                buildbtw::PackageBuildStatus::Building => "orange",
+                buildbtw::PackageBuildStatus::Built => "green",
+                buildbtw::PackageBuildStatus::Failed => "red",
+            };
+            let build_status = match node.weight().status {
+                buildbtw::PackageBuildStatus::Pending => "pending",
+                buildbtw::PackageBuildStatus::Building => "building",
+                buildbtw::PackageBuildStatus::Built => "built",
+                buildbtw::PackageBuildStatus::Failed => "failed",
+            };
+            let pkgbase = &node.weight().pkgbase;
+            format!("label=\"{pkgbase}\n({build_status})\",color={color}")
+        },
     );
     let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
     let tree = dot_parser.process();
