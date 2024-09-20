@@ -127,6 +127,7 @@ async fn schedule_build(
             .collect();
 
         // Traverse the graph from each root node using BFS
+        // TODO build things in parallel where possible
         let graph_clone = graph.clone();
         for root in root_nodes {
             let bfs = Bfs::new(&graph_clone, root);
@@ -150,6 +151,9 @@ async fn schedule_build(
                         | buildbtw::PackageBuildStatus::Building
                         | buildbtw::PackageBuildStatus::Failed => {
                             blocked = true;
+                            // TODO This cancels the whole BFS search.
+                            // we might want to let the BFS keep walking other paths
+                            // that aren't blocked
                             break;
                         }
                         _ => {}
@@ -207,7 +211,7 @@ async fn set_build_status(
         }
     }
 
-    Json( SetBuildStatusResult::IterationNotFound)
+    Json(SetBuildStatusResult::IterationNotFound)
 }
 
 #[derive(Clone)]
@@ -241,7 +245,10 @@ async fn main() -> Result<()> {
             let worker_sender = worker::start(port);
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
-                .route("/namespace/:namespace_id/graph", get(render_build_namespace))
+                .route(
+                    "/namespace/:namespace_id/graph",
+                    get(render_build_namespace),
+                )
                 .route("/namespace/:namespace_id/build", post(schedule_build))
                 .route(
                     "/namespace/:namespace_id/iteration/:iteration/pkgbase/:pkgbase",
