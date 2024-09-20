@@ -57,6 +57,7 @@ fn strip_pkgname_version_constraint(pkgname: &Pkgname) -> Pkgname {
     pkgname.to_string()
 }
 
+#[allow(dead_code)]
 async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
     namespace.iterations.is_empty()
     // TODO return True if last iteration's origin_changesets are different from the current ones
