@@ -23,7 +23,6 @@ use uuid::Uuid;
 
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
-use buildbtw::SetBuildStatusResult::Success;
 use buildbtw::{
     worker, BuildNamespace, BuildNextPendingPackageResponse, CreateBuildNamespace, Pkgbase,
     ScheduleBuildResult, SetBuildStatus, SetBuildStatusResult, DATABASE,
@@ -109,10 +108,7 @@ async fn render_build_namespace(
 }
 
 #[debug_handler]
-async fn schedule_build(
-    Path(namespace_id): Path<Uuid>,
-    State(state): State<AppState>,
-) -> Json<ScheduleBuildResult> {
+async fn schedule_build(Path(namespace_id): Path<Uuid>) -> Json<ScheduleBuildResult> {
     // TODO: first build scheduled source, like openimageio, then build the rest
 
     if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
@@ -179,7 +175,6 @@ async fn schedule_build(
 #[debug_handler]
 async fn set_build_status(
     Path((namespace_id, iteration_id, pkgbase)): Path<(Uuid, Uuid, Pkgbase)>,
-    State(state): State<AppState>,
     Json(body): Json<SetBuildStatus>,
 ) -> Json<SetBuildStatusResult> {
     if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
@@ -190,8 +185,7 @@ async fn set_build_status(
         let iteration = namespace
             .iterations
             .iter_mut()
-            .filter(|i| i.id == iteration_id)
-            .next();
+            .find(|i| i.id == iteration_id);
         match iteration {
             None => {
                 return Json(SetBuildStatusResult::IterationNotFound);
