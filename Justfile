@@ -10,6 +10,12 @@ run-client *args:
 watch-client *args:
     cargo watch -w src -w templates -w Cargo.toml -- just run-client {{ args }}
 
+run-worker *args:
+    cargo run --bin worker -- run {{ args }}
+
+watch-worker *args:
+    cargo watch -w src -w templates -w Cargo.toml -- just run-worker {{ args }}
+
 warmup-server *args:
     cargo run --bin server -- warmup {{ args }}
 

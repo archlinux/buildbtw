@@ -24,11 +24,12 @@ use uuid::Uuid;
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
 use buildbtw::{
-    worker, BuildNamespace, BuildNextPendingPackageResponse, CreateBuildNamespace, Pkgbase,
+    BuildNamespace, BuildNextPendingPackageResponse, CreateBuildNamespace, Pkgbase,
     ScheduleBuildResult, SetBuildStatus, SetBuildStatusResult, DATABASE,
 };
 
 mod args;
+mod tasks;
 
 #[debug_handler]
 async fn generate_build_namespace(
@@ -49,7 +50,7 @@ async fn generate_build_namespace(
     // TODO proper error handling
     state
         .worker_sender
-        .send(worker::Message::CalculateBuildNamespace(namespace.id))
+        .send(tasks::Message::CreateBuildNamespace(namespace.id))
         .context("Failed to dispatch worker job")
         .unwrap();
 
@@ -122,8 +123,7 @@ async fn render_build_namespace(
     Ok(Html(rendered))
 }
 
-#[debug_handler]
-async fn schedule_build(Path(namespace_id): Path<Uuid>) -> Json<ScheduleBuildResult> {
+async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult {
     // TODO: first build scheduled source, like openimageio, then build the rest
 
     if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
@@ -176,14 +176,15 @@ async fn schedule_build(Path(namespace_id): Path<Uuid>) -> Json<ScheduleBuildRes
                     let response = BuildNextPendingPackageResponse {
                         iteration: iteration.id,
                         pkgbase: node.pkgbase.clone(),
+                        gitref: node.commit_hash.clone(),
                     };
-                    return Json(ScheduleBuildResult::Scheduled(response));
+                    return ScheduleBuildResult::Scheduled(response);
                 }
             }
         }
     }
 
-    Json(ScheduleBuildResult::NoPendingPackages)
+    ScheduleBuildResult::NoPendingPackages
 }
 
 #[debug_handler]
@@ -224,7 +225,7 @@ async fn set_build_status(
 
 #[derive(Clone)]
 struct AppState {
-    worker_sender: UnboundedSender<worker::Message>,
+    worker_sender: UnboundedSender<tasks::Message>,
     jinja_env: minijinja::Environment<'static>,
 }
 
@@ -250,14 +251,13 @@ async fn main() -> Result<()> {
                     "/templates/render_build_namespace.jinja"
                 )),
             )?;
-            let worker_sender = worker::start(port);
+            let worker_sender = tasks::start(port);
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route(
                     "/namespace/:namespace_id/graph",
                     get(render_build_namespace),
                 )
-                .route("/namespace/:namespace_id/build", post(schedule_build))
                 .route(
                     "/namespace/:namespace_id/iteration/:iteration/pkgbase/:pkgbase",
                     patch(set_build_status),

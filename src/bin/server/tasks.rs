@@ -9,24 +9,22 @@ use srcinfo::Srcinfo;
 use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 use uuid::Uuid;
 
-use crate::git::{get_branch_commit_sha, read_srcinfo_from_repo};
-use crate::{
-    BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef,
-    PackageBuildDependency, PackageBuildStatus, PackageNode, Pkgbase, Pkgname, DATABASE,
-};
+use buildbtw::git::{get_branch_commit_sha, read_srcinfo_from_repo};
+use buildbtw::{BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef, PackageBuildDependency, PackageBuildStatus, PackageNode, Pkgbase, Pkgname, ScheduleBuild, ScheduleBuildResult, DATABASE};
+use crate::schedule_next_build_in_graph;
 
 pub enum Message {
-    CalculateBuildNamespace(Uuid),
+    CreateBuildNamespace(Uuid),
 }
 
 pub fn start(port: u16) -> UnboundedSender<Message> {
-    println!("Starting worker");
+    println!("Starting server tasks");
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
     tokio::spawn(async move {
         while let Some(msg) = receiver.recv().await {
             match msg {
-                Message::CalculateBuildNamespace(namespace_id) => {
+                Message::CreateBuildNamespace(namespace_id) => {
                     let namespace = {
                         let db = DATABASE.lock().await;
                         db.get(&namespace_id)
@@ -42,6 +40,10 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
                     if let Err(e) = create_new_build_set_iteration(&namespace).await {
                         println!("{e:?}");
                     };
+
+                    if let Err(error) = build_namespace(namespace).await {
+                        println!("{error:?}");
+                    }
                 }
             }
         }
@@ -282,6 +284,53 @@ pub async fn build_global_dependent_graph(
     }
 
     Ok((global_graph, pkgname_to_node_index_map))
+}
+
+async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
+    // -> wait for build to finish
+    // -> set build status
+    // -> repeat
+
+    // while namespace is not fully built or blocked
+    loop {
+        // -> schedule build
+        let build = schedule_next_build_in_graph(namespace.id).await;
+        match build {
+            // TODO: distinguish between no pending packages and no more packages to build
+            ScheduleBuildResult::NoPendingPackages => {
+                println!("No pending packages left to build");
+                break;
+            }
+            ScheduleBuildResult::Scheduled(response) => {
+                println!("Scheduled build: {response:#?}");
+                let build = ScheduleBuild {
+                    namespace: namespace.id,
+                    iteration: response.iteration,
+                    source: (response.pkgbase, response.gitref),
+                };
+                schedule_build(build).await?;
+                // wait for build to finish
+                // set build status
+                // repeat
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn schedule_build(build: ScheduleBuild) -> Result<()> {
+    println!("Building pending package for namespace: {:?}", build);
+
+    let response = reqwest::Client::new()
+        .post("http://0.0.0.0:8090/build/schedule".to_string())
+        .json(&build)
+        .send()
+        .await
+        .context("Failed to send to server")?;
+
+    println!("Scheduled build: {:?}", build.source);
+    Ok(())
 }
 
 #[cfg(test)]

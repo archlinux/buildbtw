@@ -8,7 +8,6 @@ use uuid::Uuid;
 
 pub mod git;
 mod gitlab;
-pub mod worker;
 
 pub type GitRef = String;
 pub type Pkgbase = String;
@@ -35,7 +34,16 @@ pub struct CreateBuildNamespace {
 pub struct BuildNextPendingPackageResponse {
     pub iteration: Uuid,
     pub pkgbase: Pkgbase,
+    pub gitref: GitRef,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ScheduleBuild {
+    pub namespace: Uuid,
+    pub iteration: Uuid,
+    pub source: GitRepoRef,
+}
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ScheduleBuildResult {
