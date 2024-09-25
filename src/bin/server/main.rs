@@ -126,6 +126,9 @@ async fn render_build_namespace(
 async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult {
     // TODO: first build scheduled source, like openimageio, then build the rest
 
+    // if we only meet built nodes, we are finished
+    let mut status = ScheduleBuildResult::Finished;
+
     if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
         // TODO: may not be computed yet
         let iteration = namespace.iterations.iter_mut().last().unwrap();
@@ -145,9 +148,13 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
             for node_idx in bfs.iter(&graph_clone) {
                 let node = &graph[node_idx];
                 match node.status {
-                    buildbtw::PackageBuildStatus::Built
-                    | buildbtw::PackageBuildStatus::Building
+                    buildbtw::PackageBuildStatus::Built => {
+                        continue;
+                    },
+                    buildbtw::PackageBuildStatus::Building
                     | buildbtw::PackageBuildStatus::Failed => {
+                        // We are blocked by a package that is currently building or has failed
+                        status = ScheduleBuildResult::NoPendingPackages;
                         continue;
                     }
                     _ => {}
@@ -184,7 +191,7 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
         }
     }
 
-    ScheduleBuildResult::NoPendingPackages
+    status
 }
 
 #[debug_handler]
@@ -192,11 +199,12 @@ async fn set_build_status(
     Path((namespace_id, iteration_id, pkgbase)): Path<(Uuid, Uuid, Pkgbase)>,
     Json(body): Json<SetBuildStatus>,
 ) -> Json<SetBuildStatusResult> {
+    println!(
+        "set package build: namespace: {:?} iteration: {:?} pkgbase: {:?} status: {:?}",
+        namespace_id, iteration_id, pkgbase, body.status
+    );
+
     if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
-        println!(
-            "set package build: {:?} {:?} {:?}",
-            namespace, pkgbase, body.status
-        );
         let iteration = namespace
             .iterations
             .iter_mut()

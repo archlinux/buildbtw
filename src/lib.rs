@@ -47,6 +47,7 @@ pub struct ScheduleBuild {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ScheduleBuildResult {
+    Finished,
     NoPendingPackages,
     Scheduled(BuildNextPendingPackageResponse),
 }

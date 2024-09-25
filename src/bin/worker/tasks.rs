@@ -16,9 +16,9 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::BuildPackage(schedule) => {
-                    println!("🕑 Building package {:?}", schedule.source);
+                    println!("🕑 Building package {:?}", schedule);
                     sleep(std::time::Duration::from_secs(3)).await;
-                    println!("✅ building package {:?}", schedule.source);
+                    println!("✅ building package {:?}", schedule);
 
                     // Failure is not an option :P
                     let result = PackageBuildStatus::Built;

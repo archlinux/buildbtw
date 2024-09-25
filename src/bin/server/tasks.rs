@@ -7,6 +7,7 @@ use petgraph::visit::EdgeRef;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use srcinfo::Srcinfo;
 use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
+use tokio::time::sleep;
 use uuid::Uuid;
 
 use buildbtw::git::{get_branch_commit_sha, read_srcinfo_from_repo};
@@ -287,19 +288,15 @@ pub async fn build_global_dependent_graph(
 }
 
 async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
-    // -> wait for build to finish
-    // -> set build status
-    // -> repeat
-
     // while namespace is not fully built or blocked
     loop {
         // -> schedule build
         let build = schedule_next_build_in_graph(namespace.id).await;
         match build {
-            // TODO: distinguish between no pending packages and no more packages to build
+            // TODO: distinguish between no pending packages and failed graph
             ScheduleBuildResult::NoPendingPackages => {
-                println!("No pending packages left to build");
-                break;
+                println!("No pending packages, retry in 5 seconds");
+                sleep(std::time::Duration::from_secs(5)).await;
             }
             ScheduleBuildResult::Scheduled(response) => {
                 println!("Scheduled build: {response:#?}");
@@ -309,9 +306,10 @@ async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
                     source: (response.pkgbase, response.gitref),
                 };
                 schedule_build(build).await?;
-                // wait for build to finish
-                // set build status
-                // repeat
+            }
+            ScheduleBuildResult::Finished => {
+                println!("Graph finished");
+                break;
             }
         }
     }
