@@ -89,12 +89,14 @@ async fn render_build_namespace(
         &|_graph, _edge| "".to_string(),
         &|_graph, node| {
             let color = match node.weight().status {
+                buildbtw::PackageBuildStatus::Blocked => "gray",
                 buildbtw::PackageBuildStatus::Pending => "black",
                 buildbtw::PackageBuildStatus::Building => "orange",
                 buildbtw::PackageBuildStatus::Built => "green",
                 buildbtw::PackageBuildStatus::Failed => "red",
             };
             let build_status = match node.weight().status {
+                buildbtw::PackageBuildStatus::Blocked => "blocked",
                 buildbtw::PackageBuildStatus::Pending => "pending",
                 buildbtw::PackageBuildStatus::Building => "building",
                 buildbtw::PackageBuildStatus::Built => "built",
@@ -152,6 +154,7 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
                         continue;
                     }
                     buildbtw::PackageBuildStatus::Building
+                    | buildbtw::PackageBuildStatus::Blocked
                     | buildbtw::PackageBuildStatus::Failed => {
                         // We are blocked by a package that is currently building or has failed
                         status = ScheduleBuildResult::NoPendingPackages;
@@ -165,7 +168,8 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
                 for edge in edges {
                     let target = graph[edge.source()].clone();
                     match target.status {
-                        buildbtw::PackageBuildStatus::Pending
+                        buildbtw::PackageBuildStatus::Blocked
+                        | buildbtw::PackageBuildStatus::Pending
                         | buildbtw::PackageBuildStatus::Building
                         | buildbtw::PackageBuildStatus::Failed => {
                             // Break out of the incoming edge loop representing dependencies and
@@ -218,11 +222,34 @@ async fn set_build_status(
 
                 for node_idx in graph.node_indices() {
                     let node = &mut graph[node_idx];
-                    if node.pkgbase == pkgbase {
-                        node.status = body.status;
-
-                        return Json(SetBuildStatusResult::Success);
+                    if node.pkgbase != pkgbase {
+                        continue;
                     }
+                    // update node status
+                    node.status = body.status;
+
+                    // update dependent nodes if all dependencies are met
+                    let mut free_nodes = vec![];
+                    let dependents = graph.edges_directed(node_idx, petgraph::Outgoing);
+                    for dependent in dependents {
+                        // check if all incoming dependencies are built
+                        let free = graph
+                            .edges_directed(dependent.target(), petgraph::Incoming)
+                            .all(|dependency| {
+                                graph[dependency.source()].status
+                                    == buildbtw::PackageBuildStatus::Built
+                            });
+                        if free {
+                            free_nodes.push(dependent.target());
+                        }
+                    }
+                    // update status of free nodes
+                    for pending_edge in free_nodes {
+                        let target = &mut graph[pending_edge];
+                        target.status = buildbtw::PackageBuildStatus::Pending;
+                    }
+
+                    return Json(SetBuildStatusResult::Success);
                 }
             }
         }

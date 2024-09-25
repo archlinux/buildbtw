@@ -91,8 +91,9 @@ pub struct BuildPackageNode {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PackageBuildDependency {}
 
-#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum)]
+#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq)]
 pub enum PackageBuildStatus {
+    Blocked,
     Pending,
     Building,
     Built,

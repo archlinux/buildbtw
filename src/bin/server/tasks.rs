@@ -156,11 +156,21 @@ async fn calculate_packages_to_be_built(
             if let Some(index) = pkgbase_to_build_graph_node_index.get(&pkgbase) {
                 *index
             } else {
+                // check if the current pkgbase is a root node
+                let is_root_node = &namespace
+                    .current_origin_changesets
+                    .iter()
+                    .map(|(pkgbase, _)| pkgbase)
+                    .any(|p| p == &pkgbase);
+
                 // Add this node to the buildset graph
                 let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {
                     pkgbase: pkgbase.clone(),
                     commit_hash: package_node.commit_hash.clone(),
-                    status: PackageBuildStatus::Pending,
+                    status: match is_root_node {
+                        true => PackageBuildStatus::Pending,
+                        false => PackageBuildStatus::Blocked,
+                    },
                 });
                 pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), build_graph_node_index);
 
