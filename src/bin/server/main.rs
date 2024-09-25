@@ -161,10 +161,9 @@ async fn schedule_build(Path(namespace_id): Path<Uuid>) -> Json<ScheduleBuildRes
                         buildbtw::PackageBuildStatus::Pending
                         | buildbtw::PackageBuildStatus::Building
                         | buildbtw::PackageBuildStatus::Failed => {
+                            // Break out of the incoming edge loop representing dependencies and
+                            // continue with the next node
                             blocked = true;
-                            // TODO This cancels the whole BFS search.
-                            // we might want to let the BFS keep walking other paths
-                            // that aren't blocked
                             break;
                         }
                         _ => {}
