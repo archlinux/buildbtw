@@ -1,12 +1,7 @@
 use std::net::{SocketAddr, TcpListener};
 
 use anyhow::{Context, Result};
-use axum::{
-    debug_handler,
-    extract::State,
-    routing::post,
-    Json, Router,
-};
+use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use clap::Parser;
 use listenfd::ListenFd;
 use tokio::sync::mpsc::UnboundedSender;
@@ -48,9 +43,7 @@ async fn main() -> Result<()> {
             let worker_sender = tasks::start(port);
             let app = Router::new()
                 .route("/build/schedule", post(schedule_build))
-                .with_state(AppState {
-                    worker_sender,
-                });
+                .with_state(AppState { worker_sender });
 
             let mut listenfd = ListenFd::from_env();
             // if listenfd doesn't take a TcpListener (i.e. we're not running via

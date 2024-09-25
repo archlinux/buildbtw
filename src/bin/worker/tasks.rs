@@ -1,5 +1,5 @@
-use tokio::time::sleep;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::time::sleep;
 
 use crate::set_build_status;
 use buildbtw::{PackageBuildStatus, ScheduleBuild};
@@ -24,7 +24,14 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
                     let result = PackageBuildStatus::Built;
 
                     // TODO: exponential backoff
-                    if let Err(err) = set_build_status(schedule.namespace, schedule.iteration, schedule.source.0, result).await {
+                    if let Err(err) = set_build_status(
+                        schedule.namespace,
+                        schedule.iteration,
+                        schedule.source.0,
+                        result,
+                    )
+                    .await
+                    {
                         println!("❌ Failed to set build status: {err}");
                     }
                 }

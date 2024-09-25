@@ -6,13 +6,17 @@ use git2::Repository;
 use petgraph::visit::EdgeRef;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use srcinfo::Srcinfo;
-use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 use tokio::time::sleep;
+use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 use uuid::Uuid;
 
-use buildbtw::git::{get_branch_commit_sha, read_srcinfo_from_repo};
-use buildbtw::{BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef, PackageBuildDependency, PackageBuildStatus, PackageNode, Pkgbase, Pkgname, ScheduleBuild, ScheduleBuildResult, DATABASE};
 use crate::schedule_next_build_in_graph;
+use buildbtw::git::{get_branch_commit_sha, read_srcinfo_from_repo};
+use buildbtw::{
+    BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef,
+    PackageBuildDependency, PackageBuildStatus, PackageNode, Pkgbase, Pkgname, ScheduleBuild,
+    ScheduleBuildResult, DATABASE,
+};
 
 pub enum Message {
     CreateBuildNamespace(Uuid),

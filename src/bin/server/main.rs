@@ -150,7 +150,7 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
                 match node.status {
                     buildbtw::PackageBuildStatus::Built => {
                         continue;
-                    },
+                    }
                     buildbtw::PackageBuildStatus::Building
                     | buildbtw::PackageBuildStatus::Failed => {
                         // We are blocked by a package that is currently building or has failed

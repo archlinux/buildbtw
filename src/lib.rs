@@ -44,7 +44,6 @@ pub struct ScheduleBuild {
     pub source: GitRepoRef,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ScheduleBuildResult {
     Finished,
