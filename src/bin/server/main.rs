@@ -99,12 +99,12 @@ async fn render_build_namespace(
     );
     let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
     let tree = dot_parser.process();
-    let mut gb = GraphBuilder::new();
-    let g = tree.unwrap();
-    gb.visit_graph(&g);
-    let mut vg = gb.get();
+    let mut graph_builder = GraphBuilder::new();
+    let graph = tree.unwrap();
+    graph_builder.visit_graph(&graph);
+    let mut visual_graph = graph_builder.get();
     let mut svg = SVGWriter::new();
-    vg.do_it(false, false, false, &mut svg);
+    visual_graph.do_it(false, false, false, &mut svg);
     let svg_content = svg.finalize();
 
     let rendered = template
