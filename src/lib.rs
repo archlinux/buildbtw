@@ -103,7 +103,7 @@ pub enum PackageBuildStatus {
 impl PackageBuildStatus {
     pub fn as_color(&self) -> &'static str {
         match self {
-            Self::Blocked => "gray",
+            Self::Blocked => "#cccccc",
             Self::Pending => "black",
             Self::Building => "orange",
             Self::Built => "green",

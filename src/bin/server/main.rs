@@ -88,13 +88,13 @@ async fn render_build_namespace(
         &[petgraph::dot::Config::EdgeNoLabel],
         &|graph, edge| {
             let color = graph[edge.source()].status.as_color();
-            format!("color={color}")
+            format!("color=\"{color}\"")
         },
         &|_graph, node| {
             let color = node.weight().status.as_color();
             let build_status = node.weight().status.as_icon();
             let pkgbase = &node.weight().pkgbase;
-            format!("label=\"{pkgbase}\n{build_status}\",color={color}")
+            format!("label=\"{pkgbase}\n{build_status}\",color=\"{color}\"")
         },
     );
     let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
