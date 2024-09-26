@@ -126,10 +126,8 @@ async fn render_build_namespace(
 }
 
 async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult {
-    // TODO: first build scheduled source, like openimageio, then build the rest
-
-    // if we only meet built nodes, we are finished
-    let mut status = ScheduleBuildResult::Finished;
+    // assign default fallback status, if only built nodes are visited, the graph is finished
+    let mut fallback_status = ScheduleBuildResult::Finished;
 
     if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
         // TODO: may not be computed yet
@@ -142,60 +140,46 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
             .filter(|&node| graph.edges_directed(node, petgraph::Incoming).count() == 0)
             .collect();
 
-        // Traverse the graph from each root node using BFS
         // TODO build things in parallel where possible
+        // Traverse the graph from each root node using BFS to unblock sub-graphs
         let graph_clone = graph.clone();
         for root in root_nodes {
             let bfs = Bfs::new(&graph_clone, root);
             for node_idx in bfs.iter(&graph_clone) {
-                let node = &graph[node_idx];
+                let node = &mut graph[node_idx];
                 match node.status {
+                    // skip nodes that are already built
                     buildbtw::PackageBuildStatus::Built => {
                         continue;
                     }
+                    // skip nodes that are not pending and update the fallback return status
                     buildbtw::PackageBuildStatus::Building
                     | buildbtw::PackageBuildStatus::Blocked
                     | buildbtw::PackageBuildStatus::Failed => {
-                        // We are blocked by a package that is currently building or has failed
-                        status = ScheduleBuildResult::NoPendingPackages;
+                        // if we ever meet a node that is not built, the graph can't be finished
+                        fallback_status = ScheduleBuildResult::NoPendingPackages;
                         continue;
                     }
-                    _ => {}
+                    // process nodes that are pending
+                    buildbtw::PackageBuildStatus::Pending => {}
                 }
 
-                let mut blocked = false;
-                let edges = graph.edges_directed(node_idx, petgraph::Incoming);
-                for edge in edges {
-                    let target = graph[edge.source()].clone();
-                    match target.status {
-                        buildbtw::PackageBuildStatus::Blocked
-                        | buildbtw::PackageBuildStatus::Pending
-                        | buildbtw::PackageBuildStatus::Building
-                        | buildbtw::PackageBuildStatus::Failed => {
-                            // Break out of the incoming edge loop representing dependencies and
-                            // continue with the next node
-                            blocked = true;
-                            break;
-                        }
-                        _ => {}
-                    }
-                }
-                if !blocked {
-                    let node = &mut graph[node_idx];
-                    node.status = buildbtw::PackageBuildStatus::Building;
+                // reserve the node for building
+                node.status = buildbtw::PackageBuildStatus::Building;
 
-                    let response = BuildNextPendingPackageResponse {
-                        iteration: iteration.id,
-                        pkgbase: node.pkgbase.clone(),
-                        gitref: node.commit_hash.clone(),
-                    };
-                    return ScheduleBuildResult::Scheduled(response);
-                }
+                // return the information of the scheduled node
+                let response = BuildNextPendingPackageResponse {
+                    iteration: iteration.id,
+                    pkgbase: node.pkgbase.clone(),
+                    gitref: node.commit_hash.clone(),
+                };
+                return ScheduleBuildResult::Scheduled(response);
             }
         }
     }
 
-    status
+    // return the fallback status if no node was scheduled
+    fallback_status
 }
 
 #[debug_handler]
