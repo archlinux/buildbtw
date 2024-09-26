@@ -100,6 +100,28 @@ pub enum PackageBuildStatus {
     Failed,
 }
 
+impl PackageBuildStatus {
+    pub fn as_color(&self) -> &'static str {
+        match self {
+            Self::Blocked => "gray",
+            Self::Pending => "black",
+            Self::Building => "orange",
+            Self::Built => "green",
+            Self::Failed => "red",
+        }
+    }
+
+    pub fn as_icon(&self) -> &'static str {
+        match self {
+            Self::Blocked => "🔒",
+            Self::Pending => "🕑",
+            Self::Building => "🔨",
+            Self::Built => "✅",
+            Self::Failed => "❌",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildSetIteration {
     pub id: Uuid,

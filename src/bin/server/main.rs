@@ -86,24 +86,15 @@ async fn render_build_namespace(
     let dot_output = petgraph::dot::Dot::with_attr_getters(
         latest_packages_to_be_built,
         &[petgraph::dot::Config::EdgeNoLabel],
-        &|_graph, _edge| "".to_string(),
+        &|graph, edge| {
+            let color = graph[edge.source()].status.as_color();
+            format!("color={color}")
+        },
         &|_graph, node| {
-            let color = match node.weight().status {
-                buildbtw::PackageBuildStatus::Blocked => "gray",
-                buildbtw::PackageBuildStatus::Pending => "black",
-                buildbtw::PackageBuildStatus::Building => "orange",
-                buildbtw::PackageBuildStatus::Built => "green",
-                buildbtw::PackageBuildStatus::Failed => "red",
-            };
-            let build_status = match node.weight().status {
-                buildbtw::PackageBuildStatus::Blocked => "blocked",
-                buildbtw::PackageBuildStatus::Pending => "pending",
-                buildbtw::PackageBuildStatus::Building => "building",
-                buildbtw::PackageBuildStatus::Built => "built",
-                buildbtw::PackageBuildStatus::Failed => "failed",
-            };
+            let color = node.weight().status.as_color();
+            let build_status = node.weight().status.as_icon();
             let pkgbase = &node.weight().pkgbase;
-            format!("label=\"{pkgbase}\n({build_status})\",color={color}")
+            format!("label=\"{pkgbase}\n{build_status}\",color={color}")
         },
     );
     let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
