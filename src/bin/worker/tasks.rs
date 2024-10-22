@@ -16,7 +16,7 @@ pub fn start() -> UnboundedSender<Message> {
             match msg {
                 Message::BuildPackage(schedule) => {
                     println!("🕑 Building package {:?}", schedule);
-                    let result_status = build_package(&schedule.source).await;
+                    let result_status = build_package(&schedule).await;
                     println!("✅ built package {:?}", schedule);
 
                     // TODO: exponential backoff

@@ -1,19 +1,18 @@
 //! Build a package by essentially running makepkg.
 
 use std::{
-    io,
     path::{Path, PathBuf},
-    process::Command,
+    str::FromStr,
 };
 use tokio::fs;
 
 use anyhow::{Context, Result};
-use git2::Repository;
+use git2::{Oid, Repository};
 
-use crate::{git::package_source_path, GitRepoRef, PackageBuildStatus};
+use crate::{git::package_source_path, GitRepoRef, PackageBuildStatus, ScheduleBuild};
 
-pub async fn build_package(source: &GitRepoRef) -> PackageBuildStatus {
-    match build_package_inner(source).await {
+pub async fn build_package(schedule: &ScheduleBuild) -> PackageBuildStatus {
+    match build_package_inner(schedule).await {
         Ok(status) => status,
         Err(e) => {
             println!("{e:?}");
@@ -22,13 +21,15 @@ pub async fn build_package(source: &GitRepoRef) -> PackageBuildStatus {
     }
 }
 
-async fn build_package_inner(source: &GitRepoRef) -> Result<PackageBuildStatus> {
+async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildStatus> {
     // Copy the source repo from cache to build dir so we can easily remove
     // all build artefacts.
-    let build_path = copy_package_source_to_build_dir(source).await?;
+    let build_path = copy_package_source_to_build_dir(schedule).await?;
 
     // Check out the target commit.
-    checkout_build_git_ref(&build_path, source).await?;
+    checkout_build_git_ref(&build_path, &schedule.source).await?;
+
+    // TODO create and switch to a chroot?
 
     // TODO Run makepkg.
     // let cmd = Command::new("makepkg");
@@ -38,18 +39,22 @@ async fn build_package_inner(source: &GitRepoRef) -> Result<PackageBuildStatus> 
 }
 
 async fn checkout_build_git_ref(path: &Path, repo_ref: &GitRepoRef) -> Result<()> {
-    let (pkgbase, git_repo_ref) = repo_ref;
+    let (_, git_repo_ref) = repo_ref;
     let repo = Repository::open(path)?;
-    // TODO implement this
+
+    repo.set_head_detached(Oid::from_str(git_repo_ref)?)?;
+    repo.checkout_head(None)
+        .context("Failed to checkout HEAD")?;
 
     Ok(())
 }
 
 /// Copy package source into a new subfolder of the build directory
 /// and return the path to the new directory.
-async fn copy_package_source_to_build_dir(source: &GitRepoRef) -> Result<PathBuf> {
-    let (pkgbase, _) = source;
-    let dest_path = PathBuf::from(format!("./build/{pkgbase}"));
+async fn copy_package_source_to_build_dir(schedule: &ScheduleBuild) -> Result<PathBuf> {
+    let (pkgbase, _) = &schedule.source;
+    let iteration = schedule.iteration;
+    let dest_path = PathBuf::from(format!("./build/{iteration}/{pkgbase}"));
     copy_dir_all(package_source_path(pkgbase), &dest_path)
         .await
         .context("Copying package source to build directory")?;

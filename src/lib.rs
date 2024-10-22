@@ -10,6 +10,7 @@ pub mod build_package;
 pub mod git;
 mod gitlab;
 
+// TODO use git2::Oid instead?
 pub type GitRef = String;
 pub type Pkgbase = String;
 pub type Pkgname = String;
