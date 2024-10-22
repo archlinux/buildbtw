@@ -21,6 +21,7 @@ warmup-server *args:
 
 clean:
     rm -rf source_repos
+    rm -rf build
 
 test *args:
     cargo test {{ args }}

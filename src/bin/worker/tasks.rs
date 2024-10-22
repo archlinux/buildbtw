@@ -1,14 +1,13 @@
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::time::sleep;
 
 use crate::set_build_status;
-use buildbtw::{PackageBuildStatus, ScheduleBuild};
+use buildbtw::{build_package::build_package, ScheduleBuild};
 
 pub enum Message {
     BuildPackage(ScheduleBuild),
 }
 
-pub fn start(port: u16) -> UnboundedSender<Message> {
+pub fn start() -> UnboundedSender<Message> {
     println!("Starting worker tasks");
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
@@ -17,18 +16,15 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
             match msg {
                 Message::BuildPackage(schedule) => {
                     println!("🕑 Building package {:?}", schedule);
-                    sleep(std::time::Duration::from_secs(3)).await;
-                    println!("✅ building package {:?}", schedule);
-
-                    // Failure is not an option :P
-                    let result = PackageBuildStatus::Built;
+                    let result_status = build_package(&schedule.source).await;
+                    println!("✅ built package {:?}", schedule);
 
                     // TODO: exponential backoff
                     if let Err(err) = set_build_status(
                         schedule.namespace,
                         schedule.iteration,
                         schedule.source.0,
-                        result,
+                        result_status,
                     )
                     .await
                     {

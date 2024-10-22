@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
 
     match args.command {
         Command::Run { interface, port } => {
-            let worker_sender = tasks::start(port);
+            let worker_sender = tasks::start();
             let app = Router::new()
                 .route("/build/schedule", post(schedule_build))
                 .with_state(AppState { worker_sender });

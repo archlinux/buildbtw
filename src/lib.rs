@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+pub mod build_package;
 pub mod git;
 mod gitlab;
 
