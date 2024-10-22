@@ -4,7 +4,7 @@ use git2::build::RepoBuilder;
 use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
 use reqwest::Client;
 use srcinfo::Srcinfo;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::task::JoinSet;
 
 pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
@@ -24,7 +24,7 @@ pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Reposi
 
         let repo = RepoBuilder::new().fetch_options(fetch_options).clone(
             &format!("git@gitlab.archlinux.org:archlinux/packaging/packages/{project_path}.git"),
-            Path::new(&format!("./source_repos/{pkgbase}")),
+            &package_source_path(&pkgbase),
         )?;
 
         Ok(repo)
@@ -35,7 +35,7 @@ pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Reposi
 pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
     tokio::task::spawn_blocking(move || {
         println!("Fetching repository {:?}", &pkgbase);
-        let repo = git2::Repository::open(format!("./source_repos/{pkgbase}"))?;
+        let repo = git2::Repository::open(package_source_path(&pkgbase))?;
 
         // Set up the callbacks to use SSH credentials
         let mut callbacks = RemoteCallbacks::new();
@@ -62,7 +62,7 @@ pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
 }
 
 pub async fn clone_or_fetch_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
-    let maybe_repo = git2::Repository::open(format!("./source_repos/{pkgbase}"));
+    let maybe_repo = git2::Repository::open(package_source_path(&pkgbase));
     let repo = if let Ok(repo) = maybe_repo {
         fetch_repository(pkgbase)
             .await
@@ -128,4 +128,8 @@ pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<Srcinfo
     assert!(!file_blob.is_binary());
 
     srcinfo::Srcinfo::parse_buf(file_blob.content()).context("Failed to parse .SRCINFO")
+}
+
+pub fn package_source_path(pkgbase: &Pkgbase) -> PathBuf {
+    PathBuf::from(format!("./source_repos/{pkgbase}"))
 }

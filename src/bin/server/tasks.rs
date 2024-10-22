@@ -11,7 +11,7 @@ use tokio::{sync::mpsc::UnboundedSender, task::spawn_blocking};
 use uuid::Uuid;
 
 use crate::schedule_next_build_in_graph;
-use buildbtw::git::{get_branch_commit_sha, read_srcinfo_from_repo};
+use buildbtw::git::{get_branch_commit_sha, package_source_path, read_srcinfo_from_repo};
 use buildbtw::{
     BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef,
     PackageBuildDependency, PackageBuildStatus, PackageNode, Pkgbase, Pkgname, ScheduleBuild,
@@ -128,7 +128,7 @@ async fn calculate_packages_to_be_built(
 
     // add root nodes from our build namespace so we can start walking the graph
     for (pkgbase, branch) in &namespace.current_origin_changesets {
-        let repo = Repository::open(format!("./source_repos/{pkgbase}"))?;
+        let repo = Repository::open(package_source_path(pkgbase))?;
         let srcinfo = read_srcinfo_from_repo(&repo, branch)?;
         for package in srcinfo.pkgs {
             let pkgname = package.pkgname;
