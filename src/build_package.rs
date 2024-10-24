@@ -1,9 +1,6 @@
 //! Build a package by essentially running makepkg.
 
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::path::{Path, PathBuf};
 use tokio::fs;
 
 use anyhow::{Context, Result};
@@ -29,13 +26,27 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     // Check out the target commit.
     checkout_build_git_ref(&build_path, &schedule.source).await?;
 
-    // TODO create and switch to a chroot?
+    // Run makepkg.
+    let build_path_string = build_path
+        .to_str()
+        .context("Failed to convert build path to string")?;
+    let mut child = tokio::process::Command::new("pkgctl")
+        .args(["build", build_path_string])
+        .spawn()?;
 
-    // TODO Run makepkg.
-    // let cmd = Command::new("makepkg");
+    // Calling `wait()` will drop stdin, but we need
+    // to keep it open for sudo to ask for a password.
+    let _stdin = child.stdin.take();
+    let exit_status = child.wait().await?;
+
+    let status = match exit_status.success() {
+        true => PackageBuildStatus::Built,
+        false => PackageBuildStatus::Failed,
+    };
 
     // TODO Move build artefacts somewhere we can make them available to download?
-    Ok(PackageBuildStatus::Built)
+
+    Ok(status)
 }
 
 async fn checkout_build_git_ref(path: &Path, repo_ref: &GitRepoRef) -> Result<()> {
