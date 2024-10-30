@@ -139,15 +139,15 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
             for node_idx in bfs.iter(&graph_clone) {
                 let node = &mut graph[node_idx];
                 match node.status {
-                    // skip nodes that are already built
-                    buildbtw::PackageBuildStatus::Built => {
+                    // skip nodes that are already built or blocked
+                    // but keep the current fallback status
+                    buildbtw::PackageBuildStatus::Built
+                    | buildbtw::PackageBuildStatus::Failed
+                    | buildbtw::PackageBuildStatus::Blocked => {
                         continue;
                     }
-                    // skip nodes that are not pending and update the fallback return status
-                    buildbtw::PackageBuildStatus::Building
-                    | buildbtw::PackageBuildStatus::Blocked
-                    | buildbtw::PackageBuildStatus::Failed => {
-                        // if we ever meet a node that is not built, the graph can't be finished
+                    // skip nodes that building and tell the scheduler to wait for them to complete
+                    buildbtw::PackageBuildStatus::Building => {
                         fallback_status = ScheduleBuildResult::NoPendingPackages;
                         continue;
                     }
