@@ -31,3 +31,12 @@
 - https://gitlab.com/herecura/templates/gitlab-ci
 - https://osg-htc.org/technology/software/koji-mass-rebuilds/
 - https://github.com/foutrelis/arch-rebuilds
+- [ALHP](https://somegit.dev/ALHP/ALHP.GO)
+- Serpent OS
+	- They don't have CI for a PR-based workflow yet
+    - Build process builds a snapshot of the whole world
+    - They have three services: coordinator, repo manager, builder
+    - heavily lean on build manifests for recording build inputs & potential outputs, similar to .SRCINFO. See https://github.com/serpent-os/recipes/blob/main/z/zlib/manifest.x86_64.jsonc for an example
+    - Cycles are already prevented while constructing the dep graph, each added edge checks whether it would introduce a cycle
+        - This doesn't solve most situations but at least allows for a topological sort
+    - They're working out a concept for building in intermediate, isolated stages before publishing to the main repo, similar to us, but there seems to be nothing concrete yet
