@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock};
 
+use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use petgraph::Graph;
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,8 @@ pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency>;
 pub static DATABASE: LazyLock<Mutex<HashMap<Uuid, BuildNamespace>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+pub const BUILD_DIR: &str = "./build";
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
     pub name: String,
@@ -33,24 +36,18 @@ pub struct CreateBuildNamespace {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct BuildNextPendingPackageResponse {
-    pub iteration: Uuid,
-    pub pkgbase: Pkgbase,
-    pub gitref: GitRef,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub struct ScheduleBuild {
     pub namespace: Uuid,
     pub iteration: Uuid,
     pub source: GitRepoRef,
+    pub install_to_chroot: Vec<BuildPackageOutput>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ScheduleBuildResult {
     Finished,
     NoPendingPackages,
-    Scheduled(BuildNextPendingPackageResponse),
+    Scheduled(ScheduleBuild),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -88,6 +85,31 @@ pub struct BuildPackageNode {
     pub pkgbase: String,
     pub commit_hash: String,
     pub status: PackageBuildStatus,
+    /// Packages that this build will emit
+    pub build_outputs: Vec<BuildPackageOutput>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BuildPackageOutput {
+    pub pkgbase: Pkgbase,
+    pub pkgname: Pkgname,
+    pub arch: Vec<String>,
+    /// Output of Srcinfo::version(), stored for convenience
+    pub version: String,
+}
+
+impl BuildPackageOutput {
+    pub fn get_package_file_name(&self) -> Utf8PathBuf {
+        let BuildPackageOutput {
+            pkgname, version, ..
+        } = self;
+        // TODO: make it work for all compression formats
+        // TODO: make it work for different arches
+        // We'll probably have to pass in a directory to search for package files
+        // here, similar to `find_cached_package` in devtools
+        // (parsing makepkg output seems like an ugly alternative)
+        format!("{pkgname}-{version}-x86_64.tar.zst").into()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

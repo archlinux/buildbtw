@@ -24,8 +24,8 @@ use uuid::Uuid;
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
 use buildbtw::{
-    BuildNamespace, BuildNextPendingPackageResponse, CreateBuildNamespace, Pkgbase,
-    ScheduleBuildResult, SetBuildStatus, SetBuildStatusResult, DATABASE,
+    BuildNamespace, CreateBuildNamespace, Pkgbase, ScheduleBuild, ScheduleBuildResult,
+    SetBuildStatus, SetBuildStatusResult, DATABASE,
 };
 
 mod args;
@@ -137,8 +137,9 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
         for root in root_nodes {
             let bfs = Bfs::new(&graph_clone, root);
             for node_idx in bfs.iter(&graph_clone) {
-                let node = &mut graph[node_idx];
-                match node.status {
+                // Depending on the status of this node, return early to keep looking
+                // or go on building it.
+                match &graph[node_idx].status {
                     // skip nodes that are already built or blocked
                     // but keep the current fallback status
                     buildbtw::PackageBuildStatus::Built
@@ -154,15 +155,26 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
                     // process nodes that are pending
                     buildbtw::PackageBuildStatus::Pending => {}
                 }
+                // This node is ready to build
+                // reserve it for building
+                graph[node_idx].status = buildbtw::PackageBuildStatus::Building;
 
-                // reserve the node for building
-                node.status = buildbtw::PackageBuildStatus::Building;
+                let node = &graph[node_idx];
+
+                // TODO: for split packages, this might include some
+                // unneeded pkgnames. We should probably filter them out by going
+                // over the dependencies of the package we're building.
+                let built_dependencies = graph
+                    .edges_directed(node_idx, petgraph::Incoming)
+                    .flat_map(|dependency| graph[dependency.source()].build_outputs.clone())
+                    .collect();
 
                 // return the information of the scheduled node
-                let response = BuildNextPendingPackageResponse {
+                let response = ScheduleBuild {
                     iteration: iteration.id,
-                    pkgbase: node.pkgbase.clone(),
-                    gitref: node.commit_hash.clone(),
+                    namespace: namespace_id,
+                    source: (node.pkgbase.clone(), node.commit_hash.clone()),
+                    install_to_chroot: built_dependencies,
                 };
                 return ScheduleBuildResult::Scheduled(response);
             }

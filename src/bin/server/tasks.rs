@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::schedule_next_build_in_graph;
 use buildbtw::git::{get_branch_commit_sha, package_source_path, read_srcinfo_from_repo};
 use buildbtw::{
-    BuildNamespace, BuildPackageNode, BuildSetGraph, BuildSetIteration, GitRef,
+    BuildNamespace, BuildPackageNode, BuildPackageOutput, BuildSetGraph, BuildSetIteration, GitRef,
     PackageBuildDependency, PackageBuildStatus, PackageNode, Pkgbase, Pkgname, ScheduleBuild,
     ScheduleBuildResult, DATABASE,
 };
@@ -164,6 +164,16 @@ async fn calculate_packages_to_be_built(
                     .any(|p| p == &pkgbase);
 
                 // Add this node to the buildset graph
+                let build_outputs = srcinfo
+                    .pkgs
+                    .iter()
+                    .map(|pkg| BuildPackageOutput {
+                        pkgbase: srcinfo.base.pkgbase.clone(),
+                        pkgname: pkg.pkgname.clone(),
+                        arch: pkg.arch.clone(),
+                        version: srcinfo.version(),
+                    })
+                    .collect();
                 let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {
                     pkgbase: pkgbase.clone(),
                     commit_hash: package_node.commit_hash.clone(),
@@ -171,6 +181,7 @@ async fn calculate_packages_to_be_built(
                         true => PackageBuildStatus::Pending,
                         false => PackageBuildStatus::Blocked,
                     },
+                    build_outputs,
                 });
                 pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), build_graph_node_index);
 
@@ -314,12 +325,7 @@ async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
             }
             ScheduleBuildResult::Scheduled(response) => {
                 println!("Scheduled build: {response:#?}");
-                let build = ScheduleBuild {
-                    namespace: namespace.id,
-                    iteration: response.iteration,
-                    source: (response.pkgbase, response.gitref),
-                };
-                schedule_build(build).await?;
+                schedule_build(response).await?;
             }
             ScheduleBuildResult::Finished => {
                 println!("Graph finished");

@@ -1,12 +1,13 @@
 //! Build a package by essentially running makepkg.
 
+use camino::Utf8PathBuf;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
 use anyhow::{Context, Result};
 use git2::{Oid, Repository};
 
-use crate::{git::package_source_path, GitRepoRef, PackageBuildStatus, ScheduleBuild};
+use crate::{git::package_source_path, GitRepoRef, PackageBuildStatus, ScheduleBuild, BUILD_DIR};
 
 pub async fn build_package(schedule: &ScheduleBuild) -> PackageBuildStatus {
     match build_package_inner(schedule).await {
@@ -27,12 +28,28 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     checkout_build_git_ref(&build_path, &schedule.source).await?;
 
     // Run makepkg.
+    let mut cmd = tokio::process::Command::new("pkgctl");
+
+    let iteration_id = schedule.iteration;
+    let dependeny_file_paths = schedule
+        .install_to_chroot
+        .iter()
+        .map(|build_package_output| {
+            let pkgbase = &build_package_output.pkgbase;
+            Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration_id}/{pkgbase}"))
+                .join(build_package_output.get_package_file_name())
+        });
+    let install_to_chroot =
+        dependeny_file_paths.flat_map(|file_path| ["-I".to_string(), file_path.to_string()]);
     let build_path_string = build_path
         .to_str()
         .context("Failed to convert build path to string")?;
-    let mut child = tokio::process::Command::new("pkgctl")
-        .args(["build", build_path_string])
-        .spawn()?;
+    cmd.args(["build"])
+        .args(install_to_chroot)
+        .args([build_path_string]);
+
+    println!("Spawning pkgctl: ${cmd:?}");
+    let mut child = cmd.spawn()?;
 
     // Calling `wait()` will drop stdin, but we need
     // to keep it open for sudo to ask for a password.
@@ -53,6 +70,8 @@ async fn checkout_build_git_ref(path: &Path, repo_ref: &GitRepoRef) -> Result<()
     let (_, git_repo_ref) = repo_ref;
     let repo = Repository::open(path)?;
 
+    // TODO this doesn't seem to update the staging area
+    // even though the docs for checkout_head say it does
     repo.set_head_detached(Oid::from_str(git_repo_ref)?)?;
     repo.checkout_head(None)
         .context("Failed to checkout HEAD")?;
@@ -65,7 +84,7 @@ async fn checkout_build_git_ref(path: &Path, repo_ref: &GitRepoRef) -> Result<()
 async fn copy_package_source_to_build_dir(schedule: &ScheduleBuild) -> Result<PathBuf> {
     let (pkgbase, _) = &schedule.source;
     let iteration = schedule.iteration;
-    let dest_path = PathBuf::from(format!("./build/{iteration}/{pkgbase}"));
+    let dest_path = PathBuf::from(format!("./{BUILD_DIR}/{iteration}/{pkgbase}"));
     copy_dir_all(package_source_path(pkgbase), &dest_path)
         .await
         .context("Copying package source to build directory")?;
