@@ -1,11 +1,12 @@
 //! Build a package by essentially running makepkg.
 
+use anyhow::anyhow;
 use camino::Utf8PathBuf;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
 use anyhow::{Context, Result};
-use git2::{Oid, Repository};
+use git2::{build::CheckoutBuilder, Oid, Repository, Status};
 
 use crate::{git::package_source_path, GitRepoRef, PackageBuildStatus, ScheduleBuild, BUILD_DIR};
 
@@ -13,7 +14,7 @@ pub async fn build_package(schedule: &ScheduleBuild) -> PackageBuildStatus {
     match build_package_inner(schedule).await {
         Ok(status) => status,
         Err(e) => {
-            println!("{e:?}");
+            println!("Error building package: {e:?}");
             PackageBuildStatus::Failed
         }
     }
@@ -73,8 +74,17 @@ async fn checkout_build_git_ref(path: &Path, repo_ref: &GitRepoRef) -> Result<()
     // TODO this doesn't seem to update the staging area
     // even though the docs for checkout_head say it does
     repo.set_head_detached(Oid::from_str(git_repo_ref)?)?;
-    repo.checkout_head(None)
+    repo.checkout_head(Some(CheckoutBuilder::default().force()))
         .context("Failed to checkout HEAD")?;
+
+    for status in repo.statuses(None)?.iter() {
+        if status.status() != Status::CURRENT {
+            return Err(anyhow!(
+                "File in working tree does not match the commit to build: {:?}",
+                status.path()
+            ));
+        }
+    }
 
     Ok(())
 }
