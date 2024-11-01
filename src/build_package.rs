@@ -1,8 +1,7 @@
 //! Build a package by essentially running makepkg.
 
 use anyhow::anyhow;
-use camino::Utf8PathBuf;
-use std::path::{Path, PathBuf};
+use camino::{Utf8Path, Utf8PathBuf};
 use tokio::fs;
 
 use anyhow::{Context, Result};
@@ -26,35 +25,26 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     let build_path = copy_package_source_to_build_dir(schedule).await?;
 
     // Check out the target commit.
-    checkout_build_git_ref(&build_path, &schedule.source).await?;
+    checkout_build_git_ref(&build_path, &schedule.source)?;
 
     // Run makepkg.
     let mut cmd = tokio::process::Command::new("pkgctl");
 
-    let iteration_id = schedule.iteration;
-    let mut dependeny_file_paths = schedule
-        .install_to_chroot
-        .iter()
-        .map(|build_package_output| {
-            let pkgbase = &build_package_output.pkgbase;
-            Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration_id}/{pkgbase}"))
-                .join(build_package_output.get_package_file_name())
-        });
+    let dependency_file_paths = get_dependency_file_paths(schedule);
 
-    for file in dependeny_file_paths.by_ref() {
+    for file in dependency_file_paths.iter() {
         if !file.exists() {
             return Err(anyhow!("Missing build output {file:?}"));
         }
     }
 
-    let install_to_chroot =
-        dependeny_file_paths.flat_map(|file_path| ["-I".to_string(), file_path.to_string()]);
-    let build_path_string = build_path
-        .to_str()
-        .context("Failed to convert build path to string")?;
+    // format dependency files as "-I <file>" arguments
+    let install_to_chroot = dependency_file_paths
+        .iter()
+        .flat_map(|file_path| ["-I".to_string(), file_path.to_string()]);
     cmd.args(["build"])
         .args(install_to_chroot)
-        .args([build_path_string]);
+        .args([build_path]);
 
     println!("Spawning pkgctl: ${cmd:?}");
     let mut child = cmd.spawn()?;
@@ -74,16 +64,17 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     Ok(status)
 }
 
-async fn checkout_build_git_ref(path: &Path, repo_ref: &GitRepoRef) -> Result<()> {
+/// Make HEAD point to the commit at `repo_ref`, and update working tree and index to match that commit
+fn checkout_build_git_ref(path: &Utf8Path, repo_ref: &GitRepoRef) -> Result<()> {
     let (_, git_repo_ref) = repo_ref;
     let repo = Repository::open(path)?;
 
-    // TODO this doesn't seem to update the staging area
-    // even though the docs for checkout_head say it does
     repo.set_head_detached(Oid::from_str(git_repo_ref)?)?;
     repo.checkout_head(Some(CheckoutBuilder::default().force()))
         .context("Failed to checkout HEAD")?;
 
+    // Sanity check that git status shows no changed files.
+    // This should skip untracked and ignored files.
     for status in repo.statuses(None)?.iter() {
         if status.status() != Status::CURRENT {
             return Err(anyhow!(
@@ -96,12 +87,27 @@ async fn checkout_build_git_ref(path: &Path, repo_ref: &GitRepoRef) -> Result<()
     Ok(())
 }
 
+/// Return file paths for dependencies that were built in a previous step
+/// and should be installed in the chroot for the current build
+fn get_dependency_file_paths(schedule: &ScheduleBuild) -> Vec<Utf8PathBuf> {
+    schedule
+        .install_to_chroot
+        .iter()
+        .map(|build_package_output| {
+            let iteration_id = schedule.iteration;
+            let pkgbase = &build_package_output.pkgbase;
+            Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration_id}/{pkgbase}"))
+                .join(build_package_output.get_package_file_name())
+        })
+        .collect()
+}
+
 /// Copy package source into a new subfolder of the build directory
 /// and return the path to the new directory.
-async fn copy_package_source_to_build_dir(schedule: &ScheduleBuild) -> Result<PathBuf> {
+async fn copy_package_source_to_build_dir(schedule: &ScheduleBuild) -> Result<Utf8PathBuf> {
     let (pkgbase, _) = &schedule.source;
     let iteration = schedule.iteration;
-    let dest_path = PathBuf::from(format!("./{BUILD_DIR}/{iteration}/{pkgbase}"));
+    let dest_path = Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration}/{pkgbase}"));
     copy_dir_all(package_source_path(pkgbase), &dest_path)
         .await
         .context("Copying package source to build directory")?;
@@ -111,13 +117,15 @@ async fn copy_package_source_to_build_dir(schedule: &ScheduleBuild) -> Result<Pa
 
 /// Recursively copy a directory from source to destination.
 async fn copy_dir_all(
-    root_source: impl AsRef<Path>,
-    root_destination: impl AsRef<Path>,
+    root_source: impl AsRef<Utf8Path>,
+    root_destination: impl AsRef<Utf8Path>,
 ) -> Result<()> {
     // Instead of async recursion, use a queue of directories we need to walk.
+    // Store std PathBufs here to simplify joining with file names read from disk
+    // later on.
     let mut directories_to_copy = vec![(
-        fs::read_dir(root_source).await?,
-        root_destination.as_ref().to_path_buf(),
+        fs::read_dir(root_source.as_ref()).await?,
+        root_destination.as_ref().to_path_buf().into_std_path_buf(),
     )];
 
     while let Some((mut source, destination)) = directories_to_copy.pop() {

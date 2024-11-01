@@ -1,10 +1,11 @@
 use crate::{GitRef, Pkgbase, PkgbaseMaintainers};
 use anyhow::{Context, Result};
+use camino::Utf8PathBuf;
 use git2::build::RepoBuilder;
 use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
 use reqwest::Client;
 use srcinfo::Srcinfo;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::task::JoinSet;
 
 pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
@@ -24,7 +25,7 @@ pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Reposi
 
         let repo = RepoBuilder::new().fetch_options(fetch_options).clone(
             &format!("git@gitlab.archlinux.org:archlinux/packaging/packages/{project_path}.git"),
-            &package_source_path(&pkgbase),
+            package_source_path(&pkgbase).as_std_path(),
         )?;
 
         Ok(repo)
@@ -130,6 +131,6 @@ pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<Srcinfo
     srcinfo::Srcinfo::parse_buf(file_blob.content()).context("Failed to parse .SRCINFO")
 }
 
-pub fn package_source_path(pkgbase: &Pkgbase) -> PathBuf {
-    PathBuf::from(format!("./source_repos/{pkgbase}"))
+pub fn package_source_path(pkgbase: &Pkgbase) -> Utf8PathBuf {
+    Utf8PathBuf::from(format!("./source_repos/{pkgbase}"))
 }
