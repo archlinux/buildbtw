@@ -32,7 +32,7 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     let mut cmd = tokio::process::Command::new("pkgctl");
 
     let iteration_id = schedule.iteration;
-    let dependeny_file_paths = schedule
+    let mut dependeny_file_paths = schedule
         .install_to_chroot
         .iter()
         .map(|build_package_output| {
@@ -40,6 +40,13 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
             Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration_id}/{pkgbase}"))
                 .join(build_package_output.get_package_file_name())
         });
+
+    for file in dependeny_file_paths.by_ref() {
+        if !file.exists() {
+            return Err(anyhow!("Missing build output {file:?}"));
+        }
+    }
+
     let install_to_chroot =
         dependeny_file_paths.flat_map(|file_path| ["-I".to_string(), file_path.to_string()]);
     let build_path_string = build_path
