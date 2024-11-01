@@ -13,6 +13,9 @@ watch-client *args:
 run-worker *args:
     cargo run --bin worker -- run {{ args }}
 
+# TODO `cargo watch` interferes with stdin handling,
+# so the worker can't ask for a password to
+# use sudo :/
 watch-worker *args:
     cargo watch -w src -w templates -w Cargo.toml -- just run-worker {{ args }}
 
