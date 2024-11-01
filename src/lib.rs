@@ -108,7 +108,7 @@ impl BuildPackageOutput {
         // We'll probably have to pass in a directory to search for package files
         // here, similar to `find_cached_package` in devtools
         // (parsing makepkg output seems like an ugly alternative)
-        format!("{pkgname}-{version}-x86_64.tar.zst").into()
+        format!("{pkgname}-{version}-x86_64.pkg.tar.zst").into()
     }
 }
 
