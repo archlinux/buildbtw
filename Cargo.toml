@@ -30,7 +30,7 @@ regex = "1.10.6"
 reqwest = { version = "0.12.7", features = ["json"] }
 serde = { version = "1.0.209", features = ["serde_derive"] }
 serde_json = "1.0.127"
-srcinfo = { version = "1.1.0", features = ["serde1"] }
+srcinfo = { version = "1.1.0", features = ["serde"] }
 tokio = { version = "1.39.3", features = ["fs", "rt-multi-thread", "process"] }
 uuid = { version = "1.10.0", features = ["serde", "v4"] }
 
