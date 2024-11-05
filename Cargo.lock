@@ -1271,8 +1271,9 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "srcinfo"
 version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ceaee0d48949e3aa5365945de3e467e797b30b4f8636c2e580121a293fd77519"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "strsim"

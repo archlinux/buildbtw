@@ -4,6 +4,7 @@ use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use petgraph::Graph;
 use serde::{Deserialize, Serialize};
+use srcinfo::Srcinfo;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -40,10 +41,12 @@ pub struct ScheduleBuild {
     pub namespace: Uuid,
     pub iteration: Uuid,
     pub source: GitRepoRef,
+    pub srcinfo: Srcinfo,
     pub install_to_chroot: Vec<BuildPackageOutput>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ScheduleBuildResult {
     Finished,
     NoPendingPackages,
@@ -85,6 +88,7 @@ pub struct BuildPackageNode {
     pub pkgbase: String,
     pub commit_hash: String,
     pub status: PackageBuildStatus,
+    pub srcinfo: Srcinfo,
     /// Packages that this build will emit
     pub build_outputs: Vec<BuildPackageOutput>,
 }

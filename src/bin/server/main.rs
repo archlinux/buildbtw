@@ -173,6 +173,7 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
                 let response = ScheduleBuild {
                     iteration: iteration.id,
                     namespace: namespace_id,
+                    srcinfo: node.srcinfo.clone(),
                     source: (node.pkgbase.clone(), node.commit_hash.clone()),
                     install_to_chroot: built_dependencies,
                 };

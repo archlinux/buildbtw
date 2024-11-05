@@ -177,6 +177,7 @@ async fn calculate_packages_to_be_built(
                 let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {
                     pkgbase: pkgbase.clone(),
                     commit_hash: package_node.commit_hash.clone(),
+                    srcinfo: srcinfo.clone(),
                     status: match is_root_node {
                         true => PackageBuildStatus::Pending,
                         false => PackageBuildStatus::Blocked,
