@@ -274,39 +274,16 @@ fn strip_pkgname_version_constraint(pkgname: &Pkgname) -> Pkgname {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
 
-    #[test]
-    fn test_strip_pkgname_version_constraint_plain() {
-        let pkgname = "pkgname";
+    #[rstest]
+    #[case("pkgname")]
+    #[case("pkgname=1.0.0")]
+    #[case("pkgname>1.0.0")]
+    #[case("pkgname<1.0.0")]
+    fn test_strip_pkgname_version_constraint(#[case] input: &str) {
         assert_eq!(
-            strip_pkgname_version_constraint(&pkgname.to_string()),
-            "pkgname".to_string()
-        );
-    }
-
-    #[test]
-    fn test_strip_pkgname_version_constraint_equals() {
-        let pkgname = "pkgname=1.0.0";
-        assert_eq!(
-            strip_pkgname_version_constraint(&pkgname.to_string()),
-            "pkgname".to_string()
-        );
-    }
-
-    #[test]
-    fn test_strip_pkgname_version_constraint_greater() {
-        let pkgname = "pkgname>1.0.0";
-        assert_eq!(
-            strip_pkgname_version_constraint(&pkgname.to_string()),
-            "pkgname".to_string()
-        );
-    }
-
-    #[test]
-    fn test_strip_pkgname_version_constraint_lesser() {
-        let pkgname = "pkgname<1.0.0";
-        assert_eq!(
-            strip_pkgname_version_constraint(&pkgname.to_string()),
+            strip_pkgname_version_constraint(&input.to_string()),
             "pkgname".to_string()
         );
     }

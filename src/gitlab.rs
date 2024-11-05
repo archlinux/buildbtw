@@ -131,38 +131,17 @@ pub fn gitlab_project_name_to_path(project_name: &str) -> String {
     project_name
 }
 
-#[test]
-fn gitlab_project_name_to_path_plus_signs() {
-    let project_name = "archlinux++";
-    assert_eq!(
-        gitlab_project_name_to_path(project_name),
-        "archlinuxplusplus".to_string()
-    );
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::*;
 
-#[test]
-fn gitlab_project_name_to_path_plus_signs_with_suffix() {
-    let project_name = "archlinux++-5.0";
-    assert_eq!(
-        gitlab_project_name_to_path(project_name),
-        "archlinuxplusplus-5.0".to_string()
-    );
-}
-
-#[test]
-fn gitlab_project_name_to_path_plus_tree() {
-    let project_name = "tree";
-    assert_eq!(
-        gitlab_project_name_to_path(project_name),
-        "unix-tree".to_string()
-    );
-}
-
-#[test]
-fn gitlab_project_name_to_path_plus_word_separator() {
-    let project_name = "arch+linux";
-    assert_eq!(
-        gitlab_project_name_to_path(project_name),
-        "arch-linux".to_string()
-    );
+    #[rstest]
+    #[case("archlinux++", "archlinuxplusplus")]
+    #[case("archlinux++-5.0", "archlinuxplusplus-5.0")]
+    #[case("tree", "unix-tree")]
+    #[case("arch+linux", "arch-linux")]
+    fn test_gitlab_project_name_to_path(#[case] input: &str, #[case] expected: &str) {
+        assert_eq!(gitlab_project_name_to_path(input), expected.to_string());
+    }
 }

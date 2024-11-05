@@ -41,3 +41,6 @@ uuid = { version = "1.10.0", features = ["serde", "v4"] }
 [patch.crates-io]
 
 srcinfo = { git = "https://github.com/raffomania/srcinfo.rs.git", branch = "serde" }
+
+[dev-dependencies]
+rstest = "0.23.0"
