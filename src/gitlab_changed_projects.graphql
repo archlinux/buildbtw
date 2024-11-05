@@ -1,0 +1,14 @@
+query ChangedProjects($after: String) {
+    group(fullPath: "archlinux/packaging/packages") {
+        projects(sort: ACTIVITY_DESC, after: $after) {
+            nodes {
+                name
+                updatedAt
+            }
+            pageInfo {
+                endCursor
+                hasNextPage
+            }
+        }
+    }
+}

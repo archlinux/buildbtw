@@ -9,7 +9,9 @@ use axum::{
     routing::{get, patch, post},
     Json, Router,
 };
+use buildbtw::gitlab::fetch_updated_gitlab_projects_in_loop;
 use clap::Parser;
+use gitlab::GitlabBuilder;
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use listenfd::ListenFd;
@@ -289,6 +291,14 @@ async fn main() -> Result<()> {
                     worker_sender,
                     jinja_env,
                 });
+
+            if let Some(token) = args.gitlab_token {
+                let gitlab_client =
+                    GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
+                        .build_async()
+                        .await?;
+                fetch_updated_gitlab_projects_in_loop(gitlab_client.clone());
+            }
 
             let mut listenfd = ListenFd::from_env();
             // if listenfd doesn't take a TcpListener (i.e. we're not running via

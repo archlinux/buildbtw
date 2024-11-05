@@ -18,6 +18,9 @@ pub struct Args {
 
     #[command(subcommand)]
     pub command: Command,
+
+    #[arg(env, hide_env_values = true)]
+    pub gitlab_token: Option<redact::Secret<String>>,
 }
 
 #[derive(Debug, Clone, Subcommand)]

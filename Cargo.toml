@@ -18,6 +18,8 @@ clap = { version = "4.5.16", features = [
     "wrap_help",
 ] }
 git2 = "0.19.0"
+gitlab = "0.1705.0"
+graphql_client = "0.14.0"
 layout-rs = { version = "0.1.2", features = ["log"] }
 listenfd = "1.0.1"
 minijinja = "2.2.0"
@@ -26,11 +28,13 @@ petgraph = { version = "0.6.5", features = [
     "serde-1",
     "serde_derive",
 ] }
+redact = "0.1.10"
 regex = "1.10.6"
 reqwest = { version = "0.12.7", features = ["json"] }
 serde = { version = "1.0.209", features = ["serde_derive"] }
 serde_json = "1.0.127"
 srcinfo = { version = "1.1.0", features = ["serde"] }
+time = { version = "0.3.36", features = ["formatting", "parsing", "serde"] }
 tokio = { version = "1.39.3", features = ["fs", "rt-multi-thread", "process"] }
 uuid = { version = "1.10.0", features = ["serde", "v4"] }
 

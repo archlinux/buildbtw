@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 pub mod build_package;
 pub mod git;
-mod gitlab;
+pub mod gitlab;
 
 // TODO use git2::Oid instead?
 pub type GitRef = String;

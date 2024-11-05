@@ -1,4 +1,101 @@
+use anyhow::{anyhow, Context, Result};
+use gitlab::AsyncGitlab;
+use graphql_client::GraphQLQuery;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
+
+pub fn fetch_updated_gitlab_projects_in_loop(client: AsyncGitlab) {
+    tokio::spawn(async move {
+        let mut last_fetched = None;
+        loop {
+            let result = get_changed_projects_since(&client, last_fetched).await;
+            if let Ok(result) = result {
+                if let Some(first_result) = result.first() {
+                    last_fetched = first_result.updated_at.clone().map(OffsetDateTime::from);
+                    println!(
+                        "{} changed source repos found (first: {:?})",
+                        result.len(),
+                        result.first()
+                    )
+                };
+            } else {
+                println!("{result:?}")
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+        }
+    });
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Time(#[serde(with = "time::serde::iso8601")] pub OffsetDateTime);
+
+impl From<Time> for OffsetDateTime {
+    fn from(value: Time) -> Self {
+        value.0
+    }
+}
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    query_path = "src/gitlab_changed_projects.graphql",
+    schema_path = "src/gitlab_schema.json",
+    variables_derives = "Debug",
+    response_derives = "Debug"
+)]
+struct ChangedProjects;
+
+pub async fn get_changed_projects_since(
+    client: &AsyncGitlab,
+    last_fetched: Option<OffsetDateTime>,
+) -> Result<Vec<changed_projects::ChangedProjectsGroupProjectsNodes>> {
+    let mut end_of_last_query = None;
+    let mut results = Vec::new();
+    'keep_querying: loop {
+        let query_body = ChangedProjects::build_query(changed_projects::Variables {
+            after: end_of_last_query,
+        });
+        let response = client
+            .graphql::<ChangedProjects>(&query_body)
+            .await
+            .context("Failed to fetch changed projects")?
+            .group
+            .ok_or_else(|| anyhow!("Gitlab packaging group not found"))?
+            .projects;
+
+        end_of_last_query = response.page_info.end_cursor;
+
+        let projects = response
+            .nodes
+            .ok_or_else(|| anyhow!("Missing projects"))?
+            .into_iter()
+            .flatten();
+
+        for project in projects {
+            match last_fetched {
+                Some(last_fetched)
+                    if project
+                        .updated_at
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("Missing update date for projects"))?
+                        .0
+                        .le(&last_fetched) =>
+                {
+                    break 'keep_querying;
+                }
+                _ => {}
+            };
+
+            results.push(project);
+        }
+
+        if !response.page_info.has_next_page {
+            break 'keep_querying;
+        }
+    }
+
+    Ok(results)
+}
 
 /// Convert arbitrary project names to GitLab valid path names.
 ///

@@ -100,10 +100,7 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
         // Generate stub package_foo() functions
         let mut package_funcs = String::new();
         for pkg in &schedule.srcinfo.pkgs {
-            let pkgarchs = format!(
-                "({})",
-                pkg.arch.iter().cloned().collect::<Vec<_>>().join(" ")
-            );
+            let pkgarchs = format!("({})", pkg.arch.to_vec().join(" "));
 
             let func = format!(
                 r#"
