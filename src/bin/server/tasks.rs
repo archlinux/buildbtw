@@ -325,7 +325,7 @@ async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
                 sleep(std::time::Duration::from_secs(5)).await;
             }
             ScheduleBuildResult::Scheduled(response) => {
-                println!("Scheduled build: {response:#?}");
+                println!("Scheduled build: {:?}", response.source);
                 schedule_build(response).await?;
             }
             ScheduleBuildResult::Finished => {
@@ -339,7 +339,7 @@ async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
 }
 
 async fn schedule_build(build: ScheduleBuild) -> Result<()> {
-    println!("Building pending package for namespace: {:?}", build);
+    println!("Building pending package for namespace: {:?}", build.srcinfo.base.pkgbase);
 
     let _response = reqwest::Client::new()
         .post("http://0.0.0.0:8090/build/schedule".to_string())

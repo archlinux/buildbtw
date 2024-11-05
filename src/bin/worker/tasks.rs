@@ -15,9 +15,9 @@ pub fn start() -> UnboundedSender<Message> {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::BuildPackage(schedule) => {
-                    println!("🕑 Building package {:?}", schedule);
+                    println!("🕑 Building package {:?}", schedule.srcinfo.base.pkgbase);
                     let result_status = build_package(&schedule).await;
-                    println!("✅ built package {:?}", schedule);
+                    println!("✅ built package {:?}", schedule.srcinfo.base.pkgbase);
 
                     // TODO: exponential backoff
                     if let Err(err) = set_build_status(

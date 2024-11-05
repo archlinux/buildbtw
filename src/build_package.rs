@@ -7,7 +7,7 @@ use tokio::fs;
 use anyhow::{Context, Result};
 use git2::{build::CheckoutBuilder, Oid, Repository, Status};
 
-use crate::{git::package_source_path, GitRepoRef, PackageBuildStatus, ScheduleBuild, BUILD_DIR};
+use crate::{git::package_source_path, PackageBuildStatus, ScheduleBuild, BUILD_DIR};
 
 pub async fn build_package(schedule: &ScheduleBuild) -> PackageBuildStatus {
     match build_package_inner(schedule).await {
@@ -25,7 +25,7 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     let build_path = copy_package_source_to_build_dir(schedule).await?;
 
     // Check out the target commit.
-    checkout_build_git_ref(&build_path, &schedule.source)?;
+    checkout_build_git_ref(&build_path, schedule).await?;
 
     // Run makepkg.
     let mut cmd = tokio::process::Command::new("pkgctl");
@@ -65,8 +65,8 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
 }
 
 /// Make HEAD point to the commit at `repo_ref`, and update working tree and index to match that commit
-fn checkout_build_git_ref(path: &Utf8Path, repo_ref: &GitRepoRef) -> Result<()> {
-    let (_, git_repo_ref) = repo_ref;
+async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Result<()> {
+    let (_, git_repo_ref) = &schedule.source;
     let repo = Repository::open(path)?;
 
     repo.set_head_detached(Oid::from_str(git_repo_ref)?)?;
@@ -82,6 +82,66 @@ fn checkout_build_git_ref(path: &Utf8Path, repo_ref: &GitRepoRef) -> Result<()> 
                 status.path()
             ));
         }
+    }
+
+    // Replace the real PKGBUILD with a fake PKGBUILD to speed up compilation during testing.
+    if cfg!(feature = "fake-pkgbuild") {
+        let pkgnames = format!(
+            "({})",
+            schedule
+                .srcinfo
+                .pkgs
+                .iter()
+                .map(|pkg| pkg.pkgname.clone())
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+
+        // Generate stub package_foo() functions
+        let mut package_funcs = String::new();
+        for pkg in &schedule.srcinfo.pkgs {
+            let pkgarchs = format!(
+                "({})",
+                pkg.arch.iter().cloned().collect::<Vec<_>>().join(" ")
+            );
+
+            let func = format!(
+                r#"
+package_{pkgname}() {{
+    arch={pkgarch}
+    echo 1
+}}
+                "#,
+                pkgname = pkg.pkgname,
+                pkgarch = pkgarchs,
+            );
+
+            package_funcs.push_str(&func);
+        }
+
+        let pkgbuild = format!(
+            r#"
+pkgbase={pkgbase}
+pkgname={pkgname}
+pkgver={pkgver}
+pkgrel={pkgrel}
+pkgdesc=dontcare
+arch=(any)
+license=('Apache-2.0')
+url=https://example.com
+source=()
+
+{package_funcs}
+        "#,
+            pkgbase = schedule.srcinfo.base.pkgbase,
+            pkgname = pkgnames,
+            pkgver = schedule.srcinfo.base.pkgver,
+            pkgrel = schedule.srcinfo.base.pkgrel,
+        );
+
+        let pkgbuild_path = path.join("PKGBUILD");
+        println!("Writing fake PKGBUILD to {pkgbuild_path}");
+        fs::write(pkgbuild_path, pkgbuild).await?;
     }
 
     Ok(())

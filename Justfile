@@ -13,6 +13,9 @@ watch-client *args:
 run-worker *args:
     cargo run --bin worker -- run {{ args }}
 
+run-worker-fake *args:
+    cargo run --bin worker --features fake-pkgbuild -- run {{ args }}
+
 # TODO `cargo watch` interferes with stdin handling,
 # so the worker can't ask for a password to
 # use sudo :/

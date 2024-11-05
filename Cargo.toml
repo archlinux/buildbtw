@@ -3,6 +3,9 @@ name = "buildbtw"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+fake-pkgbuild = []
+
 [dependencies]
 anyhow = { version = "1.0.86", features = ["backtrace"] }
 axum = { version = "0.7.5", features = ["http2", "macros"] }
