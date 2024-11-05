@@ -1,14 +1,15 @@
 use std::{collections::HashMap, sync::LazyLock};
 
+use calculate_build_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
-use petgraph::Graph;
 use serde::{Deserialize, Serialize};
 use srcinfo::Srcinfo;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub mod build_package;
+pub mod calculate_build_graph;
 pub mod git;
 pub mod gitlab;
 
@@ -21,8 +22,6 @@ pub type GitRepoRef = (Pkgbase, GitRef);
 
 pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
-
-pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency>;
 
 // TODO This simulates a database. Add a proper database at some point.
 pub static DATABASE: LazyLock<Mutex<HashMap<Uuid, BuildNamespace>>> =
@@ -72,25 +71,6 @@ pub struct BuildNamespace {
     pub current_origin_changesets: Vec<GitRepoRef>,
     // gitlab group epic, state repo mr, ...
     // tracking_thing: String,
-}
-
-/// For tracking dependencies between individual packages.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PackageNode {
-    pub pkgname: String,
-    pub commit_hash: String,
-}
-
-/// Like PackageNode, but for a single PKGBUILD,
-/// identified by its pkgbase instead of the pkgname.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BuildPackageNode {
-    pub pkgbase: String,
-    pub commit_hash: String,
-    pub status: PackageBuildStatus,
-    pub srcinfo: Srcinfo,
-    /// Packages that this build will emit
-    pub build_outputs: Vec<BuildPackageOutput>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -153,7 +133,6 @@ impl PackageBuildStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildSetIteration {
     pub id: Uuid,
-    // This is slow to compute: when it's None, it's not computed yet
-    pub packages_to_be_built: Graph<BuildPackageNode, PackageBuildDependency>,
+    pub packages_to_be_built: BuildSetGraph,
     pub origin_changesets: Vec<GitRepoRef>,
 }
