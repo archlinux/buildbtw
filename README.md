@@ -24,6 +24,17 @@ To provide a preliminary roadmap, we'll group issues in [milestones](https://git
 
 Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder. 
 
+## Development
+
+First, run `just warmup-server` which clones all package repositories locally.
+
+Now you need to run the server, a worker, and then dispatch work to the server using the client.
+
+1. Run the server: `just watch-server`
+1. Run the worker: `just run-worker` (this builds real packages)
+1. Alternative: Run the worker: `just run-worker-fake` (this builds fake packages to shorten manual cycle testing time)
+1. Dispatch a build using the client: `just run-client create-build-namespace --name openimageio openimageio/main`
+
 ## FAQ
 
 It's pronounced "buildbytheway".
