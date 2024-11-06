@@ -1,10 +1,11 @@
 //! Functionality to determine what needs to be rebuilt when packages change.
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::{collections::HashMap, fs::read_dir};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Repository;
 use petgraph::visit::EdgeRef;
+use petgraph::Directed;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use serde::{Deserialize, Serialize};
 use srcinfo::Srcinfo;
@@ -25,7 +26,7 @@ pub struct PackageNode {
 
 /// Like PackageNode, but for a single PKGBUILD,
 /// identified by its pkgbase instead of the pkgname.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BuildPackageNode {
     pub pkgbase: String,
     pub commit_hash: String,
@@ -35,7 +36,7 @@ pub struct BuildPackageNode {
     pub build_outputs: Vec<BuildPackageOutput>,
 }
 
-pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency>;
+pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency, Directed>;
 
 pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Result<BuildSetGraph> {
     let pkgname_to_srcinfo_map =
@@ -273,6 +274,35 @@ pub async fn build_global_dependent_graph(
     }
 
     Ok((global_graph, pkgname_to_node_index_map))
+}
+
+/// Compare two build set graphs and determine if they are equal.
+/// Note: petgraph's `GraphMap` has this built-in, but requires node weights to
+/// be `Copy`.
+/// See: https://github.com/petgraph/petgraph/issues/199
+pub fn build_set_graph_eq(a: &BuildSetGraph, b: &BuildSetGraph) -> bool {
+    let a_ns = a
+        .raw_nodes()
+        .iter()
+        .map(|n| &n.weight)
+        .collect::<HashSet<_>>();
+    let b_ns = b
+        .raw_nodes()
+        .iter()
+        .map(|n| &n.weight)
+        .collect::<HashSet<_>>();
+
+    let a_es = a
+        .raw_edges()
+        .iter()
+        .map(|e| (e.source(), e.target(), &e.weight))
+        .collect::<HashSet<_>>();
+    let b_es = b
+        .raw_edges()
+        .iter()
+        .map(|e| (e.source(), e.target(), &e.weight))
+        .collect::<HashSet<_>>();
+    a_ns.eq(&b_ns) && a_es.eq(&b_es)
 }
 
 // TODO strip_pkgname_version_constraint

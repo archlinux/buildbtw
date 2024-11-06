@@ -12,6 +12,7 @@ pub mod build_package;
 pub mod build_set_graph;
 pub mod git;
 pub mod gitlab;
+pub mod iteration;
 
 // TODO use git2::Oid instead?
 /// A branch name, commit hash, etc.
@@ -74,7 +75,7 @@ pub struct BuildNamespace {
     // tracking_thing: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BuildPackageOutput {
     pub pkgbase: Pkgbase,
     pub pkgname: Pkgname,
@@ -97,10 +98,10 @@ impl BuildPackageOutput {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageBuildDependency {}
 
-#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq, Eq, Hash)]
 pub enum PackageBuildStatus {
     Blocked,
     Pending,

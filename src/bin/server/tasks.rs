@@ -45,14 +45,6 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
     sender
 }
 
-#[allow(dead_code)]
-async fn new_build_set_iteration_is_needed(namespace: &BuildNamespace) -> bool {
-    namespace.iterations.is_empty()
-    // TODO return True if last iteration's origin_changesets are different from the current ones
-    // TODO return True if git refs in last iterations package graph are outdated
-    // TODO build new dependent graph and check if there are new nodes
-}
-
 async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
     let packages_to_be_built = calculate_packages_to_be_built(namespace).await?;
 
