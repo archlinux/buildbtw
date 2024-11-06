@@ -33,6 +33,20 @@ pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Reposi
     .await?
 }
 
+pub async fn clone_or_fetch_repositories(pkgbases: Vec<Pkgbase>) -> Result<()> {
+    let mut join_set = JoinSet::new();
+    for pkgbase in pkgbases {
+        join_set.spawn(clone_or_fetch_repository(pkgbase));
+        while join_set.len() >= 50 {
+            join_set.join_next().await.unwrap()??;
+        }
+    }
+    while let Some(output) = join_set.join_next().await {
+        output??;
+    }
+    Ok(())
+}
+
 pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
     tokio::task::spawn_blocking(move || {
         println!("Fetching repository {:?}", &pkgbase);
@@ -65,7 +79,7 @@ pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
 pub async fn clone_or_fetch_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
     let maybe_repo = git2::Repository::open(package_source_path(&pkgbase));
     let repo = if let Ok(repo) = maybe_repo {
-        fetch_repository(pkgbase)
+        fetch_repository(pkgbase.clone())
             .await
             .expect("Failed to fetch repository");
         repo
@@ -97,16 +111,7 @@ pub async fn fetch_all_packaging_repositories() -> Result<()> {
     let response = Client::new().get(repo_pkgbase_url).send().await?;
     let maintainers: PkgbaseMaintainers = serde_json::from_str(response.text().await?.as_str())?;
     let all_pkgbases = maintainers.keys().collect::<Vec<_>>();
-    let mut join_set = JoinSet::new();
-    for pkgbase in all_pkgbases {
-        join_set.spawn(clone_or_fetch_repository(pkgbase.clone()));
-        while join_set.len() >= 50 {
-            join_set.join_next().await.unwrap()??;
-        }
-    }
-    while let Some(output) = join_set.join_next().await {
-        output??;
-    }
+    clone_or_fetch_repositories(all_pkgbases.into_iter().cloned().collect()).await?;
 
     Ok(())
 }

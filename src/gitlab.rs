@@ -5,26 +5,41 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-pub fn fetch_updated_gitlab_projects_in_loop(client: AsyncGitlab) {
+use crate::git::clone_or_fetch_repositories;
+
+pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab) {
     tokio::spawn(async move {
         let mut last_fetched = None;
         loop {
-            let result = get_changed_projects_since(&client, last_fetched).await;
-            if let Ok(result) = result {
-                if let Some(first_result) = result.first() {
-                    last_fetched = first_result.updated_at.clone().map(OffsetDateTime::from);
-                    println!(
-                        "{} changed source repos found (first: {:?})",
-                        result.len(),
-                        result.first()
-                    )
-                };
-            } else {
-                println!("{result:?}")
+            match fetch_all_source_repo_changes(&client, last_fetched).await {
+                Ok(new_last_fetched) => last_fetched = new_last_fetched,
+                Err(e) => println!("{e:?}"),
             }
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
     });
+}
+
+async fn fetch_all_source_repo_changes(
+    client: &AsyncGitlab,
+    mut last_fetched: Option<OffsetDateTime>,
+) -> Result<Option<OffsetDateTime>> {
+    // Query which projects changed
+    let result = get_changed_projects_since(client, last_fetched).await?;
+    if let Some(first_result) = result.first() {
+        println!(
+            "{} changed source repos found (first: {:?})",
+            result.len(),
+            result.first()
+        );
+        last_fetched = first_result.updated_at.clone().map(OffsetDateTime::from);
+    };
+
+    // Run git fetch for updated repos
+    let pkgbases = result.into_iter().map(|info| info.name).collect();
+    clone_or_fetch_repositories(pkgbases).await?;
+
+    Ok(last_fetched)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

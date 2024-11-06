@@ -9,7 +9,7 @@ use axum::{
     routing::{get, patch, post},
     Json, Router,
 };
-use buildbtw::gitlab::fetch_updated_gitlab_projects_in_loop;
+use buildbtw::gitlab::fetch_source_repo_changes_in_loop;
 use clap::Parser;
 use gitlab::GitlabBuilder;
 use layout::backends::svg::SVGWriter;
@@ -297,7 +297,7 @@ async fn main() -> Result<()> {
                     GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
                         .build_async()
                         .await?;
-                fetch_updated_gitlab_projects_in_loop(gitlab_client.clone());
+                fetch_source_repo_changes_in_loop(gitlab_client.clone());
             }
 
             let mut listenfd = ListenFd::from_env();
