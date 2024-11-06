@@ -1,7 +1,17 @@
 image: "archlinux:latest"
 
-before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf
+.default:
+  variables:
+    CARGO_HOME: $CI_PROJECT_DIR/cargo
+    GITLAB_TOKEN: $CI_JOB_TOKEN
+  cache:
+    paths:
+      - cargo
+  before_script:
+    - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf just
+    - export PATH="$PATH:$CI_PROJECT_DIR/cargo/bin"
+    - cargo install graphql_client_cli
+    - just update-graphql-schema
 
 stages:
   - lint
@@ -9,20 +19,24 @@ stages:
 
 format:
   stage: lint
+  extends: .default
   script:
     - cargo fmt --all -- --check
 
 clippy:
   stage: lint
+  extends: .default
   script:
-    - cargo clippy --all -- -D warnings
+    - cargo clippy --all-targets -- -D warnings
 
 audit:
+  extends: .default
   stage: lint
   script:
     - cargo audit
 
 test:
+  extends: .default
   stage: test
   script:
-    - cargo test --all --release
+    - cargo test --all-targets --release
