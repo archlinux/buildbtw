@@ -39,3 +39,9 @@ watch-test *args:
 
 update-graphql-schema:
     graphql-client introspect-schema https://gitlab.archlinux.org/api/graphql --authorization "$GITLAB_TOKEN" --output src/gitlab_schema.json
+
+lint:
+    cargo clippy
+
+lint-fix:
+    cargo clippy --fix --allow-staged
