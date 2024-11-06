@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use buildbtw::calculate_build_graph::calculate_packages_to_be_built;
+use buildbtw::build_set_graph::calculate_packages_to_be_built;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::sleep;
 use uuid::Uuid;

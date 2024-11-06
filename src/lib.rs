@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock};
 
-use calculate_build_graph::BuildSetGraph;
+use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub mod build_package;
-pub mod calculate_build_graph;
+pub mod build_set_graph;
 pub mod git;
 pub mod gitlab;
 
