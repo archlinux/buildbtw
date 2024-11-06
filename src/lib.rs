@@ -14,10 +14,11 @@ pub mod git;
 pub mod gitlab;
 
 // TODO use git2::Oid instead?
+/// A branch name, commit hash, etc.
 pub type GitRef = String;
 pub type Pkgbase = String;
 pub type Pkgname = String;
-// source repo, branch
+// source repo, branch/commit
 pub type GitRepoRef = (Pkgbase, GitRef);
 
 pub type Packager = String;

@@ -12,8 +12,8 @@ use tokio::task::spawn_blocking;
 
 use crate::git::{get_branch_commit_sha, package_source_path, read_srcinfo_from_repo};
 use crate::{
-    BuildNamespace, BuildPackageOutput, GitRef, PackageBuildDependency, PackageBuildStatus,
-    Pkgbase, Pkgname,
+    BuildNamespace, BuildPackageOutput, GitRef, GitRepoRef, PackageBuildDependency,
+    PackageBuildStatus, Pkgbase, Pkgname,
 };
 
 /// For tracking dependencies between individual packages.
@@ -38,9 +38,10 @@ pub struct BuildPackageNode {
 pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency>;
 
 pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Result<BuildSetGraph> {
-    let pkgname_to_srcinfo_map = build_pkgname_to_srcinfo_map()
-        .await
-        .context("Error mapping package names to srcinfo")?;
+    let pkgname_to_srcinfo_map =
+        build_pkgname_to_srcinfo_map(namespace.current_origin_changesets.clone())
+            .await
+            .context("Error mapping package names to srcinfo")?;
     let (global_graph, pkgname_to_node_index) =
         build_global_dependent_graph(&pkgname_to_srcinfo_map)
             .await
@@ -162,7 +163,9 @@ async fn calculate_packages_to_be_built_inner(
     Ok(packages_to_be_built)
 }
 
-pub async fn build_pkgname_to_srcinfo_map() -> Result<HashMap<Pkgbase, (Srcinfo, GitRef)>> {
+pub async fn build_pkgname_to_srcinfo_map(
+    origin_changesets: Vec<GitRepoRef>,
+) -> Result<HashMap<Pkgbase, (Srcinfo, GitRef)>> {
     spawn_blocking(move || {
         let mut pkgname_to_srcinfo_map: HashMap<Pkgbase, (Srcinfo, GitRef)> = HashMap::new();
 
@@ -170,7 +173,16 @@ pub async fn build_pkgname_to_srcinfo_map() -> Result<HashMap<Pkgbase, (Srcinfo,
         for dir in read_dir("./source_repos")? {
             let dir = dir?;
             let repo = Repository::open(dir.path())?;
-            match read_srcinfo_from_repo(&repo, "main").context(format!(
+            // If this package is in the origin changesets, use the git ref
+            // specified there instead of "main".
+            let origin_changeset_branch =
+                origin_changesets
+                    .iter()
+                    .find_map(|(origin_pkgbase, branch)| {
+                        (**origin_pkgbase == *dir.file_name()).then_some(branch)
+                    });
+            let branch = origin_changeset_branch.map_or("main", |v| v);
+            match read_srcinfo_from_repo(&repo, branch).context(format!(
                 "Failed to read .SRCINFO from repo at {:?}",
                 dir.path()
             )) {
