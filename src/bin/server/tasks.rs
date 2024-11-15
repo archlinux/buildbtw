@@ -1,5 +1,10 @@
+use std::time::Duration;
+
 use anyhow::{anyhow, Context, Result};
-use buildbtw::build_set_graph::calculate_packages_to_be_built;
+use buildbtw::{
+    build_set_graph::{calculate_packages_to_be_built, BuildSetGraph},
+    iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
+};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -19,50 +24,107 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::CreateBuildNamespace(namespace_id) => {
-                    let namespace = {
-                        let db = DATABASE.lock().await;
-                        db.get(&namespace_id)
-                            .unwrap_or_else(|| panic!("No build namespace for id: {namespace_id}"))
-                            .clone()
-                    };
-
-                    println!("Adding namespace: {namespace:#?}");
-                    println!(
-                        "Graph of newest iteration will be available at: http://localhost:{port}/namespace/{}/graph",
-                        namespace.id
-                    );
-                    if let Err(e) = create_new_build_set_iteration(&namespace).await {
-                        println!("{e:?}");
-                    };
-
-                    if let Err(error) = build_namespace(namespace).await {
-                        println!("{error:?}");
+                    match create_new_namespace(&namespace_id).await {
+                        Ok(_) => {
+                            println!( "Graph of newest iteration available at: http://localhost:{port}/namespace/{}/graph", namespace_id);
+                        }
+                        Err(e) => println!("{e:?}"),
                     }
                 }
             }
         }
     });
+    tokio::spawn(async move {
+        loop {
+            // Check all build namespaces and see if they need a new iteration.
+            let namespaces: Vec<_> = {
+                let db_lock = DATABASE.lock().await;
+                db_lock.values().cloned().collect()
+            };
+            for namespace in namespaces {
+                match create_new_namespace_iteration_if_needed(namespace).await {
+                    Ok(_) => {}
+                    Err(e) => println!("{e:?}"),
+                }
+            }
+
+            tokio::time::sleep(Duration::from_secs(10)).await
+        }
+    });
     sender
 }
 
-async fn create_new_build_set_iteration(namespace: &BuildNamespace) -> Result<()> {
-    let packages_to_be_built = calculate_packages_to_be_built(namespace).await?;
+async fn create_new_namespace(namespace_id: &Uuid) -> Result<()> {
+    let namespace = {
+        let db = DATABASE.lock().await;
+        db.get(namespace_id)
+            .unwrap_or_else(|| panic!("No build namespace for id: {namespace_id}"))
+            .clone()
+    };
 
+    println!("Adding namespace: {namespace:#?}");
+    create_new_namespace_iteration(
+        &namespace,
+        calculate_packages_to_be_built(&namespace).await?,
+    )
+    .await?;
+
+    tokio::spawn(build_namespace(namespace));
+
+    Ok(())
+}
+
+async fn create_new_namespace_iteration_if_needed(namespace: BuildNamespace) -> Result<()> {
+    let new_iteration = new_build_set_iteration_is_needed(&namespace).await?;
+
+    match new_iteration {
+        NewBuildIterationResult::NewIterationNeeded {
+            packages_to_build,
+            reason,
+        } => {
+            let namespace_name = namespace.name;
+            println!(
+                "Creating new build iteration for namespace {namespace_name}, reason: {reason:?}"
+            );
+
+            let new_iteration = BuildSetIteration {
+                id: Uuid::new_v4(),
+                origin_changesets: namespace.current_origin_changesets.clone(),
+                packages_to_be_built: packages_to_build,
+            };
+            store_new_namespace_iteration(&namespace.id, new_iteration).await?;
+        }
+        NewBuildIterationResult::NoNewIterationNeeded => {}
+    }
+
+    Ok(())
+}
+
+async fn create_new_namespace_iteration(
+    namespace: &BuildNamespace,
+    packages_to_be_built: BuildSetGraph,
+) -> Result<()> {
     let new_iteration = BuildSetIteration {
         id: Uuid::new_v4(),
         origin_changesets: namespace.current_origin_changesets.clone(),
         packages_to_be_built,
     };
-    {
-        let mut db = DATABASE.lock().await;
-        let namespace_db_entry = db
-            .get_mut(&namespace.id)
-            .ok_or_else(|| anyhow!("Failed to access namespace in DB"))?;
 
-        namespace_db_entry.iterations.push(new_iteration);
-    }
+    store_new_namespace_iteration(&namespace.id, new_iteration).await?;
 
-    println!("Build set graph calculated");
+    Ok(())
+}
+
+async fn store_new_namespace_iteration(
+    namespace_id: &Uuid,
+    new_iteration: BuildSetIteration,
+) -> Result<()> {
+    let mut db = DATABASE.lock().await;
+    let namespace_db_entry = db
+        .get_mut(namespace_id)
+        .ok_or_else(|| anyhow!("Failed to access namespace in DB"))?;
+
+    namespace_db_entry.iterations.push(new_iteration);
 
     Ok(())
 }

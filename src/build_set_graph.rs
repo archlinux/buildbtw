@@ -48,13 +48,17 @@ pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Resul
             .await
             .context("Failed to build global graph of dependents")?;
 
-    calculate_packages_to_be_built_inner(
+    let packages = calculate_packages_to_be_built_inner(
         namespace,
         &global_graph,
         &pkgname_to_srcinfo_map,
         &pkgname_to_node_index,
     )
-    .await
+    .await;
+
+    println!("Build set graph calculated");
+
+    packages
 }
 
 async fn calculate_packages_to_be_built_inner(

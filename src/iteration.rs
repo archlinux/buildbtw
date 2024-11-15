@@ -3,7 +3,9 @@ use crate::{
     BuildNamespace,
 };
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug)]
 pub enum NewIterationReason {
     FirstIteration,
     OriginChangesetsChanged,
