@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::LazyLock};
 use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
+use iteration::NewIterationReason;
 use serde::{Deserialize, Serialize};
 use srcinfo::Srcinfo;
 use tokio::sync::Mutex;
@@ -137,4 +138,5 @@ pub struct BuildSetIteration {
     pub id: Uuid,
     pub packages_to_be_built: BuildSetGraph,
     pub origin_changesets: Vec<GitRepoRef>,
+    pub create_reason: NewIterationReason,
 }

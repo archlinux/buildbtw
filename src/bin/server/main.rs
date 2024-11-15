@@ -112,6 +112,7 @@ async fn render_build_namespace(
     let rendered = template
         .render(context! {
             svg => svg_content,
+            namespace => namespace,
         })
         .unwrap();
 

@@ -5,7 +5,7 @@ use crate::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum NewIterationReason {
     FirstIteration,
     OriginChangesetsChanged,
