@@ -72,6 +72,7 @@ pub struct BuildNamespace {
     pub name: String,
     pub iterations: Vec<BuildSetIteration>,
     pub current_origin_changesets: Vec<GitRepoRef>,
+    pub created_at: time::OffsetDateTime,
     // gitlab group epic, state repo mr, ...
     // tracking_thing: String,
 }

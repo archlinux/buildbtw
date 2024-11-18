@@ -43,6 +43,7 @@ async fn generate_build_namespace(
         name: body.name,
         iterations: Vec::new(),
         current_origin_changesets: body.origin_changesets,
+        created_at: time::OffsetDateTime::now_utc(),
     };
     DATABASE
         .lock()
@@ -57,6 +58,31 @@ async fn generate_build_namespace(
         .unwrap();
 
     Json(namespace)
+}
+
+/// For debugging: Render the newest build namespace, regardless of its ID.
+#[debug_handler]
+async fn render_latest_namespace(
+    State(state): State<AppState>,
+) -> Result<Html<String>, StatusCode> {
+    let namespace = {
+        let db = DATABASE.lock().await;
+        db.values()
+            .reduce(|previous, ns| {
+                if ns.created_at > previous.created_at {
+                    ns
+                } else {
+                    previous
+                }
+            })
+            .ok_or_else(|| {
+                println!("No build namespace found");
+                StatusCode::NOT_FOUND
+            })?
+            .clone()
+    };
+
+    render_build_namespace(Path(namespace.id), State(state)).await
 }
 
 #[debug_handler]
@@ -284,6 +310,7 @@ async fn main() -> Result<()> {
                     "/namespace/:namespace_id/graph",
                     get(render_build_namespace),
                 )
+                .route("/namespace/latest", get(render_latest_namespace))
                 .route(
                     "/namespace/:namespace_id/iteration/:iteration/pkgbase/:pkgbase",
                     patch(set_build_status),

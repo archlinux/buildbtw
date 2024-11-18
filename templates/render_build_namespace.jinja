@@ -1,7 +1,7 @@
 {% extends "layout" %}
 {% block title %}{{ super() }} - build_namespace {% endblock %}
 {% block body %}
-    <h1>{{ namespace.name }}</h2>
+    <h1><a href="/namespace/{{namespace.id}}/graph">{{ namespace.name }}</a></h2>
     <h2>Current iteration</h2>
     {{ svg }}
     <h2>All iterations</h2>
