@@ -26,9 +26,8 @@ Information on prior art, technical background, feedback from user interviews an
 
 ## Development
 
-First, run `just warmup-server` which clones all package repositories locally.
-
-Then, get a personal access token for gitlab.archlinux.org with the `read_api` scope and put it into `.env`. Run `cargo install graphql_client_cli` and `just update-graphql-schema` to download the gitlab GraphQL API schema.
+- Install the `sqlx-cli` package.
+- Get a personal access token for gitlab.archlinux.org with the `read_api` scope and put it into `.env`. Run `cargo install graphql_client_cli` and `just update-graphql-schema` to download the gitlab GraphQL API schema.
 
 Now you need to run the server, a worker, and then dispatch work to the server using the client.
 

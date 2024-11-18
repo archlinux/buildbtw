@@ -3,3 +3,4 @@ source_repos
 build
 .env
 src/gitlab_schema.json
+*.sqlite*

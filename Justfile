@@ -1,9 +1,9 @@
 set dotenv-load := true
 
-run-server *args:
+run-server *args: create-db
     cargo run --bin server -- run {{ args }}
 
-watch-server *args:
+watch-server *args: create-db
     systemfd --no-pid -s http::8080 -- cargo watch -w src -w templates -w Cargo.toml -- just run-server {{ args }}
 
 run-client *args:
@@ -45,3 +45,10 @@ lint:
 
 lint-fix:
     cargo clippy --fix --allow-staged
+
+create-db:
+    sqlx db create
+    sqlx migrate run
+
+reset-db: && create-db
+    sqlx db drop

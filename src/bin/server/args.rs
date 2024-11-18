@@ -19,6 +19,9 @@ pub struct Args {
     #[command(subcommand)]
     pub command: Command,
 
+    #[arg(long, env, hide_env_values = true)]
+    pub database_url: redact::Secret<String>,
+
     #[arg(env, hide_env_values = true)]
     pub gitlab_token: Option<redact::Secret<String>>,
 }
@@ -42,5 +45,7 @@ pub enum Command {
         port: u16,
     },
     /// Warmup the Git repository cache
+    /// TODO: we can probably remove this? It's now handled automatically
+    /// in the background.
     Warmup {},
 }
