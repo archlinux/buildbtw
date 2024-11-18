@@ -28,7 +28,7 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
                         Ok(_) => {
                             println!( "Graph of newest iteration available at: http://localhost:{port}/namespace/{}/graph", namespace_id);
                         }
-                        Err(e) => println!("{e:?}"),
+                        Err(e) => println!("Error creating build namespace: {e:?}"),
                     }
                 }
             }
@@ -44,7 +44,7 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
             for namespace in namespaces {
                 match create_new_namespace_iteration_if_needed(namespace).await {
                     Ok(_) => {}
-                    Err(e) => println!("{e:?}"),
+                    Err(e) => println!("Error creating new iteration: {e:?}"),
                 }
             }
 

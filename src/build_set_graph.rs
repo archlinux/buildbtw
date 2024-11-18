@@ -169,6 +169,10 @@ async fn calculate_packages_to_be_built_inner(
         }
     }
 
+    if petgraph::algo::is_cyclic_directed(&packages_to_be_built) {
+        return Err(anyhow!("Build graph contains cycles"));
+    }
+
     Ok(packages_to_be_built)
 }
 
