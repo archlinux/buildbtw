@@ -1,9 +1,8 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use buildbtw::{
-    build_set_graph::{calculate_packages_to_be_built, BuildSetGraph},
-    iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult, NewIterationReason},
+use buildbtw::iteration::{
+    new_build_set_iteration_is_needed, NewBuildIterationResult,
 };
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::sleep;
@@ -92,23 +91,6 @@ async fn create_new_namespace_iteration_if_needed(namespace: BuildNamespace) -> 
         }
         NewBuildIterationResult::NoNewIterationNeeded => {}
     }
-
-    Ok(())
-}
-
-async fn create_new_namespace_iteration(
-    namespace: &BuildNamespace,
-    packages_to_be_built: BuildSetGraph,
-    create_reason: NewIterationReason,
-) -> Result<()> {
-    let new_iteration = BuildSetIteration {
-        id: Uuid::new_v4(),
-        origin_changesets: namespace.current_origin_changesets.clone(),
-        packages_to_be_built,
-        create_reason,
-    };
-
-    store_new_namespace_iteration(&namespace.id, new_iteration).await?;
 
     Ok(())
 }
