@@ -24,6 +24,7 @@ use buildbtw::{
 };
 
 mod args;
+mod db;
 mod routes;
 mod tasks;
 
@@ -186,6 +187,7 @@ async fn main() -> Result<()> {
                 )),
             )?;
             let worker_sender = tasks::start(port);
+            let db_pool = db::create_and_connect_db(&args.database_url).await?;
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route(
@@ -207,7 +209,7 @@ async fn main() -> Result<()> {
                     GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
                         .build_async()
                         .await?;
-                fetch_source_repo_changes_in_loop(gitlab_client.clone());
+                fetch_source_repo_changes_in_loop(gitlab_client, db_pool);
             }
 
             let mut listenfd = ListenFd::from_env();

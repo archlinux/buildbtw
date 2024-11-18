@@ -1,13 +1,20 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use buildbtw::iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult};
+use buildbtw::{
+    gitlab::fetch_all_source_repo_changes,
+    iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
+};
 use gitlab::AsyncGitlab;
+use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::sleep;
 use uuid::Uuid;
 
-use crate::schedule_next_build_in_graph;
+use crate::{
+    db::{get_gitlab_last_updated, set_gitlab_last_updated},
+    schedule_next_build_in_graph,
+};
 use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult, DATABASE};
 
 pub enum Message {
@@ -52,14 +59,23 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
     sender
 }
 
-pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab) {
+pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab, db_pool: SqlitePool) {
     tokio::spawn(async move {
-        let mut last_fetched = None;
+        // TODO maybe we should be stricter about errors here
+        let mut last_fetched = get_gitlab_last_updated(&db_pool).await.ok().flatten();
         loop {
-            match buildbtw::gitlab::fetch_all_source_repo_changes(&client, last_fetched).await {
-                Ok(new_last_fetched) => last_fetched = new_last_fetched,
+            match fetch_all_source_repo_changes(&client, last_fetched).await {
+                Ok(Some(new_last_fetched)) => {
+                    if let Err(e) = set_gitlab_last_updated(&db_pool, new_last_fetched).await {
+                        println!("Failed to set gitlab updated date: {e:?}");
+                    }
+                    last_fetched = Some(new_last_fetched);
+                }
+                // No updated packages found.
+                Ok(None) => {}
                 Err(e) => println!("{e:?}"),
             }
+
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
     });
