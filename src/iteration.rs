@@ -1,5 +1,5 @@
 use crate::{
-    build_set_graph::{build_set_graph_eq, calculate_packages_to_be_built, BuildSetGraph},
+    build_set_graph::{self, calculate_packages_to_be_built, diff, BuildSetGraph},
     BuildNamespace,
 };
 use anyhow::Result;
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum NewIterationReason {
     FirstIteration,
     OriginChangesetsChanged,
-    BuildSetGraphChanged,
+    BuildSetGraphChanged { diff: Box<build_set_graph::Diff> },
 }
 
 pub enum NewBuildIterationResult {
@@ -41,10 +41,13 @@ pub async fn new_build_set_iteration_is_needed(
         });
     }
 
-    if !build_set_graph_eq(&packages_to_build, &previous_iteration.packages_to_be_built) {
+    let diff = diff(&previous_iteration.packages_to_be_built, &packages_to_build);
+    if !diff.is_empty() {
         return Ok(NewBuildIterationResult::NewIterationNeeded {
             packages_to_build,
-            reason: NewIterationReason::BuildSetGraphChanged,
+            reason: NewIterationReason::BuildSetGraphChanged {
+                diff: Box::new(diff),
+            },
         });
     }
 

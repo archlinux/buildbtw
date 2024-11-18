@@ -36,6 +36,10 @@ pub struct BuildPackageNode {
     pub build_outputs: Vec<BuildPackageOutput>,
 }
 
+// TODO we probably want to replace this with a wrapper struct
+// or a custom implementation. We need to:
+// - Look up a package by pkgbase
+// - Diff two graphs
 pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency, Directed>;
 
 pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Result<BuildSetGraph> {
@@ -280,33 +284,93 @@ pub async fn build_global_dependent_graph(
     Ok((global_graph, pkgname_to_node_index_map))
 }
 
-/// Compare two build set graphs and determine if they are equal.
-/// Note: petgraph's `GraphMap` has this built-in, but requires node weights to
-/// be `Copy`.
-/// See: https://github.com/petgraph/petgraph/issues/199
-pub fn build_set_graph_eq(a: &BuildSetGraph, b: &BuildSetGraph) -> bool {
-    let a_ns = a
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiffNode {
+    pub pkgbase: String,
+    pub commit_hash: String,
+    pub srcinfo: Srcinfo,
+    /// Packages that this build will emit
+    pub build_outputs: Vec<BuildPackageOutput>,
+}
+
+impl From<BuildPackageNode> for DiffNode {
+    fn from(
+        BuildPackageNode {
+            pkgbase,
+            commit_hash,
+            srcinfo,
+            build_outputs,
+            ..
+        }: BuildPackageNode,
+    ) -> Self {
+        DiffNode {
+            pkgbase,
+            commit_hash,
+            srcinfo,
+            build_outputs,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiffEdge {
+    pub from_pkgbase: String,
+    pub to_pkgbase: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Diff {
+    nodes_added: HashSet<DiffNode>,
+    nodes_removed: HashSet<DiffNode>,
+    edges_added: HashSet<DiffEdge>,
+    edges_removed: HashSet<DiffEdge>,
+}
+
+impl Diff {
+    pub fn is_empty(&self) -> bool {
+        self.nodes_added.is_empty() && self.nodes_removed.is_empty()
+    }
+}
+
+/// Compare two build set graphs and return any differences.
+pub fn diff(old: &BuildSetGraph, new: &BuildSetGraph) -> Diff {
+    let old_nodes = old
         .raw_nodes()
         .iter()
-        .map(|n| &n.weight)
+        .map(|n| n.weight.clone().into())
         .collect::<HashSet<_>>();
-    let b_ns = b
+    let new_nodes = new
         .raw_nodes()
         .iter()
-        .map(|n| &n.weight)
+        .map(|n| n.weight.clone().into())
         .collect::<HashSet<_>>();
 
-    let a_es = a
+    let old_edges = old
         .raw_edges()
         .iter()
-        .map(|e| (e.source(), e.target(), &e.weight))
+        .map(|e| DiffEdge {
+            from_pkgbase: old[e.source()].pkgbase.clone(),
+            to_pkgbase: old[e.target()].pkgbase.clone(),
+        })
         .collect::<HashSet<_>>();
-    let b_es = b
+    let new_edges = new
         .raw_edges()
         .iter()
-        .map(|e| (e.source(), e.target(), &e.weight))
+        .map(|e| DiffEdge {
+            from_pkgbase: new[e.source()].pkgbase.clone(),
+            to_pkgbase: new[e.target()].pkgbase.clone(),
+        })
         .collect::<HashSet<_>>();
-    a_ns.eq(&b_ns) && a_es.eq(&b_es)
+    let nodes_added = new_nodes.difference(&old_nodes).cloned().collect();
+    let nodes_removed = old_nodes.difference(&new_nodes).cloned().collect();
+    let edges_added = new_edges.difference(&old_edges).cloned().collect();
+    let edges_removed = old_edges.difference(&new_edges).cloned().collect();
+    Diff {
+        nodes_added,
+        nodes_removed,
+        edges_added,
+        edges_removed,
+    }
 }
 
 // TODO strip_pkgname_version_constraint

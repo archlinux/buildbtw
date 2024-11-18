@@ -7,7 +7,9 @@
     <h2>All iterations</h2>
     <ul>
         {% for iteration in namespace.iterations %}
-            <li>{{ iteration.id }} ({{ iteration.create_reason }})</li>
+            <li>
+                {{ iteration.id }} ({{ iteration.create_reason }})
+            </li>
         {% endfor %}
     </ul>
 {% endblock %}
