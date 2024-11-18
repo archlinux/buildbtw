@@ -1,9 +1,8 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use buildbtw::iteration::{
-    new_build_set_iteration_is_needed, NewBuildIterationResult,
-};
+use buildbtw::iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult};
+use gitlab::AsyncGitlab;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -51,6 +50,19 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
         }
     });
     sender
+}
+
+pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab) {
+    tokio::spawn(async move {
+        let mut last_fetched = None;
+        loop {
+            match buildbtw::gitlab::fetch_all_source_repo_changes(&client, last_fetched).await {
+                Ok(new_last_fetched) => last_fetched = new_last_fetched,
+                Err(e) => println!("{e:?}"),
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+        }
+    });
 }
 
 async fn create_new_namespace(namespace_id: &Uuid) -> Result<()> {

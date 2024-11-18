@@ -1,5 +1,6 @@
 use std::net::{SocketAddr, TcpListener};
 
+use ::gitlab::GitlabBuilder;
 use anyhow::Result;
 use axum::extract::Path;
 use axum::{
@@ -7,13 +8,12 @@ use axum::{
     routing::{get, patch, post},
     Json, Router,
 };
-use buildbtw::gitlab::fetch_source_repo_changes_in_loop;
 use clap::Parser;
-use gitlab::GitlabBuilder;
 use listenfd::ListenFd;
 use petgraph::visit::EdgeRef;
 use petgraph::visit::{Bfs, Walker};
 use routes::{generate_build_namespace, render_build_namespace, render_latest_namespace};
+use tasks::fetch_source_repo_changes_in_loop;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 

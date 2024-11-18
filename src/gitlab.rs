@@ -7,20 +7,7 @@ use time::OffsetDateTime;
 
 use crate::git::clone_or_fetch_repositories;
 
-pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab) {
-    tokio::spawn(async move {
-        let mut last_fetched = None;
-        loop {
-            match fetch_all_source_repo_changes(&client, last_fetched).await {
-                Ok(new_last_fetched) => last_fetched = new_last_fetched,
-                Err(e) => println!("{e:?}"),
-            }
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-        }
-    });
-}
-
-async fn fetch_all_source_repo_changes(
+pub async fn fetch_all_source_repo_changes(
     client: &AsyncGitlab,
     mut last_fetched: Option<OffsetDateTime>,
 ) -> Result<Option<OffsetDateTime>> {

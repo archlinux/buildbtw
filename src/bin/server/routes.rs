@@ -1,12 +1,7 @@
-
 use anyhow::{Context, Result};
 use axum::extract::Path;
 use axum::response::Html;
-use axum::{
-    debug_handler,
-    extract::State,
-    Json,
-};
+use axum::{debug_handler, extract::State, Json};
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use minijinja::context;
@@ -16,9 +11,7 @@ use reqwest::StatusCode;
 use uuid::Uuid;
 
 use crate::{tasks, AppState};
-use buildbtw::{
-    BuildNamespace, CreateBuildNamespace, DATABASE,
-};
+use buildbtw::{BuildNamespace, CreateBuildNamespace, DATABASE};
 
 #[debug_handler]
 pub(crate) async fn generate_build_namespace(
