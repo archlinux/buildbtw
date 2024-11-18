@@ -45,6 +45,7 @@ lint:
 
 lint-fix:
     cargo clippy --fix --allow-staged
+    cargo fmt
 
 create-db:
     sqlx db create
