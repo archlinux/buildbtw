@@ -63,12 +63,6 @@ async fn create_new_namespace(namespace_id: &Uuid) -> Result<()> {
     };
 
     println!("Adding namespace: {namespace:#?}");
-    create_new_namespace_iteration(
-        &namespace,
-        calculate_packages_to_be_built(&namespace).await?,
-        NewIterationReason::FirstIteration,
-    )
-    .await?;
 
     tokio::spawn(build_namespace(namespace));
 
