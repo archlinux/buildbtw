@@ -129,7 +129,7 @@ How it works
 <!-- pause -->
 - Iteration
 <!-- pause -->
-- BuildSet
+- Build set
 <!-- pause -->
 
 <!-- column: 1 -->
