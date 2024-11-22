@@ -12,15 +12,18 @@ theme:
 Agenda
 ---
 
+<!-- pause -->
 - Introduction
+<!-- pause -->
 - The past
 - The present
 - The future
+<!-- pause -->
 - How it works
-- The vision
-- How we'll get there
-- Stay up-to-date
+<!-- pause -->
 - Conclusion
+<!-- pause -->
+- Q&A
 
 
 <!-- end_slide -->
@@ -59,7 +62,7 @@ The past
 <!-- pause -->
 - async building, GitOps
 <!-- pause -->
-- automating rebuilds: hard but possible
+- automating rebuilds
 <!-- pause -->
 - isolated staging repos
 
@@ -71,6 +74,10 @@ The past
 # Prior art
 <!-- pause -->
 - Evaluated buildbot, koji, alpine CI, OBS 
+<!-- pause -->
+- Would need to fork
+<!-- pause -->
+- Integration seems brittle
 <!-- pause -->
 - Decided to build custom solution instead
 
@@ -130,7 +137,6 @@ How it works
 - Iteration
 <!-- pause -->
 - Build set
-<!-- pause -->
 
 <!-- column: 1 -->
 
@@ -145,18 +151,9 @@ How it works
 
 <!-- reset_layout -->
 
-<!-- pause -->
-# Release queue
-<!-- pause -->
-- Ensure release order
-<!-- pause -->
-- Sequential promotion
-<!-- pause -->
-- Avoid overlaps
-
 <!-- end_slide -->
 
-![](buildbtw-release-queue-2022-04-01-1320.png)
+![image:width:100%](buildbtw-release-queue-2022-04-01-1320.png)
 
 <!-- end_slide -->
 
