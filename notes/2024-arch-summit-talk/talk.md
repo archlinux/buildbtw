@@ -1,11 +1,11 @@
 ---
-title: Arch Summit 2024 buildbtw talk
+title: 'Arch Summit 2024: buildbtw'
 author: Rafael Epplee, Levente Polyak, Sven-Hendrik Haase
 theme:
   override:
     footer:
       style: template
-      center: "Arch Summit 2024 buildbtw talk"
+      center: "Arch Summit 2024: buildbtw"
       right: "{current_slide} / {total_slides}"
 ---
 
@@ -73,13 +73,13 @@ The past
 
 # Prior art
 <!-- pause -->
-- Evaluated buildbot, koji, alpine CI, OBS 
+- Evaluated buildbot, koji, alpine CI, OBS, ...
 <!-- pause -->
-- Would need to fork
+- Would need major modifications
 <!-- pause -->
 - Integration seems brittle
 <!-- pause -->
-- Decided to build custom solution instead
+- -> build a custom solution instead
 
 <!-- end_slide -->
 
@@ -153,7 +153,19 @@ How it works
 
 <!-- end_slide -->
 
-![image:width:100%](buildbtw-release-queue-2022-04-01-1320.png)
+![image:width:75%](release-queue-1.png)
+
+<!-- end_slide -->
+
+![image:width:75%](release-queue-2.png)
+
+<!-- end_slide -->
+
+![image:width:75%](release-queue-3.png)
+
+<!-- end_slide -->
+
+![image:width:75%](release-queue-4.png)
 
 <!-- end_slide -->
 
@@ -168,7 +180,7 @@ git commit -am "Bump to v2.5.17.0"
 git push
 ```
 <!-- end_slide -->
-![image:width:100%](buildgraph.png)
+![image:width:55%](buildgraph.png)
 <!-- end_slide -->
 
 Complex usage example
