@@ -233,4 +233,7 @@ Q&A
 Thank you
 ---
 
-- Let's make Arch automagic together!
+<!-- column_layout: [1, 4, 1] -->
+<!-- column: 1 -->
+<!-- jump_to_middle -->
+Let's make Arch automagic together!
