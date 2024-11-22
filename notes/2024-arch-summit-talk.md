@@ -130,8 +130,20 @@ How it works
 - Iteration
 <!-- pause -->
 - BuildSet
+<!-- pause -->
 
 <!-- column: 1 -->
+
+<!-- pause -->
+# Components
+<!-- pause -->
+- API with web view
+<!-- pause -->
+- Build dispatcher
+<!-- pause -->
+- Repo manager
+
+<!-- reset_layout -->
 
 <!-- pause -->
 # Release queue
