@@ -79,12 +79,18 @@ The past
 The present
 ---
 
+<!-- pause -->
 # Building a proof-of-concept
 
+<!-- pause -->
 - Local building
+<!-- pause -->
 - Check reverse dependencies
+<!-- pause -->
 - Rerun on changes
+<!-- pause -->
 - GitLab runner integration
+<!-- pause -->
 - Release queue
 
 <!-- end_slide -->
@@ -92,14 +98,21 @@ The present
 The future
 ---
 
+<!-- pause -->
 # The MVP for production
 
+<!-- pause -->
 - RFC
+<!-- pause -->
 - async build offloading
+<!-- pause -->
 - local signing & releasing
 
+<!-- pause -->
 ## Iterating
+<!-- pause -->
 - Deploy MVP ASAP
+<!-- pause -->
 - Keep making improvements
 
 <!-- end_slide -->
@@ -109,14 +122,29 @@ How it works
 
 <!-- column_layout: [2, 3]-->
 <!-- column: 0 -->
+<!-- pause -->
 # Terminology
+<!-- pause -->
 - Namespace
+<!-- pause -->
 - Iteration
+<!-- pause -->
 - BuildSet
 
 <!-- column: 1 -->
+
+<!-- pause -->
 # Release queue
+<!-- pause -->
 - Ensure release order
+<!-- pause -->
+- Sequential promotion
+<!-- pause -->
+- Avoid overlaps
+
+<!-- end_slide -->
+
+![](buildbtw-release-queue-2022-04-01-1320.png)
 
 <!-- end_slide -->
 
@@ -180,6 +208,13 @@ Conclusion
 - Better workflows
 <!-- pause -->
 - More confidence
+
+<!-- end_slide -->
+
+Q&A
+---
+- Keep it **about the presentation**
+- Workshop for detailed feedback after
 
 <!-- end_slide -->
 
