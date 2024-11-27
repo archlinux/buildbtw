@@ -12,7 +12,7 @@ use tokio::time::sleep;
 use uuid::Uuid;
 
 use crate::{
-    db::{get_gitlab_last_updated, set_gitlab_last_updated},
+    db::global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
     schedule_next_build_in_graph,
 };
 use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult, DATABASE};
