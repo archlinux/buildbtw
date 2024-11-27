@@ -32,8 +32,14 @@ redact = "0.1.10"
 regex = "1.10.6"
 reqwest = { version = "0.12.7", features = ["json"] }
 serde = { version = "1.0.209", features = ["serde_derive"] }
-serde_json = "1.0.127"
-sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
+serde_json = { version = "1.0.127", features = ["raw_value"] }
+sqlx = { version = "0.8.2", features = [
+    "sqlite",
+    "runtime-tokio",
+    "uuid",
+    "json",
+    "time",
+] }
 srcinfo = { version = "1.1.0", features = ["serde"] }
 time = { version = "0.3.36", features = ["formatting", "parsing", "serde"] }
 tokio = { version = "1.39.3", features = ["fs", "rt-multi-thread", "process"] }

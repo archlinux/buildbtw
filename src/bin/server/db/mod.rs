@@ -8,6 +8,7 @@ use sqlx::{
 };
 
 pub(crate) mod global_state;
+pub(crate) mod namespace;
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 

@@ -57,6 +57,7 @@ pub(crate) async fn get_gitlab_last_updated(
     .await?
     .gitlab_last_updated;
 
+    // TODO sqlx should be able to parse this automatically for us
     let date = if let Some(date_string) = date_string {
         time::OffsetDateTime::parse(&date_string, &Iso8601::DATE_TIME_OFFSET)?
     } else {
