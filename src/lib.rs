@@ -27,7 +27,7 @@ pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
 // TODO This simulates a database. Add a proper database at some point.
-pub static DATABASE: LazyLock<Mutex<HashMap<Uuid, BuildNamespace>>> =
+pub static STATE: LazyLock<Mutex<HashMap<Uuid, Vec<BuildSetIteration>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub const BUILD_DIR: &str = "./build";

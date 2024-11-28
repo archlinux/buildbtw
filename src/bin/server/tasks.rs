@@ -12,24 +12,28 @@ use tokio::time::sleep;
 use uuid::Uuid;
 
 use crate::{
-    db::global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
+    db::{
+        self,
+        global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
+    },
     schedule_next_build_in_graph,
 };
-use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult, DATABASE};
+use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult, STATE};
 
 pub enum Message {
-    CreateBuildNamespace(Uuid),
+    BuildNamespaceCreated(Uuid),
 }
 
-pub fn start(port: u16) -> UnboundedSender<Message> {
+pub fn start(port: u16, pool: SqlitePool) -> UnboundedSender<Message> {
     println!("Starting server tasks");
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
+    let msg_pool = pool.clone();
     tokio::spawn(async move {
         while let Some(msg) = receiver.recv().await {
             match msg {
-                Message::CreateBuildNamespace(namespace_id) => {
-                    match create_new_namespace(&namespace_id).await {
+                Message::BuildNamespaceCreated(namespace_id) => {
+                    match build_new_namespace(namespace_id, &msg_pool).await {
                         Ok(_) => {
                             println!( "Graph of newest iteration available at: http://localhost:{port}/namespace/{}/graph", namespace_id);
                         }
@@ -39,24 +43,28 @@ pub fn start(port: u16) -> UnboundedSender<Message> {
             }
         }
     });
+
+    let periodic_check_pool = pool;
     tokio::spawn(async move {
         loop {
-            // Check all build namespaces and see if they need a new iteration.
-            let namespaces: Vec<_> = {
-                let db_lock = DATABASE.lock().await;
-                db_lock.values().cloned().collect()
+            match maybe_create_new_iterations_for_all_namespaces(&periodic_check_pool).await {
+                Ok(_) => {}
+                Err(e) => println!("Error creating new iteration: {e:?}"),
             };
-            for namespace in namespaces {
-                match create_new_namespace_iteration_if_needed(namespace).await {
-                    Ok(_) => {}
-                    Err(e) => println!("Error creating new iteration: {e:?}"),
-                }
-            }
-
             tokio::time::sleep(Duration::from_secs(10)).await
         }
     });
     sender
+}
+
+async fn maybe_create_new_iterations_for_all_namespaces(pool: &SqlitePool) -> Result<()> {
+    // Check all build namespaces and see if they need a new iteration.
+    let namespaces = db::namespace::list(pool).await?;
+    for namespace in namespaces {
+        create_new_namespace_iteration_if_needed(namespace).await?;
+    }
+
+    Ok(())
 }
 
 pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab, db_pool: SqlitePool) {
@@ -81,13 +89,8 @@ pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab, db_pool: SqlitePoo
     });
 }
 
-async fn create_new_namespace(namespace_id: &Uuid) -> Result<()> {
-    let namespace = {
-        let db = DATABASE.lock().await;
-        db.get(namespace_id)
-            .unwrap_or_else(|| panic!("No build namespace for id: {namespace_id}"))
-            .clone()
-    };
+async fn build_new_namespace(id: Uuid, pool: &SqlitePool) -> Result<()> {
+    let namespace = db::namespace::read(id, pool).await?;
 
     println!("Adding namespace: {namespace:#?}");
 
@@ -127,12 +130,12 @@ async fn store_new_namespace_iteration(
     namespace_id: &Uuid,
     new_iteration: BuildSetIteration,
 ) -> Result<()> {
-    let mut db = DATABASE.lock().await;
-    let namespace_db_entry = db
+    let mut db = STATE.lock().await;
+    let iterations = db
         .get_mut(namespace_id)
         .ok_or_else(|| anyhow!("Failed to access namespace in DB"))?;
 
-    namespace_db_entry.iterations.push(new_iteration);
+    iterations.push(new_iteration);
 
     Ok(())
 }

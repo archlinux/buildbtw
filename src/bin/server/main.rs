@@ -13,6 +13,7 @@ use listenfd::ListenFd;
 use petgraph::visit::EdgeRef;
 use petgraph::visit::{Bfs, Walker};
 use routes::{generate_build_namespace, render_build_namespace, render_latest_namespace};
+use sqlx::SqlitePool;
 use tasks::fetch_source_repo_changes_in_loop;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
@@ -20,7 +21,7 @@ use uuid::Uuid;
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
 use buildbtw::{
-    Pkgbase, ScheduleBuild, ScheduleBuildResult, SetBuildStatus, SetBuildStatusResult, DATABASE,
+    Pkgbase, ScheduleBuild, ScheduleBuildResult, SetBuildStatus, SetBuildStatusResult, STATE,
 };
 
 mod args;
@@ -32,9 +33,9 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
     // assign default fallback status, if only built nodes are visited, the graph is finished
     let mut fallback_status = ScheduleBuildResult::Finished;
 
-    if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
+    if let Some(iterations) = STATE.lock().await.get_mut(&namespace_id) {
         // TODO: may not be computed yet
-        let iteration = namespace.iterations.iter_mut().last().unwrap();
+        let iteration = iterations.iter_mut().last().unwrap();
         let graph = &mut iteration.packages_to_be_built;
 
         // Identify root nodes (nodes with no incoming edges)
@@ -108,11 +109,8 @@ async fn set_build_status(
         namespace_id, iteration_id, pkgbase, body.status
     );
 
-    if let Some(namespace) = DATABASE.lock().await.get_mut(&namespace_id) {
-        let iteration = namespace
-            .iterations
-            .iter_mut()
-            .find(|i| i.id == iteration_id);
+    if let Some(iterations) = STATE.lock().await.get_mut(&namespace_id) {
+        let iteration = iterations.iter_mut().find(|i| i.id == iteration_id);
         match iteration {
             None => {
                 return Json(SetBuildStatusResult::IterationNotFound);
@@ -162,6 +160,7 @@ async fn set_build_status(
 struct AppState {
     worker_sender: UnboundedSender<tasks::Message>,
     jinja_env: minijinja::Environment<'static>,
+    db_pool: SqlitePool,
 }
 
 #[tokio::main]
@@ -186,8 +185,17 @@ async fn main() -> Result<()> {
                     "/templates/render_build_namespace.jinja"
                 )),
             )?;
-            let worker_sender = tasks::start(port);
-            let db_pool = db::create_and_connect_db(&args.database_url).await?;
+            let db_pool: sqlx::Pool<sqlx::Sqlite> =
+                db::create_and_connect_db(&args.database_url).await?;
+
+            // Make sure all namespaces have an empty iteration vector in the memory state
+            let mut db = STATE.lock().await;
+            let namespaces = db::namespace::list(&db_pool).await?;
+            for namespace in namespaces {
+                db.entry(namespace.id).or_insert(Vec::new());
+            }
+
+            let worker_sender = tasks::start(port, db_pool.clone());
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route(
@@ -202,6 +210,7 @@ async fn main() -> Result<()> {
                 .with_state(AppState {
                     worker_sender,
                     jinja_env,
+                    db_pool: db_pool.clone(),
                 });
 
             if let Some(token) = args.gitlab_token {

@@ -10,34 +10,34 @@ use petgraph::visit::NodeRef;
 use reqwest::StatusCode;
 use uuid::Uuid;
 
-use crate::{tasks, AppState};
-use buildbtw::{BuildNamespace, CreateBuildNamespace, DATABASE};
+use crate::{db, tasks, AppState};
+use buildbtw::{BuildNamespace, CreateBuildNamespace, STATE};
 
 #[debug_handler]
 pub(crate) async fn generate_build_namespace(
     State(state): State<AppState>,
     Json(body): Json<CreateBuildNamespace>,
-) -> Json<BuildNamespace> {
-    let namespace = BuildNamespace {
-        id: Uuid::new_v4(),
+) -> Result<Json<BuildNamespace>, StatusCode> {
+    let create = CreateBuildNamespace {
         name: body.name,
-        iterations: Vec::new(),
-        current_origin_changesets: body.origin_changesets,
-        created_at: time::OffsetDateTime::now_utc(),
+        origin_changesets: body.origin_changesets,
     };
-    DATABASE
-        .lock()
+    let namespace = db::namespace::create(create, &state.db_pool)
         .await
-        .insert(namespace.id, namespace.clone());
+        .map_err(|e| {
+            println!("{e:?}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    STATE.lock().await.insert(namespace.id, Vec::new());
 
     // TODO proper error handling
     state
         .worker_sender
-        .send(tasks::Message::CreateBuildNamespace(namespace.id))
+        .send(tasks::Message::BuildNamespaceCreated(namespace.id))
         .context("Failed to dispatch worker job")
         .unwrap();
 
-    Json(namespace)
+    Ok(Json(namespace))
 }
 
 /// For debugging: Render the newest build namespace, regardless of its ID.
@@ -45,22 +45,12 @@ pub(crate) async fn generate_build_namespace(
 pub(crate) async fn render_latest_namespace(
     State(state): State<AppState>,
 ) -> Result<Html<String>, StatusCode> {
-    let namespace = {
-        let db = DATABASE.lock().await;
-        db.values()
-            .reduce(|previous, ns| {
-                if ns.created_at > previous.created_at {
-                    ns
-                } else {
-                    previous
-                }
-            })
-            .ok_or_else(|| {
-                println!("No build namespace found");
-                StatusCode::NOT_FOUND
-            })?
-            .clone()
-    };
+    let namespace = db::namespace::read_latest(&state.db_pool)
+        .await
+        .map_err(|e| {
+            println!("{e:?}");
+            StatusCode::NOT_FOUND
+        })?;
 
     render_build_namespace(Path(namespace.id), State(state)).await
 }
@@ -70,18 +60,17 @@ pub(crate) async fn render_build_namespace(
     Path(namespace_id): Path<Uuid>,
     State(state): State<AppState>,
 ) -> Result<Html<String>, StatusCode> {
-    let namespace = {
-        let db = DATABASE.lock().await;
+    let iterations = {
+        let db = STATE.lock().await;
         db.get(&namespace_id)
             .ok_or_else(|| {
-                println!("No build namespace for id: {namespace_id}");
+                println!("No iterations for namespace id: {namespace_id}");
                 StatusCode::NOT_FOUND
             })?
             .clone()
     };
 
-    let latest_packages_to_be_built = &namespace
-        .iterations
+    let latest_packages_to_be_built = &iterations
         .last()
         .ok_or(StatusCode::PROCESSING)?
         .packages_to_be_built;
@@ -118,7 +107,7 @@ pub(crate) async fn render_build_namespace(
     let rendered = template
         .render(context! {
             svg => svg_content,
-            namespace => namespace,
+            namespace => iterations,
         })
         .unwrap();
 
