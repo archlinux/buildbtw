@@ -16,9 +16,9 @@ The proof of concept will contain some code. This is only to gain a better under
 
 We're using the issue tracker for requirements and user stories. We're planning to use labels to allow filtering the issues:
 
-- by priority: "must", "should", "could"
+- by need: "must", "should", "could", "won't"
 - by effort: XL, L, M, S
-- by type: feature, bug, docs, refactor, ...
+- by scope: feature, bug, docs, refactor, ...
 
 We'll group issues using epics.
 
