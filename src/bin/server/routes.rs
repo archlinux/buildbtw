@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use axum::extract::Path;
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
+use futures_time::future::FutureExt;
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use minijinja::context;
@@ -61,7 +62,14 @@ pub(crate) async fn render_build_namespace(
     State(state): State<AppState>,
 ) -> Result<Html<String>, StatusCode> {
     let iterations = {
-        let db = STATE.lock().await;
+        let db = STATE
+            .lock()
+            .timeout(futures_time::time::Duration::from_secs(2))
+            .await
+            .map_err(|_| {
+                println!("Failed to acquire global state lock");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
         db.get(&namespace_id)
             .ok_or_else(|| {
                 println!("No iterations for namespace id: {namespace_id}");
