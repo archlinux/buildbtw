@@ -40,8 +40,8 @@ impl From<Time> for OffsetDateTime {
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    query_path = "src/gitlab_changed_projects.graphql",
-    schema_path = "src/gitlab_schema.json",
+    query_path = "src/gitlab/gitlab_changed_projects.graphql",
+    schema_path = "src/gitlab/gitlab_schema.json",
     variables_derives = "Debug",
     response_derives = "Debug"
 )]
