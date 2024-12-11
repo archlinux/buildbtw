@@ -7,32 +7,32 @@ edition = "2021"
 fake-pkgbuild = []
 
 [dependencies]
-anyhow = { version = "1.0.86", features = ["backtrace"] }
-axum = { version = "0.7.5", features = ["http2", "macros"] }
+anyhow = { version = "1.0.94", features = ["backtrace"] }
+axum = { version = "0.7.9", features = ["http2", "macros"] }
 axum-server = "0.7.1"
 camino = { version = "1.1.9", features = ["serde", "serde1"] }
-clap = { version = "4.5.16", features = [
+clap = { version = "4.5.23", features = [
     "cargo",
     "derive",
     "env",
     "wrap_help",
 ] }
 git2 = "0.19.0"
-gitlab = "0.1705.0"
+gitlab = "0.1706.0"
 graphql_client = "0.14.0"
 layout-rs = { version = "0.1.2", features = ["log"] }
 listenfd = "1.0.1"
-minijinja = "2.2.0"
+minijinja = "2.5.0"
 petgraph = { version = "0.6.5", features = [
     "serde",
     "serde-1",
     "serde_derive",
 ] }
 redact = "0.1.10"
-regex = "1.10.6"
-reqwest = { version = "0.12.7", features = ["json"] }
-serde = { version = "1.0.209", features = ["serde_derive"] }
-serde_json = { version = "1.0.127", features = ["raw_value"] }
+regex = "1.11.1"
+reqwest = { version = "0.12.9", features = ["json"] }
+serde = { version = "1.0.216", features = ["serde_derive"] }
+serde_json = { version = "1.0.133", features = ["raw_value"] }
 sqlx = { version = "0.8.2", features = [
     "sqlite",
     "runtime-tokio",
@@ -40,10 +40,10 @@ sqlx = { version = "0.8.2", features = [
     "json",
     "time",
 ] }
-srcinfo = { version = "1.1.0", features = ["serde"] }
-time = { version = "0.3.36", features = ["formatting", "parsing", "serde"] }
-tokio = { version = "1.39.3", features = ["fs", "rt-multi-thread", "process"] }
-uuid = { version = "1.10.0", features = ["serde", "v4"] }
+srcinfo = { version = "1.2.0", features = ["serde"] }
+time = { version = "0.3.37", features = ["formatting", "parsing", "serde"] }
+tokio = { version = "1.42.0", features = ["fs", "rt-multi-thread", "process"] }
+uuid = { version = "1.11.0", features = ["serde", "v4"] }
 
 [patch.crates-io]
 
