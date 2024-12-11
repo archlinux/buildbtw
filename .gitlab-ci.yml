@@ -15,7 +15,7 @@ format:
 clippy:
   stage: lint
   script:
-    - cargo clippy --all -- -D warnings
+    - cargo clippy --workspace --all-targets -- -D warnings
 
 audit:
   stage: lint
@@ -25,4 +25,4 @@ audit:
 test:
   stage: test
   script:
-    - cargo test --all --release
+    - cargo test --workspace --release

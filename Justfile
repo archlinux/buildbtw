@@ -40,12 +40,12 @@ watch-test *args:
 update-graphql-schema:
     graphql-client introspect-schema https://gitlab.archlinux.org/api/graphql --authorization "$GITLAB_TOKEN" --output src/gitlab_schema.json
 
-lint:
-    cargo clippy
+lint *args:
+    cargo clippy --workspace --all-targets {{args}} -- -D warnings
 
 lint-fix:
-    cargo clippy --fix --allow-staged
-    cargo fmt
+    just lint --fix --allow-staged
+    cargo fmt --all
 
 create-db:
     sqlx db create
