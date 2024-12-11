@@ -1,0 +1,6 @@
+[advisories]
+# RUSTSEC-2023-0071: At the time of writing, no fix is available
+# We can ignore it since it's only used by sqlx (at the moment), and sqlx's
+# connection to sqlite is file-based and local to the server
+# see https://rustsec.org/advisories/RUSTSEC-2023-0071 for more
+ignore = ["RUSTSEC-2023-0071"]
