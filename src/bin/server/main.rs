@@ -194,6 +194,7 @@ async fn main() -> Result<()> {
             for namespace in namespaces {
                 db.entry(namespace.id).or_insert(Vec::new());
             }
+            drop(db);
 
             let worker_sender = tasks::start(port, db_pool.clone());
             let app = Router::new()
