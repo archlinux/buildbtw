@@ -1,7 +1,12 @@
 image: "archlinux:latest"
 
 before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf
+  - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf sqlx-cli
+  - sqlx db create
+  - sqlx migrate run
+
+variables:
+  DATABASE_URL: "sqlite:buildbtw_server.sqlite"
 
 stages:
   - lint
