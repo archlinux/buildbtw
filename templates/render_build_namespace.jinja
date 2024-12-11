@@ -6,7 +6,7 @@
     {{ svg }}
     <h2>All iterations</h2>
     <ul>
-        {% for iteration in namespace.iterations %}
+        {% for iteration in iterations %}
             <li>
                 {{ iteration.id }} ({{ iteration.create_reason }})
             </li>

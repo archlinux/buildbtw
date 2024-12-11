@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use buildbtw::{
     gitlab::fetch_all_source_repo_changes,
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
@@ -18,7 +18,7 @@ use crate::{
     },
     schedule_next_build_in_graph,
 };
-use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult, STATE};
+use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
 
 pub enum Message {
     BuildNamespaceCreated(Uuid),
@@ -61,7 +61,7 @@ async fn maybe_create_new_iterations_for_all_namespaces(pool: &SqlitePool) -> Re
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list(pool).await?;
     for namespace in namespaces {
-        create_new_namespace_iteration_if_needed(namespace).await?;
+        create_new_namespace_iteration_if_needed(pool, namespace).await?;
     }
 
     Ok(())
@@ -94,13 +94,24 @@ async fn build_new_namespace(id: Uuid, pool: &SqlitePool) -> Result<()> {
 
     println!("Adding namespace: {namespace:#?}");
 
-    tokio::spawn(build_namespace(namespace));
+    let future_pool = pool.clone();
+    let future = || async {
+        let result = build_namespace(future_pool, namespace).await;
+        if let Err(e) = result {
+            println!("{e:?}");
+        }
+    };
+    tokio::spawn(future());
 
     Ok(())
 }
 
-async fn create_new_namespace_iteration_if_needed(namespace: BuildNamespace) -> Result<()> {
-    let new_iteration = new_build_set_iteration_is_needed(&namespace).await?;
+async fn create_new_namespace_iteration_if_needed(
+    pool: &SqlitePool,
+    namespace: BuildNamespace,
+) -> Result<()> {
+    let previous_iterations = db::iteration::list(pool, namespace.id).await?;
+    let new_iteration = new_build_set_iteration_is_needed(&namespace, &previous_iterations).await?;
 
     match new_iteration {
         NewBuildIterationResult::NewIterationNeeded {
@@ -118,7 +129,8 @@ async fn create_new_namespace_iteration_if_needed(namespace: BuildNamespace) -> 
                 packages_to_be_built: packages_to_build,
                 create_reason: reason,
             };
-            store_new_namespace_iteration(&namespace.id, new_iteration).await?;
+
+            db::iteration::create(pool, namespace.id, new_iteration).await?;
         }
         NewBuildIterationResult::NoNewIterationNeeded => {}
     }
@@ -126,25 +138,13 @@ async fn create_new_namespace_iteration_if_needed(namespace: BuildNamespace) -> 
     Ok(())
 }
 
-async fn store_new_namespace_iteration(
-    namespace_id: &Uuid,
-    new_iteration: BuildSetIteration,
-) -> Result<()> {
-    let mut db = STATE.lock().await;
-    let iterations = db
-        .get_mut(namespace_id)
-        .ok_or_else(|| anyhow!("Failed to access namespace in DB"))?;
-
-    iterations.push(new_iteration);
-
-    Ok(())
-}
-
-async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
+// TODO this needs to be dispatched in a background loop as well
+async fn build_namespace(pool: SqlitePool, namespace: BuildNamespace) -> Result<()> {
     // while namespace is not fully built or blocked
     loop {
         // -> schedule build
-        let build = schedule_next_build_in_graph(namespace.id).await;
+        let iteration = db::iteration::read_newest(&pool, namespace.id).await?;
+        let build = schedule_next_build_in_graph(&iteration, namespace.id).await;
         match build {
             // TODO: distinguish between no pending packages and failed graph
             ScheduleBuildResult::NoPendingPackages => {
@@ -152,8 +152,16 @@ async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
                 sleep(std::time::Duration::from_secs(5)).await;
             }
             ScheduleBuildResult::Scheduled(response) => {
+                schedule_build(&response).await?;
+                db::iteration::update(
+                    &pool,
+                    db::iteration::BuildSetIterationUpdate {
+                        id: iteration.id,
+                        packages_to_be_built: response.updated_build_set_graph.clone(),
+                    },
+                )
+                .await?;
                 println!("Scheduled build: {:?}", response.source);
-                schedule_build(response).await?;
             }
             ScheduleBuildResult::Finished => {
                 println!("Graph finished");
@@ -165,7 +173,7 @@ async fn build_namespace(namespace: BuildNamespace) -> Result<()> {
     Ok(())
 }
 
-async fn schedule_build(build: ScheduleBuild) -> Result<()> {
+async fn schedule_build(build: &ScheduleBuild) -> Result<()> {
     println!(
         "Building pending package for namespace: {:?}",
         build.srcinfo.base.pkgbase
@@ -173,7 +181,7 @@ async fn schedule_build(build: ScheduleBuild) -> Result<()> {
 
     let _response = reqwest::Client::new()
         .post("http://0.0.0.0:8090/build/schedule".to_string())
-        .json(&build)
+        .json(build)
         .send()
         .await
         .context("Failed to send to server")?;

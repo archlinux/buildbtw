@@ -1,6 +1,6 @@
 use crate::{
     build_set_graph::{self, calculate_packages_to_be_built, diff, BuildSetGraph},
-    BuildNamespace,
+    BuildNamespace, BuildSetIteration,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -22,10 +22,11 @@ pub enum NewBuildIterationResult {
 
 pub async fn new_build_set_iteration_is_needed(
     namespace: &BuildNamespace,
+    iterations: &[BuildSetIteration],
 ) -> Result<NewBuildIterationResult> {
     let packages_to_build = calculate_packages_to_be_built(namespace).await?;
 
-    let previous_iteration = if let Some(it) = namespace.iterations.last() {
+    let previous_iteration = if let Some(it) = iterations.last() {
         it
     } else {
         return Ok(NewBuildIterationResult::NewIterationNeeded {

@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use axum::extract::Path;
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
-use futures_time::future::FutureExt;
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use minijinja::context;
@@ -12,7 +11,7 @@ use reqwest::StatusCode;
 use uuid::Uuid;
 
 use crate::{db, tasks, AppState};
-use buildbtw::{BuildNamespace, CreateBuildNamespace, STATE};
+use buildbtw::{BuildNamespace, CreateBuildNamespace};
 
 #[debug_handler]
 pub(crate) async fn generate_build_namespace(
@@ -29,7 +28,6 @@ pub(crate) async fn generate_build_namespace(
             println!("{e:?}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
-    STATE.lock().await.insert(namespace.id, Vec::new());
 
     // TODO proper error handling
     state
@@ -61,22 +59,12 @@ pub(crate) async fn render_build_namespace(
     Path(namespace_id): Path<Uuid>,
     State(state): State<AppState>,
 ) -> Result<Html<String>, StatusCode> {
-    let iterations = {
-        let db = STATE
-            .lock()
-            .timeout(futures_time::time::Duration::from_secs(2))
-            .await
-            .map_err(|_| {
-                println!("Failed to acquire global state lock");
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-        db.get(&namespace_id)
-            .ok_or_else(|| {
-                println!("No iterations for namespace id: {namespace_id}");
-                StatusCode::NOT_FOUND
-            })?
-            .clone()
-    };
+    let namespace = db::namespace::read(namespace_id, &state.db_pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let iterations = db::iteration::list(&state.db_pool, namespace_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let latest_packages_to_be_built = &iterations
         .last()
@@ -115,7 +103,8 @@ pub(crate) async fn render_build_namespace(
     let rendered = template
         .render(context! {
             svg => svg_content,
-            namespace => iterations,
+            namespace => namespace,
+            iterations => iterations,
         })
         .unwrap();
 

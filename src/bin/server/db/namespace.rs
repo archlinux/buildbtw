@@ -45,7 +45,6 @@ impl From<DbBuildNamespace> for BuildNamespace {
         BuildNamespace {
             id: value.id,
             name: value.name,
-            iterations: Vec::new(),
             current_origin_changesets: value.origin_changesets.0,
             created_at: value.created_at,
         }

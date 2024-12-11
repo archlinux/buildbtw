@@ -2,7 +2,7 @@ use std::net::{SocketAddr, TcpListener};
 
 use ::gitlab::GitlabBuilder;
 use anyhow::Result;
-use axum::extract::Path;
+use axum::extract::{Path, State};
 use axum::{
     debug_handler,
     routing::{get, patch, post},
@@ -21,7 +21,8 @@ use uuid::Uuid;
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
 use buildbtw::{
-    Pkgbase, ScheduleBuild, ScheduleBuildResult, SetBuildStatus, SetBuildStatusResult, STATE,
+    BuildSetIteration, Pkgbase, ScheduleBuild, ScheduleBuildResult, SetBuildStatus,
+    SetBuildStatusResult,
 };
 
 mod args;
@@ -29,69 +30,69 @@ mod db;
 mod routes;
 mod tasks;
 
-async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult {
+async fn schedule_next_build_in_graph(
+    iteration: &BuildSetIteration,
+    namespace_id: Uuid,
+) -> ScheduleBuildResult {
     // assign default fallback status, if only built nodes are visited, the graph is finished
     let mut fallback_status = ScheduleBuildResult::Finished;
 
-    if let Some(iterations) = STATE.lock().await.get_mut(&namespace_id) {
-        // TODO: may not be computed yet
-        let iteration = iterations.iter_mut().last().unwrap();
-        let graph = &mut iteration.packages_to_be_built;
+    let graph = &iteration.packages_to_be_built;
 
-        // Identify root nodes (nodes with no incoming edges)
-        let root_nodes: Vec<_> = graph
-            .node_indices()
-            .filter(|&node| graph.edges_directed(node, petgraph::Incoming).count() == 0)
-            .collect();
+    // Identify root nodes (nodes with no incoming edges)
+    let root_nodes: Vec<_> = graph
+        .node_indices()
+        .filter(|&node| graph.edges_directed(node, petgraph::Incoming).count() == 0)
+        .collect();
 
-        // TODO build things in parallel where possible
-        // Traverse the graph from each root node using BFS to unblock sub-graphs
-        let graph_clone = graph.clone();
-        for root in root_nodes {
-            let bfs = Bfs::new(&graph_clone, root);
-            for node_idx in bfs.iter(&graph_clone) {
-                // Depending on the status of this node, return early to keep looking
-                // or go on building it.
-                match &graph[node_idx].status {
-                    // skip nodes that are already built or blocked
-                    // but keep the current fallback status
-                    buildbtw::PackageBuildStatus::Built
-                    | buildbtw::PackageBuildStatus::Failed
-                    | buildbtw::PackageBuildStatus::Blocked => {
-                        continue;
-                    }
-                    // skip nodes that building and tell the scheduler to wait for them to complete
-                    buildbtw::PackageBuildStatus::Building => {
-                        fallback_status = ScheduleBuildResult::NoPendingPackages;
-                        continue;
-                    }
-                    // process nodes that are pending
-                    buildbtw::PackageBuildStatus::Pending => {}
+    // TODO build things in parallel where possible
+    // Traverse the graph from each root node using BFS to unblock sub-graphs
+    let mut updated_build_set_graph = graph.clone();
+    for root in root_nodes {
+        let bfs = Bfs::new(graph, root);
+        for node_idx in bfs.iter(graph) {
+            // Depending on the status of this node, return early to keep looking
+            // or go on building it.
+            match &graph[node_idx].status {
+                // skip nodes that are already built or blocked
+                // but keep the current fallback status
+                buildbtw::PackageBuildStatus::Built
+                | buildbtw::PackageBuildStatus::Failed
+                | buildbtw::PackageBuildStatus::Blocked => {
+                    continue;
                 }
-                // This node is ready to build
-                // reserve it for building
-                graph[node_idx].status = buildbtw::PackageBuildStatus::Building;
-
-                let node = &graph[node_idx];
-
-                // TODO: for split packages, this might include some
-                // unneeded pkgnames. We should probably filter them out by going
-                // over the dependencies of the package we're building.
-                let built_dependencies = graph
-                    .edges_directed(node_idx, petgraph::Incoming)
-                    .flat_map(|dependency| graph[dependency.source()].build_outputs.clone())
-                    .collect();
-
-                // return the information of the scheduled node
-                let response = ScheduleBuild {
-                    iteration: iteration.id,
-                    namespace: namespace_id,
-                    srcinfo: node.srcinfo.clone(),
-                    source: (node.pkgbase.clone(), node.commit_hash.clone()),
-                    install_to_chroot: built_dependencies,
-                };
-                return ScheduleBuildResult::Scheduled(response);
+                // skip nodes that building and tell the scheduler to wait for them to complete
+                buildbtw::PackageBuildStatus::Building => {
+                    fallback_status = ScheduleBuildResult::NoPendingPackages;
+                    continue;
+                }
+                // process nodes that are pending
+                buildbtw::PackageBuildStatus::Pending => {}
             }
+            // This node is ready to build
+            // reserve it for building
+            updated_build_set_graph[node_idx].status = buildbtw::PackageBuildStatus::Building;
+
+            let node = &graph[node_idx];
+
+            // TODO: for split packages, this might include some
+            // unneeded pkgnames. We should probably filter them out by going
+            // over the dependencies of the package we're building.
+            let built_dependencies = graph
+                .edges_directed(node_idx, petgraph::Incoming)
+                .flat_map(|dependency| graph[dependency.source()].build_outputs.clone())
+                .collect();
+
+            // return the information of the scheduled node
+            let response = ScheduleBuild {
+                iteration: iteration.id,
+                namespace: namespace_id,
+                srcinfo: node.srcinfo.clone(),
+                source: (node.pkgbase.clone(), node.commit_hash.clone()),
+                install_to_chroot: built_dependencies,
+                updated_build_set_graph,
+            };
+            return ScheduleBuildResult::Scheduled(response);
         }
     }
 
@@ -102,6 +103,7 @@ async fn schedule_next_build_in_graph(namespace_id: Uuid) -> ScheduleBuildResult
 #[debug_handler]
 async fn set_build_status(
     Path((namespace_id, iteration_id, pkgbase)): Path<(Uuid, Uuid, Pkgbase)>,
+    State(state): State<AppState>,
     Json(body): Json<SetBuildStatus>,
 ) -> Json<SetBuildStatusResult> {
     println!(
@@ -109,7 +111,8 @@ async fn set_build_status(
         namespace_id, iteration_id, pkgbase, body.status
     );
 
-    if let Some(iterations) = STATE.lock().await.get_mut(&namespace_id) {
+    // TODO proper error handling
+    if let Ok(mut iterations) = db::iteration::list(&state.db_pool, namespace_id).await {
         let iteration = iterations.iter_mut().find(|i| i.id == iteration_id);
         match iteration {
             None => {
@@ -187,14 +190,6 @@ async fn main() -> Result<()> {
             )?;
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
-
-            // Make sure all namespaces have an empty iteration vector in the memory state
-            let mut db = STATE.lock().await;
-            let namespaces = db::namespace::list(&db_pool).await?;
-            for namespace in namespaces {
-                db.entry(namespace.id).or_insert(Vec::new());
-            }
-            drop(db);
 
             let worker_sender = tasks::start(port, db_pool.clone());
             let app = Router::new()

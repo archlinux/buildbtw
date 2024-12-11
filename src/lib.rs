@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::collections::HashMap;
 
 use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
@@ -6,7 +6,6 @@ use clap::ValueEnum;
 use iteration::NewIterationReason;
 use serde::{Deserialize, Serialize};
 use srcinfo::Srcinfo;
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
 pub mod build_package;
@@ -26,10 +25,6 @@ pub type GitRepoRef = (Pkgbase, GitRef);
 pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
-// TODO This simulates a database. Add a proper database at some point.
-pub static STATE: LazyLock<Mutex<HashMap<Uuid, Vec<BuildSetIteration>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
 pub const BUILD_DIR: &str = "./build";
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -45,6 +40,7 @@ pub struct ScheduleBuild {
     pub source: GitRepoRef,
     pub srcinfo: Srcinfo,
     pub install_to_chroot: Vec<BuildPackageOutput>,
+    pub updated_build_set_graph: BuildSetGraph,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -70,7 +66,6 @@ pub enum SetBuildStatusResult {
 pub struct BuildNamespace {
     pub id: Uuid,
     pub name: String,
-    pub iterations: Vec<BuildSetIteration>,
     pub current_origin_changesets: Vec<GitRepoRef>,
     pub created_at: time::OffsetDateTime,
     // gitlab group epic, state repo mr, ...
