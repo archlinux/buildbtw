@@ -20,29 +20,19 @@ use crate::{
 };
 use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
 
-pub enum Message {
-    BuildNamespaceCreated(Uuid),
-}
+pub enum Message {}
 
-pub fn start(port: u16, pool: SqlitePool) -> UnboundedSender<Message> {
+pub fn start(pool: SqlitePool) -> UnboundedSender<Message> {
     println!("Starting server tasks");
 
-    let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
-    let msg_pool = pool.clone();
-    tokio::spawn(async move {
-        while let Some(msg) = receiver.recv().await {
-            match msg {
-                Message::BuildNamespaceCreated(namespace_id) => {
-                    match build_new_namespace(namespace_id, &msg_pool).await {
-                        Ok(_) => {
-                            println!( "Graph of newest iteration available at: http://localhost:{port}/namespace/{}/graph", namespace_id);
-                        }
-                        Err(e) => println!("Error creating build namespace: {e:?}"),
-                    }
-                }
-            }
-        }
-    });
+    let (sender, mut _receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
+    // Since the tasks are currently only dispatched via periodic checks,
+    // we don't have any messages we could receive at the moment.
+    // tokio::spawn(async move {
+    //     while let Some(msg) = receiver.recv().await {
+    //         match msg {}
+    //     }
+    // });
 
     let periodic_check_pool = pool;
     tokio::spawn(async move {
@@ -131,6 +121,11 @@ async fn create_new_namespace_iteration_if_needed(
             };
 
             db::iteration::create(pool, namespace.id, new_iteration).await?;
+
+            match build_new_namespace(namespace.id, pool).await {
+                Ok(_) => {}
+                Err(e) => println!("Error building newest iteration of namespace: {e:?}"),
+            }
         }
         NewBuildIterationResult::NoNewIterationNeeded => {}
     }

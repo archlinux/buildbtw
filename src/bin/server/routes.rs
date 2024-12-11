@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use axum::extract::Path;
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
@@ -10,7 +10,7 @@ use petgraph::visit::NodeRef;
 use reqwest::StatusCode;
 use uuid::Uuid;
 
-use crate::{db, tasks, AppState};
+use crate::{db, AppState};
 use buildbtw::{BuildNamespace, CreateBuildNamespace};
 
 #[debug_handler]
@@ -29,12 +29,11 @@ pub(crate) async fn generate_build_namespace(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    // TODO proper error handling
-    state
-        .worker_sender
-        .send(tasks::Message::BuildNamespaceCreated(namespace.id))
-        .context("Failed to dispatch worker job")
-        .unwrap();
+    let base_url = state.base_url;
+    println!(
+        "Namespace overview available at: {base_url}/namespace/{}/graph",
+        namespace.id
+    );
 
     Ok(Json(namespace))
 }

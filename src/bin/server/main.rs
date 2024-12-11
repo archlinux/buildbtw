@@ -161,9 +161,11 @@ async fn set_build_status(
 
 #[derive(Clone)]
 struct AppState {
+    #[allow(dead_code)]
     worker_sender: UnboundedSender<tasks::Message>,
     jinja_env: minijinja::Environment<'static>,
     db_pool: SqlitePool,
+    base_url: String,
 }
 
 #[tokio::main]
@@ -191,7 +193,7 @@ async fn main() -> Result<()> {
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
 
-            let worker_sender = tasks::start(port, db_pool.clone());
+            let worker_sender = tasks::start(db_pool.clone());
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route(
@@ -207,6 +209,7 @@ async fn main() -> Result<()> {
                     worker_sender,
                     jinja_env,
                     db_pool: db_pool.clone(),
+                    base_url: format!("http://localhost:{port}"),
                 });
 
             if let Some(token) = args.gitlab_token {

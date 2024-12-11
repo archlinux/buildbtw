@@ -9,6 +9,7 @@ pub(crate) struct DbBuildSetIteration {
     id: sqlx::types::Uuid,
     #[allow(dead_code)]
     created_at: time::OffsetDateTime,
+    #[allow(dead_code)]
     namespace_id: sqlx::types::Uuid,
 
     packages_to_be_built: Json<BuildSetGraph>,
