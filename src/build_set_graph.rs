@@ -208,8 +208,10 @@ pub async fn build_pkgname_to_srcinfo_map(
                         );
                     }
                 }
-                Err(e) => {
-                    println!("⚠️ {e:#}:");
+                Err(_e) => {
+                    // Since we have too many (unreleased) packages with missing
+                    // .SRCINFOs, this is disabled for now
+                    // println!("⚠️ {e:#}:");
                 }
             }
         }
