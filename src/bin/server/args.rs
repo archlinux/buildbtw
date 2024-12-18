@@ -22,8 +22,16 @@ pub struct Args {
     #[arg(long, env, hide_env_values = true)]
     pub database_url: redact::Secret<String>,
 
+    /// Used for:
+    /// - Fetching updates to package source repositories (requires `read_api` scope)
+    /// - Dispatching builds to gitlab (requires `api` scope, only if `run-builds-on-gitlab` is set to true)
     #[arg(env, hide_env_values = true)]
     pub gitlab_token: Option<redact::Secret<String>>,
+
+    /// Dispatch builds to gitlab pipelines instead of a buildbtw worker instance.
+    /// Requires gitlab token to be specified.
+    #[arg(long, env, default_value = "false", requires = "gitlab_token")]
+    pub run_builds_on_gitlab: bool,
 }
 
 #[derive(Debug, Clone, Subcommand)]

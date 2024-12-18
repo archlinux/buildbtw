@@ -23,6 +23,7 @@ pub enum Message {}
 pub async fn start(
     pool: SqlitePool,
     gitlab_token: Option<Secret<String>>,
+    dispatch_builds_to_gitlab: bool,
 ) -> Result<UnboundedSender<Message>> {
     println!("Starting server tasks");
 
@@ -38,7 +39,9 @@ pub async fn start(
     let periodic_check_pool = pool.clone();
     tokio::spawn(async move {
         loop {
-            match update_and_build_all_namespaces(&periodic_check_pool).await {
+            match update_and_build_all_namespaces(&periodic_check_pool, dispatch_builds_to_gitlab)
+                .await
+            {
                 Ok(_) => {}
                 Err(e) => println!("Error creating new iteration: {e:?}"),
             };
@@ -56,13 +59,16 @@ pub async fn start(
     Ok(sender)
 }
 
-async fn update_and_build_all_namespaces(pool: &SqlitePool) -> Result<()> {
+async fn update_and_build_all_namespaces(
+    pool: &SqlitePool,
+    dispatch_to_gitlab: bool,
+) -> Result<()> {
     println!("Updating and building all namespaces...");
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list(pool).await?;
     for namespace in namespaces {
         create_new_namespace_iteration_if_needed(pool, &namespace).await?;
-        schedule_next_build_if_needed(pool, &namespace).await?;
+        schedule_next_build_if_needed(pool, &namespace, dispatch_to_gitlab).await?;
     }
 
     Ok(())
@@ -126,6 +132,7 @@ async fn create_new_namespace_iteration_if_needed(
 async fn schedule_next_build_if_needed(
     pool: &SqlitePool,
     namespace: &BuildNamespace,
+    dispatch_to_gitlab: bool,
 ) -> Result<()> {
     // -> schedule build
     let iteration = db::iteration::read_newest(pool, namespace.id).await?;
@@ -134,7 +141,7 @@ async fn schedule_next_build_if_needed(
         // TODO: distinguish between no pending packages and failed graph
         ScheduleBuildResult::NoPendingPackages => {}
         ScheduleBuildResult::Scheduled(response) => {
-            schedule_build(&response).await?;
+            schedule_build(&response, dispatch_to_gitlab).await?;
             db::iteration::update(
                 pool,
                 db::iteration::BuildSetIterationUpdate {
@@ -152,7 +159,7 @@ async fn schedule_next_build_if_needed(
     Ok(())
 }
 
-async fn schedule_build(build: &ScheduleBuild) -> Result<()> {
+async fn schedule_build(build: &ScheduleBuild, dispatch_to_gitlab: bool) -> Result<()> {
     println!(
         "Building pending package for namespace: {:?}",
         build.srcinfo.base.pkgbase

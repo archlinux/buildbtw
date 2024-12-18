@@ -121,7 +121,7 @@ pub async fn set_build_status(
     Json(body): Json<SetBuildStatus>,
 ) -> Json<SetBuildStatusResult> {
     println!(
-        "set package build: namespace: {:?} iteration: {:?} pkgbase: {:?} status: {:?}",
+        "setting build status: namespace: {:?} iteration: {:?} pkgbase: {:?} status: {:?}",
         namespace_id, iteration_id, pkgbase, body.status
     );
 
