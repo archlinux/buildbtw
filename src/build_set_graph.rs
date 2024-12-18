@@ -4,17 +4,19 @@ use std::{collections::HashMap, fs::read_dir};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Repository;
-use petgraph::visit::EdgeRef;
+use petgraph::visit::{Bfs, EdgeRef, Walker};
 use petgraph::Directed;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use serde::{Deserialize, Serialize};
 use srcinfo::Srcinfo;
 use tokio::task::spawn_blocking;
+use uuid::Uuid;
 
 use crate::git::{get_branch_commit_sha, package_source_path, read_srcinfo_from_repo};
 use crate::{
-    BuildNamespace, BuildPackageOutput, GitRef, GitRepoRef, PackageBuildDependency,
-    PackageBuildStatus, Pkgbase, Pkgname,
+    BuildNamespace, BuildPackageOutput, BuildSetIteration, GitRef, GitRepoRef,
+    PackageBuildDependency, PackageBuildStatus, Pkgbase, Pkgname, ScheduleBuild,
+    ScheduleBuildResult,
 };
 
 /// For tracking dependencies between individual packages.
@@ -291,6 +293,76 @@ pub async fn build_global_dependent_graph(
     }
 
     Ok((global_graph, pkgname_to_node_index_map))
+}
+
+pub fn schedule_next_build_in_graph(
+    iteration: &BuildSetIteration,
+    namespace_id: Uuid,
+) -> ScheduleBuildResult {
+    // assign default fallback status, if only built nodes are visited, the graph is finished
+    let mut fallback_status = ScheduleBuildResult::Finished;
+
+    let graph = &iteration.packages_to_be_built;
+
+    // Identify root nodes (nodes with no incoming edges)
+    let root_nodes: Vec<_> = graph
+        .node_indices()
+        .filter(|&node| graph.edges_directed(node, petgraph::Incoming).count() == 0)
+        .collect();
+
+    // TODO build things in parallel where possible
+    // Traverse the graph from each root node using BFS to unblock sub-graphs
+    let mut updated_build_set_graph = graph.clone();
+    for root in root_nodes {
+        let bfs = Bfs::new(graph, root);
+        for node_idx in bfs.iter(graph) {
+            // Depending on the status of this node, return early to keep looking
+            // or go on building it.
+            match &graph[node_idx].status {
+                // skip nodes that are already built or blocked
+                // but keep the current fallback status
+                PackageBuildStatus::Built
+                | PackageBuildStatus::Failed
+                | PackageBuildStatus::Blocked => {
+                    continue;
+                }
+                // skip nodes that building and tell the scheduler to wait for them to complete
+                PackageBuildStatus::Building => {
+                    fallback_status = ScheduleBuildResult::NoPendingPackages;
+                    continue;
+                }
+                // process nodes that are pending
+                PackageBuildStatus::Pending => {}
+            }
+            // This node is ready to build
+            // reserve it for building
+            updated_build_set_graph[node_idx].status = PackageBuildStatus::Building;
+
+            let node = &graph[node_idx];
+
+            // TODO: for split packages, this might include some
+            // unneeded pkgnames. We should probably filter them out by going
+            // over the dependencies of the package we're building.
+            let built_dependencies = graph
+                .edges_directed(node_idx, petgraph::Incoming)
+                .flat_map(|dependency| graph[dependency.source()].build_outputs.clone())
+                .collect();
+
+            // return the information of the scheduled node
+            let response = ScheduleBuild {
+                iteration: iteration.id,
+                namespace: namespace_id,
+                srcinfo: node.srcinfo.clone(),
+                source: (node.pkgbase.clone(), node.commit_hash.clone()),
+                install_to_chroot: built_dependencies,
+                updated_build_set_graph,
+            };
+            return ScheduleBuildResult::Scheduled(response);
+        }
+    }
+
+    // return the fallback status if no node was scheduled
+    fallback_status
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]

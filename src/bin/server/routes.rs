@@ -11,7 +11,9 @@ use reqwest::StatusCode;
 use uuid::Uuid;
 
 use crate::{db, AppState};
-use buildbtw::{BuildNamespace, CreateBuildNamespace};
+use buildbtw::{
+    BuildNamespace, CreateBuildNamespace, Pkgbase, SetBuildStatus, SetBuildStatusResult,
+};
 
 #[debug_handler]
 pub(crate) async fn generate_build_namespace(
@@ -108,4 +110,63 @@ pub(crate) async fn render_build_namespace(
         .unwrap();
 
     Ok(Html(rendered))
+}
+
+#[debug_handler]
+pub async fn set_build_status(
+    Path((namespace_id, iteration_id, pkgbase)): Path<(Uuid, Uuid, Pkgbase)>,
+    State(state): State<AppState>,
+    Json(body): Json<SetBuildStatus>,
+) -> Json<SetBuildStatusResult> {
+    println!(
+        "set package build: namespace: {:?} iteration: {:?} pkgbase: {:?} status: {:?}",
+        namespace_id, iteration_id, pkgbase, body.status
+    );
+
+    // TODO proper error handling
+    if let Ok(mut iterations) = db::iteration::list(&state.db_pool, namespace_id).await {
+        let iteration = iterations.iter_mut().find(|i| i.id == iteration_id);
+        match iteration {
+            None => {
+                return Json(SetBuildStatusResult::IterationNotFound);
+            }
+            Some(iteration) => {
+                let graph = &mut iteration.packages_to_be_built;
+
+                for node_idx in graph.node_indices() {
+                    let node = &mut graph[node_idx];
+                    if node.pkgbase != pkgbase {
+                        continue;
+                    }
+                    // update node status
+                    node.status = body.status;
+
+                    // update dependent nodes if all dependencies are met
+                    let mut free_nodes = vec![];
+                    let dependents = graph.edges_directed(node_idx, petgraph::Outgoing);
+                    for dependent in dependents {
+                        // check if all incoming dependencies are built
+                        let free = graph
+                            .edges_directed(dependent.target(), petgraph::Incoming)
+                            .all(|dependency| {
+                                graph[dependency.source()].status
+                                    == buildbtw::PackageBuildStatus::Built
+                            });
+                        if free {
+                            free_nodes.push(dependent.target());
+                        }
+                    }
+                    // update status of free nodes
+                    for pending_edge in free_nodes {
+                        let target = &mut graph[pending_edge];
+                        target.status = buildbtw::PackageBuildStatus::Pending;
+                    }
+
+                    return Json(SetBuildStatusResult::Success);
+                }
+            }
+        }
+    }
+
+    Json(SetBuildStatusResult::IterationNotFound)
 }

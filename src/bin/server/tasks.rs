@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use buildbtw::{
+    build_set_graph::schedule_next_build_in_graph,
     gitlab::fetch_all_source_repo_changes,
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
 };
@@ -11,12 +12,9 @@ use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use crate::{
-    db::{
-        self,
-        global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
-    },
-    schedule_next_build_in_graph,
+use crate::db::{
+    self,
+    global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
 };
 use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
 
@@ -131,7 +129,7 @@ async fn schedule_next_build_if_needed(
 ) -> Result<()> {
     // -> schedule build
     let iteration = db::iteration::read_newest(pool, namespace.id).await?;
-    let build = schedule_next_build_in_graph(&iteration, namespace.id).await;
+    let build = schedule_next_build_in_graph(&iteration, namespace.id);
     match build {
         // TODO: distinguish between no pending packages and failed graph
         ScheduleBuildResult::NoPendingPackages => {}
