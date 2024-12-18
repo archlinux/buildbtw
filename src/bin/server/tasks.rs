@@ -5,7 +5,8 @@ use buildbtw::{
     gitlab::fetch_all_source_repo_changes,
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
 };
-use gitlab::AsyncGitlab;
+use gitlab::{AsyncGitlab, GitlabBuilder};
+use redact::Secret;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::sleep;
@@ -22,7 +23,10 @@ use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildRe
 
 pub enum Message {}
 
-pub fn start(pool: SqlitePool) -> UnboundedSender<Message> {
+pub async fn start(
+    pool: SqlitePool,
+    gitlab_token: Option<Secret<String>>,
+) -> Result<UnboundedSender<Message>> {
     println!("Starting server tasks");
 
     let (sender, mut _receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
@@ -34,7 +38,7 @@ pub fn start(pool: SqlitePool) -> UnboundedSender<Message> {
     //     }
     // });
 
-    let periodic_check_pool = pool;
+    let periodic_check_pool = pool.clone();
     tokio::spawn(async move {
         loop {
             match maybe_create_new_iterations_for_all_namespaces(&periodic_check_pool).await {
@@ -44,7 +48,15 @@ pub fn start(pool: SqlitePool) -> UnboundedSender<Message> {
             tokio::time::sleep(Duration::from_secs(10)).await
         }
     });
-    sender
+
+    if let Some(token) = gitlab_token {
+        let gitlab_client = GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
+            .build_async()
+            .await?;
+        fetch_source_repo_changes_in_loop(gitlab_client, pool);
+    }
+
+    Ok(sender)
 }
 
 async fn maybe_create_new_iterations_for_all_namespaces(pool: &SqlitePool) -> Result<()> {

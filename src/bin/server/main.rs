@@ -1,6 +1,5 @@
 use std::net::{SocketAddr, TcpListener};
 
-use ::gitlab::GitlabBuilder;
 use anyhow::Result;
 use axum::extract::{Path, State};
 use axum::{
@@ -14,7 +13,6 @@ use petgraph::visit::EdgeRef;
 use petgraph::visit::{Bfs, Walker};
 use routes::{generate_build_namespace, render_build_namespace, render_latest_namespace};
 use sqlx::SqlitePool;
-use tasks::fetch_source_repo_changes_in_loop;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -193,7 +191,7 @@ async fn main() -> Result<()> {
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
 
-            let worker_sender = tasks::start(db_pool.clone());
+            let worker_sender = tasks::start(db_pool.clone(), args.gitlab_token).await?;
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route(
@@ -211,14 +209,6 @@ async fn main() -> Result<()> {
                     db_pool: db_pool.clone(),
                     base_url: format!("http://localhost:{port}"),
                 });
-
-            if let Some(token) = args.gitlab_token {
-                let gitlab_client =
-                    GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
-                        .build_async()
-                        .await?;
-                fetch_source_repo_changes_in_loop(gitlab_client, db_pool);
-            }
 
             let mut listenfd = ListenFd::from_env();
             // if listenfd doesn't take a TcpListener (i.e. we're not running via
