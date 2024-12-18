@@ -60,6 +60,7 @@ pub struct SetBuildStatus {
 pub enum SetBuildStatusResult {
     Success,
     IterationNotFound,
+    InternalError,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

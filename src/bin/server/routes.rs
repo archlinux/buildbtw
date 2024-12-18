@@ -10,6 +10,7 @@ use petgraph::visit::NodeRef;
 use reqwest::StatusCode;
 use uuid::Uuid;
 
+use crate::db::iteration::BuildSetIterationUpdate;
 use crate::{db, AppState};
 use buildbtw::{
     BuildNamespace, CreateBuildNamespace, Pkgbase, SetBuildStatus, SetBuildStatusResult,
@@ -124,14 +125,14 @@ pub async fn set_build_status(
     );
 
     // TODO proper error handling
-    if let Ok(mut iterations) = db::iteration::list(&state.db_pool, namespace_id).await {
-        let iteration = iterations.iter_mut().find(|i| i.id == iteration_id);
+    if let Ok(iterations) = db::iteration::list(&state.db_pool, namespace_id).await {
+        let iteration = iterations.into_iter().find(|i| i.id == iteration_id);
         match iteration {
             None => {
                 return Json(SetBuildStatusResult::IterationNotFound);
             }
             Some(iteration) => {
-                let graph = &mut iteration.packages_to_be_built;
+                let mut graph = iteration.packages_to_be_built;
 
                 for node_idx in graph.node_indices() {
                     let node = &mut graph[node_idx];
@@ -161,6 +162,16 @@ pub async fn set_build_status(
                         let target = &mut graph[pending_edge];
                         target.status = buildbtw::PackageBuildStatus::Pending;
                     }
+
+                    let update = BuildSetIterationUpdate {
+                        id: iteration.id,
+                        packages_to_be_built: graph,
+                    };
+
+                    if let Err(e) = db::iteration::update(&state.db_pool, update).await {
+                        println!("{e:?}");
+                        return Json(SetBuildStatusResult::InternalError);
+                    };
 
                     return Json(SetBuildStatusResult::Success);
                 }

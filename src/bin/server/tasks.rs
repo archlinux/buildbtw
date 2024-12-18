@@ -143,7 +143,6 @@ async fn schedule_next_build_if_needed(
                 },
             )
             .await?;
-            println!("Scheduled build: {:?}", response.source);
         }
         ScheduleBuildResult::Finished => {
             println!("Graph finished");
