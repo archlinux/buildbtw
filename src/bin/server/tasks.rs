@@ -59,6 +59,7 @@ pub async fn start(
 }
 
 async fn update_and_build_all_namespaces(pool: &SqlitePool) -> Result<()> {
+    println!("Updating and building all namespaces...");
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list(pool).await?;
     for namespace in namespaces {

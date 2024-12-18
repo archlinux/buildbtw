@@ -280,8 +280,10 @@ pub async fn build_global_dependent_graph(
                             PackageBuildDependency {},
                         );
                     }
-                    Err(e) => {
-                        println!("⚠️ {e:#}");
+                    Err(_e) => {
+                        // TODO there are some repos that error here,
+                        // investigate and fix
+                        // println!("⚠️ {e:#}");
                     }
                 }
             }
