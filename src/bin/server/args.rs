@@ -25,7 +25,7 @@ pub struct Args {
     /// Used for:
     /// - Fetching updates to package source repositories (requires `read_api` scope)
     /// - Dispatching builds to gitlab (requires `api` scope, only if `run-builds-on-gitlab` is set to true)
-    #[arg(env, hide_env_values = true)]
+    #[arg(long, env, hide_env_values = true)]
     pub gitlab_token: Option<redact::Secret<String>>,
 
     /// Dispatch builds to gitlab pipelines instead of a buildbtw worker instance.
