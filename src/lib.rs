@@ -16,6 +16,7 @@ pub mod iteration;
 
 // TODO use git2::Oid instead?
 /// A branch name, commit hash, etc.
+/// This is passed to gitlab for triggering pipelines as well
 pub type GitRef = String;
 pub type Pkgbase = String;
 pub type Pkgname = String;

@@ -1,12 +1,12 @@
 use std::time::Duration;
 
+use ::gitlab::{AsyncGitlab, GitlabBuilder};
 use anyhow::{Context, Result};
 use buildbtw::{
     build_set_graph::schedule_next_build_in_graph,
     gitlab::fetch_all_source_repo_changes,
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
 };
-use gitlab::{AsyncGitlab, GitlabBuilder};
 use redact::Secret;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -36,11 +36,31 @@ pub async fn start(
     //     }
     // });
 
+    let maybe_gitlab_client = if let Some(token) = gitlab_token {
+        Some(
+            GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
+                .build_async()
+                .await?,
+        )
+    } else {
+        None
+    };
+
+    let dispatch_gitlab_client = if dispatch_builds_to_gitlab {
+        // In the Args struct, we specify that the dispatch to gitlab flag requires
+        // a gitlab token, so this should always be `Some` here.
+        maybe_gitlab_client.clone()
+    } else {
+        None
+    };
     let periodic_check_pool = pool.clone();
     tokio::spawn(async move {
         loop {
-            match update_and_build_all_namespaces(&periodic_check_pool, dispatch_builds_to_gitlab)
-                .await
+            match update_and_build_all_namespaces(
+                &periodic_check_pool,
+                dispatch_gitlab_client.as_ref(),
+            )
+            .await
             {
                 Ok(_) => {}
                 Err(e) => println!("Error creating new iteration: {e:?}"),
@@ -49,26 +69,25 @@ pub async fn start(
         }
     });
 
-    if let Some(token) = gitlab_token {
-        let gitlab_client = GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
-            .build_async()
-            .await?;
-        fetch_source_repo_changes_in_loop(gitlab_client, pool.clone());
+    if let Some(client) = maybe_gitlab_client {
+        fetch_source_repo_changes_in_loop(client, pool.clone());
     }
 
     Ok(sender)
 }
 
+/// If given a gitlab client, dispatch builds to gitlab.
+/// Otherwise, dispatch them to the local build client.
 async fn update_and_build_all_namespaces(
     pool: &SqlitePool,
-    dispatch_to_gitlab: bool,
+    maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
     println!("Updating and building all namespaces...");
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list(pool).await?;
     for namespace in namespaces {
         create_new_namespace_iteration_if_needed(pool, &namespace).await?;
-        schedule_next_build_if_needed(pool, &namespace, dispatch_to_gitlab).await?;
+        schedule_next_build_if_needed(pool, &namespace, maybe_gitlab_client).await?;
     }
 
     Ok(())
@@ -132,7 +151,7 @@ async fn create_new_namespace_iteration_if_needed(
 async fn schedule_next_build_if_needed(
     pool: &SqlitePool,
     namespace: &BuildNamespace,
-    dispatch_to_gitlab: bool,
+    maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
     // -> schedule build
     let iteration = db::iteration::read_newest(pool, namespace.id).await?;
@@ -141,12 +160,16 @@ async fn schedule_next_build_if_needed(
         // TODO: distinguish between no pending packages and failed graph
         ScheduleBuildResult::NoPendingPackages => {}
         ScheduleBuildResult::Scheduled(response) => {
-            schedule_build(&response, dispatch_to_gitlab).await?;
+            let new_packages_to_be_built = response.updated_build_set_graph.clone();
+            if let Err(e) = schedule_build(&response, maybe_gitlab_client).await {
+                // TODO mark build as failed
+                println!("{e:?}");
+            }
             db::iteration::update(
                 pool,
                 db::iteration::BuildSetIterationUpdate {
                     id: iteration.id,
-                    packages_to_be_built: response.updated_build_set_graph.clone(),
+                    packages_to_be_built: new_packages_to_be_built,
                 },
             )
             .await?;
@@ -159,18 +182,28 @@ async fn schedule_next_build_if_needed(
     Ok(())
 }
 
-async fn schedule_build(build: &ScheduleBuild, dispatch_to_gitlab: bool) -> Result<()> {
+async fn schedule_build(
+    build: &ScheduleBuild,
+    maybe_gitlab_client: Option<&AsyncGitlab>,
+) -> Result<()> {
     println!(
         "Building pending package for namespace: {:?}",
         build.srcinfo.base.pkgbase
     );
 
-    let _response = reqwest::Client::new()
-        .post("http://0.0.0.0:8090/build/schedule".to_string())
-        .json(build)
-        .send()
-        .await
-        .context("Failed to send to server")?;
+    if let Some(client) = maybe_gitlab_client {
+        buildbtw::gitlab::create_pipeline(client).await?;
+        // TODO store pipeline ID in build graph?
+        // that sucks because now our db model differs depending on
+        // buildbtw configuration
+    } else {
+        let _response = reqwest::Client::new()
+            .post("http://0.0.0.0:8090/build/schedule".to_string())
+            .json(build)
+            .send()
+            .await
+            .context("Failed to send to server")?;
+    }
 
     println!("Scheduled build: {:?}", build.source);
     Ok(())

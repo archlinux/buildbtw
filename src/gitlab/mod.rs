@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use gitlab::AsyncGitlab;
+use gitlab::{api::AsyncQuery, AsyncGitlab};
 use graphql_client::GraphQLQuery;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -97,6 +97,43 @@ pub async fn get_changed_projects_since(
     }
 
     Ok(results)
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum PipelineStatus {
+    Pending,
+    Created,
+    WaitingForResource,
+    Preparing,
+    Running,
+    Success,
+    Failed,
+    Canceled,
+    Skipped,
+    Manual,
+    Scheduled,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreatePipelineResponse {}
+
+pub async fn create_pipeline(client: &AsyncGitlab) -> Result<CreatePipelineResponse> {
+    // Using graphQL for triggering pipelines is not yet possible:
+    // https://gitlab.com/gitlab-org/gitlab/-/issues/401480
+    let response: CreatePipelineResponse =
+        gitlab::api::projects::pipelines::CreatePipeline::builder()
+            // TODO remove hardcoded temporary test project
+            .project(85321)
+            .ref_("main")
+            .build()?
+            .query_async(client)
+            .await
+            .context("Error creating pipeline")?;
+
+    println!("Dispatched build to gitlab: {response:?}");
+
+    Ok(response)
 }
 
 /// Convert arbitrary project names to GitLab valid path names.

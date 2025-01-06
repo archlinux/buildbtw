@@ -40,8 +40,9 @@ pub struct BuildPackageNode {
 
 // TODO we probably want to replace this with a wrapper struct
 // or a custom implementation. We need to:
-// - Look up a package by pkgbase
-// - Diff two graphs
+// - Look up and change a package node by pkgbase (hard to do efficiently with petgraph's `Graph` struct)
+// - Filter package nodes by status (currently works without an index, which might become slow for large graphs)
+// - Diff two graphs (already is custom functionality built on top)
 pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency, Directed>;
 
 pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Result<BuildSetGraph> {
