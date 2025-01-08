@@ -99,7 +99,7 @@ impl BuildPackageOutput {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageBuildDependency {}
 
-#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq, Eq, Hash, Copy)]
 pub enum PackageBuildStatus {
     Blocked,
     Pending,

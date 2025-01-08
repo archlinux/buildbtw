@@ -413,6 +413,41 @@ impl Diff {
     }
 }
 
+pub fn set_build_status(
+    mut graph: BuildSetGraph,
+    pkgbase: &Pkgbase,
+    status: PackageBuildStatus,
+) -> BuildSetGraph {
+    for node_idx in graph.node_indices() {
+        let node = &mut graph[node_idx];
+        if &node.pkgbase != pkgbase {
+            continue;
+        }
+        // update node status
+        node.status = status;
+
+        // update dependent nodes if all dependencies are met
+        let mut free_nodes = vec![];
+        let dependents = graph.edges_directed(node_idx, petgraph::Outgoing);
+        for dependent in dependents {
+            // check if all incoming dependencies are built
+            let free = graph
+                .edges_directed(dependent.target(), petgraph::Incoming)
+                .all(|dependency| graph[dependency.source()].status == PackageBuildStatus::Built);
+            if free {
+                free_nodes.push(dependent.target());
+            }
+        }
+        // update status of free nodes
+        for pending_edge in free_nodes {
+            let target = &mut graph[pending_edge];
+            target.status = PackageBuildStatus::Pending;
+        }
+    }
+
+    graph
+}
+
 /// Compare two build set graphs and return any differences.
 pub fn diff(old: &BuildSetGraph, new: &BuildSetGraph) -> Diff {
     let old_nodes = old
