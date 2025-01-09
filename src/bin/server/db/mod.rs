@@ -7,15 +7,14 @@ use sqlx::{
     SqlitePool,
 };
 
-pub(crate) mod global_state;
-pub(crate) mod iteration;
-pub(crate) mod namespace;
+pub mod gitlab_pipeline;
+pub mod global_state;
+pub mod iteration;
+pub mod namespace;
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 
-pub(crate) async fn create_and_connect_db(
-    database_url: &redact::Secret<String>,
-) -> Result<SqlitePool> {
+pub async fn create_and_connect_db(database_url: &redact::Secret<String>) -> Result<SqlitePool> {
     let opts = SqliteConnectOptions::from_str(database_url.expose_secret())?
         .foreign_keys(true)
         .create_if_missing(true)
