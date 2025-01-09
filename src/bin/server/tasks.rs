@@ -3,9 +3,10 @@ use std::time::Duration;
 use ::gitlab::{AsyncGitlab, GitlabBuilder};
 use anyhow::{Context, Result};
 use buildbtw::{
-    build_set_graph::schedule_next_build_in_graph,
+    build_set_graph::{self, schedule_next_build_in_graph},
     gitlab::fetch_all_source_repo_changes,
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
+    PackageBuildStatus,
 };
 use redact::Secret;
 use sqlx::SqlitePool;
@@ -87,6 +88,9 @@ async fn update_and_build_all_namespaces(
     let namespaces = db::namespace::list(pool).await?;
     for namespace in namespaces {
         create_new_namespace_iteration_if_needed(pool, &namespace).await?;
+        if let Some(gitlab_client) = maybe_gitlab_client {
+            update_build_set_graphs_from_gitlab_pipelines(pool, &namespace, gitlab_client).await?;
+        }
         schedule_next_build_if_needed(pool, &namespace, maybe_gitlab_client).await?;
     }
 
@@ -147,6 +151,78 @@ async fn create_new_namespace_iteration_if_needed(
     Ok(())
 }
 
+/// For all in-progress nodes in all iterations, query
+/// gitlab to check if the pipeline is now finished, and if yes, update the status
+/// in the build graph.
+async fn update_build_set_graphs_from_gitlab_pipelines(
+    pool: &SqlitePool,
+    namespace: &BuildNamespace,
+    gitlab_client: &AsyncGitlab,
+) -> Result<()> {
+    let iterations = db::iteration::list(pool, namespace.id).await?;
+
+    // Visit all build nodes in all iterations
+    for iteration in iterations {
+        let mut new_build_set_graph = iteration.packages_to_be_built.clone();
+        for node in iteration.packages_to_be_built.node_weights() {
+            // Only check nodes that are currently building.
+            if node.status != PackageBuildStatus::Building {
+                continue;
+            }
+
+            // Check if there's a gitlab pipeline we started
+            // If yes, it will be stored in the DB
+            let maybe_pipeline = db::gitlab_pipeline::read_by_iteration_and_pkgbase(
+                pool,
+                iteration.id,
+                &node.pkgbase,
+            )
+            .await?;
+            // We're only concerned with build nodes that have a gitlab pipeline
+            // associated
+            let Some(pipeline) = maybe_pipeline else {
+                continue;
+            };
+
+            // Query current pipeline status in gitlab
+            let pkgbase = &node.pkgbase;
+            print!("Checking pipeline for {pkgbase}... ");
+            let current_pipeline_status = buildbtw::gitlab::get_pipeline_status(
+                gitlab_client,
+                pipeline.project_gitlab_iid.try_into()?,
+                pipeline.gitlab_iid.try_into()?,
+            )
+            .await?;
+
+            // If it's now finished, update the in-progress build node to reflect this
+            if current_pipeline_status.is_finished() {
+                println!("finished");
+                // Set new status of node, and mark nodes depending on this one
+                // as pending
+                new_build_set_graph = build_set_graph::set_build_status(
+                    new_build_set_graph,
+                    pkgbase,
+                    current_pipeline_status.into(),
+                );
+            } else {
+                println!("running");
+            }
+        }
+
+        // Persist the updated build set graph
+        db::iteration::update(
+            pool,
+            db::iteration::BuildSetIterationUpdate {
+                id: iteration.id,
+                packages_to_be_built: new_build_set_graph,
+            },
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
 // TODO this needs to be dispatched in a background loop as well
 async fn schedule_next_build_if_needed(
     pool: &SqlitePool,
@@ -161,7 +237,7 @@ async fn schedule_next_build_if_needed(
         ScheduleBuildResult::NoPendingPackages => {}
         ScheduleBuildResult::Scheduled(response) => {
             let new_packages_to_be_built = response.updated_build_set_graph.clone();
-            if let Err(e) = schedule_build(&response, maybe_gitlab_client).await {
+            if let Err(e) = schedule_build(pool, &response, maybe_gitlab_client).await {
                 // TODO mark build as failed
                 println!("{e:?}");
             }
@@ -175,7 +251,7 @@ async fn schedule_next_build_if_needed(
             .await?;
         }
         ScheduleBuildResult::Finished => {
-            println!("Graph finished");
+            println!("Graph finished building");
         }
     }
 
@@ -183,6 +259,7 @@ async fn schedule_next_build_if_needed(
 }
 
 async fn schedule_build(
+    pool: &SqlitePool,
     build: &ScheduleBuild,
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
@@ -192,10 +269,14 @@ async fn schedule_build(
     );
 
     if let Some(client) = maybe_gitlab_client {
-        buildbtw::gitlab::create_pipeline(client).await?;
-        // TODO store pipeline ID in build graph?
-        // that sucks because now our db model differs depending on
-        // buildbtw configuration
+        let pipeline_response = buildbtw::gitlab::create_pipeline(client).await?;
+        let db_pipeline = db::gitlab_pipeline::CreateDbGitlabPipeline {
+            build_set_iteration_id: build.iteration,
+            pkgbase: build.source.0.clone(),
+            project_gitlab_iid: pipeline_response.project_id.try_into()?,
+            gitlab_iid: pipeline_response.id.try_into()?,
+        };
+        db::gitlab_pipeline::create(pool, db_pipeline).await?
     } else {
         let _response = reqwest::Client::new()
             .post("http://0.0.0.0:8090/build/schedule".to_string())

@@ -5,7 +5,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::git::clone_or_fetch_repositories;
+use crate::{git::clone_or_fetch_repositories, PackageBuildStatus};
 
 pub async fn fetch_all_source_repo_changes(
     client: &AsyncGitlab,
@@ -99,7 +99,7 @@ pub async fn get_changed_projects_since(
     Ok(results)
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum PipelineStatus {
     Pending,
@@ -115,8 +115,36 @@ pub enum PipelineStatus {
     Scheduled,
 }
 
+impl From<PipelineStatus> for PackageBuildStatus {
+    fn from(value: PipelineStatus) -> Self {
+        match value {
+            PipelineStatus::Pending
+            | PipelineStatus::Created
+            | PipelineStatus::WaitingForResource
+            | PipelineStatus::Preparing
+            | PipelineStatus::Scheduled
+            | PipelineStatus::Running
+            | PipelineStatus::Manual => PackageBuildStatus::Building,
+            PipelineStatus::Failed | PipelineStatus::Canceled | PipelineStatus::Skipped => {
+                PackageBuildStatus::Failed
+            }
+            PipelineStatus::Success => PackageBuildStatus::Built,
+        }
+    }
+}
+
+impl PipelineStatus {
+    pub fn is_finished(&self) -> bool {
+        PackageBuildStatus::from(*self) != PackageBuildStatus::Building
+    }
+}
+
 #[derive(Deserialize, Debug)]
-pub struct CreatePipelineResponse {}
+pub struct CreatePipelineResponse {
+    pub id: u64,
+    pub project_id: u64,
+    pub status: PipelineStatus,
+}
 
 pub async fn create_pipeline(client: &AsyncGitlab) -> Result<CreatePipelineResponse> {
     // Using graphQL for triggering pipelines is not yet possible:
@@ -124,7 +152,7 @@ pub async fn create_pipeline(client: &AsyncGitlab) -> Result<CreatePipelineRespo
     let response: CreatePipelineResponse =
         gitlab::api::projects::pipelines::CreatePipeline::builder()
             // TODO remove hardcoded temporary test project
-            .project(85321)
+            .project(85519)
             .ref_("main")
             .build()?
             .query_async(client)
@@ -134,6 +162,27 @@ pub async fn create_pipeline(client: &AsyncGitlab) -> Result<CreatePipelineRespo
     println!("Dispatched build to gitlab: {response:?}");
 
     Ok(response)
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GetPipelineResponse {
+    pub status: PipelineStatus,
+}
+
+pub async fn get_pipeline_status(
+    client: &AsyncGitlab,
+    project_iid: u64,
+    pipeline_iid: u64,
+) -> Result<PipelineStatus> {
+    let response: GetPipelineResponse = gitlab::api::projects::pipelines::Pipeline::builder()
+        .project(project_iid)
+        .pipeline(pipeline_iid)
+        .build()?
+        .query_async(client)
+        .await
+        .context("Error querying Gitlab Pipeline")?;
+
+    Ok(response.status)
 }
 
 /// Convert arbitrary project names to GitLab valid path names.
