@@ -27,7 +27,7 @@ Information on prior art, technical background, feedback from user interviews an
 ## Development
 
 - Install the `sqlx-cli` package.
-- Optional: Get a personal access token for gitlab.archlinux.org with the `read_api` scope and put it into `.env`. 
+- Optional: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`. 
 
 Now you need to run the server, a worker, and then dispatch work to the server using the client.
 

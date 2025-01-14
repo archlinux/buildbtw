@@ -8,7 +8,11 @@ use srcinfo::Srcinfo;
 use std::path::Path;
 use tokio::task::JoinSet;
 
-pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
+pub async fn clone_packaging_repository(
+    pkgbase: Pkgbase,
+    gitlab_domain: String,
+    gitlab_packages_group: String,
+) -> Result<git2::Repository> {
     tokio::task::spawn_blocking(move || {
         println!("Cloning {pkgbase}");
 
@@ -24,7 +28,7 @@ pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Reposi
         fetch_options.remote_callbacks(callbacks);
 
         let repo = RepoBuilder::new().fetch_options(fetch_options).clone(
-            &format!("git@gitlab.archlinux.org:archlinux/packaging/packages/{project_path}.git"),
+            &format!("git@{gitlab_domain}:{gitlab_packages_group}/{project_path}.git"),
             package_source_path(&pkgbase).as_std_path(),
         )?;
 
@@ -33,10 +37,18 @@ pub async fn clone_packaging_repository(pkgbase: Pkgbase) -> Result<git2::Reposi
     .await?
 }
 
-pub async fn clone_or_fetch_repositories(pkgbases: Vec<Pkgbase>) -> Result<()> {
+pub async fn clone_or_fetch_repositories(
+    pkgbases: Vec<Pkgbase>,
+    gitlab_domain: String,
+    gitlab_packages_group: String,
+) -> Result<()> {
     let mut join_set = JoinSet::new();
     for pkgbase in pkgbases {
-        join_set.spawn(clone_or_fetch_repository(pkgbase));
+        join_set.spawn(clone_or_fetch_repository(
+            pkgbase,
+            gitlab_domain.clone(),
+            gitlab_packages_group.clone(),
+        ));
         while join_set.len() >= 50 {
             join_set.join_next().await.unwrap()??;
         }
@@ -76,7 +88,11 @@ pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
     .await?
 }
 
-pub async fn clone_or_fetch_repository(pkgbase: Pkgbase) -> Result<git2::Repository> {
+pub async fn clone_or_fetch_repository(
+    pkgbase: Pkgbase,
+    gitlab_domain: String,
+    gitlab_packages_group: String,
+) -> Result<git2::Repository> {
     let maybe_repo = git2::Repository::open(package_source_path(&pkgbase));
     let repo = if let Ok(repo) = maybe_repo {
         fetch_repository(pkgbase.clone())
@@ -84,7 +100,7 @@ pub async fn clone_or_fetch_repository(pkgbase: Pkgbase) -> Result<git2::Reposit
             .expect("Failed to fetch repository");
         repo
     } else {
-        clone_packaging_repository(pkgbase).await?
+        clone_packaging_repository(pkgbase, gitlab_domain, gitlab_packages_group).await?
     };
     Ok(repo)
 }
@@ -92,8 +108,11 @@ pub async fn clone_or_fetch_repository(pkgbase: Pkgbase) -> Result<git2::Reposit
 pub async fn retrieve_srcinfo_from_remote_repository(
     pkgbase: Pkgbase,
     branch: &GitRef,
+    gitlab_domain: String,
+    gitlab_packages_group: String,
 ) -> Result<Srcinfo> {
-    let repo = clone_or_fetch_repository(pkgbase.clone()).await?;
+    let repo =
+        clone_or_fetch_repository(pkgbase.clone(), gitlab_domain, gitlab_packages_group).await?;
 
     // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
     let srcinfo = read_srcinfo_from_repo(&repo, branch)
@@ -102,7 +121,10 @@ pub async fn retrieve_srcinfo_from_remote_repository(
     Ok(srcinfo)
 }
 
-pub async fn fetch_all_packaging_repositories() -> Result<()> {
+pub async fn fetch_all_packaging_repositories(
+    gitlab_domain: String,
+    gitlab_packages_group: String,
+) -> Result<()> {
     println!("Fetching all packaging repositories");
 
     // TODO: query GitLab API for all packaging repositories, otherwise we may miss none-released new depends
@@ -111,7 +133,12 @@ pub async fn fetch_all_packaging_repositories() -> Result<()> {
     let response = Client::new().get(repo_pkgbase_url).send().await?;
     let maintainers: PkgbaseMaintainers = serde_json::from_str(response.text().await?.as_str())?;
     let all_pkgbases = maintainers.keys().collect::<Vec<_>>();
-    clone_or_fetch_repositories(all_pkgbases.into_iter().cloned().collect()).await?;
+    clone_or_fetch_repositories(
+        all_pkgbases.into_iter().cloned().collect(),
+        gitlab_domain,
+        gitlab_packages_group,
+    )
+    .await?;
 
     Ok(())
 }

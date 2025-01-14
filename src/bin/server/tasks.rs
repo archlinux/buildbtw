@@ -8,14 +8,16 @@ use buildbtw::{
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
     PackageBuildStatus,
 };
-use redact::Secret;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use crate::db::{
-    self,
-    global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
+use crate::{
+    args,
+    db::{
+        self,
+        global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
+    },
 };
 use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
 
@@ -23,8 +25,7 @@ pub enum Message {}
 
 pub async fn start(
     pool: SqlitePool,
-    gitlab_token: Option<Secret<String>>,
-    dispatch_builds_to_gitlab: bool,
+    gitlab_args: Option<args::Gitlab>,
 ) -> Result<UnboundedSender<Message>> {
     println!("Starting server tasks");
 
@@ -37,32 +38,37 @@ pub async fn start(
     //     }
     // });
 
-    let maybe_gitlab_client = if let Some(token) = gitlab_token {
-        Some(
-            GitlabBuilder::new("gitlab.archlinux.org", token.expose_secret())
-                .build_async()
-                .await?,
-        )
-    } else {
-        None
-    };
+    if let Some(args) = &gitlab_args {
+        fetch_source_repo_changes_in_loop(pool.clone(), args.clone()).await?;
+    }
 
-    let dispatch_gitlab_client = if dispatch_builds_to_gitlab {
-        // In the Args struct, we specify that the dispatch to gitlab flag requires
-        // a gitlab token, so this should always be `Some` here.
-        maybe_gitlab_client.clone()
+    update_and_build_all_namespaces_in_loop(pool.clone(), gitlab_args).await?;
+
+    Ok(sender)
+}
+
+async fn new_gitlab_client(args: &args::Gitlab) -> Result<AsyncGitlab> {
+    GitlabBuilder::new(
+        args.gitlab_domain.clone(),
+        args.gitlab_token.expose_secret(),
+    )
+    .build_async()
+    .await
+    .context("Failed to create gitlab client")
+}
+
+async fn update_and_build_all_namespaces_in_loop(
+    pool: SqlitePool,
+    maybe_gitlab_args: Option<args::Gitlab>,
+) -> Result<()> {
+    let maybe_gitlab_client = if let Some(args) = maybe_gitlab_args {
+        Some(new_gitlab_client(&args).await?)
     } else {
         None
     };
-    let periodic_check_pool = pool.clone();
     tokio::spawn(async move {
         loop {
-            match update_and_build_all_namespaces(
-                &periodic_check_pool,
-                dispatch_gitlab_client.as_ref(),
-            )
-            .await
-            {
+            match update_and_build_all_namespaces(&pool, maybe_gitlab_client.as_ref()).await {
                 Ok(_) => {}
                 Err(e) => println!("Error creating new iteration: {e:?}"),
             };
@@ -70,11 +76,7 @@ pub async fn start(
         }
     });
 
-    if let Some(client) = maybe_gitlab_client {
-        fetch_source_repo_changes_in_loop(client, pool.clone());
-    }
-
-    Ok(sender)
+    Ok(())
 }
 
 /// If given a gitlab client, dispatch builds to gitlab.
@@ -97,12 +99,23 @@ async fn update_and_build_all_namespaces(
     Ok(())
 }
 
-pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab, db_pool: SqlitePool) {
+pub async fn fetch_source_repo_changes_in_loop(
+    db_pool: SqlitePool,
+    gitlab_args: args::Gitlab,
+) -> Result<()> {
+    let client = new_gitlab_client(&gitlab_args).await?;
     tokio::spawn(async move {
         // TODO maybe we should be stricter about errors here
         let mut last_fetched = get_gitlab_last_updated(&db_pool).await.ok().flatten();
         loop {
-            match fetch_all_source_repo_changes(&client, last_fetched).await {
+            match fetch_all_source_repo_changes(
+                &client,
+                last_fetched,
+                gitlab_args.gitlab_domain.clone(),
+                gitlab_args.gitlab_packages_group.clone(),
+            )
+            .await
+            {
                 Ok(Some(new_last_fetched)) => {
                     if let Err(e) = set_gitlab_last_updated(&db_pool, new_last_fetched).await {
                         println!("Failed to set gitlab updated date: {e:?}");
@@ -117,6 +130,7 @@ pub fn fetch_source_repo_changes_in_loop(client: AsyncGitlab, db_pool: SqlitePoo
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
     });
+    Ok(())
 }
 
 async fn create_new_namespace_iteration_if_needed(

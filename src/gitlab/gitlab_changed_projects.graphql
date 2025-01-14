@@ -1,5 +1,5 @@
-query ChangedProjects($after: String) {
-    group(fullPath: "archlinux/packaging/packages") {
+query ChangedProjects($after: String, $group: ID!) {
+    group(fullPath: $group) {
         projects(sort: ACTIVITY_DESC, after: $after) {
             nodes {
                 name

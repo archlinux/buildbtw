@@ -55,12 +55,7 @@ async fn main() -> Result<()> {
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
 
-            let worker_sender = tasks::start(
-                db_pool.clone(),
-                args.gitlab_token,
-                args.run_builds_on_gitlab,
-            )
-            .await?;
+            let worker_sender = tasks::start(db_pool.clone(), args.gitlab).await?;
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route(
@@ -95,7 +90,13 @@ async fn main() -> Result<()> {
                 .await?;
         }
         Command::Warmup {} => {
-            fetch_all_packaging_repositories().await?;
+            if let Some(gitlab_args) = args.gitlab {
+                fetch_all_packaging_repositories(
+                    gitlab_args.gitlab_domain,
+                    gitlab_args.gitlab_packages_group,
+                )
+                .await?;
+            }
         }
     }
     Ok(())

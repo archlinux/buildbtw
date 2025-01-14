@@ -38,7 +38,7 @@ watch-test *args:
     cargo watch -w src -w templates -w Cargo.toml -- just test {{ args }}
 
 update-graphql-schema:
-    graphql-client introspect-schema https://gitlab.archlinux.org/api/graphql --authorization "$GITLAB_TOKEN" --output src/gitlab_schema.json
+    graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output src/gitlab/gitlab_schema.json
 
 lint *args:
     cargo clippy --workspace --all-targets {{args}} -- -D warnings

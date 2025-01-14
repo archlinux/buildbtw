@@ -10,9 +10,11 @@ use crate::{git::clone_or_fetch_repositories, PackageBuildStatus};
 pub async fn fetch_all_source_repo_changes(
     client: &AsyncGitlab,
     mut last_fetched: Option<OffsetDateTime>,
+    gitlab_domain: String,
+    gitlab_packages_group: String,
 ) -> Result<Option<OffsetDateTime>> {
     // Query which projects changed
-    let result = get_changed_projects_since(client, last_fetched).await?;
+    let result = get_changed_projects_since(client, last_fetched, &gitlab_packages_group).await?;
     if let Some(first_result) = result.first() {
         println!(
             "{} changed source repos found (first: {:?})",
@@ -24,7 +26,7 @@ pub async fn fetch_all_source_repo_changes(
 
     // Run git fetch for updated repos
     let pkgbases = result.into_iter().map(|info| info.name).collect();
-    clone_or_fetch_repositories(pkgbases).await?;
+    clone_or_fetch_repositories(pkgbases, gitlab_domain, gitlab_packages_group).await?;
 
     Ok(last_fetched)
 }
@@ -50,12 +52,14 @@ struct ChangedProjects;
 pub async fn get_changed_projects_since(
     client: &AsyncGitlab,
     last_fetched: Option<OffsetDateTime>,
+    package_group: &str,
 ) -> Result<Vec<changed_projects::ChangedProjectsGroupProjectsNodes>> {
     let mut end_of_last_query = None;
     let mut results = Vec::new();
     'keep_querying: loop {
         let query_body = ChangedProjects::build_query(changed_projects::Variables {
             after: end_of_last_query,
+            group: package_group.to_string(),
         });
         let response = client
             .graphql::<ChangedProjects>(&query_body)
