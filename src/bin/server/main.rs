@@ -59,12 +59,12 @@ async fn main() -> Result<()> {
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
                 .route(
-                    "/namespace/:namespace_id/graph",
+                    "/namespace/{namespace_id}/graph",
                     get(render_build_namespace),
                 )
                 .route("/namespace/latest", get(render_latest_namespace))
                 .route(
-                    "/namespace/:namespace_id/iteration/:iteration/pkgbase/:pkgbase",
+                    "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}",
                     patch(set_build_status),
                 )
                 .with_state(AppState {

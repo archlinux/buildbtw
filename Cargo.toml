@@ -7,48 +7,44 @@ edition = "2021"
 fake-pkgbuild = []
 
 [dependencies]
-anyhow = { version = "1.0.94", features = ["backtrace"] }
-axum = { version = "0.7.9", features = ["http2", "macros"] }
+anyhow = { version = "1.0.95", features = ["backtrace"] }
+axum = { version = "0.8.1", features = ["http2", "macros"] }
 axum-server = "0.7.1"
 camino = { version = "1.1.9", features = ["serde", "serde1"] }
-clap = { version = "4.5.23", features = [
+clap = { version = "4.5.26", features = [
     "cargo",
     "derive",
     "env",
     "wrap_help",
 ] }
 futures-time = "3.0.0"
-git2 = "0.19.0"
-gitlab = "0.1706.0"
+git2 = "0.20.0"
+gitlab = "0.1707.0"
 graphql_client = "0.14.0"
 layout-rs = { version = "0.1.2", features = ["log"] }
 listenfd = "1.0.1"
-minijinja = "2.5.0"
-petgraph = { version = "0.6.5", features = [
+minijinja = "2.6.0"
+petgraph = { version = "0.7.1", features = [
     "serde",
     "serde-1",
     "serde_derive",
 ] }
 redact = "0.1.10"
 regex = "1.11.1"
-reqwest = { version = "0.12.9", features = ["json"] }
-serde = { version = "1.0.216", features = ["serde_derive"] }
-serde_json = { version = "1.0.133", features = ["raw_value"] }
-sqlx = { version = "0.8.2", features = [
+reqwest = { version = "0.12.12", features = ["json"] }
+serde = { version = "1.0.217", features = ["serde_derive"] }
+serde_json = { version = "1.0.135", features = ["raw_value"] }
+sqlx = { version = "0.8.3", features = [
     "sqlite",
     "runtime-tokio",
     "uuid",
     "json",
     "time",
 ] }
-srcinfo = { version = "1.2.0", features = ["serde"] }
+srcinfo = { version = "1.3.1", features = ["serde"] }
 time = { version = "0.3.37", features = ["formatting", "parsing", "serde"] }
-tokio = { version = "1.42.0", features = ["fs", "rt-multi-thread", "process"] }
-uuid = { version = "1.11.0", features = ["serde", "v4"] }
-
-[patch.crates-io]
-
-srcinfo = { git = "https://github.com/Morganamilo/srcinfo.rs.git", branch = "master" }
+tokio = { version = "1.43.0", features = ["fs", "rt-multi-thread", "process"] }
+uuid = { version = "1.12.0", features = ["serde", "v4"] }
 
 [dev-dependencies]
-rstest = "0.23.0"
+rstest = "0.24.0"
