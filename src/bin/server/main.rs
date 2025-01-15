@@ -12,6 +12,7 @@ use routes::{
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
@@ -33,7 +34,27 @@ struct AppState {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    dbg!(&args);
+
+    let tracing_registry = tracing_subscriber::registry();
+
+    let console_layer = if cfg!(tokio_unstable) {
+        Some(console_subscriber::spawn())
+    } else {
+        None
+    };
+
+    let env_filter = if args.verbose == 2 {
+        EnvFilter::from("buildbtw=trace")
+    } else if args.verbose == 1 {
+        EnvFilter::from("buildbtw=debug")
+    } else {
+        EnvFilter::from_default_env()
+    };
+    let env_layer = tracing_subscriber::fmt::layer().with_filter(env_filter);
+
+    tracing_registry.with(console_layer).with(env_layer).init();
+
+    tracing::debug!("{args:#?}");
 
     match args.command {
         Command::Run { interface, port } => {

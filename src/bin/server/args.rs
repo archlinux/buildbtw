@@ -11,8 +11,8 @@ fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
 #[derive(Debug, Clone, Parser)]
 #[command(name = "buildbtw server", author, about, version)]
 pub struct Args {
-    /// Be verbose (log data of incoming and outgoing requests). If given twice it will also log
-    /// the body data.
+    /// Be verbose (e.g. log data of incoming and outgoing requests).
+    /// Provide once to set the log level to "debug", twice for "trace"
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
