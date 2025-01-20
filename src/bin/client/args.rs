@@ -17,12 +17,21 @@ fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
 }
 
 #[derive(Debug, Clone, Subcommand)]
+#[allow(clippy::enum_variant_names)]
 pub enum Command {
     CreateBuildNamespace {
         #[arg(short, long)]
         name: String,
         #[arg(value_parser(parse_git_changeset))]
         origin_changesets: Vec<GitRepoRef>,
+    },
+    CancelBuildNamespace {
+        #[arg()]
+        name: String,
+    },
+    ResumeBuildNamespace {
+        #[arg()]
+        name: String,
     },
 }
 

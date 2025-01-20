@@ -1,5 +1,7 @@
 use anyhow::Result;
-use buildbtw::{BuildNamespace, BuildNamespaceStatus, CreateBuildNamespace, GitRepoRef};
+use buildbtw::{
+    BuildNamespace, BuildNamespaceStatus, CreateBuildNamespace, GitRepoRef, UpdateBuildNamespace,
+};
 use sqlx::{types::Json, SqlitePool};
 
 pub(crate) async fn create(
@@ -122,12 +124,35 @@ pub(crate) async fn read_latest(pool: &SqlitePool) -> Result<BuildNamespace> {
     Ok(db_namespace.into())
 }
 
-pub(crate) async fn list(
+pub(crate) async fn update(
     pool: &SqlitePool,
-    filter_status: BuildNamespaceStatus,
-) -> Result<Vec<BuildNamespace>> {
-    let filter_status = DbBuildNamespaceStatus::from(filter_status);
+    name: &str,
+    update: UpdateBuildNamespace,
+) -> Result<BuildNamespace> {
+    let status = DbBuildNamespaceStatus::from(update.status);
+    let db_namespace = sqlx::query_as!(
+        DbBuildNamespace,
+        r#"
+        update build_namespaces
+        set status = $2
+        where name = $1
+        returning
+            id as "id: sqlx::types::Uuid", 
+            name, 
+            status as "status: DbBuildNamespaceStatus",
+            origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
+            created_at as "created_at: time::OffsetDateTime"
+        "#,
+        name,
+        status
+    )
+    .fetch_one(pool)
+    .await?;
 
+    Ok(db_namespace.into())
+}
+
+pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildNamespace>> {
     let namespaces = sqlx::query_as!(
         DbBuildNamespace,
         r#"
@@ -138,9 +163,7 @@ pub(crate) async fn list(
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
         from build_namespaces
-        where status = $1
         "#,
-        filter_status
     )
     .fetch_all(pool)
     .await?

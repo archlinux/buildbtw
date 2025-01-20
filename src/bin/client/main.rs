@@ -1,6 +1,6 @@
 use crate::args::{Args, Command};
 use anyhow::{Context, Result};
-use buildbtw::{BuildNamespace, GitRepoRef};
+use buildbtw::{BuildNamespace, BuildNamespaceStatus, GitRepoRef};
 use clap::Parser;
 
 mod args;
@@ -18,7 +18,27 @@ async fn main() -> Result<()> {
         } => {
             create_namespace(name, origin_changesets).await?;
         }
+        Command::CancelBuildNamespace { name } => {
+            update_namespace(name, BuildNamespaceStatus::Cancelled).await?;
+        }
+        Command::ResumeBuildNamespace { name } => {
+            update_namespace(name, BuildNamespaceStatus::Active).await?;
+        }
     }
+    Ok(())
+}
+
+async fn update_namespace(name: String, status: BuildNamespaceStatus) -> Result<()> {
+    let update = buildbtw::UpdateBuildNamespace { status };
+
+    reqwest::Client::new()
+        .patch(format!("http://0.0.0.0:8080/namespace/{name}"))
+        .json(&update)
+        .send()
+        .await
+        .context("Failed to send to server")?;
+
+    tracing::info!("Updated build namespace");
     Ok(())
 }
 

@@ -35,6 +35,11 @@ pub struct CreateBuildNamespace {
     pub origin_changesets: Vec<GitRepoRef>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UpdateBuildNamespace {
+    pub status: BuildNamespaceStatus,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ScheduleBuild {
     pub namespace: Uuid,

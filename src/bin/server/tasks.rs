@@ -6,7 +6,7 @@ use buildbtw::{
     build_set_graph::{self, schedule_next_build_in_graph},
     gitlab::fetch_all_source_repo_changes,
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
-    PackageBuildStatus,
+    BuildNamespaceStatus, PackageBuildStatus,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -85,9 +85,10 @@ async fn update_and_build_all_namespaces(
     pool: &SqlitePool,
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
-    tracing::info!("Updating and building all namespaces...");
     // Check all build namespaces and see if they need a new iteration.
-    let namespaces = db::namespace::list(pool, buildbtw::BuildNamespaceStatus::Active).await?;
+    let namespaces = db::namespace::list(pool).await?;
+    let namespace_count = namespaces.len();
+    tracing::info!("Updating and building {namespace_count} namespace(s)...");
     for namespace in namespaces {
         create_new_namespace_iteration_if_needed(pool, &namespace).await?;
         if let Some(gitlab_client) = maybe_gitlab_client {
@@ -243,6 +244,10 @@ async fn schedule_next_build_if_needed(
     namespace: &BuildNamespace,
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
+    if namespace.status == BuildNamespaceStatus::Cancelled {
+        return Ok(());
+    }
+
     // -> schedule build
     let iteration = db::iteration::read_newest(pool, namespace.id).await?;
     let build = schedule_next_build_in_graph(&iteration, namespace.id);

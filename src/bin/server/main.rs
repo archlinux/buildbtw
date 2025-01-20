@@ -9,6 +9,7 @@ use clap::Parser;
 use listenfd::ListenFd;
 use routes::{
     generate_build_namespace, render_build_namespace, render_latest_namespace, set_build_status,
+    update_namespace,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -66,6 +67,7 @@ async fn main() -> Result<()> {
                     get(render_build_namespace),
                 )
                 .route("/namespace/latest", get(render_latest_namespace))
+                .route("/namespace/{name}", patch(update_namespace))
                 .route(
                     "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}",
                     patch(set_build_status),

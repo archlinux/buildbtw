@@ -14,7 +14,7 @@ use crate::db::iteration::BuildSetIterationUpdate;
 use crate::{db, AppState};
 use buildbtw::{
     build_set_graph, BuildNamespace, CreateBuildNamespace, Pkgbase, SetBuildStatus,
-    SetBuildStatusResult,
+    SetBuildStatusResult, UpdateBuildNamespace,
 };
 
 #[debug_handler]
@@ -112,6 +112,19 @@ pub(crate) async fn render_build_namespace(
         .unwrap();
 
     Ok(Html(rendered))
+}
+
+pub async fn update_namespace(
+    Path(namespace_name): Path<String>,
+    State(state): State<AppState>,
+    Json(body): Json<UpdateBuildNamespace>,
+) -> Result<(), StatusCode> {
+    db::namespace::update(&state.db_pool, &namespace_name, body.clone())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    tracing::debug!(r#"Updated build namespace "{namespace_name}": {body:?}"#);
+
+    Ok(())
 }
 
 #[debug_handler]
