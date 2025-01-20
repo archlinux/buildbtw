@@ -29,12 +29,12 @@ pub(crate) async fn generate_build_namespace(
     let namespace = db::namespace::create(create, &state.db_pool)
         .await
         .map_err(|e| {
-            println!("{e:?}");
+            tracing::info!("{e:?}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
     let base_url = state.base_url;
-    println!(
+    tracing::info!(
         "Namespace overview available at: {base_url}/namespace/{}/graph",
         namespace.id
     );
@@ -50,7 +50,7 @@ pub(crate) async fn render_latest_namespace(
     let namespace = db::namespace::read_latest(&state.db_pool)
         .await
         .map_err(|e| {
-            println!("{e:?}");
+            tracing::info!("{e:?}");
             StatusCode::NOT_FOUND
         })?;
 
@@ -120,9 +120,12 @@ pub async fn set_build_status(
     State(state): State<AppState>,
     Json(body): Json<SetBuildStatus>,
 ) -> Json<SetBuildStatusResult> {
-    println!(
+    tracing::info!(
         "setting build status: namespace: {:?} iteration: {:?} pkgbase: {:?} status: {:?}",
-        namespace_id, iteration_id, pkgbase, body.status
+        namespace_id,
+        iteration_id,
+        pkgbase,
+        body.status
     );
 
     // TODO proper error handling
@@ -144,7 +147,7 @@ pub async fn set_build_status(
                 };
 
                 if let Err(e) = db::iteration::update(&state.db_pool, update).await {
-                    println!("{e:?}");
+                    tracing::info!("{e:?}");
                     return Json(SetBuildStatusResult::InternalError);
                 };
 

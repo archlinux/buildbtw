@@ -40,6 +40,6 @@ async fn create_namespace(
         .json()
         .await?;
 
-    println!("Created build namespace: {:?}", response);
+    tracing::info!("Created build namespace: {:?}", response);
     Ok(response)
 }

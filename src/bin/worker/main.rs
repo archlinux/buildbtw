@@ -84,6 +84,6 @@ async fn set_build_status(
         .json()
         .await?;
 
-    println!("Set build status: {:?}", response);
+    tracing::info!("Set build status: {:?}", response);
     Ok(response)
 }

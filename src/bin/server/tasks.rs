@@ -27,7 +27,7 @@ pub async fn start(
     pool: SqlitePool,
     gitlab_args: Option<args::Gitlab>,
 ) -> Result<UnboundedSender<Message>> {
-    println!("Starting server tasks");
+    tracing::info!("Starting server tasks");
 
     let (sender, mut _receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
     // Since the tasks are currently only dispatched via periodic checks,
@@ -70,7 +70,7 @@ async fn update_and_build_all_namespaces_in_loop(
         loop {
             match update_and_build_all_namespaces(&pool, maybe_gitlab_client.as_ref()).await {
                 Ok(_) => {}
-                Err(e) => println!("Error creating new iteration: {e:?}"),
+                Err(e) => tracing::info!("Error creating new iteration: {e:?}"),
             };
             tokio::time::sleep(Duration::from_secs(10)).await
         }
@@ -85,7 +85,7 @@ async fn update_and_build_all_namespaces(
     pool: &SqlitePool,
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
-    println!("Updating and building all namespaces...");
+    tracing::info!("Updating and building all namespaces...");
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list(pool).await?;
     for namespace in namespaces {
@@ -118,13 +118,13 @@ pub async fn fetch_source_repo_changes_in_loop(
             {
                 Ok(Some(new_last_fetched)) => {
                     if let Err(e) = set_gitlab_last_updated(&db_pool, new_last_fetched).await {
-                        println!("Failed to set gitlab updated date: {e:?}");
+                        tracing::info!("Failed to set gitlab updated date: {e:?}");
                     }
                     last_fetched = Some(new_last_fetched);
                 }
                 // No updated packages found.
                 Ok(None) => {}
-                Err(e) => println!("{e:?}"),
+                Err(e) => tracing::info!("{e:?}"),
             }
 
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
@@ -146,7 +146,7 @@ async fn create_new_namespace_iteration_if_needed(
             reason,
         } => {
             let namespace_name = namespace.name.clone();
-            println!(
+            tracing::info!(
                 "Creating new build iteration for namespace {namespace_name}, reason: {reason:?}"
             );
 
@@ -210,7 +210,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
 
             // If it's now finished, update the in-progress build node to reflect this
             if current_pipeline_status.is_finished() {
-                println!("finished");
+                tracing::info!("finished");
                 // Set new status of node, and mark nodes depending on this one
                 // as pending
                 new_build_set_graph = build_set_graph::set_build_status(
@@ -219,7 +219,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
                     current_pipeline_status.into(),
                 );
             } else {
-                println!("running");
+                tracing::info!("running");
             }
         }
 
@@ -253,7 +253,7 @@ async fn schedule_next_build_if_needed(
             let new_packages_to_be_built = response.updated_build_set_graph.clone();
             if let Err(e) = schedule_build(pool, &response, maybe_gitlab_client).await {
                 // TODO mark build as failed
-                println!("{e:?}");
+                tracing::info!("{e:?}");
             }
             db::iteration::update(
                 pool,
@@ -265,7 +265,7 @@ async fn schedule_next_build_if_needed(
             .await?;
         }
         ScheduleBuildResult::Finished => {
-            println!("Graph finished building");
+            tracing::info!("Graph finished building");
         }
     }
 
@@ -277,7 +277,7 @@ async fn schedule_build(
     build: &ScheduleBuild,
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
-    println!(
+    tracing::info!(
         "Building pending package for namespace: {:?}",
         build.srcinfo.base.pkgbase
     );
@@ -300,6 +300,6 @@ async fn schedule_build(
             .context("Failed to send to server")?;
     }
 
-    println!("Scheduled build: {:?}", build.source);
+    tracing::info!("Scheduled build: {:?}", build.source);
     Ok(())
 }

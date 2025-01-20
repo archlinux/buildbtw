@@ -14,7 +14,7 @@ pub async fn clone_packaging_repository(
     gitlab_packages_group: String,
 ) -> Result<git2::Repository> {
     tokio::task::spawn_blocking(move || {
-        println!("Cloning {pkgbase}");
+        tracing::info!("Cloning {pkgbase}");
 
         // Convert pkgbase to project path
         let project_path = crate::gitlab::gitlab_project_name_to_path(&pkgbase);
@@ -61,7 +61,7 @@ pub async fn clone_or_fetch_repositories(
 
 pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
     tokio::task::spawn_blocking(move || {
-        println!("Fetching repository {:?}", &pkgbase);
+        tracing::info!("Fetching repository {:?}", &pkgbase);
         let repo = git2::Repository::open(package_source_path(&pkgbase))?;
 
         // Set up the callbacks to use SSH credentials
@@ -125,7 +125,7 @@ pub async fn fetch_all_packaging_repositories(
     gitlab_domain: String,
     gitlab_packages_group: String,
 ) -> Result<()> {
-    println!("Fetching all packaging repositories");
+    tracing::info!("Fetching all packaging repositories");
 
     // TODO: query GitLab API for all packaging repositories, otherwise we may miss none-released new depends
     let repo_pkgbase_url = "https://archlinux.org/packages/pkgbase-maintainer";

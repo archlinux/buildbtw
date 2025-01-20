@@ -13,7 +13,7 @@ pub async fn build_package(schedule: &ScheduleBuild) -> PackageBuildStatus {
     match build_package_inner(schedule).await {
         Ok(status) => status,
         Err(e) => {
-            println!("Error building package: {e:?}");
+            tracing::error!("Error building package: {e:?}");
             PackageBuildStatus::Failed
         }
     }
@@ -46,7 +46,7 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
         .args(install_to_chroot)
         .args([build_path]);
 
-    println!("Spawning pkgctl: ${cmd:?}");
+    tracing::info!("Spawning pkgctl: ${cmd:?}");
     let mut child = cmd.spawn()?;
 
     // Calling `wait()` will drop stdin, but we need
@@ -137,7 +137,7 @@ source=()
         );
 
         let pkgbuild_path = path.join("PKGBUILD");
-        println!("Writing fake PKGBUILD to {pkgbuild_path}");
+        tracing::info!("Writing fake PKGBUILD to {pkgbuild_path}");
         fs::write(pkgbuild_path, pkgbuild).await?;
     }
 

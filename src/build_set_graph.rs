@@ -63,7 +63,7 @@ pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Resul
     )
     .await;
 
-    println!("Build set graph calculated");
+    tracing::info!("Build set graph calculated");
 
     packages
 }
@@ -214,7 +214,7 @@ pub async fn build_pkgname_to_srcinfo_map(
                 Err(_e) => {
                     // Since we have too many (unreleased) packages with missing
                     // .SRCINFOs, this is disabled for now
-                    // println!("⚠️ {e:#}:");
+                    // tracing::info!("⚠️ {e:#}:");
                 }
             }
         }
@@ -286,7 +286,7 @@ pub async fn build_global_dependent_graph(
                     Err(_e) => {
                         // TODO there are some repos that error here,
                         // investigate and fix
-                        // println!("⚠️ {e:#}");
+                        // tracing::info!("⚠️ {e:#}");
                     }
                 }
             }

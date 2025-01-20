@@ -16,7 +16,7 @@ pub async fn fetch_all_source_repo_changes(
     // Query which projects changed
     let result = get_changed_projects_since(client, last_fetched, &gitlab_packages_group).await?;
     if let Some(first_result) = result.first() {
-        println!(
+        tracing::info!(
             "{} changed source repos found (first: {:?})",
             result.len(),
             result.first()
@@ -163,7 +163,7 @@ pub async fn create_pipeline(client: &AsyncGitlab) -> Result<CreatePipelineRespo
             .await
             .context("Error creating pipeline")?;
 
-    println!("Dispatched build to gitlab: {response:?}");
+    tracing::info!("Dispatched build to gitlab: {response:?}");
 
     Ok(response)
 }

@@ -8,16 +8,16 @@ pub enum Message {
 }
 
 pub fn start() -> UnboundedSender<Message> {
-    println!("Starting worker tasks");
+    tracing::info!("Starting worker tasks");
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
     tokio::spawn(async move {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::BuildPackage(schedule) => {
-                    println!("🕑 Building package {:?}", schedule.srcinfo.base.pkgbase);
+                    tracing::info!("🕑 Building package {:?}", schedule.srcinfo.base.pkgbase);
                     let result_status = build_package(&schedule).await;
-                    println!("✅ built package {:?}", schedule.srcinfo.base.pkgbase);
+                    tracing::info!("✅ built package {:?}", schedule.srcinfo.base.pkgbase);
 
                     // TODO: exponential backoff
                     if let Err(err) = set_build_status(
@@ -28,7 +28,7 @@ pub fn start() -> UnboundedSender<Message> {
                     )
                     .await
                     {
-                        println!("❌ Failed to set build status: {err}");
+                        tracing::info!("❌ Failed to set build status: {err}");
                     }
                 }
             }
