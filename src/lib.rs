@@ -13,6 +13,7 @@ pub mod build_set_graph;
 pub mod git;
 pub mod gitlab;
 pub mod iteration;
+pub mod tracing;
 
 // TODO use git2::Oid instead?
 /// A branch name, commit hash, etc.

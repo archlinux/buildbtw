@@ -36,7 +36,8 @@ async fn schedule_build(
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    dbg!(&args);
+    buildbtw::tracing::init(args.verbose, false);
+    tracing::debug!("{args:?}");
 
     match args.command {
         Command::Run { interface, port } => {

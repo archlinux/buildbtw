@@ -8,6 +8,9 @@ mod args;
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    buildbtw::tracing::init(args.verbose, false);
+    tracing::debug!("{args:?}");
+
     match args.command {
         Command::CreateBuildNamespace {
             name,
