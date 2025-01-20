@@ -65,12 +65,19 @@ pub enum SetBuildStatusResult {
     InternalError,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub enum BuildNamespaceStatus {
+    Active,
+    Cancelled,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildNamespace {
     pub id: Uuid,
     pub name: String,
     pub current_origin_changesets: Vec<GitRepoRef>,
     pub created_at: time::OffsetDateTime,
+    pub status: BuildNamespaceStatus,
     // gitlab group epic, state repo mr, ...
     // tracking_thing: String,
 }

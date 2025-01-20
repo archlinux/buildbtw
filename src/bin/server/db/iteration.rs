@@ -104,7 +104,7 @@ pub(crate) async fn list(
         from build_set_iterations
         where namespace_id = $1
         "#,
-        namespace_id
+        namespace_id,
     )
     .fetch_all(pool)
     .await?

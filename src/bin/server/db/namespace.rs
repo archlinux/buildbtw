@@ -1,5 +1,5 @@
 use anyhow::Result;
-use buildbtw::{BuildNamespace, CreateBuildNamespace, GitRepoRef};
+use buildbtw::{BuildNamespace, BuildNamespaceStatus, CreateBuildNamespace, GitRepoRef};
 use sqlx::{types::Json, SqlitePool};
 
 pub(crate) async fn create(
@@ -13,16 +13,18 @@ pub(crate) async fn create(
         DbBuildNamespace,
         r#"
         insert into build_namespaces
-        (id, name, origin_changesets, created_at)
-        values ($1, $2, $3, $4)
+        (id, name, status, origin_changesets, created_at)
+        values ($1, $2, $3, $4, $5)
         returning
             id as "id: sqlx::types::Uuid", 
             name, 
+            status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
         "#,
         id,
         create.name,
+        DbBuildNamespaceStatus::Active,
         origin_changesets,
         created_at
     )
@@ -32,10 +34,35 @@ pub(crate) async fn create(
     Ok(namespace.into())
 }
 
+#[derive(sqlx::Type, Debug)]
+pub(crate) enum DbBuildNamespaceStatus {
+    Active,
+    Cancelled,
+}
+
+impl From<BuildNamespaceStatus> for DbBuildNamespaceStatus {
+    fn from(value: BuildNamespaceStatus) -> Self {
+        match value {
+            BuildNamespaceStatus::Active => DbBuildNamespaceStatus::Active,
+            BuildNamespaceStatus::Cancelled => DbBuildNamespaceStatus::Cancelled,
+        }
+    }
+}
+
+impl From<DbBuildNamespaceStatus> for BuildNamespaceStatus {
+    fn from(value: DbBuildNamespaceStatus) -> Self {
+        match value {
+            DbBuildNamespaceStatus::Active => BuildNamespaceStatus::Active,
+            DbBuildNamespaceStatus::Cancelled => BuildNamespaceStatus::Cancelled,
+        }
+    }
+}
+
 #[derive(sqlx::FromRow)]
 pub(crate) struct DbBuildNamespace {
     id: sqlx::types::Uuid,
     name: String,
+    status: DbBuildNamespaceStatus,
     origin_changesets: Json<Vec<GitRepoRef>>,
     created_at: time::OffsetDateTime,
 }
@@ -45,6 +72,7 @@ impl From<DbBuildNamespace> for BuildNamespace {
         BuildNamespace {
             id: value.id,
             name: value.name,
+            status: value.status.into(),
             current_origin_changesets: value.origin_changesets.0,
             created_at: value.created_at,
         }
@@ -58,6 +86,7 @@ pub(crate) async fn read(id: uuid::Uuid, pool: &SqlitePool) -> Result<BuildNames
         select 
             id as "id: sqlx::types::Uuid", 
             name, 
+            status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
         from build_namespaces
@@ -79,6 +108,7 @@ pub(crate) async fn read_latest(pool: &SqlitePool) -> Result<BuildNamespace> {
         select 
             id as "id: sqlx::types::Uuid", 
             name, 
+            status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
         from build_namespaces
@@ -92,17 +122,25 @@ pub(crate) async fn read_latest(pool: &SqlitePool) -> Result<BuildNamespace> {
     Ok(db_namespace.into())
 }
 
-pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildNamespace>> {
+pub(crate) async fn list(
+    pool: &SqlitePool,
+    filter_status: BuildNamespaceStatus,
+) -> Result<Vec<BuildNamespace>> {
+    let filter_status = DbBuildNamespaceStatus::from(filter_status);
+
     let namespaces = sqlx::query_as!(
         DbBuildNamespace,
         r#"
         select 
             id as "id: sqlx::types::Uuid", 
             name, 
+            status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
         from build_namespaces
+        where status = $1
         "#,
+        filter_status
     )
     .fetch_all(pool)
     .await?

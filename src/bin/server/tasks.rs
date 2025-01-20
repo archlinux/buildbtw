@@ -87,7 +87,7 @@ async fn update_and_build_all_namespaces(
 ) -> Result<()> {
     tracing::info!("Updating and building all namespaces...");
     // Check all build namespaces and see if they need a new iteration.
-    let namespaces = db::namespace::list(pool).await?;
+    let namespaces = db::namespace::list(pool, buildbtw::BuildNamespaceStatus::Active).await?;
     for namespace in namespaces {
         create_new_namespace_iteration_if_needed(pool, &namespace).await?;
         if let Some(gitlab_client) = maybe_gitlab_client {
