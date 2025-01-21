@@ -8,8 +8,8 @@ use axum::{
 use clap::Parser;
 use listenfd::ListenFd;
 use routes::{
-    generate_build_namespace, render_build_namespace, render_latest_namespace, set_build_status,
-    update_namespace,
+    generate_build_namespace, list_namespaces, render_build_namespace, render_latest_namespace,
+    set_build_status, update_namespace,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -56,6 +56,13 @@ async fn main() -> Result<()> {
                     "/templates/render_build_namespace.jinja"
                 )),
             )?;
+            jinja_env.add_template(
+                "list_build_namespaces",
+                include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/templates/list_build_namespaces.jinja"
+                )),
+            )?;
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
 
@@ -68,6 +75,7 @@ async fn main() -> Result<()> {
                 )
                 .route("/namespace/latest", get(render_latest_namespace))
                 .route("/namespace/{name}", patch(update_namespace))
+                .route("/namespace", get(list_namespaces))
                 .route(
                     "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}",
                     patch(set_build_status),

@@ -1,0 +1,11 @@
+{% extends "layout" %}
+{% block title %}{{ super() }} - all build namespaces {% endblock %}
+{% block body %}
+    <ul>
+        {% for namespace in namespaces %}
+            <li>
+                <a href="/namespace/{{namespace.id}}/graph">{{ namespace.name }}</a> ({{namespace.status}})
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
