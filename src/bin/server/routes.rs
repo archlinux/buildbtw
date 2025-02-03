@@ -36,7 +36,7 @@ pub(crate) async fn generate_build_namespace(
     let base_url = state.base_url;
     tracing::info!(
         "Namespace overview available at: {base_url}/namespace/{}/graph",
-        namespace.id
+        namespace.name
     );
 
     Ok(Json(namespace))
@@ -78,18 +78,45 @@ pub(crate) async fn render_latest_namespace(
             StatusCode::NOT_FOUND
         })?;
 
-    render_build_namespace(Path(namespace.id), State(state)).await
+    show_build_namespace(Path(namespace.name), State(state)).await
 }
 
 #[debug_handler]
-pub(crate) async fn render_build_namespace(
-    Path(namespace_id): Path<Uuid>,
+pub(crate) async fn show_build_namespace(
+    Path(namespace_name): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Html<String>, StatusCode> {
-    let namespace = db::namespace::read(namespace_id, &state.db_pool)
+    let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let iterations = db::iteration::list(&state.db_pool, namespace_id)
+    let iterations = db::iteration::list(&state.db_pool, namespace.id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let template = state
+        .jinja_env
+        .get_template("show_build_namespace")
+        .unwrap();
+
+    let rendered = template
+        .render(context! {
+            namespace => namespace,
+            iterations => iterations,
+        })
+        .unwrap();
+
+    Ok(Html(rendered))
+}
+
+#[debug_handler]
+pub(crate) async fn render_build_namespace_graph(
+    Path(namespace_name): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Html<String>, StatusCode> {
+    let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let iterations = db::iteration::list(&state.db_pool, namespace.id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -97,11 +124,6 @@ pub(crate) async fn render_build_namespace(
         .last()
         .ok_or(StatusCode::PROCESSING)?
         .packages_to_be_built;
-
-    let template = state
-        .jinja_env
-        .get_template("render_build_namespace")
-        .unwrap();
 
     let dot_output = petgraph::dot::Dot::with_attr_getters(
         latest_packages_to_be_built,
@@ -127,11 +149,14 @@ pub(crate) async fn render_build_namespace(
     visual_graph.do_it(false, false, false, &mut svg);
     let svg_content = svg.finalize();
 
+    let template = state
+        .jinja_env
+        .get_template("render_build_namespace_graph")
+        .unwrap();
+
     let rendered = template
         .render(context! {
             svg => svg_content,
-            namespace => namespace,
-            iterations => iterations,
         })
         .unwrap();
 

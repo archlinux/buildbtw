@@ -8,8 +8,8 @@ use axum::{
 use clap::Parser;
 use listenfd::ListenFd;
 use routes::{
-    generate_build_namespace, list_namespaces, render_build_namespace, render_latest_namespace,
-    set_build_status, update_namespace,
+    generate_build_namespace, list_namespaces, render_build_namespace_graph,
+    render_latest_namespace, set_build_status, show_build_namespace, update_namespace,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -50,10 +50,17 @@ async fn main() -> Result<()> {
                 )),
             )?;
             jinja_env.add_template(
-                "render_build_namespace",
+                "show_build_namespace",
                 include_str!(concat!(
                     env!("CARGO_MANIFEST_DIR"),
-                    "/templates/render_build_namespace.jinja"
+                    "/templates/show_build_namespace.jinja"
+                )),
+            )?;
+            jinja_env.add_template(
+                "render_build_namespace_graph",
+                include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/templates/render_build_namespace_graph.jinja"
                 )),
             )?;
             jinja_env.add_template(
@@ -69,11 +76,9 @@ async fn main() -> Result<()> {
             let worker_sender = tasks::start(db_pool.clone(), args.gitlab).await?;
             let app = Router::new()
                 .route("/namespace", post(generate_build_namespace))
-                .route(
-                    "/namespace/{namespace_id}/graph",
-                    get(render_build_namespace),
-                )
-                .route("/namespace/latest", get(render_latest_namespace))
+                .route("/namespace/{name}", get(show_build_namespace))
+                .route("/namespace/{name}/graph", get(render_build_namespace_graph))
+                .route("/latest_namespace", get(render_latest_namespace))
                 .route("/namespace/{name}", patch(update_namespace))
                 .route("/namespace", get(list_namespaces))
                 .route(

@@ -81,6 +81,7 @@ impl From<DbBuildNamespace> for BuildNamespace {
     }
 }
 
+#[expect(dead_code)]
 pub(crate) async fn read(id: uuid::Uuid, pool: &SqlitePool) -> Result<BuildNamespace> {
     let db_namespace = sqlx::query_as!(
         DbBuildNamespace,
@@ -96,6 +97,28 @@ pub(crate) async fn read(id: uuid::Uuid, pool: &SqlitePool) -> Result<BuildNames
         limit 1
         "#,
         id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(db_namespace.into())
+}
+
+pub(crate) async fn read_by_name(name: &str, pool: &SqlitePool) -> Result<BuildNamespace> {
+    let db_namespace = sqlx::query_as!(
+        DbBuildNamespace,
+        r#"
+        select 
+            id as "id: sqlx::types::Uuid", 
+            name, 
+            status as "status: DbBuildNamespaceStatus",
+            origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
+            created_at as "created_at: time::OffsetDateTime"
+        from build_namespaces
+        where name = $1
+        limit 1
+        "#,
+        name
     )
     .fetch_one(pool)
     .await?;

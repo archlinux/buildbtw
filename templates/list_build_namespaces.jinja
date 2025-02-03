@@ -4,7 +4,7 @@
     <ul>
         {% for namespace in namespaces %}
             <li>
-                <a href="/namespace/{{namespace.id}}/graph">{{ namespace.name }}</a> ({{namespace.status}})
+                <a href="/namespace/{{namespace.name}}/graph">{{ namespace.name }}</a> ({{namespace.status}})
             </li>
         {% endfor %}
     </ul>
