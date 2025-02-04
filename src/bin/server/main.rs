@@ -21,6 +21,7 @@ mod args;
 mod db;
 mod routes;
 mod tasks;
+pub mod with_content_type;
 
 #[derive(Clone)]
 struct AppState {
