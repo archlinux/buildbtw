@@ -20,7 +20,6 @@ clap = { version = "4.5.26", features = [
 ] }
 colored = "3.0.0"
 console-subscriber = "0.4.1"
-futures-time = "3.0.0"
 git2 = "0.20.0"
 gitlab = "0.1707.0"
 graphql_client = "0.14.0"
