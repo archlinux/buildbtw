@@ -3,7 +3,7 @@ use gitlab::{api::AsyncQuery, AsyncGitlab};
 use graphql_client::GraphQLQuery;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 
 use crate::{git::clone_or_fetch_repositories, PackageBuildStatus};
 
@@ -21,7 +21,13 @@ pub async fn fetch_all_source_repo_changes(
             result.len(),
             result.first()
         );
-        last_fetched = first_result.updated_at.clone().map(OffsetDateTime::from);
+        last_fetched = first_result
+            .updated_at
+            .clone()
+            .map(OffsetDateTime::from)
+            // Work around inaccuracy of the `updated_at` field
+            // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/32
+            .map(|date| date - Duration::minutes(6));
     };
 
     // Run git fetch for updated repos
