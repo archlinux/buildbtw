@@ -128,7 +128,7 @@ pub async fn fetch_source_repo_changes_in_loop(
                 Err(e) => tracing::info!("{e:?}"),
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(60 * 5)).await;
         }
     });
     Ok(())

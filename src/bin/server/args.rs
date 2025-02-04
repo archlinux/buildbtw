@@ -48,6 +48,8 @@ pub struct Gitlab {
 
     /// Dispatch builds to gitlab pipelines instead of a buildbtw worker instance.
     /// Requires gitlab token to be specified.
+    // TODO: make this an enum BuildDispatch {Gitlab, Local} and move it
+    // out of the `Gitlab` struct
     #[arg(long, env, required = false)]
     pub run_builds_on_gitlab: bool,
 }

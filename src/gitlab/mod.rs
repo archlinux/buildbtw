@@ -60,6 +60,7 @@ pub async fn get_changed_projects_since(
     last_fetched: Option<OffsetDateTime>,
     package_group: &str,
 ) -> Result<Vec<changed_projects::ChangedProjectsGroupProjectsNodes>> {
+    tracing::info!("Querying changed projects since {last_fetched:?}");
     let mut end_of_last_query = None;
     let mut results = Vec::new();
     'keep_querying: loop {

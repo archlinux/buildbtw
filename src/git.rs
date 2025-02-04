@@ -61,7 +61,7 @@ pub async fn clone_or_fetch_repositories(
 
 pub async fn fetch_repository(pkgbase: Pkgbase) -> Result<()> {
     tokio::task::spawn_blocking(move || {
-        tracing::info!("Fetching repository {:?}", &pkgbase);
+        tracing::debug!("Fetching repository {:?}", &pkgbase);
         let repo = git2::Repository::open(package_source_path(&pkgbase))?;
 
         // Set up the callbacks to use SSH credentials

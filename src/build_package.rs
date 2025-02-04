@@ -1,4 +1,4 @@
-//! Build a package by essentially running makepkg.
+//! Build a package locally by essentially running `pkgctl build`.
 
 use anyhow::anyhow;
 use camino::{Utf8Path, Utf8PathBuf};
