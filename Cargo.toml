@@ -18,6 +18,7 @@ clap = { version = "4.5.26", features = [
     "env",
     "wrap_help",
 ] }
+colored = "3.0.0"
 console-subscriber = "0.4.1"
 futures-time = "3.0.0"
 git2 = "0.20.0"

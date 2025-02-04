@@ -5,14 +5,17 @@ use axum::{
     routing::{get, patch, post},
     Router,
 };
+use axum_extra::handler::HandlerCallWithExtractors;
 use clap::Parser;
 use listenfd::ListenFd;
 use routes::{
-    generate_build_namespace, list_namespaces, render_build_namespace_graph,
-    render_latest_namespace, set_build_status, show_build_namespace, update_namespace,
+    generate_build_namespace, list_namespaces_html, list_namespaces_json,
+    render_build_namespace_graph, render_latest_namespace, set_build_status, show_build_namespace,
+    update_namespace,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
+use with_content_type::{with_content_type, ApplictionJson};
 
 use crate::args::{Args, Command};
 use buildbtw::git::fetch_all_packaging_repositories;
@@ -76,12 +79,17 @@ async fn main() -> Result<()> {
 
             let worker_sender = tasks::start(db_pool.clone(), args.gitlab).await?;
             let app = Router::new()
-                .route("/namespace", post(generate_build_namespace))
+                .route(
+                    "/namespace",
+                    post(generate_build_namespace).get(
+                        with_content_type::<ApplictionJson, _>(list_namespaces_json)
+                            .or(list_namespaces_html),
+                    ),
+                )
                 .route("/namespace/{name}", get(show_build_namespace))
                 .route("/namespace/{name}/graph", get(render_build_namespace_graph))
                 .route("/latest_namespace", get(render_latest_namespace))
                 .route("/namespace/{name}", patch(update_namespace))
-                .route("/namespace", get(list_namespaces))
                 .route(
                     "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}",
                     patch(set_build_status),

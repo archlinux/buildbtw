@@ -33,6 +33,7 @@ pub enum Command {
         #[arg()]
         name: String,
     },
+    ListBuildNamespaces {},
 }
 
 #[derive(Debug, Clone, Parser)]

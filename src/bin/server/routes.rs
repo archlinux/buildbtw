@@ -43,8 +43,7 @@ pub(crate) async fn generate_build_namespace(
 }
 
 /// For debugging: List all existing namespaces.
-#[debug_handler]
-pub(crate) async fn list_namespaces(
+pub(crate) async fn list_namespaces_html(
     State(state): State<AppState>,
 ) -> Result<Html<String>, StatusCode> {
     let namespaces = db::namespace::list(&state.db_pool).await.map_err(|e| {
@@ -64,6 +63,17 @@ pub(crate) async fn list_namespaces(
         .unwrap();
 
     Ok(Html(rendered))
+}
+
+pub(crate) async fn list_namespaces_json(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<BuildNamespace>>, StatusCode> {
+    let namespaces = db::namespace::list(&state.db_pool).await.map_err(|e| {
+        tracing::info!("{e:?}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Json(namespaces))
 }
 
 /// For debugging: Render the newest build namespace, regardless of its ID.

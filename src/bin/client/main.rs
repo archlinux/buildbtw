@@ -2,6 +2,9 @@ use crate::args::{Args, Command};
 use anyhow::{Context, Result};
 use buildbtw::{BuildNamespace, BuildNamespaceStatus, GitRepoRef};
 use clap::Parser;
+use colored::Colorize;
+use reqwest::header::ACCEPT;
+use time::format_description;
 
 mod args;
 
@@ -24,6 +27,7 @@ async fn main() -> Result<()> {
         Command::ResumeBuildNamespace { name } => {
             update_namespace(name, BuildNamespaceStatus::Active).await?;
         }
+        Command::ListBuildNamespaces {} => list_namespaces().await?,
     }
     Ok(())
 }
@@ -62,4 +66,32 @@ async fn create_namespace(
 
     tracing::info!("Created build namespace: {:?}", response);
     Ok(response)
+}
+
+async fn list_namespaces() -> Result<()> {
+    let namespaces: Vec<BuildNamespace> = reqwest::Client::new()
+        .get("http://0.0.0.0:8080/namespace")
+        .header(ACCEPT, "application/json")
+        .send()
+        .await
+        .context("Failed to read from server")?
+        .json()
+        .await?;
+
+    let date_format = format_description::parse("[year]-[month]-[day]")?;
+
+    for namespace in namespaces {
+        let status_emoji = match namespace.status {
+            BuildNamespaceStatus::Active => "🔄 (active) ".dimmed(),
+            BuildNamespaceStatus::Cancelled => "🛑 (stopped)".dimmed(),
+        };
+
+        println!(
+            "{status_emoji} {} {}",
+            namespace.created_at.format(&date_format)?.dimmed(),
+            namespace.name.bold(),
+        );
+    }
+
+    Ok(())
 }
