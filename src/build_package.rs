@@ -34,7 +34,7 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
 
     for file in dependency_file_paths.iter() {
         if !file.exists() {
-            return Err(anyhow!("Missing build output {file:?}"));
+            return Err(anyhow!("Missing dependency build input {file:?}"));
         }
     }
 

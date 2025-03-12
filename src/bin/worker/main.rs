@@ -84,6 +84,14 @@ async fn set_build_status(
         .json()
         .await?;
 
-    tracing::info!("Set build status: {:?}", response);
+    tracing::info!(
+        "{}",
+        match response {
+            SetBuildStatusResult::Success => "Sent build status to server",
+            SetBuildStatusResult::IterationNotFound =>
+                "Could not send build status: Iteration not found",
+            SetBuildStatusResult::InternalError => "Could not send build status: Internal error",
+        }
+    );
     Ok(response)
 }

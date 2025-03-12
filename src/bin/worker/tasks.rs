@@ -17,7 +17,10 @@ pub fn start() -> UnboundedSender<Message> {
                 Message::BuildPackage(schedule) => {
                     tracing::info!("🕑 Building package {:?}", schedule.srcinfo.base.pkgbase);
                     let result_status = build_package(&schedule).await;
-                    tracing::info!("✅ built package {:?}", schedule.srcinfo.base.pkgbase);
+                    tracing::info!(
+                        "✅ build finished for {:?} ({result_status:?})",
+                        schedule.srcinfo.base.pkgbase
+                    );
 
                     // TODO: exponential backoff
                     if let Err(err) = set_build_status(
