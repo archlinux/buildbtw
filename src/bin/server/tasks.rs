@@ -260,18 +260,23 @@ async fn schedule_next_build_if_needed(
         ScheduleBuildResult::NoPendingPackages => {}
         ScheduleBuildResult::Scheduled(response) => {
             let new_packages_to_be_built = response.updated_build_set_graph.clone();
-            if let Err(e) = schedule_build(pool, &response, maybe_gitlab_client).await {
-                // TODO mark build as failed
-                tracing::info!("{e:?}");
+            match schedule_build(pool, &response, maybe_gitlab_client).await {
+                Ok(_) => {
+                    db::iteration::update(
+                        pool,
+                        db::iteration::BuildSetIterationUpdate {
+                            id: iteration.id,
+                            packages_to_be_built: new_packages_to_be_built,
+                        },
+                    )
+                    .await?;
+                }
+                Err(e) => {
+                    // TODO mark build as failed
+                    // or check that this is actually retried
+                    tracing::info!("{e:?}");
+                }
             }
-            db::iteration::update(
-                pool,
-                db::iteration::BuildSetIterationUpdate {
-                    id: iteration.id,
-                    packages_to_be_built: new_packages_to_be_built,
-                },
-            )
-            .await?;
         }
         ScheduleBuildResult::Finished => {
             tracing::info!("Graph finished building");
