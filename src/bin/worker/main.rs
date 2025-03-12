@@ -40,8 +40,12 @@ async fn main() -> Result<()> {
     tracing::debug!("{args:?}");
 
     match args.command {
-        Command::Run { interface, port } => {
-            let worker_sender = tasks::start();
+        Command::Run {
+            interface,
+            port,
+            modify_gpg_keyring,
+        } => {
+            let worker_sender = tasks::start(modify_gpg_keyring);
             let app = Router::new()
                 .route("/build/schedule", post(schedule_build))
                 .with_state(AppState { worker_sender });

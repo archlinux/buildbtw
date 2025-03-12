@@ -4,15 +4,18 @@ use std::process::Stdio;
 
 use anyhow::anyhow;
 use camino::{Utf8Path, Utf8PathBuf};
-use tokio::fs::{self, File};
+use tokio::{
+    fs::{self, File},
+    process::Command,
+};
 
 use anyhow::{Context, Result};
 use git2::{build::CheckoutBuilder, Oid, Repository, Status};
 
 use crate::{git::package_source_path, PackageBuildStatus, ScheduleBuild, BUILD_DIR};
 
-pub async fn build_package(schedule: &ScheduleBuild) -> PackageBuildStatus {
-    match build_package_inner(schedule).await {
+pub async fn build_package(schedule: &ScheduleBuild, import_gpg_keys: bool) -> PackageBuildStatus {
+    match build_package_inner(schedule, import_gpg_keys).await {
         Ok(status) => status,
         Err(e) => {
             tracing::error!("Error building package: {e:?}");
@@ -21,7 +24,10 @@ pub async fn build_package(schedule: &ScheduleBuild) -> PackageBuildStatus {
     }
 }
 
-async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildStatus> {
+async fn build_package_inner(
+    schedule: &ScheduleBuild,
+    modify_gpg_keyring: bool,
+) -> Result<PackageBuildStatus> {
     // Copy the source repo from cache to build dir so we can easily remove
     // all build artefacts.
     let build_path = copy_package_source_to_build_dir(schedule).await?;
@@ -29,8 +35,15 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     // Check out the target commit.
     checkout_build_git_ref(&build_path, schedule).await?;
 
-    // Run makepkg.
-    let mut cmd = tokio::process::Command::new("pkgctl");
+    // Import GPG keys for source verification
+    if modify_gpg_keyring {
+        import_gpg_keys(&build_path).await?;
+    } else {
+        tracing::debug!("modify_gpg_keyring not set, skipping key import");
+    }
+
+    // Prepare pkgctl invocation
+    let mut cmd = Command::new("pkgctl");
 
     let dependency_file_paths = get_dependency_file_paths(schedule);
 
@@ -44,6 +57,7 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     let install_to_chroot = dependency_file_paths
         .iter()
         .flat_map(|file_path| ["-I".to_string(), file_path.to_string()]);
+
     cmd.args(["build"])
         .args(install_to_chroot)
         .args([build_path.clone()]);
@@ -75,6 +89,24 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
     // TODO Move build artefacts somewhere we can make them available to download?
 
     Ok(status)
+}
+
+async fn import_gpg_keys(build_dir: &Utf8Path) -> Result<()> {
+    let keys_dir = build_dir.join("keys/pgp");
+    if !keys_dir.is_dir() {
+        tracing::debug!("{keys_dir} not found, skipping key import");
+        return Ok(());
+    }
+    let mut files = fs::read_dir(keys_dir).await?;
+    while let Some(entry) = files.next_entry().await? {
+        let path = entry.path();
+
+        let mut gpg_cmd = Command::new("gpg");
+        gpg_cmd.arg("--import").arg(path);
+        tracing::debug!("{gpg_cmd:?}");
+        gpg_cmd.status().await?;
+    }
+    Ok(())
 }
 
 /// Make HEAD point to the commit at `repo_ref`, and update working tree and index to match that commit

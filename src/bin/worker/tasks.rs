@@ -7,7 +7,7 @@ pub enum Message {
     BuildPackage(ScheduleBuild),
 }
 
-pub fn start() -> UnboundedSender<Message> {
+pub fn start(modify_gpg_keyring: bool) -> UnboundedSender<Message> {
     tracing::info!("Starting worker tasks");
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Message>();
@@ -16,7 +16,7 @@ pub fn start() -> UnboundedSender<Message> {
             match msg {
                 Message::BuildPackage(schedule) => {
                     tracing::info!("🕑 Building package {:?}", schedule.srcinfo.base.pkgbase);
-                    let result_status = build_package(&schedule).await;
+                    let result_status = build_package(&schedule, modify_gpg_keyring).await;
                     tracing::info!(
                         "✅ build finished for {:?} ({result_status:?})",
                         schedule.srcinfo.base.pkgbase

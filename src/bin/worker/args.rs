@@ -37,5 +37,9 @@ pub enum Command {
         /// Port on which to listen
         #[arg(short, long, default_value = "8090")]
         port: u16,
+
+        /// Allow automatically importing public keys for verifying sources.
+        #[arg(long, default_value = "false")]
+        modify_gpg_keyring: bool,
     },
 }
