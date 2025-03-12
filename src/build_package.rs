@@ -99,38 +99,48 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
 
     // Replace the real PKGBUILD with a fake PKGBUILD to speed up compilation during testing.
     if cfg!(feature = "fake-pkgbuild") {
-        let pkgnames = format!(
-            "({})",
-            schedule
-                .srcinfo
-                .pkgs
-                .iter()
-                .map(|pkg| pkg.pkgname.clone())
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+        let pkgbuild = generate_fake_pkgbuild(schedule);
+        let pkgbuild_path = path.join("PKGBUILD");
+        tracing::info!("Writing fake PKGBUILD to {pkgbuild_path}");
+        fs::write(pkgbuild_path, pkgbuild).await?;
+    }
 
-        // Generate stub package_foo() functions
-        let mut package_funcs = String::new();
-        for pkg in &schedule.srcinfo.pkgs {
-            let pkgarchs = format!("({})", pkg.arch.to_vec().join(" "));
+    Ok(())
+}
 
-            let func = format!(
-                r#"
+fn generate_fake_pkgbuild(schedule: &ScheduleBuild) -> String {
+    let pkgnames = format!(
+        "({})",
+        schedule
+            .srcinfo
+            .pkgs
+            .iter()
+            .map(|pkg| pkg.pkgname.clone())
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+
+    // Generate stub package_foo() functions
+    let mut package_funcs = String::new();
+    for pkg in &schedule.srcinfo.pkgs {
+        let pkgarchs = format!("({})", pkg.arch.to_vec().join(" "));
+
+        let func = format!(
+            r#"
 package_{pkgname}() {{
     arch={pkgarch}
     echo 1
 }}
                 "#,
-                pkgname = pkg.pkgname,
-                pkgarch = pkgarchs,
-            );
+            pkgname = pkg.pkgname,
+            pkgarch = pkgarchs,
+        );
 
-            package_funcs.push_str(&func);
-        }
+        package_funcs.push_str(&func);
+    }
 
-        let pkgbuild = format!(
-            r#"
+    format!(
+        r#"
 pkgbase={pkgbase}
 pkgname={pkgname}
 pkgver={pkgver}
@@ -143,18 +153,11 @@ source=()
 
 {package_funcs}
         "#,
-            pkgbase = schedule.srcinfo.base.pkgbase,
-            pkgname = pkgnames,
-            pkgver = schedule.srcinfo.base.pkgver,
-            pkgrel = schedule.srcinfo.base.pkgrel,
-        );
-
-        let pkgbuild_path = path.join("PKGBUILD");
-        tracing::info!("Writing fake PKGBUILD to {pkgbuild_path}");
-        fs::write(pkgbuild_path, pkgbuild).await?;
-    }
-
-    Ok(())
+        pkgbase = schedule.srcinfo.base.pkgbase,
+        pkgname = pkgnames,
+        pkgver = schedule.srcinfo.base.pkgver,
+        pkgrel = schedule.srcinfo.base.pkgrel,
+    )
 }
 
 /// Return file paths for dependencies that were built in a previous step
