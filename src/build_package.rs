@@ -1,8 +1,10 @@
 //! Build a package locally by essentially running `pkgctl build`.
 
+use std::process::Stdio;
+
 use anyhow::anyhow;
 use camino::{Utf8Path, Utf8PathBuf};
-use tokio::fs;
+use tokio::fs::{self, File};
 
 use anyhow::{Context, Result};
 use git2::{build::CheckoutBuilder, Oid, Repository, Status};
@@ -44,9 +46,20 @@ async fn build_package_inner(schedule: &ScheduleBuild) -> Result<PackageBuildSta
         .flat_map(|file_path| ["-I".to_string(), file_path.to_string()]);
     cmd.args(["build"])
         .args(install_to_chroot)
-        .args([build_path]);
+        .args([build_path.clone()]);
+
+    // Log stdout and stderr to files
+    let stdout_log_path = build_path.join("stdout.log");
+    let stdout_log_file = File::create(&stdout_log_path).await?.into_std().await;
+    cmd.stdout(Stdio::from(stdout_log_file));
+
+    let stderr_log_path = build_path.join("stderr.log");
+    let stderr_log_file = File::create(&stderr_log_path).await?.into_std().await;
+    cmd.stderr(Stdio::from(stderr_log_file));
 
     tracing::info!("Spawning pkgctl: ${cmd:?}");
+    tracing::info!("Piping stdout to {stdout_log_path}");
+    tracing::info!("Piping stderr to {stderr_log_path}");
     let mut child = cmd.spawn()?;
 
     // Calling `wait()` will drop stdin, but we need
