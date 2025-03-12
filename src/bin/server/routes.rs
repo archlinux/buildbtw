@@ -2,6 +2,7 @@ use anyhow::Result;
 use axum::extract::Path;
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
+use buildbtw::build_set_graph::calculate_packages_to_be_built;
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use minijinja::context;
@@ -13,8 +14,8 @@ use uuid::Uuid;
 use crate::db::iteration::BuildSetIterationUpdate;
 use crate::{db, AppState};
 use buildbtw::{
-    build_set_graph, BuildNamespace, CreateBuildNamespace, Pkgbase, SetBuildStatus,
-    SetBuildStatusResult, UpdateBuildNamespace,
+    build_set_graph, BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase,
+    SetBuildStatus, SetBuildStatusResult, UpdateBuildNamespace,
 };
 
 #[debug_handler]
@@ -184,6 +185,32 @@ pub async fn update_namespace(
     tracing::debug!(r#"Updated build namespace "{namespace_name}": {body:?}"#);
 
     Ok(())
+}
+
+pub async fn create_namespace_iteration(
+    Path(namespace_name): Path<String>,
+    State(state): State<AppState>,
+    Json(body): Json<()>,
+) -> Result<Json<BuildSetIteration>, StatusCode> {
+    let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let new_iteration = BuildSetIteration {
+        id: Uuid::new_v4(),
+        origin_changesets: namespace.current_origin_changesets.clone(),
+        packages_to_be_built: calculate_packages_to_be_built(&namespace)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        create_reason: buildbtw::iteration::NewIterationReason::CreatedByUser,
+    };
+
+    db::iteration::create(&state.db_pool, namespace.id, new_iteration.clone())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    tracing::debug!(r#"Updated build namespace "{namespace_name}": {body:?}"#);
+
+    Ok(Json(new_iteration))
 }
 
 #[debug_handler]

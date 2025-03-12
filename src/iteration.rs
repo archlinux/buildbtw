@@ -10,6 +10,7 @@ pub enum NewIterationReason {
     FirstIteration,
     OriginChangesetsChanged,
     BuildSetGraphChanged { diff: Box<build_set_graph::Diff> },
+    CreatedByUser,
 }
 
 pub enum NewBuildIterationResult {

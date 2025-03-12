@@ -1,6 +1,6 @@
 use crate::args::{Args, Command};
 use anyhow::{Context, Result};
-use buildbtw::{BuildNamespace, BuildNamespaceStatus, GitRepoRef};
+use buildbtw::{BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef};
 use clap::Parser;
 use colored::Colorize;
 use reqwest::header::ACCEPT;
@@ -28,6 +28,9 @@ async fn main() -> Result<()> {
             update_namespace(name, BuildNamespaceStatus::Active).await?;
         }
         Command::ListBuildNamespaces {} => list_namespaces().await?,
+        Command::CreateBuildIteration { name } => {
+            create_build_iteration(name).await?;
+        }
     }
     Ok(())
 }
@@ -65,6 +68,20 @@ async fn create_namespace(
         .await?;
 
     tracing::info!("Created build namespace: {:?}", response);
+    Ok(response)
+}
+
+async fn create_build_iteration(name: String) -> Result<BuildSetIteration> {
+    let response: BuildSetIteration = reqwest::Client::new()
+        .post(format!("http://0.0.0.0:8080/namespace/{name}/iteration"))
+        .json(&())
+        .send()
+        .await
+        .context("Failed to send to server")?
+        .json()
+        .await?;
+
+    tracing::info!("Created iteration: {:?}", response.id);
     Ok(response)
 }
 

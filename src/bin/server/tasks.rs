@@ -306,7 +306,7 @@ async fn schedule_build(
             .json(build)
             .send()
             .await
-            .context("Failed to send to server")?;
+            .context("Failed to send to worker")?;
     }
 
     tracing::info!("Scheduled build: {:?}", build.source);

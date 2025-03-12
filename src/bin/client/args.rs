@@ -34,6 +34,11 @@ pub enum Command {
         name: String,
     },
     ListBuildNamespaces {},
+    /// Manually create a new iteration for a namespace, recalculating the build graph and starting to build from the beginning.
+    CreateBuildIteration {
+        #[arg()]
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, Parser)]
