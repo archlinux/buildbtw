@@ -62,7 +62,11 @@ async fn update_and_build_all_namespaces_in_loop(
     maybe_gitlab_args: Option<args::Gitlab>,
 ) -> Result<()> {
     let maybe_gitlab_client = if let Some(args) = maybe_gitlab_args {
-        Some(new_gitlab_client(&args).await?)
+        if args.run_builds_on_gitlab {
+            Some(new_gitlab_client(&args).await?)
+        } else {
+            None
+        }
     } else {
         None
     };
