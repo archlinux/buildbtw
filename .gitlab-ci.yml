@@ -1,7 +1,7 @@
 image: "archlinux:latest"
 
 before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf sqlx-cli
+  - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf sqlx-cli podman crun
   - sqlx db create
   - sqlx migrate run
 
@@ -9,25 +9,52 @@ variables:
   DATABASE_URL: "sqlite:buildbtw_server.sqlite"
 
 stages:
-  - lint
-  - test
+  - check
+  - build
 
 format:
-  stage: lint
+  stage: check
   script:
     - cargo fmt --all -- --check
 
-clippy:
-  stage: lint
-  script:
-    - cargo clippy --workspace --all-targets -- -D warnings
-
 audit:
-  stage: lint
+  stage: check
   script:
     - cargo audit
 
-test:
-  stage: test
+.cache-rust:
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
+
+    paths:
+      - .cargo/bin
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target/debug/deps
+      - target/debug/build
+      - target/release/deps
+      - target/release/build
+  variables:
+    CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
+
+lint-test:
+  stage: check
+  extends: .cache-rust
   script:
+    - cargo clippy --workspace --all-targets -- -D warnings
     - cargo test --workspace --release
+
+build:
+  stage: build
+  extends: .cache-rust
+  tags:
+    - vm
+  # For now, we're only publishing builds for the proof-of-concept.
+  rules:
+    - if: $CI_COMMIT_BRANCH == "proof-of-concept"
+    - if: $CI_PIPELINE_SOURCE == "push"
+  script:
+    - cargo build --release
+    - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest target/release
+    - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
