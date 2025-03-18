@@ -22,16 +22,7 @@ With the default `.env` file, the buildbtw client should be able to connect to t
 ## Deploying a new version
 
 ```sh
-sudo -u buildbtw -i podman pull registry.archlinux.org/archlinux/buildbtw:poc-server-latest
-sudo -u buildbtw -i \
-    podman run \
-        --env-file /srv/buildbtw/env \
-        --restart always \
-        --replace --name server \
-        --volume /srv/buildbtw/data:/app/data \
-        --publish 127.0.0.1:8080:8080 \
-        registry.archlinux.org/archlinux/buildbtw:poc-server-latest \
-        run
+sudo -u buildbtw -i /srv/buildbtw/deploy.sh
 ```
 
 ## Initial Setup
@@ -51,5 +42,28 @@ sudo -u buildbtw -i mkdir /srv/buildbtw/data
 sudo -u buildbtw -i vim /srv/buildbtw/env
 sudo chmod go-rwx /srv/buildbtw/env
 ```
+
+Write following contents to `/srv/buildbtw/deploy.sh`:
+
+```sh
+#!/bin/bash
+
+set -euo pipefail
+
+echo "Pulling image..."
+podman pull registry.archlinux.org/archlinux/buildbtw:poc-server-latest
+echo "Starting container..."
+podman run \
+    --env-file /srv/buildbtw/env \
+    --restart always \
+    --detach \
+    --replace --name server \
+    --volume /srv/buildbtw/data:/app/data \
+    --publish 127.0.0.1:8080:8080 \
+    registry.archlinux.org/archlinux/buildbtw:poc-server-latest \
+    run
+```
+
+Afterwards, run `chmod +x /srv/buildbtw/deploy.sh`.
 
 Proceed to "Deploying a new version".

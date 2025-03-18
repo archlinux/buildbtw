@@ -11,6 +11,7 @@ variables:
 stages:
   - check
   - build
+  - deploy
 
 format:
   stage: check
@@ -58,3 +59,18 @@ build:
     - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest target/release
     - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
+
+deploy:
+  stage: deploy
+  # For now, we're only deploying the proof-of-concept.
+  rules:
+    - if: $CI_COMMIT_BRANCH == "proof-of-concept"
+    - if: $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pacman -Syu --needed --noconfirm openssh
+    - base64 --decode "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+    - base64 --decode ${BUILDBTW_SSH_PRIVATE_KEY} > ~/.ssh/id_ed25519
+    - chmod 640 ~/.ssh/known_hosts
+    - chmod 600 ~/.ssh/id_ed25519
+    - chmod 700 ~/.ssh
+    - ssh buildbtw@${BUILDBTW_SERVER_IPV4} /srv/buildbtw/deploy.sh
