@@ -1,0 +1,43 @@
+#!/usr/bin/bash
+set -o nounset -o errexit -o pipefail -o xtrace
+
+# https://docs.gitlab.com/runner/executors/custom.html#prepare
+prepare() {
+    # Pull image if it doesn't exist and make sure a booted snapshot is available.
+    vmexec run --os archlinux --pull newer --pmem /var/lib/archbuild:30 -- echo 'VM started'
+}
+
+# https://docs.gitlab.com/runner/executors/custom.html#run
+run() {
+    # TODO clone and pass in sources
+    output_dir=$(mktemp -d)
+    vmexec run archlinux --pmem /var/lib/archbuild:30 \
+    --volume "$PWD:/mnt/bin:ro" --volume "$output_dir:/mnt/build-result" \
+    -- \
+        /mnt/bin/build-inside-vm openimageio || exit "${BUILD_FAILURE_EXIT_CODE:-1}"
+
+    tree "$output_dir"
+    # TODO upload build artifacts
+}
+
+# https://docs.gitlab.com/runner/executors/custom.html#cleanup
+cleanup() {
+    # vmexec mostly cleans up after itself
+    # TODO: clean up old versions of VM base images
+    :
+}
+
+case "${1:-}" in
+  prepare)
+    prepare
+    ;;
+  run)
+    run
+    ;;
+  cleanup)
+    cleanup
+    ;;
+  *)
+    echo "Error invalid command: ${1:-}"
+    exit 1;
+esac

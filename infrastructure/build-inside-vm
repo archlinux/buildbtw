@@ -1,0 +1,11 @@
+#!/usr/bin/bash
+set -o nounset -o errexit -o pipefail -o xtrace
+
+pacman --noconfirm -Sy devtools
+useradd -m -p '' builder
+echo 'builder ALL=(ALL:ALL) NOPASSWD: ALL' >> /etc/sudoers
+chown -R builder .
+sudo -u builder bash << EOF
+pkgctl repo clone --protocol https "$1"
+pkgctl build "$1"
+EOF
