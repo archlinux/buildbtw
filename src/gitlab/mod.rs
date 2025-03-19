@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Context, Result};
-use gitlab::{api::AsyncQuery, AsyncGitlab};
+use gitlab::{
+    api::{groups::projects::GroupProjectsOrderBy, AsyncQuery},
+    AsyncGitlab,
+};
 use graphql_client::GraphQLQuery;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -194,6 +197,71 @@ pub async fn get_pipeline_status(
         .context("Error querying Gitlab Pipeline")?;
 
     Ok(response.status)
+}
+
+#[derive(Deserialize, Debug)]
+struct ProjectCiConfig {
+    id: u64,
+    ci_config_path: String,
+}
+
+async fn get_all_projects_ci_configs(
+    client: &AsyncGitlab,
+    package_group: &str,
+) -> Result<Vec<ProjectCiConfig>> {
+    let endpoint = gitlab::api::groups::projects::GroupProjects::builder()
+        .group(package_group)
+        .order_by(GroupProjectsOrderBy::Path)
+        .build()
+        .unwrap();
+    let projects: Vec<ProjectCiConfig> = gitlab::api::paged(endpoint, gitlab::api::Pagination::All)
+        .query_async(client)
+        .await?;
+    Ok(projects)
+}
+
+pub async fn set_all_projects_ci_config(
+    client: &AsyncGitlab,
+    package_group: &str,
+    ci_config_path: String,
+) -> Result<()> {
+    tracing::info!("Fetching CI config path for all projects in the {package_group} group...");
+    let projects = get_all_projects_ci_configs(client, package_group).await?;
+    tracing::info!(
+        "Updating CI config path for {} projects where necessary...",
+        projects.len()
+    );
+
+    let mut results: Vec<Result<()>> = Vec::new();
+
+    for project in projects {
+        if project.ci_config_path == ci_config_path {
+            continue;
+        }
+
+        results.push(set_project_ci_config(client, project.id, &ci_config_path).await);
+    }
+
+    tracing::info!("Changed CI config path for {} projects", results.len());
+
+    results.into_iter().collect()
+}
+
+pub async fn set_project_ci_config(
+    client: &AsyncGitlab,
+    project_path: u64,
+    ci_config_path: &str,
+) -> Result<()> {
+    let endpoint = gitlab::api::projects::EditProject::builder()
+        .project(project_path)
+        .ci_config_path(ci_config_path)
+        .build()?;
+    gitlab::api::ignore(endpoint)
+        .query_async(client)
+        .await
+        .context("Error updating gitlab project config")?;
+
+    Ok(())
 }
 
 /// Convert arbitrary project names to GitLab valid path names.

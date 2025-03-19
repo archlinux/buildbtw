@@ -50,8 +50,13 @@ pub struct Gitlab {
     /// Requires gitlab token to be specified.
     // TODO: make this an enum BuildDispatch {Gitlab, Local} and move it
     // out of the `Gitlab` struct
-    #[arg(long, env, required = false)]
+    #[arg(long, env, required = false, default_value = "false")]
     pub run_builds_on_gitlab: bool,
+    /// Update package source CI settings to point to the specified CI configuration file.
+    /// Specifying this will result in changes to the settings of all packages in the group defined by `gitlab_packages_group`.
+    /// See https://gitlab.archlinux.org/help/ci/pipelines/settings.md#specify-a-custom-cicd-configuration-file
+    #[arg(long, env, required = false)]
+    pub gitlab_packages_ci_config: Option<String>,
 }
 
 #[derive(Debug, Clone, Subcommand)]

@@ -4,7 +4,7 @@ use ::gitlab::{AsyncGitlab, GitlabBuilder};
 use anyhow::{Context, Result};
 use buildbtw::{
     build_set_graph::{self, schedule_next_build_in_graph},
-    gitlab::fetch_all_source_repo_changes,
+    gitlab::{fetch_all_source_repo_changes, set_all_projects_ci_config},
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
     BuildNamespaceStatus, PackageBuildStatus,
 };
@@ -40,6 +40,8 @@ pub async fn start(
 
     if let Some(args) = &gitlab_args {
         fetch_source_repo_changes_in_loop(pool.clone(), args.clone()).await?;
+
+        update_project_ci_settings_in_loop(args.clone()).await?;
     }
 
     update_and_build_all_namespaces_in_loop(pool.clone(), gitlab_args).await?;
@@ -133,6 +135,32 @@ pub async fn fetch_source_repo_changes_in_loop(
             }
 
             tokio::time::sleep(tokio::time::Duration::from_secs(60 * 5)).await;
+        }
+    });
+    Ok(())
+}
+
+pub async fn update_project_ci_settings_in_loop(gitlab_args: args::Gitlab) -> Result<()> {
+    let client = new_gitlab_client(&gitlab_args.clone()).await?;
+
+    let Some(ci_config_path) = gitlab_args.gitlab_packages_ci_config else {
+        return Ok(());
+    };
+
+    tokio::spawn(async move {
+        loop {
+            match set_all_projects_ci_config(
+                &client,
+                &gitlab_args.gitlab_packages_group,
+                ci_config_path.clone(),
+            )
+            .await
+            {
+                Ok(_) => {}
+                Err(e) => tracing::info!("{e:?}"),
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(60 * 10)).await;
         }
     });
     Ok(())
