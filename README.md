@@ -10,7 +10,7 @@ A service for assisting Arch Linux staff with building new versions of packages.
 1. [Build and deploy MVP](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/5)
 1. Iterate on the MVP to improve the service, writing new RFCs and requirements as needed
 
-The proof of concept will contain some code. This is only to gain a better understanding of the tradeoffs involved in the components and functionality we'll propose in the RFC. 
+The proof of concept will contain some code. This is only to gain a better understanding of the tradeoffs involved in the components and functionality we'll propose in the RFC.
 
 ## Project Management
 
@@ -22,12 +22,12 @@ We're using the issue tracker for requirements and user stories. We're planning 
 
 We'll group issues using epics.
 
-Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder. 
+Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder.
 
 ## Development
 
 - Install the `sqlx-cli` package.
-- Optional: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`. 
+- Optional: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`.
 
 Now you need to run the server, a worker, and then dispatch work to the server using the client.
 
