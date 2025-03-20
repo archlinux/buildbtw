@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use alpm_srcinfo::SourceInfo;
+use anyhow::Context;
 use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use iteration::NewIterationReason;
 use serde::{Deserialize, Serialize};
-use srcinfo::Srcinfo;
 use uuid::Uuid;
 
 pub mod build_package;
@@ -40,12 +41,24 @@ pub struct UpdateBuildNamespace {
     pub status: BuildNamespaceStatus,
 }
 
+/// A temporary workaround until `alpm-srcinfo` supports `Serialize` and `Deserialize`
+/// for their [`SourceInfo`] struct.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SourceInfoString(String);
+
+impl SourceInfoString {
+    fn get_source_info(&self) -> anyhow::Result<SourceInfo> {
+        let parsed = SourceInfo::from_string(&self.0)?;
+        parsed.source_info().context("Failed to parse SRCINFO")
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ScheduleBuild {
     pub namespace: Uuid,
     pub iteration: Uuid,
     pub source: GitRepoRef,
-    pub srcinfo: Srcinfo,
+    pub srcinfo: SourceInfoString,
     pub install_to_chroot: Vec<BuildPackageOutput>,
     pub updated_build_set_graph: BuildSetGraph,
 }
@@ -91,7 +104,7 @@ pub struct BuildNamespace {
 pub struct BuildPackageOutput {
     pub pkgbase: Pkgbase,
     pub pkgname: Pkgname,
-    pub arch: Vec<String>,
+    pub arch: Option<Vec<String>>,
     /// Output of Srcinfo::version(), stored for convenience
     pub version: String,
 }

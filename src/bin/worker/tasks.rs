@@ -15,11 +15,11 @@ pub fn start(modify_gpg_keyring: bool) -> UnboundedSender<Message> {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::BuildPackage(schedule) => {
-                    tracing::info!("🕑 Building package {:?}", schedule.srcinfo.base.pkgbase);
+                    tracing::info!("🕑 Building package {:?}", schedule.source.0);
                     let result_status = build_package(&schedule, modify_gpg_keyring).await;
                     tracing::info!(
                         "✅ build finished for {:?} ({result_status:?})",
-                        schedule.srcinfo.base.pkgbase
+                        schedule.source.0
                     );
 
                     // TODO: exponential backoff

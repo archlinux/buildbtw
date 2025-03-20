@@ -1,6 +1,6 @@
 //! Build a package locally by essentially running `pkgctl build`.
 
-use std::process::Stdio;
+use std::{collections::HashSet, process::Stdio};
 
 use anyhow::anyhow;
 use camino::{Utf8Path, Utf8PathBuf};
@@ -131,7 +131,7 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
 
     // Replace the real PKGBUILD with a fake PKGBUILD to speed up compilation during testing.
     if cfg!(feature = "fake-pkgbuild") {
-        let pkgbuild = generate_fake_pkgbuild(schedule);
+        let pkgbuild = generate_fake_pkgbuild(schedule)?;
         let pkgbuild_path = path.join("PKGBUILD");
         tracing::info!("Writing fake PKGBUILD to {pkgbuild_path}");
         fs::write(pkgbuild_path, pkgbuild).await?;
@@ -140,22 +140,31 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
     Ok(())
 }
 
-fn generate_fake_pkgbuild(schedule: &ScheduleBuild) -> String {
+fn generate_fake_pkgbuild(schedule: &ScheduleBuild) -> Result<String> {
+    let srcinfo = schedule.srcinfo.get_source_info()?;
     let pkgnames = format!(
         "({})",
-        schedule
-            .srcinfo
-            .pkgs
+        srcinfo
+            .packages
             .iter()
-            .map(|pkg| pkg.pkgname.clone())
+            .map(|pkg| pkg.name.as_ref())
             .collect::<Vec<_>>()
             .join(" ")
     );
 
     // Generate stub package_foo() functions
     let mut package_funcs = String::new();
-    for pkg in &schedule.srcinfo.pkgs {
-        let pkgarchs = format!("({})", pkg.arch.to_vec().join(" "));
+    for pkg in &srcinfo.packages {
+        let pkgarchs = format!(
+            "({})",
+            pkg.architectures
+                .as_ref()
+                .unwrap_or(&HashSet::new())
+                .iter()
+                .map(|a| a.to_string())
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
 
         let func = format!(
             r#"
@@ -164,32 +173,44 @@ package_{pkgname}() {{
     echo 1
 }}
                 "#,
-            pkgname = pkg.pkgname,
+            pkgname = pkg.name,
             pkgarch = pkgarchs,
         );
 
         package_funcs.push_str(&func);
     }
 
-    format!(
+    Ok(format!(
         r#"
 pkgbase={pkgbase}
 pkgname={pkgname}
 pkgver={pkgver}
 pkgrel={pkgrel}
 pkgdesc=dontcare
-arch=(any)
+arch=({arch})
 license=('Apache-2.0')
 url=https://example.com
 source=()
 
 {package_funcs}
         "#,
-        pkgbase = schedule.srcinfo.base.pkgbase,
+        pkgbase = srcinfo.base.name,
         pkgname = pkgnames,
-        pkgver = schedule.srcinfo.base.pkgver,
-        pkgrel = schedule.srcinfo.base.pkgrel,
-    )
+        pkgver = srcinfo.base.version.pkgver,
+        pkgrel = srcinfo
+            .base
+            .version
+            .pkgrel
+            .map(|r| r.to_string())
+            .unwrap_or("1".to_string()),
+        arch = srcinfo
+            .base
+            .architectures
+            .iter()
+            .map(|a| a.to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
+    ))
 }
 
 /// Return file paths for dependencies that were built in a previous step

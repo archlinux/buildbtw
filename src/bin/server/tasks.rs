@@ -94,7 +94,7 @@ async fn update_and_build_all_namespaces(
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list(pool).await?;
     let namespace_count = namespaces.len();
-    tracing::info!("Updating and building {namespace_count} namespace(s)...");
+    tracing::info!("Updating and dispatching builds for {namespace_count} namespace(s)...");
     for namespace in namespaces {
         create_new_namespace_iteration_if_needed(pool, &namespace).await?;
         if let Some(gitlab_client) = maybe_gitlab_client {
@@ -102,6 +102,7 @@ async fn update_and_build_all_namespaces(
         }
         schedule_next_build_if_needed(pool, &namespace, maybe_gitlab_client).await?;
     }
+    tracing::info!("Updated and dispatched builds");
 
     Ok(())
 }
@@ -319,10 +320,7 @@ async fn schedule_build(
     build: &ScheduleBuild,
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
-    tracing::info!(
-        "Building pending package for namespace: {:?}",
-        build.srcinfo.base.pkgbase
-    );
+    tracing::info!("Building pending package: {:?}", build.source);
 
     if let Some(client) = maybe_gitlab_client {
         let pipeline_response = buildbtw::gitlab::create_pipeline(client).await?;

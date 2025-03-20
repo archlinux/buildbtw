@@ -1,10 +1,9 @@
-use crate::{GitRef, Pkgbase, PkgbaseMaintainers};
+use crate::{GitRef, Pkgbase, PkgbaseMaintainers, SourceInfoString};
 use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use git2::build::RepoBuilder;
 use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
 use reqwest::Client;
-use srcinfo::Srcinfo;
 use std::path::Path;
 use tokio::task::JoinSet;
 
@@ -110,7 +109,7 @@ pub async fn retrieve_srcinfo_from_remote_repository(
     branch: &GitRef,
     gitlab_domain: String,
     gitlab_packages_group: String,
-) -> Result<Srcinfo> {
+) -> Result<SourceInfoString> {
     let repo =
         clone_or_fetch_repository(pkgbase.clone(), gitlab_domain, gitlab_packages_group).await?;
 
@@ -148,7 +147,7 @@ pub fn get_branch_commit_sha(repo: &Repository, branch: &str) -> Result<String> 
     Ok(branch.get().peel_to_commit()?.id().to_string())
 }
 
-pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<Srcinfo> {
+pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<SourceInfoString> {
     let branch = repo.find_branch(&format!("origin/{branch}"), BranchType::Remote)?;
     let file_oid = branch
         .get()
@@ -160,7 +159,9 @@ pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<Srcinfo
 
     assert!(!file_blob.is_binary());
 
-    srcinfo::Srcinfo::parse_buf(file_blob.content()).context("Failed to parse .SRCINFO")
+    Ok(SourceInfoString(String::from_utf8(
+        file_blob.content().to_vec(),
+    )?))
 }
 
 pub fn package_source_path(pkgbase: &Pkgbase) -> Utf8PathBuf {
