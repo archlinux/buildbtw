@@ -20,6 +20,7 @@ clap = { version = "4.5.26", features = [
 ] }
 colored = "3.0.0"
 console-subscriber = "0.4.1"
+criterion = { version = "0.5.1" }
 git2 = "0.20.0"
 gitlab = "0.1707.0"
 graphql_client = "0.14.0"
@@ -60,3 +61,7 @@ rstest = "0.24.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
+
+[[bench]]
+name = "global_dependency_graph"
+harness = false

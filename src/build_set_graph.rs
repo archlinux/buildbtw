@@ -52,7 +52,6 @@ pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Resul
             .context("Error mapping package names to srcinfo")?;
     let (global_graph, pkgname_to_node_index) =
         build_global_dependent_graph(&pkgname_to_srcinfo_map)
-            .await
             .context("Failed to build global graph of dependents")?;
 
     let packages = calculate_packages_to_be_built_inner(
@@ -226,7 +225,7 @@ pub async fn build_pkgname_to_srcinfo_map(
 
 // Build a graph where nodes point towards their dependents, e.g.
 // gzip -> sed
-pub async fn build_global_dependent_graph(
+pub fn build_global_dependent_graph(
     pkgname_to_srcinfo_map: &HashMap<Pkgname, (Srcinfo, GitRef)>,
 ) -> Result<(
     StableGraph<PackageNode, PackageBuildDependency>,
@@ -292,6 +291,12 @@ pub async fn build_global_dependent_graph(
             }
         }
     }
+
+    tracing::debug!(
+        "{} nodes, {} edges",
+        global_graph.node_count(),
+        global_graph.edge_count()
+    );
 
     Ok((global_graph, pkgname_to_node_index_map))
 }
