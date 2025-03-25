@@ -139,16 +139,6 @@ async fn calculate_packages_to_be_built_inner(
             if let Some(index) = pkgbase_to_build_graph_node_index.get(&pkgbase) {
                 *index
             } else {
-                // check if the current pkgbase is a root node
-                // TODO there's a bug here: origin changesets don't necessarily
-                // have to point to root nodes. It's possible to have an origin
-                // changeset that is a dependency or dependent of another origin changeset
-                let is_root_node = &namespace
-                    .current_origin_changesets
-                    .iter()
-                    .map(|(pkgbase, _)| pkgbase)
-                    .any(|p| p == &pkgbase);
-
                 // Add this node to the buildset graph
                 let build_outputs = source_info
                     .packages
@@ -168,10 +158,7 @@ async fn calculate_packages_to_be_built_inner(
                     pkgbase: pkgbase.clone(),
                     commit_hash: commit_hash.clone(),
                     srcinfo: source_info_string.clone(),
-                    status: match is_root_node {
-                        true => PackageBuildStatus::Pending,
-                        false => PackageBuildStatus::Blocked,
-                    },
+                    status: PackageBuildStatus::Blocked,
                     build_outputs,
                 });
                 pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), build_graph_node_index);
@@ -393,15 +380,38 @@ pub fn schedule_next_build_in_graph(
     for root in root_nodes {
         let bfs = Bfs::new(graph, root);
         for node_idx in bfs.iter(graph) {
+            let node = &graph[node_idx];
+
+            // TODO: for split packages, this might include some
+            // unneeded pkgnames. We should probably filter them out by going
+            // over the dependencies of the package we're building.
+            // TODO: this does not include transitive dependencies.
+            let built_dependencies = graph
+                .edges_directed(node_idx, petgraph::Incoming)
+                .flat_map(|dependency| graph[dependency.source()].build_outputs.clone())
+                .collect();
+
             // Depending on the status of this node, return early to keep looking
             // or go on building it.
             match &graph[node_idx].status {
                 // skip nodes that are already built or blocked
                 // but keep the current fallback status
-                PackageBuildStatus::Built
-                | PackageBuildStatus::Failed
-                | PackageBuildStatus::Blocked => {
+                PackageBuildStatus::Built | PackageBuildStatus::Failed => {
                     continue;
+                }
+                PackageBuildStatus::Blocked => {
+                    // Check if this package can be unblocked, in case
+                    // all its dependencies have been built
+                    let still_blocked =
+                        graph
+                            .edges_directed(node_idx, petgraph::Incoming)
+                            .any(|dependency| {
+                                graph[dependency.source()].status != PackageBuildStatus::Built
+                            });
+
+                    if still_blocked {
+                        continue;
+                    }
                 }
                 // skip nodes that building and tell the scheduler to wait for them to complete
                 PackageBuildStatus::Building => {
@@ -414,16 +424,6 @@ pub fn schedule_next_build_in_graph(
             // This node is ready to build
             // reserve it for building
             updated_build_set_graph[node_idx].status = PackageBuildStatus::Building;
-
-            let node = &graph[node_idx];
-
-            // TODO: for split packages, this might include some
-            // unneeded pkgnames. We should probably filter them out by going
-            // over the dependencies of the package we're building.
-            let built_dependencies = graph
-                .edges_directed(node_idx, petgraph::Incoming)
-                .flat_map(|dependency| graph[dependency.source()].build_outputs.clone())
-                .collect();
 
             // return the information of the scheduled node
             let response = ScheduleBuild {
@@ -502,24 +502,6 @@ pub fn set_build_status(
         }
         // update node status
         node.status = status;
-
-        // update dependent nodes if all dependencies are met
-        let mut free_nodes = vec![];
-        let dependents = graph.edges_directed(node_idx, petgraph::Outgoing);
-        for dependent in dependents {
-            // check if all incoming dependencies are built
-            let free = graph
-                .edges_directed(dependent.target(), petgraph::Incoming)
-                .all(|dependency| graph[dependency.source()].status == PackageBuildStatus::Built);
-            if free {
-                free_nodes.push(dependent.target());
-            }
-        }
-        // update status of free nodes
-        for pending_edge in free_nodes {
-            let target = &mut graph[pending_edge];
-            target.status = PackageBuildStatus::Pending;
-        }
     }
 
     graph
