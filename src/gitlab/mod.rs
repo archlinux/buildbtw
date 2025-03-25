@@ -34,7 +34,7 @@ pub async fn fetch_all_source_repo_changes(
     };
 
     // Run git fetch for updated repos
-    let pkgbases = result.into_iter().map(|info| info.name).collect();
+    let pkgbases = result.into_iter().map(|info| info.name.into()).collect();
     clone_or_fetch_repositories(pkgbases, gitlab_domain, gitlab_packages_group).await?;
 
     Ok(last_fetched)

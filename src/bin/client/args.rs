@@ -8,7 +8,8 @@ fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
         split_values
             .first()
             .context("Invalid package source reference")?
-            .to_string(),
+            .to_string()
+            .into(),
         split_values
             .get(1)
             .context("Invalid package source reference")?

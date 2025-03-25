@@ -1,5 +1,5 @@
 use buildbtw::{
-    build_set_graph::{build_global_dependent_graph, build_pkgname_to_srcinfo_map},
+    build_set_graph::{build_global_dependency_graph, gather_packages_metadata},
     BuildNamespace, BuildNamespaceStatus,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -20,13 +20,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             status: BuildNamespaceStatus::Active,
         };
 
-        build_pkgname_to_srcinfo_map(namespace.current_origin_changesets.clone())
+        gather_packages_metadata(namespace.current_origin_changesets.clone())
             .await
             .unwrap()
     });
     group.bench_function("global_dependency_graph", |b| {
         b.iter(|| {
-            build_global_dependent_graph(&pkgname_to_srcinfo_map).unwrap();
+            build_global_dependency_graph(&pkgname_to_srcinfo_map).unwrap();
         })
     });
 }

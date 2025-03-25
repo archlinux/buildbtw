@@ -5,6 +5,7 @@ use anyhow::Context;
 use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
+use derive_more::{AsRef, Display};
 use iteration::NewIterationReason;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -20,10 +21,36 @@ pub mod tracing;
 /// A branch name, commit hash, etc.
 /// This is passed to gitlab for triggering pipelines as well
 pub type GitRef = String;
-pub type Pkgbase = String;
+
 pub type Pkgname = String;
 // source repo, branch/commit
 pub type GitRepoRef = (Pkgbase, GitRef);
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, AsRef, Display, sqlx::Type)]
+#[sqlx(transparent)]
+pub struct Pkgbase(String);
+
+impl From<alpm_types::Name> for Pkgbase {
+    fn from(value: alpm_types::Name) -> Self {
+        Pkgbase(value.to_string())
+    }
+}
+
+impl From<String> for Pkgbase {
+    fn from(value: String) -> Self {
+        Pkgbase(value)
+    }
+}
+
+/// An unambiguous git commit hash.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, AsRef, Display)]
+pub struct CommitHash(String);
+
+impl From<CommitHash> for GitRef {
+    fn from(value: CommitHash) -> Self {
+        value.0
+    }
+}
 
 pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;

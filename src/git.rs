@@ -1,4 +1,4 @@
-use crate::{GitRef, Pkgbase, PkgbaseMaintainers, SourceInfoString};
+use crate::{CommitHash, GitRef, Pkgbase, PkgbaseMaintainers, SourceInfoString};
 use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use git2::build::RepoBuilder;
@@ -16,7 +16,7 @@ pub async fn clone_packaging_repository(
         tracing::info!("Cloning {pkgbase}");
 
         // Convert pkgbase to project path
-        let project_path = crate::gitlab::gitlab_project_name_to_path(&pkgbase);
+        let project_path = crate::gitlab::gitlab_project_name_to_path(pkgbase.as_ref());
 
         // Set up the callbacks to use SSH credentials
         let mut callbacks = RemoteCallbacks::new();
@@ -142,9 +142,9 @@ pub async fn fetch_all_packaging_repositories(
     Ok(())
 }
 
-pub fn get_branch_commit_sha(repo: &Repository, branch: &str) -> Result<String> {
+pub fn get_branch_commit_sha(repo: &Repository, branch: &str) -> Result<CommitHash> {
     let branch = repo.find_branch(&format!("origin/{branch}"), BranchType::Remote)?;
-    Ok(branch.get().peel_to_commit()?.id().to_string())
+    Ok(CommitHash(branch.get().peel_to_commit()?.id().to_string()))
 }
 
 pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<SourceInfoString> {

@@ -55,7 +55,7 @@ pub async fn create(pool: &SqlitePool, pipeline: CreateDbGitlabPipeline) -> Resu
 pub async fn read_by_iteration_and_pkgbase(
     pool: &SqlitePool,
     iteration_id: Uuid,
-    pkgbase: &str,
+    pkgbase: &Pkgbase,
 ) -> Result<Option<DbGitlabPipeline>> {
     sqlx::query_as!(
         DbGitlabPipeline,
