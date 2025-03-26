@@ -1,5 +1,8 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::{
-    build_set_graph::{self, calculate_packages_to_be_built, diff, BuildSetGraph},
+    build_set_graph::{self, calculate_packages_to_be_built, diff_graphs, BuildSetGraph},
+    source_info::ConcreteArchitecture,
     BuildNamespace, BuildNamespaceStatus, BuildSetIteration,
 };
 use anyhow::Result;
@@ -9,18 +12,65 @@ use serde::{Deserialize, Serialize};
 pub enum NewIterationReason {
     FirstIteration,
     OriginChangesetsChanged,
-    BuildSetGraphChanged { diff: Box<build_set_graph::Diff> },
+    BuildSetGraphChanged { diff: Box<IterationDiff> },
     CreatedByUser,
 }
 
 pub enum NewBuildIterationResult {
     NoNewIterationNeeded,
     NewIterationNeeded {
-        packages_to_build: BuildSetGraph,
+        packages_to_build: HashMap<ConcreteArchitecture, BuildSetGraph>,
         reason: NewIterationReason,
     },
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct IterationDiff {
+    new_architectures: HashSet<ConcreteArchitecture>,
+    removed_architectures: HashSet<ConcreteArchitecture>,
+    changed_architectures: HashMap<ConcreteArchitecture, build_set_graph::Diff>,
+}
+
+impl IterationDiff {
+    fn new(
+        old_packages_to_be_built: &HashMap<ConcreteArchitecture, BuildSetGraph>,
+        new_packages_to_be_built: &HashMap<ConcreteArchitecture, BuildSetGraph>,
+    ) -> IterationDiff {
+        let mut new_architectures = HashSet::new();
+        let mut changed_architectures = HashMap::new();
+
+        let removed_architectures = old_packages_to_be_built
+            .iter()
+            .filter(|(arch, _)| !new_packages_to_be_built.contains_key(arch))
+            .map(|(arch, _)| *arch)
+            .collect();
+
+        for (arch, new_graph) in new_packages_to_be_built {
+            if let Some(old_graph) = old_packages_to_be_built.get(arch) {
+                // Architecture existed before, diff the old and new graphs
+                let diff = diff_graphs(old_graph, new_graph);
+                changed_architectures.insert(*arch, diff);
+            } else {
+                // Architecture didn't exist before, add it to the new architectures
+                new_architectures.insert(*arch);
+            }
+        }
+
+        IterationDiff {
+            new_architectures,
+            removed_architectures,
+            changed_architectures,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.changed_architectures
+            .iter()
+            .all(|(_, diff)| diff.is_empty())
+            && self.new_architectures.is_empty()
+            && self.removed_architectures.is_empty()
+    }
+}
 pub async fn new_build_set_iteration_is_needed(
     namespace: &BuildNamespace,
     iterations: &[BuildSetIteration],
@@ -47,7 +97,7 @@ pub async fn new_build_set_iteration_is_needed(
         });
     }
 
-    let diff = diff(&previous_iteration.packages_to_be_built, &packages_to_build);
+    let diff = IterationDiff::new(&previous_iteration.packages_to_be_built, &packages_to_build);
     if !diff.is_empty() {
         return Ok(NewBuildIterationResult::NewIterationNeeded {
             packages_to_build,

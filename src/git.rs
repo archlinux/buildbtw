@@ -1,4 +1,5 @@
-use crate::{CommitHash, GitRef, Pkgbase, PkgbaseMaintainers, SourceInfoString};
+use crate::source_info::SourceInfo;
+use crate::{CommitHash, GitRef, Pkgbase, PkgbaseMaintainers};
 use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use git2::build::RepoBuilder;
@@ -109,15 +110,14 @@ pub async fn retrieve_srcinfo_from_remote_repository(
     branch: &GitRef,
     gitlab_domain: String,
     gitlab_packages_group: String,
-) -> Result<SourceInfoString> {
+) -> Result<SourceInfo> {
     let repo =
         clone_or_fetch_repository(pkgbase.clone(), gitlab_domain, gitlab_packages_group).await?;
 
     // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
-    let srcinfo = read_srcinfo_from_repo(&repo, branch)
+    read_srcinfo_from_repo(&repo, branch)
         .context("Failed to read srcinfo")
-        .context(pkgbase)?;
-    Ok(srcinfo)
+        .context(pkgbase)
 }
 
 pub async fn fetch_all_packaging_repositories(
@@ -147,7 +147,7 @@ pub fn get_branch_commit_sha(repo: &Repository, branch: &str) -> Result<CommitHa
     Ok(CommitHash(branch.get().peel_to_commit()?.id().to_string()))
 }
 
-pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<SourceInfoString> {
+pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<SourceInfo> {
     let branch = repo.find_branch(&format!("origin/{branch}"), BranchType::Remote)?;
     let file_oid = branch
         .get()
@@ -159,9 +159,8 @@ pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<SourceI
 
     assert!(!file_blob.is_binary());
 
-    Ok(SourceInfoString(String::from_utf8(
-        file_blob.content().to_vec(),
-    )?))
+    let parsed = SourceInfo::from_string(&String::from_utf8(file_blob.content().to_vec())?)?;
+    parsed.source_info().context("Failed to parse SRCINFO")
 }
 
 pub fn package_source_path(pkgbase: &Pkgbase) -> Utf8PathBuf {

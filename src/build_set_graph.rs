@@ -2,37 +2,83 @@
 use std::collections::{HashSet, VecDeque};
 use std::{collections::HashMap, fs::read_dir};
 
-use alpm_srcinfo::SourceInfo;
 use anyhow::{anyhow, Context, Result};
 use git2::Repository;
 use petgraph::visit::{Bfs, EdgeRef, Walker};
 use petgraph::Directed;
 use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
-use crate::git::{get_branch_commit_sha, package_source_path, read_srcinfo_from_repo};
+use crate::git::{get_branch_commit_sha, read_srcinfo_from_repo};
+use crate::source_info::{build_outputs, ConcreteArchitecture, SourceInfo};
 use crate::{
-    BuildNamespace, BuildPackageOutput, BuildSetIteration, CommitHash, GitRepoRef,
-    PackageBuildDependency, PackageBuildStatus, Pkgbase, Pkgname, ScheduleBuild,
-    ScheduleBuildResult, SourceInfoString,
+    BuildNamespace, BuildPackageOutput, CommitHash, GitRepoRef, PackageBuildDependency,
+    PackageBuildStatus, Pkgbase, Pkgname, ScheduleBuild, ScheduleBuildResult,
 };
 
+/// A global graph of dependencies between pkgnames (not PKGBUILDS).
 /// Used for determining reverse dependencies (dependents) between packages.
-pub struct GlobalDependencyGraph {
-    graph: StableGraph<PackageNode, PackageBuildDependency>,
+pub struct GlobalDependencies {
+    graph: StableGraph<PackageNode, ()>,
     /// For looking up graph nodes by pkgname.
     index_map: HashMap<Pkgname, NodeIndex>,
 }
 
+impl GlobalDependencies {
+    fn new() -> GlobalDependencies {
+        GlobalDependencies {
+            graph: StableGraph::new(),
+            index_map: HashMap::new(),
+        }
+    }
+
+    fn get_or_insert_node(&mut self, pkgname: &Pkgname) -> NodeIndex {
+        if let Some(index) = self.index_map.get(pkgname) {
+            return *index;
+        }
+
+        let index = self.graph.add_node(PackageNode {
+            pkgname: pkgname.clone(),
+        });
+        self.index_map.insert(pkgname.clone(), index);
+
+        index
+    }
+}
+
+impl Default for GlobalDependencies {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Metadata like the source info & commit hash for each pkgname and pkgbase
 /// we've read so far.
-/// Once [`SourceInfo`] implements Serialize and Deserialize, we could move this
-/// into [`PackageNode`].
+/// Unlike the Global dependency graphs or the build graphs, we only have
+/// one instance of this for all architectures, and architecture-specific
+/// information is encapsulated within each [`SourceInfo`] struct.
 pub struct PackagesMetadata {
-    pkgname_to_srcinfo: HashMap<Pkgname, (SourceInfo, CommitHash)>,
-    pkgbase_to_srcinfo_string: HashMap<Pkgbase, SourceInfoString>,
+    pkgname_to_pkgbase: HashMap<Pkgname, Pkgbase>,
+    pkgbase_to_metadata: HashMap<Pkgbase, PackageMetadata>,
+}
+
+impl PackagesMetadata {
+    fn by_pkgname(&self, pkgname: &Pkgname) -> Option<&PackageMetadata> {
+        let pkgbase = self.pkgname_to_pkgbase.get(pkgname)?;
+        self.pkgbase_to_metadata.get(pkgbase)
+    }
+
+    fn by_pkgbase(&self, pkgbase: &Pkgbase) -> Option<&PackageMetadata> {
+        self.pkgbase_to_metadata.get(pkgbase)
+    }
+}
+
+pub struct PackageMetadata {
+    source_info: SourceInfo,
+    commit_hash: CommitHash,
 }
 
 /// For tracking dependencies between individual packages.
@@ -45,12 +91,12 @@ pub struct PackageNode {
 /// Like PackageNode, but for a single PKGBUILD,
 /// identified by its pkgbase instead of the pkgname.
 /// Used for running and tracking builds in a namespace.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildPackageNode {
     pub pkgbase: Pkgbase,
     pub commit_hash: CommitHash,
     pub status: PackageBuildStatus,
-    pub srcinfo: SourceInfoString,
+    pub srcinfo: SourceInfo,
     /// Packages that this build will emit
     pub build_outputs: Vec<BuildPackageOutput>,
 }
@@ -62,36 +108,52 @@ pub struct BuildPackageNode {
 // - Diff two graphs (already is custom functionality built on top)
 pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency, Directed>;
 
-pub async fn calculate_packages_to_be_built(namespace: &BuildNamespace) -> Result<BuildSetGraph> {
+pub async fn calculate_packages_to_be_built(
+    namespace: &BuildNamespace,
+) -> Result<HashMap<ConcreteArchitecture, BuildSetGraph>> {
     tracing::debug!(
         "Calculating packages to be built for namespace: {}",
         namespace.name
     );
-    let pkgname_to_srcinfo_map =
-        gather_packages_metadata(namespace.current_origin_changesets.clone())
-            .await
-            .context("Error mapping package names to srcinfo")?;
-    let global_graph = build_global_dependency_graph(&pkgname_to_srcinfo_map)
+    let packages_metadata = gather_packages_metadata(namespace.current_origin_changesets.clone())
+        .await
+        .context("Error mapping package names to srcinfo")?;
+    let global_graphs = build_global_dependency_graphs(&packages_metadata)
         .context("Failed to build global graph of dependents")?;
 
-    let packages =
-        calculate_packages_to_be_built_inner(namespace, &global_graph, &pkgname_to_srcinfo_map)
-            .await;
+    tracing::debug!("Calculating build set graph");
+
+    let mut packages = HashMap::new();
+    for (architecture, graph) in global_graphs {
+        let packages_to_build = calculate_packages_to_be_built_inner(
+            namespace,
+            &graph,
+            architecture,
+            &packages_metadata,
+        )
+        .await?;
+
+        if packages_to_build.node_count() > 0 {
+            tracing::debug!(
+                "{architecture:?}: {} build jobs",
+                packages_to_build.node_count()
+            );
+
+            packages.insert(architecture, packages_to_build);
+        }
+    }
 
     tracing::debug!("Build set graph calculated");
 
-    packages
+    Ok(packages)
 }
 
 async fn calculate_packages_to_be_built_inner(
     namespace: &BuildNamespace,
-    global_graph: &GlobalDependencyGraph,
-    PackagesMetadata {
-        pkgname_to_srcinfo: pkgname_to_srcinfo_map,
-        pkgbase_to_srcinfo_string,
-    }: &PackagesMetadata,
+    global_graph: &GlobalDependencies,
+    architecture: ConcreteArchitecture,
+    packages_metadata: &PackagesMetadata,
 ) -> Result<BuildSetGraph> {
-    tracing::debug!("Collecting reverse dependencies for rebuild");
     // We have the global graph. Based on this, find the precise graph of dependents for the
     // given Pkgbases.
     let mut packages_to_be_built: BuildSetGraph = Graph::new();
@@ -105,15 +167,15 @@ async fn calculate_packages_to_be_built_inner(
     let mut nodes_to_visit: VecDeque<NodeToVisit> = VecDeque::new();
 
     // add root nodes from our build namespace so we can start walking the graph
-    for (pkgbase, branch) in &namespace.current_origin_changesets {
-        let repo = Repository::open(package_source_path(pkgbase))?;
-        let srcinfo = read_srcinfo_from_repo(&repo, branch)?.get_source_info()?;
-        for package in srcinfo.packages {
+    for (pkgbase, _) in &namespace.current_origin_changesets {
+        let PackageMetadata { source_info, .. } = packages_metadata
+            .by_pkgbase(pkgbase)
+            .ok_or(anyhow!("Missing source info for origin changeset"))?;
+        for package in source_info.packages_for_architecture(*architecture.as_ref()) {
             let pkgname = package.name.to_string();
-            let node_index = global_graph
-                .index_map
-                .get(&pkgname)
-                .ok_or_else(|| anyhow!("Failed to get index for pkgname {pkgname}"))?;
+            let node_index = global_graph.index_map.get(&pkgname).ok_or_else(|| {
+                anyhow!("Failed to get graph index for pkgname {pkgname} ({architecture:?})")
+            })?;
             nodes_to_visit.push_back((None, *node_index))
         }
     }
@@ -126,13 +188,10 @@ async fn calculate_packages_to_be_built_inner(
             .graph
             .node_weight(global_node_index_to_visit)
             .ok_or_else(|| anyhow!("Failed to find node in global dependency graph"))?;
-        let (source_info, commit_hash) = pkgname_to_srcinfo_map
-            .get(&package_node.pkgname)
+        let package_metadata @ PackageMetadata { source_info, .. } = packages_metadata
+            .by_pkgname(&package_node.pkgname)
             .ok_or_else(|| anyhow!("Failed to get srcinfo for pkgname {}", package_node.pkgname))?;
         let pkgbase = source_info.base.name.clone().into();
-        let source_info_string = pkgbase_to_srcinfo_string
-            .get(&pkgbase)
-            .ok_or_else(|| anyhow!("Failed to get srcinfo string for pkgbase {pkgbase}"))?;
 
         // Create build graph node if it doesn't exist
         let build_graph_node_index =
@@ -140,26 +199,12 @@ async fn calculate_packages_to_be_built_inner(
                 *index
             } else {
                 // Add this node to the buildset graph
-                let build_outputs = source_info
-                    .packages
-                    .iter()
-                    .map(|pkg| BuildPackageOutput {
-                        pkgbase: source_info.base.name.clone().into(),
-                        pkgname: pkg.name.to_string(),
-                        // TODO take architectures of the pkgbase into account
-                        arch: pkg
-                            .architectures
-                            .clone()
-                            .map(|set| set.iter().map(|a| a.to_string()).collect()),
-                        version: source_info.base.package_version.to_string(),
-                    })
-                    .collect();
                 let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {
                     pkgbase: pkgbase.clone(),
-                    commit_hash: commit_hash.clone(),
-                    srcinfo: source_info_string.clone(),
+                    commit_hash: package_metadata.commit_hash.clone(),
+                    srcinfo: package_metadata.source_info.clone(),
                     status: PackageBuildStatus::Blocked,
-                    build_outputs,
+                    build_outputs: build_outputs(source_info),
                 });
                 pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), build_graph_node_index);
 
@@ -199,8 +244,8 @@ pub async fn gather_packages_metadata(
 ) -> Result<PackagesMetadata> {
     tracing::debug!("Gathering metadata from .SRCINFO files");
     spawn_blocking(move || {
-        let mut pkgname_to_srcinfo: HashMap<Pkgname, (SourceInfo, CommitHash)> = HashMap::new();
-        let mut pkgbase_to_srcinfo_string: HashMap<Pkgbase, SourceInfoString> = HashMap::new();
+        let mut pkgname_to_pkgbase = HashMap::new();
+        let mut pkgbase_to_metadata = HashMap::new();
         let mut ignored_packages = 0;
 
         // TODO: parallelize
@@ -215,25 +260,31 @@ pub async fn gather_packages_metadata(
                     .find_map(|(origin_pkgbase, branch)| {
                         (**origin_pkgbase.as_ref() == *dir.file_name()).then_some(branch)
                     });
+            // TODO we might want to build the last released commit instead of main
             let branch = origin_changeset_branch.map_or("main", |v| v);
 
             let mut handle_file = || -> Result<()> {
-                let source_info_string = read_srcinfo_from_repo(&repo, branch).context(format!(
+                let source_info = read_srcinfo_from_repo(&repo, branch).context(format!(
                     "Failed to read .SRCINFO from repo at {:?}",
                     dir.path()
                 ))?;
-                let source_info = source_info_string
-                    .get_source_info()
-                    .context(format!("{:?}", dir.path().to_str()))?;
 
                 for package in &source_info.packages {
-                    pkgname_to_srcinfo.insert(
+                    pkgname_to_pkgbase.insert(
                         package.name.to_string(),
-                        (source_info.clone(), get_branch_commit_sha(&repo, "main")?),
+                        source_info.base.name.clone().into(),
                     );
                 }
-                pkgbase_to_srcinfo_string
-                    .insert(source_info.base.name.clone().into(), source_info_string);
+
+                let commit_hash = get_branch_commit_sha(&repo, branch)?;
+
+                pkgbase_to_metadata.insert(
+                    source_info.base.name.clone().into(),
+                    PackageMetadata {
+                        source_info,
+                        commit_hash,
+                    },
+                );
 
                 Ok(())
             };
@@ -248,125 +299,81 @@ pub async fn gather_packages_metadata(
                 }
             }
         }
-        tracing::debug!("Skipped reading .SRCINFO for {ignored_packages} packages due to errors");
+        tracing::debug!("READ {} .SRCINFO files", pkgbase_to_metadata.len());
+        tracing::debug!("Found {} pkgnames", pkgname_to_pkgbase.len());
+        tracing::debug!("Skipped {ignored_packages} .SRCINFO files due to errors");
 
         Ok(PackagesMetadata {
-            pkgname_to_srcinfo,
-            pkgbase_to_srcinfo_string,
+            pkgbase_to_metadata,
+            pkgname_to_pkgbase,
         })
     })
     .await
     .context("Failed to build dependency graph")?
 }
 
-// Build a graph where nodes point towards their dependents, e.g.
+// For all architectures we can find, build a graph
+// where nodes point towards their dependents, e.g.
 // gzip -> sed
-pub fn build_global_dependency_graph(
-    PackagesMetadata {
-        pkgname_to_srcinfo: pkgname_to_srcinfo_map,
-        ..
-    }: &PackagesMetadata,
-) -> Result<GlobalDependencyGraph> {
+pub fn build_global_dependency_graphs(
+    packages_metadata: &PackagesMetadata,
+) -> Result<HashMap<ConcreteArchitecture, GlobalDependencies>> {
     tracing::debug!("Building global dependency graph");
-    tracing::debug!("{} pkgnames", pkgname_to_srcinfo_map.len());
-    let mut global_graph: StableGraph<PackageNode, PackageBuildDependency> = StableGraph::new();
-    let mut pkgname_to_node_index_map: HashMap<Pkgname, NodeIndex> = HashMap::new();
+    let mut graphs = HashMap::new();
 
-    // Add all nodes to the graph and build a map of pkgname -> node index
-    tracing::debug!("Adding package nodes");
-    for (pkgname, (srcinfo, _)) in pkgname_to_srcinfo_map {
-        let index = global_graph.add_node(PackageNode {
-            pkgname: pkgname.clone(),
-        });
-        pkgname_to_node_index_map.insert(pkgname.clone(), index);
-
-        // Add every "provides" value to the index map as well
-        for architecture in srcinfo.base.architectures.clone() {
-            let srcinfo_package = srcinfo
-                .packages_for_architecture(architecture)
-                .next()
-                .ok_or_else(|| anyhow!("Failed to look up package {pkgname} in srcinfo map"))?;
-            for provides in &srcinfo_package.provides {
-                match provides {
-                    alpm_srcinfo::RelationOrSoname::Relation(package_relation) => {
-                        pkgname_to_node_index_map.insert(
-                            strip_pkgname_version_constraint(&package_relation.name.to_string()),
-                            index,
-                        );
-                    }
-                    // We can ignore sonames as we're only looking up pkgnames later on
-                    alpm_srcinfo::RelationOrSoname::BasicSonameV1(_) => {}
-                }
-            }
-        }
-    }
-
-    // Add edges to the graph for every package that depends on another package
+    // For every package, add edges for its dependencies
     tracing::debug!("Adding dependency edges");
-    for (dependent_pkgname, (dependent_srcinfo, _commit_hash)) in pkgname_to_srcinfo_map {
-        // get graph index of the current package
-        let dependent_index = pkgname_to_node_index_map
-            .get(dependent_pkgname)
-            .context(format!(
-                "Failed to get node index for dependent pgkname: {dependent_pkgname}"
-            ))?;
-        // get all dependencies of the current package
-        for architecture in dependent_srcinfo.base.architectures.clone() {
-            let merged_package = dependent_srcinfo
-                .packages_for_architecture(architecture)
-                .find(|p| p.name.to_string() == dependent_pkgname.clone())
-                .context("Failed to get srcinfo for dependent pkgname")?;
-            // Add edge between current package and its dependencies
-            for dependency in merged_package.dependencies {
-                match dependency {
-                    // TODO we're currently ignoring soname-based dependencies.
-                    // This might exclude some packages that need to be rebuilt
-                    alpm_srcinfo::RelationOrSoname::BasicSonameV1(_) => {}
-                    alpm_srcinfo::RelationOrSoname::Relation(package_relation) => {
-                        let dependency =
-                            strip_pkgname_version_constraint(&package_relation.name.to_string());
-                        match pkgname_to_node_index_map.get(&dependency).context(format!(
-                            "Failed to get node index for dependency pkgname: {dependency}"
-                        )) {
-                            Ok(dependency_index) => {
-                                global_graph.add_edge(
-                                    *dependency_index,
-                                    *dependent_index,
-                                    PackageBuildDependency {},
-                                );
-                            }
-                            Err(_e) => {
-                                // TODO there are some repos that error here,
-                                // investigate and fix
-                                // tracing::info!("⚠️ {e:#}");
+    for dependent_metadata in packages_metadata.pkgbase_to_metadata.values() {
+        for architecture in ConcreteArchitecture::iter() {
+            // Note: `packages_for_architecture` also returns packages with
+            // the `Any` architecture which is very convenient here.
+            for dependent_package in dependent_metadata
+                .source_info
+                .packages_for_architecture(*architecture.as_ref())
+            {
+                let dependency_graph: &mut GlobalDependencies =
+                    graphs.entry(architecture).or_default();
+                // get graph index of the current package
+                let dependent_index =
+                    dependency_graph.get_or_insert_node(&dependent_package.name.to_string());
+                // Add edge between current package and its dependencies
+                // TODO add optional dependencies
+                let dependencies = dependent_package
+                    .dependencies
+                    .iter()
+                    .filter_map(|dependency| {
+                        // TODO we're currently ignoring soname-based dependencies.
+                        // This might exclude some packages that need to be rebuilt
+                        match dependency {
+                            alpm_srcinfo::RelationOrSoname::BasicSonameV1(_) => None,
+                            alpm_srcinfo::RelationOrSoname::Relation(package_relation) => {
+                                Some(package_relation)
                             }
                         }
-                    }
+                    });
+
+                for dependency in dependencies {
+                    let dependency = strip_pkgname_version_constraint(&dependency.name.to_string());
+                    let dependency_index = dependency_graph.get_or_insert_node(&dependency);
+                    dependency_graph
+                        .graph
+                        .add_edge(dependency_index, dependent_index, ());
                 }
             }
         }
     }
 
-    tracing::debug!(
-        "{} nodes, {} edges",
-        global_graph.node_count(),
-        global_graph.edge_count()
-    );
-
-    Ok(GlobalDependencyGraph {
-        graph: global_graph,
-        index_map: pkgname_to_node_index_map,
-    })
+    Ok(graphs)
 }
 
 pub fn schedule_next_build_in_graph(
-    iteration: &BuildSetIteration,
+    graph: &BuildSetGraph,
     namespace_id: Uuid,
+    iteration_id: Uuid,
+    architecture: ConcreteArchitecture,
 ) -> ScheduleBuildResult {
     // assign default fallback status, if only built nodes are visited, the graph is finished
     let mut fallback_status = ScheduleBuildResult::Finished;
-
-    let graph = &iteration.packages_to_be_built;
 
     // Identify root nodes (nodes with no incoming edges)
     let root_nodes: Vec<_> = graph
@@ -427,8 +434,9 @@ pub fn schedule_next_build_in_graph(
 
             // return the information of the scheduled node
             let response = ScheduleBuild {
-                iteration: iteration.id,
+                iteration: iteration_id,
                 namespace: namespace_id,
+                architecture,
                 srcinfo: node.srcinfo.clone(),
                 source: (node.pkgbase.clone(), node.commit_hash.clone().into()),
                 install_to_chroot: built_dependencies,
@@ -446,9 +454,6 @@ pub fn schedule_next_build_in_graph(
 pub struct DiffNode {
     pub pkgbase: Pkgbase,
     pub commit_hash: CommitHash,
-    pub srcinfo: SourceInfoString,
-    /// Packages that this build will emit
-    pub build_outputs: Vec<BuildPackageOutput>,
 }
 
 impl From<BuildPackageNode> for DiffNode {
@@ -456,16 +461,12 @@ impl From<BuildPackageNode> for DiffNode {
         BuildPackageNode {
             pkgbase,
             commit_hash,
-            srcinfo,
-            build_outputs,
             ..
         }: BuildPackageNode,
     ) -> Self {
         DiffNode {
             pkgbase,
             commit_hash,
-            srcinfo,
-            build_outputs,
         }
     }
 }
@@ -508,7 +509,7 @@ pub fn set_build_status(
 }
 
 /// Compare two build set graphs and return any differences.
-pub fn diff(old: &BuildSetGraph, new: &BuildSetGraph) -> Diff {
+pub fn diff_graphs(old: &BuildSetGraph, new: &BuildSetGraph) -> Diff {
     let old_nodes = old
         .raw_nodes()
         .iter()

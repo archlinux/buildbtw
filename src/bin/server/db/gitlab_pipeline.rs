@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use buildbtw::Pkgbase;
+use buildbtw::{source_info::ConcreteArchitecture, Pkgbase};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
@@ -13,6 +13,8 @@ pub struct DbGitlabPipeline {
     pub build_set_iteration_id: sqlx::types::Uuid,
     #[allow(dead_code)]
     pub pkgbase: Pkgbase,
+    #[expect(dead_code)]
+    pub architecture: ConcreteArchitecture,
 
     // Fields used to identify the pipeline
     // I found no official info on which kind of integers the gitlab API uses,
@@ -26,6 +28,7 @@ pub struct DbGitlabPipeline {
 pub struct CreateDbGitlabPipeline {
     pub build_set_iteration_id: sqlx::types::Uuid,
     pub pkgbase: Pkgbase,
+    pub architecture: ConcreteArchitecture,
 
     pub project_gitlab_iid: i64,
     pub gitlab_iid: i64,
@@ -37,12 +40,13 @@ pub async fn create(pool: &SqlitePool, pipeline: CreateDbGitlabPipeline) -> Resu
     sqlx::query!(
         r#"
         insert into gitlab_pipelines 
-        (id, build_set_iteration_id, pkgbase, project_gitlab_iid, gitlab_iid)
-        values ($1, $2, $3, $4, $5)
+        (id, build_set_iteration_id, pkgbase, architecture, project_gitlab_iid, gitlab_iid)
+        values ($1, $2, $3, $4, $5, $6)
         "#,
         id,
         pipeline.build_set_iteration_id,
         pipeline.pkgbase,
+        pipeline.architecture,
         pipeline.project_gitlab_iid,
         pipeline.gitlab_iid,
     )
@@ -52,10 +56,11 @@ pub async fn create(pool: &SqlitePool, pipeline: CreateDbGitlabPipeline) -> Resu
     Ok(())
 }
 
-pub async fn read_by_iteration_and_pkgbase(
+pub async fn read_by_iteration_and_pkgbase_and_architecture(
     pool: &SqlitePool,
     iteration_id: Uuid,
     pkgbase: &Pkgbase,
+    architecture: ConcreteArchitecture,
 ) -> Result<Option<DbGitlabPipeline>> {
     sqlx::query_as!(
         DbGitlabPipeline,
@@ -64,13 +69,15 @@ pub async fn read_by_iteration_and_pkgbase(
             id as "id: sqlx::types::Uuid", 
             build_set_iteration_id as "build_set_iteration_id: sqlx::types::Uuid",
             pkgbase,
+            architecture as "architecture: ConcreteArchitecture",
             project_gitlab_iid,
             gitlab_iid
         from gitlab_pipelines
-        where build_set_iteration_id = $1 and pkgbase = $2
+        where build_set_iteration_id = $1 and pkgbase = $2 and architecture = $3
         "#,
         iteration_id,
-        pkgbase
+        pkgbase,
+        architecture
     )
     .fetch_optional(pool)
     .await

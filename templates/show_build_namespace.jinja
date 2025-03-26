@@ -1,20 +1,29 @@
 {% extends "layout" %}
 {% block title %}{{ super() }} - build_namespace {% endblock %}
 {% block body %}
-    <h1><a href="/namespace/{{namespace.name}}/graph">{{ namespace.name }}</a></h1>
-    <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/graph" style="width: 100%; height: 30rem;">
-
-    </iframe>
-
+    <h1><a href="/namespace/{{namespace.name}}">{{ namespace.name }}</a></h1>
     <p>Status: {{namespace.status}}</p>
-    <h2>Current iteration</h2>
-    {{ svg }}
-    <h2>All iterations</h2>
-    <ul>
-        {% for iteration in iterations %}
-            <li>
-                {{ iteration.id }} ({{ iteration.create_reason }})
-            </li>
+
+    {% set last_iteration = iterations|last %}
+    {% if last_iteration %}
+        <h2>Current iteration</h2>
+        {% for architecture, _ in last_iteration.packages_to_be_built|items %}
+            <p>{{architecture}}</p>
+            <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
+            </iframe>
         {% endfor %}
-    </ul>
+    {% endif %}
+
+    <h2>All iterations</h2>
+    {% if iterations|length == 0 %}
+        <p>Calculating packages for first iteration...</p>
+    {% else %}
+        <ul>
+            {% for iteration in iterations %}
+                <li>
+                    {{ iteration.id }} ({{ iteration.create_reason }})
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
 {% endblock %}

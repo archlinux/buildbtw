@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
-use alpm_srcinfo::SourceInfo;
-use anyhow::Context;
+use alpm_types::Architecture;
+use anyhow::{bail, Result};
 use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use derive_more::{AsRef, Display};
 use iteration::NewIterationReason;
 use serde::{Deserialize, Serialize};
+use source_info::{ConcreteArchitecture, SourceInfo};
 use uuid::Uuid;
 
 pub mod build_package;
@@ -15,6 +16,7 @@ pub mod build_set_graph;
 pub mod git;
 pub mod gitlab;
 pub mod iteration;
+pub mod source_info;
 pub mod tracing;
 
 // TODO use git2::Oid instead?
@@ -68,24 +70,13 @@ pub struct UpdateBuildNamespace {
     pub status: BuildNamespaceStatus,
 }
 
-/// A temporary workaround until `alpm-srcinfo` supports `Serialize` and `Deserialize`
-/// for their [`SourceInfo`] struct.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SourceInfoString(String);
-
-impl SourceInfoString {
-    fn get_source_info(&self) -> anyhow::Result<SourceInfo> {
-        let parsed = SourceInfo::from_string(&self.0)?;
-        parsed.source_info().context("Failed to parse SRCINFO")
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ScheduleBuild {
     pub namespace: Uuid,
     pub iteration: Uuid,
     pub source: GitRepoRef,
-    pub srcinfo: SourceInfoString,
+    pub architecture: ConcreteArchitecture,
+    pub srcinfo: SourceInfo,
     pub install_to_chroot: Vec<BuildPackageOutput>,
     pub updated_build_set_graph: BuildSetGraph,
 }
@@ -131,7 +122,7 @@ pub struct BuildNamespace {
 pub struct BuildPackageOutput {
     pub pkgbase: Pkgbase,
     pub pkgname: Pkgname,
-    pub arch: Option<Vec<String>>,
+    pub arch: Vec<Architecture>,
     /// Output of Srcinfo::version(), stored for convenience
     pub version: String,
 }
@@ -187,7 +178,24 @@ impl PackageBuildStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildSetIteration {
     pub id: Uuid,
-    pub packages_to_be_built: BuildSetGraph,
+    pub packages_to_be_built: HashMap<ConcreteArchitecture, BuildSetGraph>,
     pub origin_changesets: Vec<GitRepoRef>,
     pub create_reason: NewIterationReason,
+}
+
+impl BuildSetIteration {
+    pub fn set_build_status(
+        mut self,
+        architecture: ConcreteArchitecture,
+        pkgbase: Pkgbase,
+        status: PackageBuildStatus,
+    ) -> Result<Self> {
+        let Some(graph) = self.packages_to_be_built.remove(&architecture) else {
+            bail!("No build graph for architecture {architecture:?}");
+        };
+        let new_graph = build_set_graph::set_build_status(graph, &pkgbase, status);
+        self.packages_to_be_built.insert(architecture, new_graph);
+
+        Ok(self)
+    }
 }

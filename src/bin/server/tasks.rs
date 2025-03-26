@@ -211,58 +211,62 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
 
     // Visit all build nodes in all iterations
     for iteration in iterations {
-        let mut new_build_set_graph = iteration.packages_to_be_built.clone();
-        for node in iteration.packages_to_be_built.node_weights() {
-            // Only check nodes that are currently building.
-            if node.status != PackageBuildStatus::Building {
-                continue;
-            }
+        let mut new_packages_to_be_built = iteration.packages_to_be_built.clone();
+        for (architecture, graph) in iteration.packages_to_be_built {
+            for node in graph.node_weights() {
+                // Only check nodes that are currently building.
+                if node.status != PackageBuildStatus::Building {
+                    continue;
+                }
 
-            // Check if there's a gitlab pipeline we started
-            // If yes, it will be stored in the DB
-            let maybe_pipeline = db::gitlab_pipeline::read_by_iteration_and_pkgbase(
-                pool,
-                iteration.id,
-                &node.pkgbase,
-            )
-            .await?;
-            // We're only concerned with build nodes that have a gitlab pipeline
-            // associated
-            let Some(pipeline) = maybe_pipeline else {
-                continue;
-            };
+                // Check if there's a gitlab pipeline we started
+                // If yes, it will be stored in the DB
+                let maybe_pipeline =
+                    db::gitlab_pipeline::read_by_iteration_and_pkgbase_and_architecture(
+                        pool,
+                        iteration.id,
+                        &node.pkgbase,
+                        architecture,
+                    )
+                    .await?;
+                // We're only concerned with build nodes that have a gitlab pipeline
+                // associated
+                let Some(pipeline) = maybe_pipeline else {
+                    continue;
+                };
 
-            // Query current pipeline status in gitlab
-            let pkgbase = &node.pkgbase;
-            print!("Checking pipeline for {pkgbase}... ");
-            let current_pipeline_status = buildbtw::gitlab::get_pipeline_status(
-                gitlab_client,
-                pipeline.project_gitlab_iid.try_into()?,
-                pipeline.gitlab_iid.try_into()?,
-            )
-            .await?;
+                // Query current pipeline status in gitlab
+                let pkgbase = &node.pkgbase;
+                print!("Checking pipeline for {pkgbase}... ");
+                let current_pipeline_status = buildbtw::gitlab::get_pipeline_status(
+                    gitlab_client,
+                    pipeline.project_gitlab_iid.try_into()?,
+                    pipeline.gitlab_iid.try_into()?,
+                )
+                .await?;
 
-            // If it's now finished, update the in-progress build node to reflect this
-            if current_pipeline_status.is_finished() {
-                tracing::info!("finished");
-                // Set new status of node, and mark nodes depending on this one
-                // as pending
-                new_build_set_graph = build_set_graph::set_build_status(
-                    new_build_set_graph,
-                    pkgbase,
-                    current_pipeline_status.into(),
-                );
-            } else {
-                tracing::info!("running");
+                // If it's now finished, update the in-progress build node to reflect this
+                if current_pipeline_status.is_finished() {
+                    tracing::info!("finished");
+                    // Set new status of node, and mark nodes depending on this one
+                    // as pending
+                    let new_graph = build_set_graph::set_build_status(
+                        graph.clone(),
+                        pkgbase,
+                        current_pipeline_status.into(),
+                    );
+                    new_packages_to_be_built.insert(architecture, new_graph);
+                } else {
+                    tracing::info!("running");
+                }
             }
         }
-
         // Persist the updated build set graph
         db::iteration::update(
             pool,
             db::iteration::BuildSetIterationUpdate {
                 id: iteration.id,
-                packages_to_be_built: new_build_set_graph,
+                packages_to_be_built: new_packages_to_be_built,
             },
         )
         .await?;
@@ -282,33 +286,34 @@ async fn schedule_next_build_if_needed(
     }
 
     // -> schedule build
-    let iteration = db::iteration::read_newest(pool, namespace.id).await?;
-    let build = schedule_next_build_in_graph(&iteration, namespace.id);
-    match build {
-        // TODO: distinguish between no pending packages and failed graph
-        ScheduleBuildResult::NoPendingPackages => {}
-        ScheduleBuildResult::Scheduled(response) => {
-            let new_packages_to_be_built = response.updated_build_set_graph.clone();
-            match schedule_build(pool, &response, maybe_gitlab_client).await {
-                Ok(_) => {
-                    db::iteration::update(
-                        pool,
-                        db::iteration::BuildSetIterationUpdate {
-                            id: iteration.id,
-                            packages_to_be_built: new_packages_to_be_built,
-                        },
-                    )
-                    .await?;
-                }
-                Err(e) => {
-                    // TODO mark build as failed
-                    // or check that this is actually retried
-                    tracing::info!("{e:?}");
+    let mut iteration = db::iteration::read_newest(pool, namespace.id).await?;
+    for (architecture, graph) in iteration.packages_to_be_built.clone() {
+        let build = schedule_next_build_in_graph(&graph, namespace.id, iteration.id, architecture);
+        match build {
+            // TODO: distinguish between no pending packages and failed graph
+            ScheduleBuildResult::NoPendingPackages => {}
+            ScheduleBuildResult::Scheduled(response) => {
+                let new_packages_to_be_built = response.updated_build_set_graph.clone();
+                match schedule_build(pool, &response, maybe_gitlab_client).await {
+                    Ok(_) => {
+                        iteration
+                            .packages_to_be_built
+                            .insert(architecture, new_packages_to_be_built);
+                        db::iteration::update(
+                            pool,
+                            db::iteration::BuildSetIterationUpdate {
+                                id: iteration.id,
+                                packages_to_be_built: iteration.packages_to_be_built.clone(),
+                            },
+                        )
+                        .await?;
+                    }
+                    Err(e) => {
+                        tracing::info!("{e:?}");
+                    }
                 }
             }
-        }
-        ScheduleBuildResult::Finished => {
-            tracing::info!("Graph finished building");
+            ScheduleBuildResult::Finished => {}
         }
     }
 
@@ -327,6 +332,7 @@ async fn schedule_build(
         let db_pipeline = db::gitlab_pipeline::CreateDbGitlabPipeline {
             build_set_iteration_id: build.iteration,
             pkgbase: build.source.0.clone(),
+            architecture: build.architecture,
             project_gitlab_iid: pipeline_response.project_id.try_into()?,
             gitlab_iid: pipeline_response.id.try_into()?,
         };

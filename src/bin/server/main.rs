@@ -91,7 +91,10 @@ async fn main() -> Result<()> {
                     post(create_namespace_iteration),
                 )
                 .route("/namespace/{name}", get(show_build_namespace))
-                .route("/namespace/{name}/graph", get(render_build_namespace_graph))
+                .route(
+                    "/namespace/{name}/{architecture}/graph",
+                    get(render_build_namespace_graph),
+                )
                 .route("/latest_namespace", get(render_latest_namespace))
                 .route("/namespace/{name}", patch(update_namespace))
                 .route(

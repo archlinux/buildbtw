@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use buildbtw::{
-    build_set_graph::BuildSetGraph, iteration::NewIterationReason, BuildSetIteration, GitRepoRef,
+    build_set_graph::BuildSetGraph, iteration::NewIterationReason,
+    source_info::ConcreteArchitecture, BuildSetIteration, GitRepoRef,
 };
 use sqlx::{types::Json, SqlitePool};
 
@@ -12,7 +15,7 @@ pub(crate) struct DbBuildSetIteration {
     #[allow(dead_code)]
     namespace_id: sqlx::types::Uuid,
 
-    packages_to_be_built: Json<BuildSetGraph>,
+    packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>,
     origin_changesets: Json<Vec<GitRepoRef>>,
     create_reason: Json<NewIterationReason>,
 }
@@ -70,7 +73,7 @@ pub(crate) async fn read_newest(
             id as "id: sqlx::types::Uuid", 
             created_at as "created_at: time::OffsetDateTime",
             namespace_id as "namespace_id: sqlx::types::Uuid",
-            packages_to_be_built as "packages_to_be_built: Json<BuildSetGraph>",
+            packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             create_reason as "create_reason: Json<NewIterationReason>"
         from build_set_iterations
@@ -98,7 +101,7 @@ pub(crate) async fn list(
             id as "id: sqlx::types::Uuid", 
             created_at as "created_at: time::OffsetDateTime",
             namespace_id as "namespace_id: sqlx::types::Uuid",
-            packages_to_be_built as "packages_to_be_built: Json<BuildSetGraph>",
+            packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             create_reason as "create_reason: Json<NewIterationReason>"
         from build_set_iterations
@@ -117,7 +120,7 @@ pub(crate) async fn list(
 
 pub(crate) struct BuildSetIterationUpdate {
     pub(crate) id: uuid::Uuid,
-    pub(crate) packages_to_be_built: BuildSetGraph,
+    pub(crate) packages_to_be_built: HashMap<ConcreteArchitecture, BuildSetGraph>,
 }
 
 pub(crate) async fn update(pool: &SqlitePool, iteration: BuildSetIterationUpdate) -> Result<()> {

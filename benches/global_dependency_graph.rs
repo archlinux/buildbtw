@@ -1,5 +1,5 @@
 use buildbtw::{
-    build_set_graph::{build_global_dependency_graph, gather_packages_metadata},
+    build_set_graph::{build_global_dependency_graphs, gather_packages_metadata},
     BuildNamespace, BuildNamespaceStatus,
 };
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -26,7 +26,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
     group.bench_function("global_dependency_graph", |b| {
         b.iter(|| {
-            build_global_dependency_graph(&pkgname_to_srcinfo_map).unwrap();
+            build_global_dependency_graphs(&pkgname_to_srcinfo_map).unwrap();
         })
     });
 }

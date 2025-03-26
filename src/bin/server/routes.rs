@@ -3,6 +3,7 @@ use axum::extract::Path;
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
 use buildbtw::build_set_graph::calculate_packages_to_be_built;
+use buildbtw::source_info::ConcreteArchitecture;
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use minijinja::context;
@@ -14,8 +15,8 @@ use uuid::Uuid;
 use crate::db::iteration::BuildSetIterationUpdate;
 use crate::{db, AppState};
 use buildbtw::{
-    build_set_graph, BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase,
-    SetBuildStatus, SetBuildStatusResult, UpdateBuildNamespace,
+    BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase, SetBuildStatus,
+    SetBuildStatusResult, UpdateBuildNamespace,
 };
 
 #[debug_handler]
@@ -36,8 +37,8 @@ pub(crate) async fn generate_build_namespace(
 
     let base_url = state.base_url;
     tracing::info!(
-        "Namespace overview available at: {base_url}/namespace/{}/graph",
-        namespace.name
+        "Namespace overview available at: {base_url}/namespace/{}",
+        namespace.name,
     );
 
     Ok(Json(namespace))
@@ -121,7 +122,7 @@ pub(crate) async fn show_build_namespace(
 
 #[debug_handler]
 pub(crate) async fn render_build_namespace_graph(
-    Path(namespace_name): Path<String>,
+    Path((namespace_name, architecture)): Path<(String, ConcreteArchitecture)>,
     State(state): State<AppState>,
 ) -> Result<Html<String>, StatusCode> {
     let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool)
@@ -134,7 +135,9 @@ pub(crate) async fn render_build_namespace_graph(
     let latest_packages_to_be_built = &iterations
         .last()
         .ok_or(StatusCode::PROCESSING)?
-        .packages_to_be_built;
+        .packages_to_be_built
+        .get(&architecture)
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     let dot_output = petgraph::dot::Dot::with_attr_getters(
         latest_packages_to_be_built,
@@ -215,7 +218,12 @@ pub async fn create_namespace_iteration(
 
 #[debug_handler]
 pub async fn set_build_status(
-    Path((namespace_id, iteration_id, pkgbase)): Path<(Uuid, Uuid, Pkgbase)>,
+    Path((namespace_id, iteration_id, pkgbase, architecture)): Path<(
+        Uuid,
+        Uuid,
+        Pkgbase,
+        ConcreteArchitecture,
+    )>,
     State(state): State<AppState>,
     Json(body): Json<SetBuildStatus>,
 ) -> Json<SetBuildStatusResult> {
@@ -235,14 +243,13 @@ pub async fn set_build_status(
                 return Json(SetBuildStatusResult::IterationNotFound);
             }
             Some(iteration) => {
-                let new_graph = build_set_graph::set_build_status(
-                    iteration.packages_to_be_built,
-                    &pkgbase,
-                    body.status,
-                );
+                let Ok(iteration) = iteration.set_build_status(architecture, pkgbase, body.status)
+                else {
+                    return Json(SetBuildStatusResult::InternalError);
+                };
                 let update = BuildSetIterationUpdate {
                     id: iteration.id,
-                    packages_to_be_built: new_graph,
+                    packages_to_be_built: iteration.packages_to_be_built,
                 };
 
                 if let Err(e) = db::iteration::update(&state.db_pool, update).await {

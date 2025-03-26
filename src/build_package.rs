@@ -1,6 +1,6 @@
 //! Build a package locally by essentially running `pkgctl build`.
 
-use std::{collections::HashSet, process::Stdio};
+use std::process::Stdio;
 
 use anyhow::anyhow;
 use camino::{Utf8Path, Utf8PathBuf};
@@ -12,7 +12,10 @@ use tokio::{
 use anyhow::{Context, Result};
 use git2::{build::CheckoutBuilder, Oid, Repository, Status};
 
-use crate::{git::package_source_path, PackageBuildStatus, ScheduleBuild, BUILD_DIR};
+use crate::{
+    git::package_source_path, source_info::package_architectures, PackageBuildStatus,
+    ScheduleBuild, BUILD_DIR,
+};
 
 pub async fn build_package(schedule: &ScheduleBuild, import_gpg_keys: bool) -> PackageBuildStatus {
     match build_package_inner(schedule, import_gpg_keys).await {
@@ -140,8 +143,7 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
     Ok(())
 }
 
-fn generate_fake_pkgbuild(schedule: &ScheduleBuild) -> Result<String> {
-    let srcinfo = schedule.srcinfo.get_source_info()?;
+fn generate_fake_pkgbuild(ScheduleBuild { srcinfo, .. }: &ScheduleBuild) -> Result<String> {
     let pkgnames = format!(
         "({})",
         srcinfo
@@ -157,9 +159,7 @@ fn generate_fake_pkgbuild(schedule: &ScheduleBuild) -> Result<String> {
     for pkg in &srcinfo.packages {
         let pkgarchs = format!(
             "({})",
-            pkg.architectures
-                .as_ref()
-                .unwrap_or(&HashSet::new())
+            package_architectures(pkg, srcinfo)
                 .iter()
                 .map(|a| a.to_string())
                 .collect::<Vec<_>>()
@@ -197,7 +197,7 @@ source=()
         pkgbase = srcinfo.base.name,
         pkgname = pkgnames,
         pkgver = srcinfo.base.package_version,
-        pkgrel = srcinfo.base.package_release.to_string(),
+        pkgrel = srcinfo.base.package_release,
         arch = srcinfo
             .base
             .architectures
