@@ -151,7 +151,7 @@ async fn calculate_packages_to_be_built_inner(
                             .architectures
                             .clone()
                             .map(|set| set.iter().map(|a| a.to_string()).collect()),
-                        version: source_info.base.version.to_string(),
+                        version: source_info.base.package_version.to_string(),
                     })
                     .collect();
                 let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {

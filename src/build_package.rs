@@ -196,13 +196,8 @@ source=()
         "#,
         pkgbase = srcinfo.base.name,
         pkgname = pkgnames,
-        pkgver = srcinfo.base.version.pkgver,
-        pkgrel = srcinfo
-            .base
-            .version
-            .pkgrel
-            .map(|r| r.to_string())
-            .unwrap_or("1".to_string()),
+        pkgver = srcinfo.base.package_version,
+        pkgrel = srcinfo.base.package_release.to_string(),
         arch = srcinfo
             .base
             .architectures
