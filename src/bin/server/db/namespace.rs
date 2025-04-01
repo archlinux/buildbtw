@@ -196,3 +196,27 @@ pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildNamespace>> {
 
     Ok(namespaces)
 }
+
+pub(crate) async fn list_active(pool: &SqlitePool, active: bool) -> Result<Vec<BuildNamespace>> {
+    let namespaces = sqlx::query_as!(
+        DbBuildNamespace,
+        r#"
+        select 
+            id as "id: sqlx::types::Uuid", 
+            name, 
+            status as "status: DbBuildNamespaceStatus",
+            origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
+            created_at as "created_at: time::OffsetDateTime"
+        from build_namespaces
+        where active = $1
+        "#,
+        active
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(BuildNamespace::from)
+    .collect();
+
+    Ok(namespaces)
+}

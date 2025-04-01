@@ -15,6 +15,7 @@ use routes::{
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
+use tower_http::trace::TraceLayer;
 use with_content_type::{with_content_type, ApplictionJson};
 
 use crate::args::{Args, Command};
@@ -101,6 +102,7 @@ async fn main() -> Result<()> {
                     "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}",
                     patch(set_build_status),
                 )
+                .layer(TraceLayer::new_for_http())
                 .with_state(AppState {
                     worker_sender,
                     jinja_env,

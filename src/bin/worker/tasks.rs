@@ -31,7 +31,7 @@ pub fn start(modify_gpg_keyring: bool) -> UnboundedSender<Message> {
                     )
                     .await
                     {
-                        tracing::info!("❌ Failed to set build status: {err}");
+                        tracing::info!("❌ Failed to set build status: {err:?}");
                     }
                 }
             }

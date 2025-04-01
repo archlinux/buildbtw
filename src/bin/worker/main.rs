@@ -85,6 +85,7 @@ async fn set_build_status(
         .send()
         .await
         .context("Failed to send to server")?
+        .error_for_status()?
         .json()
         .await?;
 
