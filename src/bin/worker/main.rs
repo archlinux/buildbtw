@@ -5,10 +5,9 @@ use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use clap::Parser;
 use listenfd::ListenFd;
 use tokio::sync::mpsc::UnboundedSender;
-use uuid::Uuid;
 
 use crate::args::{Args, Command};
-use buildbtw::{Pkgbase, ScheduleBuild, SetBuildStatusResult};
+use buildbtw::ScheduleBuild;
 
 mod args;
 mod tasks;
@@ -70,33 +69,29 @@ async fn main() -> Result<()> {
 }
 
 async fn set_build_status(
-    namespace: Uuid,
-    iteration: Uuid,
-    pkgbase: Pkgbase,
     status: buildbtw::PackageBuildStatus,
-) -> Result<SetBuildStatusResult> {
+    ScheduleBuild {
+        namespace,
+        iteration,
+        source,
+        architecture,
+        ..
+    }: &ScheduleBuild,
+) -> Result<()> {
     let data = buildbtw::SetBuildStatus { status };
+    let (pkgbase, _) = source;
 
-    let response: SetBuildStatusResult = reqwest::Client::new()
+    reqwest::Client::new()
         .patch(format!(
-            "http://0.0.0.0:8080/namespace/{namespace}/iteration/{iteration}/pkgbase/{pkgbase}"
+            "http://0.0.0.0:8080/namespace/{namespace}/iteration/{iteration}/pkgbase/{pkgbase}/architecture/{architecture}/status"
         ))
         .json(&data)
         .send()
         .await
         .context("Failed to send to server")?
-        .error_for_status()?
-        .json()
-        .await?;
+        .error_for_status()?;
 
-    tracing::info!(
-        "{}",
-        match response {
-            SetBuildStatusResult::Success => "Sent build status to server",
-            SetBuildStatusResult::IterationNotFound =>
-                "Could not send build status: Iteration not found",
-            SetBuildStatusResult::InternalError => "Could not send build status: Internal error",
-        }
-    );
-    Ok(response)
+    tracing::info!("Sent build status to server");
+
+    Ok(())
 }

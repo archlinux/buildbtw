@@ -23,14 +23,7 @@ pub fn start(modify_gpg_keyring: bool) -> UnboundedSender<Message> {
                     );
 
                     // TODO: exponential backoff
-                    if let Err(err) = set_build_status(
-                        schedule.namespace,
-                        schedule.iteration,
-                        schedule.source.0,
-                        result_status,
-                    )
-                    .await
-                    {
+                    if let Err(err) = set_build_status(result_status, &schedule).await {
                         tracing::info!("❌ Failed to set build status: {err:?}");
                     }
                 }

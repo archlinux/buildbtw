@@ -76,7 +76,7 @@ async fn update_and_build_all_namespaces_in_loop(
         loop {
             match update_and_build_all_namespaces(&pool, maybe_gitlab_client.as_ref()).await {
                 Ok(_) => {}
-                Err(e) => tracing::info!("Error creating new iteration: {e:?}"),
+                Err(e) => tracing::error!("Error while updating build namespaces: {e:?}"),
             };
             tokio::time::sleep(Duration::from_secs(10)).await
         }
@@ -309,7 +309,7 @@ async fn schedule_next_build_if_needed(
                         .await?;
                     }
                     Err(e) => {
-                        tracing::info!("{e:?}");
+                        tracing::error!("{e:?}");
                     }
                 }
             }

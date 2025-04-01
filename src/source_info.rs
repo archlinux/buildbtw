@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use alpm_srcinfo::{source_info::v1::package::Package, SourceInfoV1};
 use alpm_types::Architecture;
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString};
 
 use crate::BuildPackageOutput;
 
@@ -14,6 +15,8 @@ pub type SourceInfo = SourceInfoV1;
     Copy,
     Debug,
     Deserialize,
+    Display,
+    EnumString,
     Eq,
     Hash,
     Ord,
@@ -25,6 +28,7 @@ pub type SourceInfo = SourceInfoV1;
 )]
 #[non_exhaustive]
 #[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum ConcreteArchitecture {
     /// ARMv8 64-bit
     Aarch64,

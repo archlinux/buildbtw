@@ -23,6 +23,7 @@ use buildbtw::git::fetch_all_packaging_repositories;
 
 mod args;
 mod db;
+pub mod response_error;
 mod routes;
 mod tasks;
 pub mod with_content_type;
@@ -99,7 +100,7 @@ async fn main() -> Result<()> {
                 .route("/latest_namespace", get(render_latest_namespace))
                 .route("/namespace/{name}", patch(update_namespace))
                 .route(
-                    "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}",
+                    "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}/architecture/{architecture}/status",
                     patch(set_build_status),
                 )
                 .layer(TraceLayer::new_for_http())

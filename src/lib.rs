@@ -30,6 +30,7 @@ pub type GitRepoRef = (Pkgbase, GitRef);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, AsRef, Display, sqlx::Type)]
 #[sqlx(transparent)]
+#[serde(transparent)]
 pub struct Pkgbase(String);
 
 impl From<alpm_types::Name> for Pkgbase {
@@ -92,13 +93,6 @@ pub enum ScheduleBuildResult {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SetBuildStatus {
     pub status: PackageBuildStatus,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum SetBuildStatusResult {
-    Success,
-    IterationNotFound,
-    InternalError,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

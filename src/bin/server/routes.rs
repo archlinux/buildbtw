@@ -13,10 +13,12 @@ use reqwest::StatusCode;
 use uuid::Uuid;
 
 use crate::db::iteration::BuildSetIterationUpdate;
+use crate::response_error::ResponseError::NotFound;
+use crate::response_error::ResponseResult;
 use crate::{db, AppState};
 use buildbtw::{
     BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase, SetBuildStatus,
-    SetBuildStatusResult, UpdateBuildNamespace,
+    UpdateBuildNamespace,
 };
 
 #[debug_handler]
@@ -226,7 +228,7 @@ pub async fn set_build_status(
     )>,
     State(state): State<AppState>,
     Json(body): Json<SetBuildStatus>,
-) -> Json<SetBuildStatusResult> {
+) -> ResponseResult<()> {
     tracing::info!(
         "setting build status: namespace: {:?} iteration: {:?} pkgbase: {:?} status: {:?}",
         namespace_id,
@@ -240,27 +242,21 @@ pub async fn set_build_status(
         let iteration = iterations.into_iter().find(|i| i.id == iteration_id);
         match iteration {
             None => {
-                return Json(SetBuildStatusResult::IterationNotFound);
+                return Err(NotFound);
             }
             Some(iteration) => {
-                let Ok(iteration) = iteration.set_build_status(architecture, pkgbase, body.status)
-                else {
-                    return Json(SetBuildStatusResult::InternalError);
-                };
+                let iteration = iteration.set_build_status(architecture, pkgbase, body.status)?;
                 let update = BuildSetIterationUpdate {
                     id: iteration.id,
                     packages_to_be_built: iteration.packages_to_be_built,
                 };
 
-                if let Err(e) = db::iteration::update(&state.db_pool, update).await {
-                    tracing::info!("{e:?}");
-                    return Json(SetBuildStatusResult::InternalError);
-                };
+                db::iteration::update(&state.db_pool, update).await?;
 
-                return Json(SetBuildStatusResult::Success);
+                return Ok(());
             }
         }
     }
 
-    Json(SetBuildStatusResult::IterationNotFound)
+    Err(NotFound)
 }
