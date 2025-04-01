@@ -92,7 +92,7 @@ async fn update_and_build_all_namespaces(
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
     // Check all build namespaces and see if they need a new iteration.
-    let namespaces = db::namespace::list(pool).await?;
+    let namespaces = db::namespace::list_by_status(pool, BuildNamespaceStatus::Active).await?;
     let namespace_count = namespaces.len();
     tracing::info!("Updating and dispatching builds for {namespace_count} namespace(s)...");
     for namespace in namespaces {

@@ -197,7 +197,11 @@ pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildNamespace>> {
     Ok(namespaces)
 }
 
-pub(crate) async fn list_active(pool: &SqlitePool, active: bool) -> Result<Vec<BuildNamespace>> {
+pub(crate) async fn list_by_status(
+    pool: &SqlitePool,
+    status: BuildNamespaceStatus,
+) -> Result<Vec<BuildNamespace>> {
+    let status = DbBuildNamespaceStatus::from(status);
     let namespaces = sqlx::query_as!(
         DbBuildNamespace,
         r#"
@@ -208,9 +212,9 @@ pub(crate) async fn list_active(pool: &SqlitePool, active: bool) -> Result<Vec<B
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
         from build_namespaces
-        where active = $1
+        where status = $1
         "#,
-        active
+        status
     )
     .fetch_all(pool)
     .await?
