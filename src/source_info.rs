@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 
-use alpm_srcinfo::{source_info::v1::package::Package, SourceInfoV1};
+use alpm_srcinfo::{source_info::v1::package::Package, MergedPackage, SourceInfoV1};
 use alpm_types::Architecture;
+use camino::Utf8PathBuf;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
-use crate::BuildPackageOutput;
+use crate::Pkgname;
 
 pub type SourceInfo = SourceInfoV1;
 
@@ -108,19 +109,38 @@ pub fn source_info_architectures(source_info: &SourceInfo) -> HashSet<Architectu
         })
 }
 
-pub fn build_outputs(source_info: &SourceInfo) -> Vec<BuildPackageOutput> {
+pub fn package_for_architecture(
+    source_info: &SourceInfo,
+    architecture: ConcreteArchitecture,
+    pkgname: &Pkgname,
+) -> Option<MergedPackage> {
     source_info
-        .packages
-        .iter()
-        .map(|pkg| BuildPackageOutput {
-            pkgbase: source_info.base.name.clone().into(),
-            pkgname: pkg.name.to_string(),
-            arch: package_architectures(pkg, source_info)
-                .iter()
-                .copied()
-                .collect(),
-            version: source_info.base.package_version.to_string(),
-            release: source_info.base.package_release.to_string(),
-        })
+        .packages_for_architecture(*architecture.as_ref())
+        .find(|p| p.name.as_ref() == pkgname)
+}
+
+pub fn build_outputs(
+    source_info: &SourceInfo,
+    architecture: ConcreteArchitecture,
+) -> Vec<Utf8PathBuf> {
+    source_info
+        .packages_for_architecture(*architecture.as_ref())
+        .map(|p| package_file_name(&p))
         .collect()
+}
+
+pub fn package_file_name(
+    MergedPackage {
+        name,
+        package_version,
+        package_release,
+        ..
+    }: &MergedPackage,
+) -> Utf8PathBuf {
+    // TODO: make it work for all compression formats
+    // TODO: make it work for different arches
+    // We'll probably have to pass in a directory to search for package files
+    // here, similar to `find_cached_package` in devtools
+    // (parsing makepkg output seems like an ugly alternative)
+    format!("{name}-{package_version}-{package_release}-x86_64.pkg.tar.zst").into()
 }

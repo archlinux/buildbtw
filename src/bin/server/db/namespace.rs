@@ -81,7 +81,6 @@ impl From<DbBuildNamespace> for BuildNamespace {
     }
 }
 
-#[expect(dead_code)]
 pub(crate) async fn read(id: uuid::Uuid, pool: &SqlitePool) -> Result<BuildNamespace> {
     let db_namespace = sqlx::query_as!(
         DbBuildNamespace,

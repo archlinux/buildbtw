@@ -24,6 +24,7 @@ colored = "3.0.0"
 console-subscriber = "0.4.1"
 criterion = { version = "0.5.1" }
 derive_more = { version = "2.0.1", features = ["as_ref", "display"] }
+futures = "0.3.31"
 git2 = "0.20.0"
 gitlab = "0.1710.0"
 graphql_client = "0.14.0"
@@ -37,7 +38,7 @@ petgraph = { version = "0.8.1", features = [
 ] }
 redact = "0.1.10"
 regex = "1.11.1"
-reqwest = { version = "0.12.12", features = ["json"] }
+reqwest = { version = "0.12.12", features = ["json", "stream"] }
 serde = { version = "1.0.217", features = ["serde_derive"] }
 serde_json = { version = "1.0.135", features = ["raw_value"] }
 sqlx = { version = "0.8.3", features = [
@@ -57,6 +58,7 @@ tokio = { version = "1.43.0", features = [
     "tracing",
 ] }
 tower-http = { version = "0.6.2", features = ["trace"] }
+tokio-util = "0.7.14"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 uuid = { version = "1.12.0", features = ["serde", "v4"] }

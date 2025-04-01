@@ -11,7 +11,7 @@ use listenfd::ListenFd;
 use routes::{
     create_namespace_iteration, generate_build_namespace, list_namespaces_html,
     list_namespaces_json, render_build_namespace_graph, render_latest_namespace, set_build_status,
-    show_build_namespace, update_namespace,
+    show_build_namespace, update_namespace, upload_package,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -25,6 +25,7 @@ mod args;
 mod db;
 pub mod response_error;
 mod routes;
+pub mod stream_to_file;
 mod tasks;
 pub mod with_content_type;
 
@@ -100,8 +101,12 @@ async fn main() -> Result<()> {
                 .route("/latest_namespace", get(render_latest_namespace))
                 .route("/namespace/{name}", patch(update_namespace))
                 .route(
-                    "/namespace/{namespace_id}/iteration/{iteration}/pkgbase/{pkgbase}/architecture/{architecture}/status",
+                    "/iteration/{iteration_id}/pkgbase/{pkgbase}/architecture/{architecture}/status",
                     patch(set_build_status),
+                )
+                .route(
+                    "/iteration/{iteration_id}/pkgbase/{pkgbase}/pkgname/{pkgname}/architecture/{architecture}/package",
+                    post(upload_package),
                 )
                 .layer(TraceLayer::new_for_http())
                 .with_state(AppState {

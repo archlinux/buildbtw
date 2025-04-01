@@ -13,10 +13,10 @@ use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
 use crate::git::{get_branch_commit_sha, read_srcinfo_from_repo};
-use crate::source_info::{build_outputs, ConcreteArchitecture, SourceInfo};
+use crate::source_info::{ConcreteArchitecture, SourceInfo};
 use crate::{
-    BuildNamespace, BuildPackageOutput, CommitHash, GitRepoRef, PackageBuildDependency,
-    PackageBuildStatus, Pkgbase, Pkgname, ScheduleBuild, ScheduleBuildResult,
+    BuildNamespace, CommitHash, GitRepoRef, PackageBuildDependency, PackageBuildStatus, Pkgbase,
+    Pkgname, ScheduleBuild, ScheduleBuildResult,
 };
 
 /// A global graph of dependencies between pkgnames (not PKGBUILDS).
@@ -97,8 +97,6 @@ pub struct BuildPackageNode {
     pub commit_hash: CommitHash,
     pub status: PackageBuildStatus,
     pub srcinfo: SourceInfo,
-    /// Packages that this build will emit
-    pub build_outputs: Vec<BuildPackageOutput>,
 }
 
 // TODO we probably want to replace this with a wrapper struct
@@ -154,6 +152,8 @@ async fn calculate_packages_to_be_built_inner(
     architecture: ConcreteArchitecture,
     packages_metadata: &PackagesMetadata,
 ) -> Result<BuildSetGraph> {
+    // TODO use a topological visitor for this
+
     // We have the global graph. Based on this, find the precise graph of dependents for the
     // given Pkgbases.
     let mut packages_to_be_built: BuildSetGraph = Graph::new();
@@ -204,7 +204,6 @@ async fn calculate_packages_to_be_built_inner(
                     commit_hash: package_metadata.commit_hash.clone(),
                     srcinfo: package_metadata.source_info.clone(),
                     status: PackageBuildStatus::Blocked,
-                    build_outputs: build_outputs(source_info),
                 });
                 pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), build_graph_node_index);
 
@@ -389,15 +388,6 @@ pub fn schedule_next_build_in_graph(
         for node_idx in bfs.iter(graph) {
             let node = &graph[node_idx];
 
-            // TODO: for split packages, this might include some
-            // unneeded pkgnames. We should probably filter them out by going
-            // over the dependencies of the package we're building.
-            // TODO: this does not include transitive dependencies.
-            let built_dependencies = graph
-                .edges_directed(node_idx, petgraph::Incoming)
-                .flat_map(|dependency| graph[dependency.source()].build_outputs.clone())
-                .collect();
-
             // Depending on the status of this node, return early to keep looking
             // or go on building it.
             match &graph[node_idx].status {
@@ -439,7 +429,6 @@ pub fn schedule_next_build_in_graph(
                 architecture,
                 srcinfo: node.srcinfo.clone(),
                 source: (node.pkgbase.clone(), node.commit_hash.clone().into()),
-                install_to_chroot: built_dependencies,
                 updated_build_set_graph,
             };
             return ScheduleBuildResult::Scheduled(response);

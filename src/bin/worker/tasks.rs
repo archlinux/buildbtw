@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::set_build_status;
-use buildbtw::{build_package::build_package, ScheduleBuild};
+use crate::{set_build_status, upload_packages};
+use buildbtw::{build_package::build_package, PackageBuildStatus, ScheduleBuild};
 
 pub enum Message {
     BuildPackage(ScheduleBuild),
@@ -16,15 +16,25 @@ pub fn start(modify_gpg_keyring: bool) -> UnboundedSender<Message> {
             match msg {
                 Message::BuildPackage(schedule) => {
                     tracing::info!("🕑 Building package {:?}", schedule.source.0);
-                    let result_status = build_package(&schedule, modify_gpg_keyring).await;
+                    let mut result_status = build_package(&schedule, modify_gpg_keyring).await;
+
                     tracing::info!(
-                        "✅ build finished for {:?} ({result_status:?})",
+                        "build result for {:?}: {result_status:?}",
                         schedule.source.0
                     );
 
-                    // TODO: exponential backoff
+                    // TODO we might want to guarantee some kind of transactionality
+                    // for the upload + status update operations
+                    if let Err(err) = upload_packages(&schedule).await {
+                        result_status = PackageBuildStatus::Failed;
+                        tracing::error!(
+                            "Uploading package failed (marking build as failed): {err:?}"
+                        );
+                    }
+
+                    // TODO: retry with exponential backoff
                     if let Err(err) = set_build_status(result_status, &schedule).await {
-                        tracing::info!("❌ Failed to set build status: {err:?}");
+                        tracing::error!("❌ Failed to set build status: {err:?}");
                     }
                 }
             }

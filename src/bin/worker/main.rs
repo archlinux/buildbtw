@@ -4,10 +4,12 @@ use anyhow::{Context, Result};
 use axum::{debug_handler, extract::State, routing::post, Json, Router};
 use clap::Parser;
 use listenfd::ListenFd;
+use reqwest::Body;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::args::{Args, Command};
-use buildbtw::ScheduleBuild;
+use buildbtw::{build_package::build_path, source_info::package_file_name, ScheduleBuild};
 
 mod args;
 mod tasks;
@@ -71,7 +73,6 @@ async fn main() -> Result<()> {
 async fn set_build_status(
     status: buildbtw::PackageBuildStatus,
     ScheduleBuild {
-        namespace,
         iteration,
         source,
         architecture,
@@ -83,7 +84,7 @@ async fn set_build_status(
 
     reqwest::Client::new()
         .patch(format!(
-            "http://0.0.0.0:8080/namespace/{namespace}/iteration/{iteration}/pkgbase/{pkgbase}/architecture/{architecture}/status"
+            "http://0.0.0.0:8080/iteration/{iteration}/pkgbase/{pkgbase}/architecture/{architecture}/status"
         ))
         .json(&data)
         .send()
@@ -92,6 +93,37 @@ async fn set_build_status(
         .error_for_status()?;
 
     tracing::info!("Sent build status to server");
+
+    Ok(())
+}
+
+async fn upload_packages(
+    ScheduleBuild {
+        iteration,
+        source,
+        architecture,
+        srcinfo,
+        ..
+    }: &ScheduleBuild,
+) -> Result<()> {
+    for package in srcinfo.packages_for_architecture(*architecture.as_ref()) {
+        // Build path to the file we'll send
+        let dir = build_path(*iteration, &source.0);
+        let path = dir.join(package_file_name(&package));
+
+        // Convert path into async stream body
+        let file = tokio::fs::File::open(&path).await.context(path)?;
+        let stream = FramedRead::new(file, BytesCodec::new());
+        let body = Body::wrap_stream(stream);
+
+        let pkgname = package.name;
+        let (pkgbase, _) = source;
+
+        reqwest::Client::new()
+        .post(format!(
+            "http://0.0.0.0:8080/iteration/{iteration}/pkgbase/{pkgbase}/pkgname/{pkgname}/architecture/{architecture}/package"
+        )).body(body).send().await?.error_for_status()?;
+    }
 
     Ok(())
 }

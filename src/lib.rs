@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
-use alpm_types::Architecture;
 use anyhow::{bail, Result};
 use build_set_graph::BuildSetGraph;
-use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use derive_more::{AsRef, Display};
 use iteration::NewIterationReason;
@@ -16,6 +14,7 @@ pub mod build_set_graph;
 pub mod git;
 pub mod gitlab;
 pub mod iteration;
+pub mod pacman_repo;
 pub mod source_info;
 pub mod tracing;
 
@@ -59,6 +58,7 @@ pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
 pub const BUILD_DIR: &str = "./build";
+pub const NAMESPACE_DATA_DIR: &str = "./data";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
@@ -78,7 +78,6 @@ pub struct ScheduleBuild {
     pub source: GitRepoRef,
     pub architecture: ConcreteArchitecture,
     pub srcinfo: SourceInfo,
-    pub install_to_chroot: Vec<BuildPackageOutput>,
     pub updated_build_set_graph: BuildSetGraph,
 }
 
@@ -110,33 +109,6 @@ pub struct BuildNamespace {
     pub status: BuildNamespaceStatus,
     // gitlab group epic, state repo mr, ...
     // tracking_thing: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct BuildPackageOutput {
-    pub pkgbase: Pkgbase,
-    pub pkgname: Pkgname,
-    pub arch: Vec<Architecture>,
-    /// Output of Srcinfo::version(), stored for convenience
-    pub version: String,
-    pub release: String,
-}
-
-impl BuildPackageOutput {
-    pub fn get_package_file_name(&self) -> Utf8PathBuf {
-        let BuildPackageOutput {
-            pkgname,
-            version,
-            release,
-            ..
-        } = self;
-        // TODO: make it work for all compression formats
-        // TODO: make it work for different arches
-        // We'll probably have to pass in a directory to search for package files
-        // here, similar to `find_cached_package` in devtools
-        // (parsing makepkg output seems like an ugly alternative)
-        format!("{pkgname}-{version}-{release}-x86_64.pkg.tar.zst").into()
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
@@ -179,6 +151,7 @@ pub struct BuildSetIteration {
     pub packages_to_be_built: HashMap<ConcreteArchitecture, BuildSetGraph>,
     pub origin_changesets: Vec<GitRepoRef>,
     pub create_reason: NewIterationReason,
+    pub namespace_id: Uuid,
 }
 
 impl BuildSetIteration {

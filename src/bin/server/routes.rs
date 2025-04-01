@@ -1,23 +1,25 @@
 use anyhow::Result;
-use axum::extract::Path;
+use axum::extract::{Path, Request};
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
 use buildbtw::build_set_graph::calculate_packages_to_be_built;
-use buildbtw::source_info::ConcreteArchitecture;
+use buildbtw::pacman_repo::{add_to_repo, repo_dir_path};
+use buildbtw::source_info::{package_file_name, package_for_architecture, ConcreteArchitecture};
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use minijinja::context;
 use petgraph::visit::EdgeRef;
 use petgraph::visit::NodeRef;
 use reqwest::StatusCode;
+use tokio::fs;
 use uuid::Uuid;
 
 use crate::db::iteration::BuildSetIterationUpdate;
-use crate::response_error::ResponseError::NotFound;
+use crate::response_error::ResponseError::{self};
 use crate::response_error::ResponseResult;
-use crate::{db, AppState};
+use crate::{db, stream_to_file::stream_to_file, AppState};
 use buildbtw::{
-    BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase, SetBuildStatus,
+    BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase, Pkgname, SetBuildStatus,
     UpdateBuildNamespace,
 };
 
@@ -208,9 +210,10 @@ pub async fn create_namespace_iteration(
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
         create_reason: buildbtw::iteration::NewIterationReason::CreatedByUser,
+        namespace_id: namespace.id,
     };
 
-    db::iteration::create(&state.db_pool, namespace.id, new_iteration.clone())
+    db::iteration::create(&state.db_pool, new_iteration.clone())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     tracing::debug!(r#"Updated build namespace "{namespace_name}": {body:?}"#);
@@ -218,45 +221,80 @@ pub async fn create_namespace_iteration(
     Ok(Json(new_iteration))
 }
 
-#[debug_handler]
-pub async fn set_build_status(
-    Path((namespace_id, iteration_id, pkgbase, architecture)): Path<(
-        Uuid,
+pub async fn upload_package(
+    Path((iteration_id, pkgbase, pkgname, architecture)): Path<(
         Uuid,
         Pkgbase,
+        Pkgname,
         ConcreteArchitecture,
     )>,
+    State(state): State<AppState>,
+    request: Request,
+) -> ResponseResult<()> {
+    // Read version info from the database
+    // And verify that pkgbase, pkgname and architecture actually exist
+    // in the given iteration
+    let iteration = db::iteration::read(&state.db_pool, iteration_id).await?;
+    let namespace = db::namespace::read(iteration.namespace_id, &state.db_pool).await?;
+
+    let graph = iteration
+        .packages_to_be_built
+        .get(&architecture)
+        .ok_or(ResponseError::NotFound("architecture"))?;
+
+    let node = &graph
+        .raw_nodes()
+        .iter()
+        .find(|node| node.weight.pkgbase == pkgbase)
+        .ok_or(ResponseError::NotFound("pkgbase"))?
+        .weight;
+
+    let package = package_for_architecture(&node.srcinfo, architecture, &pkgname)
+        .ok_or(ResponseError::NotFound("pkgname"))?;
+
+    // Calculate path for writing the file
+    // This should only use safe inputs such as those read from the DB,
+    // or enums like `ConcreteArchitecture`
+    let repo_path = repo_dir_path(&namespace.name, iteration.id, architecture);
+    fs::create_dir_all(&repo_path).await?;
+
+    // TODO this is probably paranoid, but I think a version like `../../../../../etc/passwd` might actually be valid
+    // An attack like that would require a malicious .SRCINFO, though
+    let path = repo_path.join(package_file_name(&package));
+    if tokio::fs::try_exists(&path).await? {
+        // This should only happen if a builder was temporarily unreachable
+        // so the build got scheduled elsewhere as well
+        // We assume that written files are correct, so we can ignore this
+        return Ok(());
+    }
+    // TODO ensure no package exists for the given build yet
+    stream_to_file(&path, request.into_body().into_data_stream()).await?;
+
+    add_to_repo(&namespace.name, iteration.id, architecture, &package).await?;
+
+    Ok(())
+}
+
+pub async fn set_build_status(
+    Path((iteration_id, pkgbase, architecture)): Path<(Uuid, Pkgbase, ConcreteArchitecture)>,
     State(state): State<AppState>,
     Json(body): Json<SetBuildStatus>,
 ) -> ResponseResult<()> {
     tracing::info!(
-        "setting build status: namespace: {:?} iteration: {:?} pkgbase: {:?} status: {:?}",
-        namespace_id,
+        "setting build status: iteration: {:?} pkgbase: {:?} status: {:?}",
         iteration_id,
         pkgbase,
         body.status
     );
+    let iteration = db::iteration::read(&state.db_pool, iteration_id).await?;
 
-    // TODO proper error handling
-    if let Ok(iterations) = db::iteration::list(&state.db_pool, namespace_id).await {
-        let iteration = iterations.into_iter().find(|i| i.id == iteration_id);
-        match iteration {
-            None => {
-                return Err(NotFound);
-            }
-            Some(iteration) => {
-                let iteration = iteration.set_build_status(architecture, pkgbase, body.status)?;
-                let update = BuildSetIterationUpdate {
-                    id: iteration.id,
-                    packages_to_be_built: iteration.packages_to_be_built,
-                };
+    let iteration = iteration.set_build_status(architecture, pkgbase, body.status)?;
+    let update = BuildSetIterationUpdate {
+        id: iteration.id,
+        packages_to_be_built: iteration.packages_to_be_built,
+    };
 
-                db::iteration::update(&state.db_pool, update).await?;
+    db::iteration::update(&state.db_pool, update).await?;
 
-                return Ok(());
-            }
-        }
-    }
-
-    Err(NotFound)
+    Ok(())
 }

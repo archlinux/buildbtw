@@ -189,9 +189,10 @@ async fn create_new_namespace_iteration_if_needed(
                 origin_changesets: namespace.current_origin_changesets.clone(),
                 packages_to_be_built: packages_to_build,
                 create_reason: reason,
+                namespace_id: namespace.id,
             };
 
-            db::iteration::create(pool, namespace.id, new_iteration).await?;
+            db::iteration::create(pool, new_iteration).await?;
         }
         NewBuildIterationResult::NoNewIterationNeeded => {}
     }

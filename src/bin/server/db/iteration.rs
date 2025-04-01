@@ -12,7 +12,6 @@ pub(crate) struct DbBuildSetIteration {
     id: sqlx::types::Uuid,
     #[allow(dead_code)]
     created_at: time::OffsetDateTime,
-    #[allow(dead_code)]
     namespace_id: sqlx::types::Uuid,
 
     packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>,
@@ -27,15 +26,12 @@ impl From<DbBuildSetIteration> for BuildSetIteration {
             packages_to_be_built: value.packages_to_be_built.0,
             origin_changesets: value.origin_changesets.0,
             create_reason: value.create_reason.0,
+            namespace_id: value.namespace_id,
         }
     }
 }
 
-pub(crate) async fn create(
-    pool: &SqlitePool,
-    namespace_id: uuid::Uuid,
-    iteration: BuildSetIteration,
-) -> Result<()> {
+pub(crate) async fn create(pool: &SqlitePool, iteration: BuildSetIteration) -> Result<()> {
     let id = uuid::Uuid::new_v4();
     let created_at = time::OffsetDateTime::now_utc();
 
@@ -51,7 +47,7 @@ pub(crate) async fn create(
         "#,
         id,
         created_at,
-        namespace_id,
+        iteration.namespace_id,
         packages_to_be_built,
         origin_changesets,
         create_reason
@@ -66,7 +62,7 @@ pub(crate) async fn read_newest(
     pool: &SqlitePool,
     namespace_id: uuid::Uuid,
 ) -> Result<BuildSetIteration> {
-    let namespaces = sqlx::query_as!(
+    let iteration = sqlx::query_as!(
         DbBuildSetIteration,
         r#"
         select 
@@ -87,7 +83,32 @@ pub(crate) async fn read_newest(
     .await?
     .into();
 
-    Ok(namespaces)
+    Ok(iteration)
+}
+
+pub(crate) async fn read(pool: &SqlitePool, iteration_id: uuid::Uuid) -> Result<BuildSetIteration> {
+    let iteration = sqlx::query_as!(
+        DbBuildSetIteration,
+        r#"
+        select 
+            id as "id: sqlx::types::Uuid", 
+            created_at as "created_at: time::OffsetDateTime",
+            namespace_id as "namespace_id: sqlx::types::Uuid",
+            packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
+            origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
+            create_reason as "create_reason: Json<NewIterationReason>"
+        from build_set_iterations
+        where id = $1
+        order by created_at desc
+        limit 1
+        "#,
+        iteration_id
+    )
+    .fetch_one(pool)
+    .await?
+    .into();
+
+    Ok(iteration)
 }
 
 pub(crate) async fn list(

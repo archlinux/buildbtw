@@ -11,9 +11,10 @@ use tokio::{
 
 use anyhow::{Context, Result};
 use git2::{build::CheckoutBuilder, Oid, Repository, Status};
+use uuid::Uuid;
 
 use crate::{
-    git::package_source_path, source_info::package_architectures, PackageBuildStatus,
+    git::package_source_path, source_info::package_architectures, PackageBuildStatus, Pkgbase,
     ScheduleBuild, BUILD_DIR,
 };
 
@@ -48,22 +49,7 @@ async fn build_package_inner(
     // Prepare pkgctl invocation
     let mut cmd = Command::new("pkgctl");
 
-    let dependency_file_paths = get_dependency_file_paths(schedule);
-
-    for file in dependency_file_paths.iter() {
-        if !file.exists() {
-            return Err(anyhow!("Missing dependency build input {file:?}"));
-        }
-    }
-
-    // format dependency files as "-I <file>" arguments
-    let install_to_chroot = dependency_file_paths
-        .iter()
-        .flat_map(|file_path| ["-I".to_string(), file_path.to_string()]);
-
-    cmd.args(["build"])
-        .args(install_to_chroot)
-        .args([build_path.clone()]);
+    cmd.args(["build"]).args([build_path.clone()]);
 
     // Log stdout and stderr to files
     let stdout_log_path = build_path.join("stdout.log");
@@ -208,19 +194,8 @@ source=()
     ))
 }
 
-/// Return file paths for dependencies that were built in a previous step
-/// and should be installed in the chroot for the current build
-fn get_dependency_file_paths(schedule: &ScheduleBuild) -> Vec<Utf8PathBuf> {
-    schedule
-        .install_to_chroot
-        .iter()
-        .map(|build_package_output| {
-            let iteration_id = schedule.iteration;
-            let pkgbase = &build_package_output.pkgbase;
-            Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration_id}/{pkgbase}"))
-                .join(build_package_output.get_package_file_name())
-        })
-        .collect()
+pub fn build_path(iteration_id: Uuid, pkgbase: &Pkgbase) -> Utf8PathBuf {
+    Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration_id}/{pkgbase}"))
 }
 
 /// Copy package source into a new subfolder of the build directory
@@ -228,7 +203,7 @@ fn get_dependency_file_paths(schedule: &ScheduleBuild) -> Vec<Utf8PathBuf> {
 async fn copy_package_source_to_build_dir(schedule: &ScheduleBuild) -> Result<Utf8PathBuf> {
     let (pkgbase, _) = &schedule.source;
     let iteration = schedule.iteration;
-    let dest_path = Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration}/{pkgbase}"));
+    let dest_path = build_path(iteration, pkgbase);
     copy_dir_all(package_source_path(pkgbase), &dest_path)
         .await
         .context("Copying package source to build directory")?;
