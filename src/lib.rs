@@ -119,19 +119,23 @@ pub struct BuildPackageOutput {
     pub arch: Vec<Architecture>,
     /// Output of Srcinfo::version(), stored for convenience
     pub version: String,
+    pub release: String,
 }
 
 impl BuildPackageOutput {
     pub fn get_package_file_name(&self) -> Utf8PathBuf {
         let BuildPackageOutput {
-            pkgname, version, ..
+            pkgname,
+            version,
+            release,
+            ..
         } = self;
         // TODO: make it work for all compression formats
         // TODO: make it work for different arches
         // We'll probably have to pass in a directory to search for package files
         // here, similar to `find_cached_package` in devtools
         // (parsing makepkg output seems like an ugly alternative)
-        format!("{pkgname}-{version}-x86_64.pkg.tar.zst").into()
+        format!("{pkgname}-{version}-{release}-x86_64.pkg.tar.zst").into()
     }
 }
 

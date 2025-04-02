@@ -120,6 +120,7 @@ pub fn build_outputs(source_info: &SourceInfo) -> Vec<BuildPackageOutput> {
                 .copied()
                 .collect(),
             version: source_info.base.package_version.to_string(),
+            release: source_info.base.package_release.to_string(),
         })
         .collect()
 }
