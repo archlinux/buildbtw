@@ -195,7 +195,9 @@ source=()
 }
 
 pub fn build_path(iteration_id: Uuid, pkgbase: &Pkgbase) -> Utf8PathBuf {
-    Utf8PathBuf::from(format!("./{BUILD_DIR}/{iteration_id}/{pkgbase}"))
+    BUILD_DIR
+        .join(iteration_id.to_string())
+        .join(pkgbase.as_ref())
 }
 
 /// Copy package source into a new subfolder of the build directory

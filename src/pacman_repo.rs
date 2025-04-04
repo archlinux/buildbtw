@@ -1,6 +1,8 @@
+use std::sync::LazyLock;
+
 use alpm_srcinfo::MergedPackage;
 use anyhow::Result;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use tokio::process::Command;
 use uuid::Uuid;
 
@@ -8,6 +10,8 @@ use crate::{
     source_info::{package_file_name, ConcreteArchitecture},
     NAMESPACE_DATA_DIR,
 };
+
+pub static REPO_DIR: LazyLock<Utf8PathBuf> = LazyLock::new(|| NAMESPACE_DATA_DIR.join("repos"));
 
 const REPO_FILE_EXTENSION: &str = "db.tar.zst";
 
@@ -18,11 +22,10 @@ pub fn repo_dir_path(
     iteration_id: Uuid,
     architecture: ConcreteArchitecture,
 ) -> Utf8PathBuf {
-    Utf8PathBuf::new()
-        .join(NAMESPACE_DATA_DIR)
-        .join(namespace_name)
-        .join(iteration_id.to_string())
-        .join(format!("pacman_repo_{architecture}"))
+    REPO_DIR
+        .join(repo_name(namespace_name, iteration_id))
+        .join("os")
+        .join(format!("{architecture}"))
 }
 
 pub fn repo_name(namespace_name: &str, iteration_id: Uuid) -> Utf8PathBuf {

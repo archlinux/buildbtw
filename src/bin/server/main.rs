@@ -15,11 +15,11 @@ use routes::{
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
-use tower_http::trace::TraceLayer;
+use tower_http::{services::ServeDir, trace::TraceLayer};
 use with_content_type::{with_content_type, ApplictionJson};
 
 use crate::args::{Args, Command};
-use buildbtw::git::fetch_all_packaging_repositories;
+use buildbtw::{git::fetch_all_packaging_repositories, pacman_repo::REPO_DIR};
 
 mod args;
 mod db;
@@ -108,6 +108,7 @@ async fn main() -> Result<()> {
                     "/iteration/{iteration_id}/pkgbase/{pkgbase}/pkgname/{pkgname}/architecture/{architecture}/package",
                     post(upload_package),
                 )
+                .nest_service("/repo", ServeDir::new(REPO_DIR.as_path()))
                 .layer(TraceLayer::new_for_http())
                 .with_state(AppState {
                     worker_sender,

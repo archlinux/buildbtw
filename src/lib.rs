@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::LazyLock};
 
 use anyhow::{bail, Result};
 use build_set_graph::BuildSetGraph;
+use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use derive_more::{AsRef, Display};
 use iteration::NewIterationReason;
@@ -57,8 +58,9 @@ impl From<CommitHash> for GitRef {
 pub type Packager = String;
 pub type PkgbaseMaintainers = HashMap<Pkgbase, Vec<Packager>>;
 
-pub const BUILD_DIR: &str = "./build";
-pub const NAMESPACE_DATA_DIR: &str = "./data";
+pub static BUILD_DIR: LazyLock<Utf8PathBuf> = LazyLock::new(|| Utf8PathBuf::from("./build"));
+pub static NAMESPACE_DATA_DIR: LazyLock<Utf8PathBuf> =
+    LazyLock::new(|| Utf8PathBuf::from("./data"));
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
