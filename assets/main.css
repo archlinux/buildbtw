@@ -1,0 +1,10 @@
+body {
+    font-family: sans-serif;
+    max-width: 40rem;
+    padding: 0 1rem;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 1rem;
+}

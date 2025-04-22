@@ -22,6 +22,7 @@ use crate::args::{Args, Command};
 use buildbtw::{git::fetch_all_packaging_repositories, pacman_repo::REPO_DIR};
 
 mod args;
+pub mod assets;
 mod db;
 pub mod response_error;
 mod routes;
@@ -108,6 +109,7 @@ async fn main() -> Result<()> {
                     "/iteration/{iteration_id}/pkgbase/{pkgbase}/pkgname/{pkgname}/architecture/{architecture}/package",
                     post(upload_package),
                 )
+                .route("/assets/{*path}", get(assets::static_handler))
                 .nest_service("/repo", ServeDir::new(REPO_DIR.as_path()))
                 .layer(TraceLayer::new_for_http())
                 .with_state(AppState {

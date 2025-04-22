@@ -1,7 +1,6 @@
 {% extends "layout" %}
-{% block title %}{{ super() }} - build_namespace {% endblock %}
+{% block title %}build namespace <a href="/namespace/{{namespace.name}}">{{namespace.name}}</a>{% endblock %}
 {% block body %}
-    <h1><a href="/namespace/{{namespace.name}}">{{ namespace.name }}</a></h1>
     <p>Status: {{namespace.status}}</p>
 
     {% set last_iteration = iterations|last %}

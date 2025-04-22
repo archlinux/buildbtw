@@ -1,14 +1,11 @@
 <!doctype html>
 <html>
     <head>
-        <title>{% block title %}buildbtw{% endblock %}</title>
+        <title>buildbtw - {% block title %}{% endblock %}</title>
     </head>
-    <style>
-        body {
-            font-family: sans-serif;
-        }
-    </style>
+    <link rel="stylesheet" href="/assets/main.css">
 <body>
+<h1><a href="/namespace">buildbtw</a> - {{ self.title() }}</h1>
 {% block body %}{% endblock %}
 </body>
 </html>
