@@ -15,8 +15,6 @@ pub static REPO_DIR: LazyLock<Utf8PathBuf> = LazyLock::new(|| NAMESPACE_DATA_DIR
 
 const REPO_FILE_EXTENSION: &str = "db.tar.zst";
 
-pub fn add_package() {}
-
 pub fn repo_dir_path(
     namespace_name: &str,
     iteration_id: Uuid,
@@ -32,12 +30,8 @@ pub fn repo_name(namespace_name: &str, iteration_id: Uuid) -> Utf8PathBuf {
     format!("{namespace_name}_{iteration_id}").into()
 }
 
-pub fn repo_file_name(namespace_name: &str, iteration_id: Uuid) -> Utf8PathBuf {
-    format!(
-        "{}.{REPO_FILE_EXTENSION}",
-        repo_name(namespace_name, iteration_id)
-    )
-    .into()
+pub fn repo_file_name() -> Utf8PathBuf {
+    format!("buildbtw-namespace.{REPO_FILE_EXTENSION}",).into()
 }
 
 pub async fn add_to_repo(
@@ -48,7 +42,7 @@ pub async fn add_to_repo(
 ) -> Result<()> {
     let mut cmd = Command::new("repo-add");
     let repo_dir = repo_dir_path(namespace_name, iteration_id, architecture);
-    let repo_file = repo_file_name(namespace_name, iteration_id);
+    let repo_file = repo_file_name();
     let db_path = format!("{repo_dir}/{repo_file}");
     cmd.arg(db_path);
     cmd.arg(repo_dir.join(package_file_name(package)));
