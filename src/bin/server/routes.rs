@@ -118,6 +118,7 @@ pub(crate) async fn show_build_namespace(
         .render(context! {
             namespace => namespace,
             iterations => iterations,
+            base_url => state.base_url
         })
         .unwrap();
 

@@ -2,6 +2,7 @@ use std::net::IpAddr;
 
 use anyhow::Result;
 use clap::{command, Parser, Subcommand};
+use url::Url;
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP address
 fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
@@ -76,6 +77,10 @@ pub enum Command {
         /// Port on which to listen
         #[arg(short, long, default_value = "8080")]
         port: u16,
+
+        /// Base URL for accessing this server via the network.
+        #[arg(long, env)]
+        base_url: Url,
     },
     /// Warmup the Git repository cache
     /// TODO: we can probably remove this? It's now handled automatically

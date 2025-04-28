@@ -25,7 +25,7 @@ pub fn repo_dir_path(
     REPO_DIR
         .join(repo_name(namespace_name, iteration_id))
         .join("os")
-        .join(format!("{architecture}"))
+        .join(architecture.to_string())
 }
 
 pub fn repo_name(namespace_name: &str, iteration_id: Uuid) -> Utf8PathBuf {

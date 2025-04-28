@@ -16,6 +16,7 @@ use routes::{
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use tower_http::{services::ServeDir, trace::TraceLayer};
+use url::Url;
 use with_content_type::{with_content_type, ApplictionJson};
 
 use crate::args::{Args, Command};
@@ -36,7 +37,7 @@ struct AppState {
     worker_sender: UnboundedSender<tasks::Message>,
     jinja_env: minijinja::Environment<'static>,
     db_pool: SqlitePool,
-    base_url: String,
+    base_url: Url,
 }
 
 #[tokio::main]
@@ -48,7 +49,11 @@ async fn main() -> Result<()> {
     tracing::debug!("{args:#?}");
 
     match args.command {
-        Command::Run { interface, port } => {
+        Command::Run {
+            interface,
+            port,
+            base_url,
+        } => {
             let mut jinja_env = minijinja::Environment::new();
             jinja_env.add_template(
                 "layout",
@@ -116,7 +121,7 @@ async fn main() -> Result<()> {
                     worker_sender,
                     jinja_env,
                     db_pool: db_pool.clone(),
-                    base_url: format!("http://localhost:{port}"),
+                    base_url,
                 });
 
             let mut listenfd = ListenFd::from_env();

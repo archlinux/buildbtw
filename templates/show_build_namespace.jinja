@@ -8,6 +8,7 @@
         <h2>Current iteration</h2>
         {% for architecture, _ in last_iteration.packages_to_be_built|items %}
             <p>{{architecture}}</p>
+            <p>Pacman repository: <pre>{{base_url}}repo/{{namespace.name}}_{{last_iteration.id}}/os/{{architecture}}</pre></p>
             <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
             </iframe>
         {% endfor %}
