@@ -10,6 +10,7 @@ podman run \
     --detach \
     --replace --name server \
     --volume /srv/buildbtw/data:/app/data \
+    --volume /srv/buildbtw/.ssh/id_ed25519:/ssh_id:ro \
+    --volume /srv/buildbtw/.ssh/known_hosts:/root/.ssh/known_hosts:ro \
     --publish 127.0.0.1:8080:8080 \
-    registry.archlinux.org/archlinux/buildbtw:poc-server-latest \
-    run
+    registry.archlinux.org/archlinux/buildbtw:poc-server-latest
