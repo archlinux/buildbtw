@@ -4,7 +4,7 @@ set -o nounset -o errexit -o pipefail -o xtrace
 # https://docs.gitlab.com/runner/executors/custom.html#prepare
 prepare() {
     # Pull image if it doesn't exist and make sure a booted snapshot is available.
-    vmexec run --os archlinux --pull newer --pmem /var/lib/archbuild:30 -- echo 'VM started'
+    vmexec run archlinux --pull newer --pmem /var/lib/archbuild:30 -- echo 'VM started'
 }
 
 # https://docs.gitlab.com/runner/executors/custom.html#run
