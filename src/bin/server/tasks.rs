@@ -329,7 +329,9 @@ async fn schedule_build(
     tracing::info!("Building pending package: {:?}", build.source);
 
     if let Some(client) = maybe_gitlab_client {
-        let pipeline_response = buildbtw::gitlab::create_pipeline(client).await?;
+        let namespace_name = db::namespace::read(build.namespace, pool).await?.name;
+        let pipeline_response =
+            buildbtw::gitlab::create_pipeline(client, build, namespace_name).await?;
         let db_pipeline = db::gitlab_pipeline::CreateDbGitlabPipeline {
             build_set_iteration_id: build.iteration,
             pkgbase: build.source.0.clone(),

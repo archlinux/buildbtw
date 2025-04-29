@@ -9,6 +9,8 @@ prepare() {
 
 # https://docs.gitlab.com/runner/executors/custom.html#run
 run() {
+    echo "$NAMESPACE_NAME"
+    echo "$ITERATION_ID"
     # TODO clone and pass in sources
     output_dir=$(mktemp -d)
     vmexec run archlinux --pmem /var/lib/archbuild:30 \

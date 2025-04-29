@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use gitlab::{
-    api::{groups::projects::GroupProjectsOrderBy, AsyncQuery},
+    api::{
+        groups::projects::GroupProjectsOrderBy, projects::pipelines::PipelineVariable, AsyncQuery,
+    },
     AsyncGitlab,
 };
 use graphql_client::GraphQLQuery;
@@ -8,7 +10,9 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
 
-use crate::{git::clone_or_fetch_repositories, PackageBuildStatus};
+use crate::{
+    git::clone_or_fetch_repositories, pacman_repo::repo_dir_path, PackageBuildStatus, ScheduleBuild,
+};
 
 pub async fn fetch_all_source_repo_changes(
     client: &AsyncGitlab,
@@ -160,14 +164,36 @@ pub struct CreatePipelineResponse {
     pub status: PipelineStatus,
 }
 
-pub async fn create_pipeline(client: &AsyncGitlab) -> Result<CreatePipelineResponse> {
+pub async fn create_pipeline(
+    client: &AsyncGitlab,
+    build: &ScheduleBuild,
+    namespace_name: String,
+) -> Result<CreatePipelineResponse> {
     // Using graphQL for triggering pipelines is not yet possible:
     // https://gitlab.com/gitlab-org/gitlab/-/issues/401480
+    let vars = [
+        (
+            "PACMAN_REPO_PATH",
+            repo_dir_path(&namespace_name, build.iteration, build.architecture).to_string(),
+        ),
+        ("NAMESPACE_NAME", namespace_name),
+        ("ITERATION_ID", build.iteration.to_string()),
+    ]
+    .into_iter()
+    .map(|(key, val)| {
+        PipelineVariable::builder()
+            .key(key)
+            .value(val)
+            .variable_type(gitlab::api::projects::pipelines::PipelineVariableType::EnvVar)
+            .build()
+    })
+    .collect::<Result<Vec<_>, _>>()?;
     let response: CreatePipelineResponse =
         gitlab::api::projects::pipelines::CreatePipeline::builder()
             // TODO remove hardcoded temporary test project
             .project(85519)
             .ref_("main")
+            .variables(vars.into_iter())
             .build()?
             .query_async(client)
             .await
