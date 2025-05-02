@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 set -o nounset -o errexit -o pipefail -o xtrace
 
-REPO_URL=$2
+REPO_URL=$1
 
 pacman --noconfirm -Sy devtools
 
@@ -12,8 +12,11 @@ sed -i "$ a [buildbtw-namespace]\nServer = $REPO_URL" /usr/share/devtools/pacman
 # but give them sudo access because it actually does need root
 useradd -m -p '' builder
 echo 'builder ALL=(ALL:ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+cd /mnt/src_repo
 chown -R builder .
+
+# Run build
 sudo -u builder bash << EOF
-pkgctl repo clone --protocol https "$1"
-pkgctl build "$1"
+pkgctl build .
 EOF
