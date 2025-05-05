@@ -56,7 +56,7 @@ case "${1:-}" in
         ;;
     run)
         if [[ ${3} == get_sources ]]; then
-            bash "${2}"
+            cat "${2}" | sudo -u buildbtw bash
         elif [[ ${3} == build_script ]]; then
             run
         fi
