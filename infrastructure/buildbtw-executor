@@ -31,6 +31,7 @@ run() {
     sudo -u buildbtw --set-home \
     vmexec run archlinux --pmem /var/lib/archbuild:30 \
     --volume "$CUSTOM_ENV_CI_PROJECT_DIR":/mnt/src_repo \
+    --volume /srv/buildbtw/gitlab-executor:/mnt/bin \
     -- \
         /mnt/bin/build-inside-vm || exit "${BUILD_FAILURE_EXIT_CODE:-1}"
 
