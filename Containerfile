@@ -1,5 +1,5 @@
 FROM docker.io/library/archlinux:base
 COPY --chmod=755 server /app/buildbtw-server
 RUN pacman -Syu --noconfirm openssh libgit2
-WORKDIR /app
+WORKDIR /app/data
 CMD ["ssh-agent", "bash", "-c", "ssh-add /ssh_id; /app/buildbtw-server run"]
