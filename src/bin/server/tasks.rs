@@ -328,6 +328,8 @@ async fn schedule_build(
 ) -> Result<()> {
     tracing::info!("Building pending package: {:?}", build.source);
 
+    // TODO if no pacman repo exists yet, create an empty one
+
     if let Some(client) = maybe_gitlab_client {
         let namespace_name = db::namespace::read(build.namespace, pool).await?.name;
         let pipeline_response =
