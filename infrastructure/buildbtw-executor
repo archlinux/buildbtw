@@ -29,6 +29,7 @@ run() {
     # the host should be reachable at 10.0.2.2 since we're using
     # user mode networking
     pacman_repo_url="http://10.0.2.2:8080/${CUSTOM_ENV_NAMESPACE_NAME}_${CUSTOM_ENV_ITERATION_ID}/os/${CUSTOM_ENV_ARCHITECTURE}"
+    output_dir="$CUSTOM_ENV_CI_PROJECT_DIR"
     sudo -u buildbtw --set-home \
     vmexec run archlinux --pmem /var/lib/archbuild:30 \
     --volume "$CUSTOM_ENV_CI_PROJECT_DIR":/mnt/src_repo \
@@ -56,6 +57,7 @@ case "${1:-}" in
         ;;
     run)
         if [[ ${3} == get_sources ]]; then
+            cd /srv/buildbtw/gitlab-builds
             cat "${2}" | sudo -u buildbtw bash
         elif [[ ${3} == build_script ]]; then
             run
