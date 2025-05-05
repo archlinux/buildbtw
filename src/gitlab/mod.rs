@@ -178,6 +178,7 @@ pub async fn create_pipeline(
         ),
         ("NAMESPACE_NAME", namespace_name),
         ("ITERATION_ID", build.iteration.to_string()),
+        ("ARCHITECTURE", build.architecture.to_string()),
     ]
     .into_iter()
     .map(|(key, val)| {
