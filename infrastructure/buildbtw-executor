@@ -9,8 +9,8 @@ config() {
     # we need to make sure build dirs don't conflict with each other
     cat << EOS
         {
-          "builds_dir": "/var/lib/gitlab-runner/builds/${CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID}/${CUSTOM_ENV_CI_PROJECT_PATH_SLUG}",
-          "cache_dir": "/var/lib/gitlab-runner/cache/${CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID}/${CUSTOM_ENV_CI_PROJECT_PATH_SLUG}"
+          "builds_dir": "/srv/buildbtw/gitlab-builds/${CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID}/${CUSTOM_ENV_CI_PROJECT_PATH_SLUG}",
+          "cache_dir": "/srv/buildbtw/gitlab-cache/${CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID}/${CUSTOM_ENV_CI_PROJECT_PATH_SLUG}"
         }
 EOS
 }
@@ -25,11 +25,10 @@ prepare() {
 
 # https://docs.gitlab.com/runner/executors/custom.html#run
 run() {
-    echo "$CUSTOM_ENV_NAMESPACE_NAME"
-    echo "$CUSTOM_ENV_ITERATION_ID"
     # TODO pass repo URL as second argument to build-inside-vm
     # the host should be reachable at 10.0.2.2 since we're using
     # user mode networking
+    sudo -u buildbtw --set-home \
     vmexec run archlinux --pmem /var/lib/archbuild:30 \
     --volume "$CUSTOM_ENV_CI_PROJECT_DIR":/mnt/src_repo \
     -- \
@@ -47,23 +46,23 @@ cleanup() {
 }
 
 case "${1:-}" in
-  config)
-    config
-    ;;
-  prepare)
-    prepare
-    ;;
-  run)
-    if [[ ${3} == get_sources ]]; then
-      bash "${2}"
-    elif [[ ${3} == build_script ]]; then
-      run
-    fi
-    ;;
-  cleanup)
-    cleanup
-    ;;
-  *)
-    echo "Error invalid command: ${1:-}"
-    exit 1;
+    config)
+        config
+        ;;
+    prepare)
+        prepare
+        ;;
+    run)
+        if [[ ${3} == get_sources ]]; then
+            bash "${2}"
+        elif [[ ${3} == build_script ]]; then
+            run
+        fi
+        ;;
+    cleanup)
+        cleanup
+        ;;
+    *)
+        echo "Error invalid command: ${1:-}"
+        exit 1;
 esac
