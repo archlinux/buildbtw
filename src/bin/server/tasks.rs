@@ -23,6 +23,11 @@ use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildRe
 
 pub enum Message {}
 
+struct GitlabContext {
+    args: args::Gitlab,
+    client: gitlab::AsyncGitlab,
+}
+
 pub async fn start(
     pool: SqlitePool,
     gitlab_args: Option<args::Gitlab>,
@@ -63,9 +68,12 @@ async fn update_and_build_all_namespaces_in_loop(
     pool: SqlitePool,
     maybe_gitlab_args: Option<args::Gitlab>,
 ) -> Result<()> {
-    let maybe_gitlab_client = if let Some(args) = maybe_gitlab_args {
+    let maybe_gitlab_context = if let Some(args) = maybe_gitlab_args {
         if args.run_builds_on_gitlab {
-            Some(new_gitlab_client(&args).await?)
+            Some(GitlabContext {
+                client: new_gitlab_client(&args).await?,
+                args,
+            })
         } else {
             None
         }
@@ -74,7 +82,7 @@ async fn update_and_build_all_namespaces_in_loop(
     };
     tokio::spawn(async move {
         loop {
-            match update_and_build_all_namespaces(&pool, maybe_gitlab_client.as_ref()).await {
+            match update_and_build_all_namespaces(&pool, maybe_gitlab_context.as_ref()).await {
                 Ok(_) => {}
                 Err(e) => tracing::error!("Error while updating build namespaces: {e:?}"),
             };
@@ -89,7 +97,7 @@ async fn update_and_build_all_namespaces_in_loop(
 /// Otherwise, dispatch them to the local build client.
 async fn update_and_build_all_namespaces(
     pool: &SqlitePool,
-    maybe_gitlab_client: Option<&AsyncGitlab>,
+    maybe_gitlab_context: Option<&GitlabContext>,
 ) -> Result<()> {
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list_by_status(pool, BuildNamespaceStatus::Active).await?;
@@ -97,10 +105,10 @@ async fn update_and_build_all_namespaces(
     tracing::info!("Updating and dispatching builds for {namespace_count} namespace(s)...");
     for namespace in namespaces {
         create_new_namespace_iteration_if_needed(pool, &namespace).await?;
-        if let Some(gitlab_client) = maybe_gitlab_client {
-            update_build_set_graphs_from_gitlab_pipelines(pool, &namespace, gitlab_client).await?;
+        if let Some(gitlab_context) = maybe_gitlab_context {
+            update_build_set_graphs_from_gitlab_pipelines(pool, &namespace, gitlab_context).await?;
         }
-        schedule_next_build_if_needed(pool, &namespace, maybe_gitlab_client).await?;
+        schedule_next_build_if_needed(pool, &namespace, maybe_gitlab_context).await?;
     }
     tracing::info!("Updated and dispatched builds");
 
@@ -206,7 +214,7 @@ async fn create_new_namespace_iteration_if_needed(
 async fn update_build_set_graphs_from_gitlab_pipelines(
     pool: &SqlitePool,
     namespace: &BuildNamespace,
-    gitlab_client: &AsyncGitlab,
+    gitlab_context: &GitlabContext,
 ) -> Result<()> {
     let iterations = db::iteration::list(pool, namespace.id).await?;
 
@@ -240,7 +248,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
                 let pkgbase = &node.pkgbase;
                 print!("Checking pipeline for {pkgbase}... ");
                 let current_pipeline_status = buildbtw::gitlab::get_pipeline_status(
-                    gitlab_client,
+                    &gitlab_context.client,
                     pipeline.project_gitlab_iid.try_into()?,
                     pipeline.gitlab_iid.try_into()?,
                 )
@@ -280,7 +288,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
 async fn schedule_next_build_if_needed(
     pool: &SqlitePool,
     namespace: &BuildNamespace,
-    maybe_gitlab_client: Option<&AsyncGitlab>,
+    maybe_gitlab_context: Option<&GitlabContext>,
 ) -> Result<()> {
     if namespace.status == BuildNamespaceStatus::Cancelled {
         return Ok(());
@@ -295,7 +303,7 @@ async fn schedule_next_build_if_needed(
             ScheduleBuildResult::NoPendingPackages => {}
             ScheduleBuildResult::Scheduled(response) => {
                 let new_packages_to_be_built = response.updated_build_set_graph.clone();
-                match schedule_build(pool, &response, maybe_gitlab_client).await {
+                match schedule_build(pool, &response, maybe_gitlab_context).await {
                     Ok(_) => {
                         iteration
                             .packages_to_be_built
@@ -324,16 +332,21 @@ async fn schedule_next_build_if_needed(
 async fn schedule_build(
     pool: &SqlitePool,
     build: &ScheduleBuild,
-    maybe_gitlab_client: Option<&AsyncGitlab>,
+    maybe_gitlab_context: Option<&GitlabContext>,
 ) -> Result<()> {
     tracing::info!("Building pending package: {:?}", build.source);
     let namespace_name = db::namespace::read(build.namespace, pool).await?.name;
 
     pacman_repo::ensure_repo_exists(&namespace_name, build.iteration, build.architecture).await?;
 
-    if let Some(client) = maybe_gitlab_client {
-        let pipeline_response =
-            buildbtw::gitlab::create_pipeline(client, build, namespace_name).await?;
+    if let Some(gitlab_context) = maybe_gitlab_context {
+        let pipeline_response = buildbtw::gitlab::create_pipeline(
+            &gitlab_context.client,
+            build,
+            &namespace_name,
+            &gitlab_context.args.gitlab_packages_group,
+        )
+        .await?;
         let db_pipeline = db::gitlab_pipeline::CreateDbGitlabPipeline {
             build_set_iteration_id: build.iteration,
             pkgbase: build.source.0.clone(),

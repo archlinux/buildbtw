@@ -164,19 +164,25 @@ pub struct CreatePipelineResponse {
     pub status: PipelineStatus,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct GetProjectResponse {
+    pub id: u64,
+}
+
 pub async fn create_pipeline(
     client: &AsyncGitlab,
     build: &ScheduleBuild,
-    namespace_name: String,
+    namespace_name: &str,
+    gitlab_packages_group: &str,
 ) -> Result<CreatePipelineResponse> {
     // Using graphQL for triggering pipelines is not yet possible:
     // https://gitlab.com/gitlab-org/gitlab/-/issues/401480
     let vars = [
         (
             "PACMAN_REPO_PATH",
-            repo_dir_path(&namespace_name, build.iteration, build.architecture).to_string(),
+            repo_dir_path(namespace_name, build.iteration, build.architecture).to_string(),
         ),
-        ("NAMESPACE_NAME", namespace_name),
+        ("NAMESPACE_NAME", namespace_name.to_string()),
         ("ITERATION_ID", build.iteration.to_string()),
         ("ARCHITECTURE", build.architecture.to_string()),
     ]
@@ -189,10 +195,16 @@ pub async fn create_pipeline(
             .build()
     })
     .collect::<Result<Vec<_>, _>>()?;
+    let project_name = format!(
+        "{gitlab_packages_group}/{pkgbase}",
+        pkgbase = build.source.0
+    );
     let response: CreatePipelineResponse =
         gitlab::api::projects::pipelines::CreatePipeline::builder()
             // TODO remove hardcoded temporary test project
-            .project(85519)
+            .project(project_name)
+            // TODO if project is in the origin changesets, take the respective branch name from there
+            // however, if we want to support arbitrary commit hashes in origin changesets, we need to create branches for those hashes as gitlab only supports running pipelines on branches
             .ref_("main")
             .variables(vars.into_iter())
             .build()?
