@@ -6,7 +6,7 @@ use buildbtw::{
     build_set_graph::{self, schedule_next_build_in_graph},
     gitlab::{fetch_all_source_repo_changes, set_all_projects_ci_config},
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
-    BuildNamespaceStatus, PackageBuildStatus,
+    pacman_repo, BuildNamespaceStatus, PackageBuildStatus,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -327,11 +327,11 @@ async fn schedule_build(
     maybe_gitlab_client: Option<&AsyncGitlab>,
 ) -> Result<()> {
     tracing::info!("Building pending package: {:?}", build.source);
+    let namespace_name = db::namespace::read(build.namespace, pool).await?.name;
 
-    // TODO if no pacman repo exists yet, create an empty one
+    pacman_repo::ensure_repo_exists(&namespace_name, build.iteration, build.architecture).await?;
 
     if let Some(client) = maybe_gitlab_client {
-        let namespace_name = db::namespace::read(build.namespace, pool).await?.name;
         let pipeline_response =
             buildbtw::gitlab::create_pipeline(client, build, namespace_name).await?;
         let db_pipeline = db::gitlab_pipeline::CreateDbGitlabPipeline {

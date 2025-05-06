@@ -50,3 +50,26 @@ pub async fn add_to_repo(
 
     Ok(())
 }
+
+pub async fn ensure_repo_exists(
+    namespace_name: &str,
+    iteration_id: Uuid,
+    architecture: ConcreteArchitecture,
+) -> Result<()> {
+    let repo_dir = repo_dir_path(namespace_name, iteration_id, architecture);
+
+    tokio::fs::create_dir_all(&repo_dir).await?;
+
+    let repo_file = repo_file_name();
+    let db_path = format!("{repo_dir}/{repo_file}");
+
+    if tokio::fs::try_exists(&db_path).await? {
+        return Ok(());
+    }
+
+    let mut cmd = Command::new("repo-add");
+    cmd.arg(db_path);
+    cmd.status().await?;
+
+    Ok(())
+}
