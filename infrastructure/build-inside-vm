@@ -13,7 +13,9 @@ sed -i "$ a [buildbtw-namespace]\nServer = $REPO_URL" /usr/share/devtools/pacman
 useradd -m -p '' builder
 echo 'builder ALL=(ALL:ALL) NOPASSWD: ALL' >> /etc/sudoers
 
-cd /mnt/src_repo
+mkdir /build
+cp -R /mnt/src_repo /build
+cd /build
 chown -R builder .
 
 # Run build
