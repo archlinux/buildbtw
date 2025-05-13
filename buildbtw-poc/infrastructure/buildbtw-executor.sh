@@ -7,6 +7,7 @@ config() {
     # Since we're cloning sources outside of VMs
     # until https://github.com/svenstaro/vmexec/issues/12 is fixed,
     # we need to make sure build dirs don't conflict with each other
+    # TODO investigate whether we should set "builds_dir_is_shared" to false
     cat << EOS
         {
           "builds_dir": "/srv/buildbtw/gitlab-builds/${CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID}/${CUSTOM_ENV_CI_PROJECT_PATH_SLUG}",
@@ -25,20 +26,29 @@ prepare() {
 
 # https://docs.gitlab.com/runner/executors/custom.html#run
 run() {
-    # TODO pass repo URL as second argument to build-inside-vm.sh
     # the host should be reachable at 10.0.2.2 since we're using
     # user mode networking
     pacman_repo_url="http://10.0.2.2:8080/repo/${CUSTOM_ENV_NAMESPACE_NAME}_${CUSTOM_ENV_ITERATION_ID}/os/${CUSTOM_ENV_ARCHITECTURE}"
-    output_dir="$CUSTOM_ENV_CI_PROJECT_DIR"
+    output_dir=$(sudo -u buildbtw mktemp -d)
+
     sudo -u buildbtw --set-home \
     vmexec run archlinux --pmem /var/lib/archbuild:30 \
-    --volume "$CUSTOM_ENV_CI_PROJECT_DIR":/mnt/src_repo \
-    --volume /srv/buildbtw/gitlab-executor:/mnt/bin \
-    -- \
+        --volume "${CUSTOM_ENV_CI_PROJECT_DIR}":/mnt/src_repo:ro \
+        --volume /srv/buildbtw/gitlab-executor:/mnt/bin:ro \
+        --volume "${output_dir}":/mnt/output \
+        -- \
         /mnt/bin/build-inside-vm.sh "${pacman_repo_url}" || exit "${BUILD_FAILURE_EXIT_CODE:-1}"
 
     tree "$output_dir"
-    # TODO upload build artifacts
+    package_file_names=(${CUSTOM_ENV_PACKAGE_FILE_NAMES})
+    for file in "${package_file_names[@]}"; do
+        # extract everything before first hyphen followed by digit
+        pkgname="${file%%-[0-9]*}"
+
+        sudo -u buildbtw --set-home curl -v -X POST --data-binary @"${output_dir}/${file}" "http://127.0.0.1:8080/iteration/${CUSTOM_ENV_ITERATION_ID}/pkgbase/${CUSTOM_ENV_PKGBASE}/pkgname/${pkgname}/architecture/${CUSTOM_ENV_ARCHITECTURE}/package"
+    done
+
+    rm -rf "${output_dir}"
 }
 
 # https://docs.gitlab.com/runner/executors/custom.html#cleanup

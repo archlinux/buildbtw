@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-set -o nounset -o errexit -o pipefail -o xtrace
+set -o nounset -o pipefail -o xtrace -o errexit
 
 REPO_URL=$1
 
@@ -13,6 +13,7 @@ sed -i "$ a [buildbtw-namespace]\nServer = $REPO_URL" /usr/share/devtools/pacman
 useradd -m -p '' builder
 echo 'builder ALL=(ALL:ALL) NOPASSWD: ALL' >> /etc/sudoers
 
+# Setup up working directory for build with correct permissions
 cp -R /mnt/src_repo /build
 cd /build
 chown -R builder .
@@ -27,12 +28,12 @@ chown -R builder .
             hkps://keyserver.ubuntu.com
         )
         for keyserver in "${keyservers[@]}"; do
-            sudo -u builder gpg --keyserver $keyserver --recv-keys ${validpgpkeys[*]}
+            sudo -u builder gpg --keyserver "$keyserver" --recv-keys "${validpgpkeys[*]}"
         done
     fi
 )
 
 # Run build
-sudo -u builder bash << EOF
-pkgctl build .
-EOF
+sudo -u builder pkgctl build
+
+cp /build/*.pkg.tar.zst /mnt/output/

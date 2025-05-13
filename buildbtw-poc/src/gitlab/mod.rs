@@ -12,7 +12,8 @@ use time::{Duration, OffsetDateTime};
 use url::Url;
 
 use crate::{
-    PackageBuildStatus, ScheduleBuild, git::clone_or_fetch_repositories, pacman_repo::repo_dir_path,
+    PackageBuildStatus, ScheduleBuild, git::clone_or_fetch_repositories,
+    pacman_repo::repo_dir_path, source_info::package_file_name,
 };
 
 pub async fn fetch_all_source_repo_changes(
@@ -179,11 +180,10 @@ pub async fn create_pipeline(
 ) -> Result<CreatePipelineResponse> {
     // Using graphQL for triggering pipelines is not yet possible:
     // https://gitlab.com/gitlab-org/gitlab/-/issues/401480
-    let pkgnames = build
+    let package_file_names = build
         .srcinfo
-        .packages
-        .iter()
-        .map(|p| p.name.to_string())
+        .packages_for_architecture(*build.architecture.as_ref())
+        .map(|p| package_file_name(&p).to_string())
         .collect::<Vec<_>>()
         .join(" ");
     let vars = [
@@ -194,7 +194,7 @@ pub async fn create_pipeline(
         ("NAMESPACE_NAME", namespace_name.to_string()),
         ("ITERATION_ID", build.iteration.to_string()),
         ("PKGBASE", build.source.0.to_string()),
-        ("PKGNAMES", pkgnames),
+        ("PACKAGE_FILE_NAMES", package_file_names),
         ("ARCHITECTURE", build.architecture.to_string()),
     ]
     .into_iter()
