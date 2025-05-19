@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use axum::extract::{Path, Request};
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
@@ -15,6 +15,7 @@ use tokio::fs;
 use uuid::Uuid;
 
 use crate::db::iteration::BuildSetIterationUpdate;
+use crate::db::namespace::CreateDbBuildNamespace;
 use crate::response_error::ResponseError::{self};
 use crate::response_error::ResponseResult;
 use crate::{db, stream_to_file::stream_to_file, AppState};
@@ -24,20 +25,22 @@ use buildbtw::{
 };
 
 #[debug_handler]
-pub(crate) async fn generate_build_namespace(
+pub(crate) async fn create_build_namespace(
     State(state): State<AppState>,
     Json(body): Json<CreateBuildNamespace>,
-) -> Result<Json<BuildNamespace>, StatusCode> {
-    let create = CreateBuildNamespace {
-        name: body.name,
+) -> Result<Json<BuildNamespace>, ResponseError> {
+    let name = body.name.unwrap_or(
+        body.origin_changesets
+            .first()
+            .context("Cannot create a build namespace without origin changesets")?
+            .0
+            .to_string(),
+    );
+    let create = CreateDbBuildNamespace {
+        name,
         origin_changesets: body.origin_changesets,
     };
-    let namespace = db::namespace::create(create, &state.db_pool)
-        .await
-        .map_err(|e| {
-            tracing::info!("{e:?}");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let namespace = db::namespace::create(create, &state.db_pool).await?;
 
     let base_url = state.base_url;
     tracing::info!(

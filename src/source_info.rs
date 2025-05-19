@@ -142,5 +142,6 @@ pub fn package_file_name(
     // We'll probably have to pass in a directory to search for package files
     // here, similar to `find_cached_package` in devtools
     // (parsing makepkg output seems like an ugly alternative)
+    // Note: Don't use `ConcreteArchitecture` to determine the architecture in the filename as the filename will contain `any` instead of the concrete architecture
     format!("{name}-{package_version}-{package_release}-x86_64.pkg.tar.zst").into()
 }

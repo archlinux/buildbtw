@@ -22,9 +22,9 @@ fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
 pub enum Command {
     /// Create a new build namespace
     New {
-        /// Name of the new namespace
+        /// Name of the new namespace. Default: Name of the first repository specified in origin changesets
         #[arg(short, long)]
-        name: String,
+        name: Option<String>,
         /// List of package source commits to use as root for the build graph. Format: `pkbase/git_ref`, where git_ref can be a commit hash, branch name, or tag. E.g.: "linux/main"
         #[arg(value_parser(parse_git_changeset))]
         origin_changesets: Vec<GitRepoRef>,

@@ -64,7 +64,7 @@ pub static NAMESPACE_DATA_DIR: LazyLock<Utf8PathBuf> =
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreateBuildNamespace {
-    pub name: String,
+    pub name: Option<String>,
     pub origin_changesets: Vec<GitRepoRef>,
 }
 

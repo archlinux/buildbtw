@@ -52,7 +52,7 @@ async fn update_namespace(name: String, status: BuildNamespaceStatus) -> Result<
 }
 
 async fn create_namespace(
-    name: String,
+    name: Option<String>,
     origin_changesets: Vec<GitRepoRef>,
 ) -> Result<BuildNamespace> {
     let create = buildbtw::CreateBuildNamespace {

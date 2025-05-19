@@ -1,11 +1,14 @@
 use anyhow::Result;
-use buildbtw::{
-    BuildNamespace, BuildNamespaceStatus, CreateBuildNamespace, GitRepoRef, UpdateBuildNamespace,
-};
+use buildbtw::{BuildNamespace, BuildNamespaceStatus, GitRepoRef, UpdateBuildNamespace};
 use sqlx::{types::Json, SqlitePool};
 
+pub struct CreateDbBuildNamespace {
+    pub name: String,
+    pub origin_changesets: Vec<GitRepoRef>,
+}
+
 pub(crate) async fn create(
-    create: CreateBuildNamespace,
+    create: CreateDbBuildNamespace,
     pool: &SqlitePool,
 ) -> Result<BuildNamespace> {
     let created_at = time::OffsetDateTime::now_utc();

@@ -9,9 +9,9 @@ use axum_extra::handler::HandlerCallWithExtractors;
 use clap::Parser;
 use listenfd::ListenFd;
 use routes::{
-    create_namespace_iteration, generate_build_namespace, list_namespaces_html,
-    list_namespaces_json, render_build_namespace_graph, render_latest_namespace, set_build_status,
-    show_build_namespace, update_namespace, upload_package,
+    create_build_namespace, create_namespace_iteration, list_namespaces_html, list_namespaces_json,
+    render_build_namespace_graph, render_latest_namespace, set_build_status, show_build_namespace,
+    update_namespace, upload_package,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
             let app = Router::new()
                 .route(
                     "/namespace",
-                    post(generate_build_namespace).get(
+                    post(create_build_namespace).get(
                         with_content_type::<ApplictionJson, _>(list_namespaces_json)
                             .or(list_namespaces_html),
                     ),
