@@ -20,23 +20,23 @@ fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
 #[derive(Debug, Clone, Subcommand)]
 #[allow(clippy::enum_variant_names)]
 pub enum Command {
-    CreateBuildNamespace {
+    New {
         #[arg(short, long)]
         name: String,
         #[arg(value_parser(parse_git_changeset))]
         origin_changesets: Vec<GitRepoRef>,
     },
-    CancelBuildNamespace {
+    Cancel {
         #[arg()]
         name: String,
     },
-    ResumeBuildNamespace {
+    Resume {
         #[arg()]
         name: String,
     },
-    ListBuildNamespaces {},
+    List {},
     /// Manually create a new iteration for a namespace, recalculating the build graph and starting to build from the beginning.
-    CreateBuildIteration {
+    Restart {
         #[arg()]
         name: String,
     },

@@ -15,20 +15,20 @@ async fn main() -> Result<()> {
     tracing::debug!("{args:?}");
 
     match args.command {
-        Command::CreateBuildNamespace {
+        Command::New {
             name,
             origin_changesets,
         } => {
             create_namespace(name, origin_changesets).await?;
         }
-        Command::CancelBuildNamespace { name } => {
+        Command::Cancel { name } => {
             update_namespace(name, BuildNamespaceStatus::Cancelled).await?;
         }
-        Command::ResumeBuildNamespace { name } => {
+        Command::Resume { name } => {
             update_namespace(name, BuildNamespaceStatus::Active).await?;
         }
-        Command::ListBuildNamespaces {} => list_namespaces().await?,
-        Command::CreateBuildIteration { name } => {
+        Command::List {} => list_namespaces().await?,
+        Command::Restart { name } => {
             create_build_iteration(name).await?;
         }
     }
