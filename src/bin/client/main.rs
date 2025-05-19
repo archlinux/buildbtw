@@ -38,12 +38,14 @@ async fn main() -> Result<()> {
 async fn update_namespace(name: String, status: BuildNamespaceStatus) -> Result<()> {
     let update = buildbtw::UpdateBuildNamespace { status };
 
-    reqwest::Client::new()
+    let response = reqwest::Client::new()
         .patch(format!("http://0.0.0.0:8080/namespace/{name}"))
         .json(&update)
         .send()
         .await
         .context("Failed to send to server")?;
+
+    tracing::trace!("{response:#?}");
 
     tracing::info!("Updated build namespace");
     Ok(())
@@ -67,7 +69,9 @@ async fn create_namespace(
         .json()
         .await?;
 
-    tracing::info!("Created build namespace: {:?}", response);
+    tracing::trace!("{response:#?}");
+
+    tracing::info!(r#"Created build namespace "{name}""#, name = response.name);
     Ok(response)
 }
 
@@ -81,7 +85,7 @@ async fn create_build_iteration(name: String) -> Result<BuildSetIteration> {
         .json()
         .await?;
 
-    tracing::info!("Created iteration: {:?}", response.id);
+    tracing::info!("Created iteration: {:#?}", response.id);
     Ok(response)
 }
 
@@ -94,6 +98,8 @@ async fn list_namespaces() -> Result<()> {
         .context("Failed to read from server")?
         .json()
         .await?;
+
+    tracing::trace!("{namespaces:#?}");
 
     let date_format = format_description::parse("[year]-[month]-[day]")?;
 

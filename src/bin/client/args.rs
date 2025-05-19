@@ -20,22 +20,28 @@ fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
 #[derive(Debug, Clone, Subcommand)]
 #[allow(clippy::enum_variant_names)]
 pub enum Command {
+    /// Create a new build namespace
     New {
+        /// Name of the new namespace
         #[arg(short, long)]
         name: String,
+        /// List of package source commits to use as root for the build graph. Format: `pkbase/git_ref`, where git_ref can be a commit hash, branch name, or tag. E.g.: "linux/main"
         #[arg(value_parser(parse_git_changeset))]
         origin_changesets: Vec<GitRepoRef>,
     },
+    /// Cancel a build namespace. No new iterations or builds will be created. Existing builds will not be interrupted
     Cancel {
         #[arg()]
         name: String,
     },
+    /// Resume building a cancelled build namespace
     Resume {
         #[arg()]
         name: String,
     },
+    /// List all build namespaces
     List {},
-    /// Manually create a new iteration for a namespace, recalculating the build graph and starting to build from the beginning.
+    /// Manually create a new iteration for a namespace, recalculating the build graph and starting to build from the beginning
     Restart {
         #[arg()]
         name: String,
@@ -45,8 +51,7 @@ pub enum Command {
 #[derive(Debug, Clone, Parser)]
 #[command(name = "buildbtw client", author, about, version)]
 pub struct Args {
-    /// Be verbose (log data of incoming and outgoing requests). If given twice it will also log
-    /// the body data.
+    /// Be verbose. Specify twice to be more verbose
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
