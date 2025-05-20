@@ -51,8 +51,10 @@ lint-fix:
     just lint --fix --allow-staged
     cargo fmt --all
 
-create-db:
+create-db: && migrate-db
     sqlx db create
+
+migrate-db:
     sqlx migrate run
 
 reset-db: && create-db
