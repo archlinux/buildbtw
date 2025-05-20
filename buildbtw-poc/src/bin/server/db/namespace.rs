@@ -12,7 +12,7 @@ pub(crate) async fn create(
     pool: &SqlitePool,
 ) -> Result<BuildNamespace> {
     let created_at = time::OffsetDateTime::now_utc();
-    let id = uuid::Uuid::new_v4();
+    let id = uuid::Uuid::new_v4().hyphenated();
     let origin_changesets = sqlx::types::Json(create.origin_changesets);
     let namespace = sqlx::query_as!(
         DbBuildNamespace,
@@ -21,7 +21,7 @@ pub(crate) async fn create(
         (id, name, status, origin_changesets, created_at)
         values ($1, $2, $3, $4, $5)
         returning
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             name, 
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
@@ -65,7 +65,7 @@ impl From<DbBuildNamespaceStatus> for BuildNamespaceStatus {
 
 #[derive(sqlx::FromRow)]
 pub(crate) struct DbBuildNamespace {
-    id: sqlx::types::Uuid,
+    id: uuid::fmt::Hyphenated,
     name: String,
     status: DbBuildNamespaceStatus,
     origin_changesets: Json<Vec<GitRepoRef>>,
@@ -75,7 +75,7 @@ pub(crate) struct DbBuildNamespace {
 impl From<DbBuildNamespace> for BuildNamespace {
     fn from(value: DbBuildNamespace) -> Self {
         BuildNamespace {
-            id: value.id,
+            id: value.id.into(),
             name: value.name,
             status: value.status.into(),
             current_origin_changesets: value.origin_changesets.0,
@@ -85,11 +85,12 @@ impl From<DbBuildNamespace> for BuildNamespace {
 }
 
 pub(crate) async fn read(id: uuid::Uuid, pool: &SqlitePool) -> Result<BuildNamespace> {
+    let id = id.as_hyphenated();
     let db_namespace = sqlx::query_as!(
         DbBuildNamespace,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             name, 
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
@@ -111,7 +112,7 @@ pub(crate) async fn read_by_name(name: &str, pool: &SqlitePool) -> Result<BuildN
         DbBuildNamespace,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             name, 
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
@@ -133,7 +134,7 @@ pub(crate) async fn read_latest(pool: &SqlitePool) -> Result<BuildNamespace> {
         DbBuildNamespace,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             name, 
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
@@ -162,7 +163,7 @@ pub(crate) async fn update(
         set status = $2
         where name = $1
         returning
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             name, 
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
@@ -182,7 +183,7 @@ pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildNamespace>> {
         DbBuildNamespace,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             name, 
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
@@ -208,7 +209,7 @@ pub(crate) async fn list_by_status(
         DbBuildNamespace,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             name, 
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",

@@ -367,7 +367,7 @@ async fn schedule_build(
         )
         .await?;
         let db_pipeline = db::gitlab_pipeline::CreateDbGitlabPipeline {
-            build_set_iteration_id: build.iteration,
+            build_set_iteration_id: build.iteration.into(),
             pkgbase: build.source.0.clone(),
             architecture: build.architecture,
             project_gitlab_iid: pipeline_response.project_id.try_into()?,

@@ -6,11 +6,11 @@ use uuid::Uuid;
 #[derive(sqlx::FromRow)]
 pub struct DbGitlabPipeline {
     #[allow(dead_code)]
-    pub id: sqlx::types::Uuid,
+    pub id: uuid::Uuid,
 
     // Fields used to identify the node and its build set graph
     #[allow(dead_code)]
-    pub build_set_iteration_id: sqlx::types::Uuid,
+    pub build_set_iteration_id: uuid::Uuid,
     #[allow(dead_code)]
     pub pkgbase: Pkgbase,
     #[expect(dead_code)]
@@ -26,7 +26,7 @@ pub struct DbGitlabPipeline {
 }
 
 pub struct CreateDbGitlabPipeline {
-    pub build_set_iteration_id: sqlx::types::Uuid,
+    pub build_set_iteration_id: uuid::fmt::Hyphenated,
     pub pkgbase: Pkgbase,
     pub architecture: ConcreteArchitecture,
 
@@ -35,7 +35,7 @@ pub struct CreateDbGitlabPipeline {
 }
 
 pub async fn create(pool: &SqlitePool, pipeline: CreateDbGitlabPipeline) -> Result<()> {
-    let id = uuid::Uuid::new_v4();
+    let id = uuid::Uuid::new_v4().hyphenated();
 
     sqlx::query!(
         r#"
@@ -62,12 +62,13 @@ pub async fn read_by_iteration_and_pkgbase_and_architecture(
     pkgbase: &Pkgbase,
     architecture: ConcreteArchitecture,
 ) -> Result<Option<DbGitlabPipeline>> {
+    let iteration_id = iteration_id.as_hyphenated();
     sqlx::query_as!(
         DbGitlabPipeline,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
-            build_set_iteration_id as "build_set_iteration_id: sqlx::types::Uuid",
+            id as "id: uuid::fmt::Hyphenated", 
+            build_set_iteration_id as "build_set_iteration_id: uuid::fmt::Hyphenated",
             pkgbase,
             architecture as "architecture: ConcreteArchitecture",
             project_gitlab_iid,

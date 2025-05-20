@@ -9,10 +9,10 @@ use sqlx::{SqlitePool, types::Json};
 
 #[derive(sqlx::FromRow)]
 pub(crate) struct DbBuildSetIteration {
-    id: sqlx::types::Uuid,
+    id: uuid::Uuid,
     #[allow(dead_code)]
     created_at: time::OffsetDateTime,
-    namespace_id: sqlx::types::Uuid,
+    namespace_id: uuid::Uuid,
 
     packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>,
     origin_changesets: Json<Vec<GitRepoRef>>,
@@ -32,7 +32,8 @@ impl From<DbBuildSetIteration> for BuildSetIteration {
 }
 
 pub(crate) async fn create(pool: &SqlitePool, iteration: BuildSetIteration) -> Result<()> {
-    let id = uuid::Uuid::new_v4();
+    let id = uuid::Uuid::new_v4().hyphenated();
+    let namespace_id = iteration.namespace_id.hyphenated();
     let created_at = time::OffsetDateTime::now_utc();
 
     let packages_to_be_built = Json(iteration.packages_to_be_built);
@@ -47,7 +48,7 @@ pub(crate) async fn create(pool: &SqlitePool, iteration: BuildSetIteration) -> R
         "#,
         id,
         created_at,
-        iteration.namespace_id,
+        namespace_id,
         packages_to_be_built,
         origin_changesets,
         create_reason
@@ -62,13 +63,14 @@ pub(crate) async fn read_newest(
     pool: &SqlitePool,
     namespace_id: uuid::Uuid,
 ) -> Result<BuildSetIteration> {
+    let namespace_id = namespace_id.as_hyphenated();
     let iteration = sqlx::query_as!(
         DbBuildSetIteration,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             created_at as "created_at: time::OffsetDateTime",
-            namespace_id as "namespace_id: sqlx::types::Uuid",
+            namespace_id as "namespace_id: uuid::fmt::Hyphenated",
             packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             create_reason as "create_reason: Json<NewIterationReason>"
@@ -87,13 +89,14 @@ pub(crate) async fn read_newest(
 }
 
 pub(crate) async fn read(pool: &SqlitePool, iteration_id: uuid::Uuid) -> Result<BuildSetIteration> {
+    let iteration_id = iteration_id.as_hyphenated();
     let iteration = sqlx::query_as!(
         DbBuildSetIteration,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             created_at as "created_at: time::OffsetDateTime",
-            namespace_id as "namespace_id: sqlx::types::Uuid",
+            namespace_id as "namespace_id: uuid::fmt::Hyphenated",
             packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             create_reason as "create_reason: Json<NewIterationReason>"
@@ -115,13 +118,14 @@ pub(crate) async fn list(
     pool: &SqlitePool,
     namespace_id: uuid::Uuid,
 ) -> Result<Vec<BuildSetIteration>> {
+    let namespace_id = namespace_id.as_hyphenated();
     let iterations = sqlx::query_as!(
         DbBuildSetIteration,
         r#"
         select 
-            id as "id: sqlx::types::Uuid", 
+            id as "id: uuid::fmt::Hyphenated", 
             created_at as "created_at: time::OffsetDateTime",
-            namespace_id as "namespace_id: sqlx::types::Uuid",
+            namespace_id as "namespace_id: uuid::fmt::Hyphenated",
             packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             create_reason as "create_reason: Json<NewIterationReason>"
@@ -145,6 +149,7 @@ pub(crate) struct BuildSetIterationUpdate {
 }
 
 pub(crate) async fn update(pool: &SqlitePool, iteration: BuildSetIterationUpdate) -> Result<()> {
+    let iteration_id = iteration.id.as_hyphenated();
     let packages_to_be_built = Json(iteration.packages_to_be_built);
     sqlx::query!(
         r#"
@@ -152,7 +157,7 @@ pub(crate) async fn update(pool: &SqlitePool, iteration: BuildSetIterationUpdate
         set packages_to_be_built = $2
         where id = $1
         "#,
-        iteration.id,
+        iteration_id,
         packages_to_be_built,
     )
     .execute(pool)
