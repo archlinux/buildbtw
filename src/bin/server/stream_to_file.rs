@@ -15,7 +15,7 @@ where
 {
     async {
         // Convert the stream into an `AsyncRead`.
-        let body_with_io_error = stream.map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+        let body_with_io_error = stream.map_err(|err| io::Error::other(err));
         let body_reader = StreamReader::new(body_with_io_error);
         futures::pin_mut!(body_reader);
 
