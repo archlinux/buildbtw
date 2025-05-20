@@ -102,15 +102,33 @@ async fn update_and_build_all_namespaces(
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list_by_status(pool, BuildNamespaceStatus::Active).await?;
     let namespace_count = namespaces.len();
-    tracing::info!("Updating and dispatching builds for {namespace_count} namespace(s)...");
+    tracing::info!("Updating and dispatching builds for {namespace_count} active namespace(s)...");
+
     for namespace in namespaces {
-        create_new_namespace_iteration_if_needed(pool, &namespace).await?;
-        if let Some(gitlab_context) = maybe_gitlab_context {
-            update_build_set_graphs_from_gitlab_pipelines(pool, &namespace, gitlab_context).await?;
+        // Try to build all namespaces, and continue on failures.
+        if let Err(e) = update_and_build_namespace(pool, maybe_gitlab_context, &namespace).await {
+            tracing::error!(
+                r#"Error updating namespace "{name}": {e:?}"#,
+                name = namespace.name
+            );
         }
-        schedule_next_build_if_needed(pool, &namespace, maybe_gitlab_context).await?;
     }
+
     tracing::info!("Updated and dispatched builds");
+
+    Ok(())
+}
+
+async fn update_and_build_namespace(
+    pool: &sqlx::Pool<sqlx::Sqlite>,
+    maybe_gitlab_context: Option<&GitlabContext>,
+    namespace: &BuildNamespace,
+) -> std::result::Result<(), anyhow::Error> {
+    create_new_namespace_iteration_if_needed(pool, namespace).await?;
+    if let Some(gitlab_context) = maybe_gitlab_context {
+        update_build_set_graphs_from_gitlab_pipelines(pool, namespace, gitlab_context).await?;
+    }
+    schedule_next_build_if_needed(pool, namespace, maybe_gitlab_context).await?;
 
     Ok(())
 }

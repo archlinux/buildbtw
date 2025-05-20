@@ -168,9 +168,9 @@ async fn calculate_packages_to_be_built_inner(
 
     // add root nodes from our build namespace so we can start walking the graph
     for (pkgbase, _) in &namespace.current_origin_changesets {
-        let PackageMetadata { source_info, .. } = packages_metadata
-            .by_pkgbase(pkgbase)
-            .ok_or(anyhow!("Missing source info for origin changeset"))?;
+        let PackageMetadata { source_info, .. } = packages_metadata.by_pkgbase(pkgbase).ok_or(
+            anyhow!(r#"Missing source info for origin changeset "{pkgbase}""#),
+        )?;
         for package in source_info.packages_for_architecture(*architecture.as_ref()) {
             let pkgname = package.name.to_string();
             let node_index = global_graph.index_map.get(&pkgname).ok_or_else(|| {
