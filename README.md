@@ -38,7 +38,7 @@ Now you need to run the server, a worker, and then dispatch work to the server u
 
 ### Optional Setup
 
-- Install `cargo-audit` to audit dependencies for security vulnerabilities.
+- Install `cargo-deny` to audit dependencies for security vulnerabilities.
 - Run `cargo install graphql_client_cli` and `just update-graphql-schema` to update the gitlab GraphQL API schema.
 - Run `cargo install tokio-console` to monitor async tasks in a running buildbtw server.
 

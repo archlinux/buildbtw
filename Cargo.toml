@@ -7,7 +7,7 @@ authors = [
 edition = "2024"
 homepage = "https://gitlab.archlinux.org/archlinux/buildbtw"
 keywords = ["arch", "linux", "packaging", "ci", "building", "graph"]
-license = ""
+license = "TODO"
 repository = "https://gitlab.archlinux.org/archlinux/alpm/alpm"
 
 [workspace]

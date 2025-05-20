@@ -1,0 +1,36 @@
+[advisories]
+ignore = []
+version = 2
+yanked = "deny"
+
+[licenses]
+allow = [
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+version = 2
+
+[[licenses.clarify]]
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
+name = "ring"
+version = "*"
+
+[[licenses.clarify]]
+expression = "MIT"
+license-files = [{ path = "Cargo.toml", hash = 0xb298d1f3 }]
+name = "buildbtw-poc"
+version = "*"
+
+[bans]
+multiple-versions = "allow"
+
+[sources]
+allow-git = [
+    "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main",
+]

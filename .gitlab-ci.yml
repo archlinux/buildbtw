@@ -1,7 +1,7 @@
 image: "archlinux:latest"
 
 before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf sqlx-cli podman crun
+  - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun
   - pushd buildbtw-poc
   - sqlx db create
   - sqlx migrate run
@@ -20,10 +20,10 @@ format:
   script:
     - cargo fmt --all -- --check
 
-audit:
+deny:
   stage: check
   script:
-    - cargo audit
+    - cargo deny check
 
 .cache-rust:
   cache:
