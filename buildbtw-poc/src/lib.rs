@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::LazyLock};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;

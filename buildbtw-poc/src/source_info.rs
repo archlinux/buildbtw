@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use alpm_srcinfo::{source_info::v1::package::Package, MergedPackage, SourceInfoV1};
+use alpm_srcinfo::{MergedPackage, SourceInfoV1, source_info::v1::package::Package};
 use alpm_types::Architecture;
 use camino::Utf8PathBuf;
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 
 use anyhow::Result;
-use clap::{command, Parser, Subcommand};
+use clap::{Parser, Subcommand, command};
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP address
 fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {

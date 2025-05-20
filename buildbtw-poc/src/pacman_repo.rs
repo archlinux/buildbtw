@@ -7,8 +7,8 @@ use tokio::process::Command;
 use uuid::Uuid;
 
 use crate::{
-    source_info::{package_file_name, ConcreteArchitecture},
     NAMESPACE_DATA_DIR,
+    source_info::{ConcreteArchitecture, package_file_name},
 };
 
 pub static REPO_DIR: LazyLock<Utf8PathBuf> = LazyLock::new(|| NAMESPACE_DATA_DIR.join("repos"));

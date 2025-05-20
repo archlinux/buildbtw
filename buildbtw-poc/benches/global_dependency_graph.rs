@@ -1,8 +1,8 @@
 use buildbtw_poc::{
-    build_set_graph::{build_global_dependency_graphs, gather_packages_metadata},
     BuildNamespace, BuildNamespaceStatus,
+    build_set_graph::{build_global_dependency_graphs, gather_packages_metadata},
 };
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use uuid::Uuid;
 
 pub fn criterion_benchmark(c: &mut Criterion) {

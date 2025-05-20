@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use buildbtw_poc::{
-    build_set_graph::BuildSetGraph, iteration::NewIterationReason,
-    source_info::ConcreteArchitecture, BuildSetIteration, GitRepoRef,
+    BuildSetIteration, GitRepoRef, build_set_graph::BuildSetGraph, iteration::NewIterationReason,
+    source_info::ConcreteArchitecture,
 };
-use sqlx::{types::Json, SqlitePool};
+use sqlx::{SqlitePool, types::Json};
 
 #[derive(sqlx::FromRow)]
 pub(crate) struct DbBuildSetIteration {

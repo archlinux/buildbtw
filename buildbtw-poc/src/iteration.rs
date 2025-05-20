@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    build_set_graph::{self, calculate_packages_to_be_built, diff_graphs, BuildSetGraph},
-    source_info::ConcreteArchitecture,
     BuildNamespace, BuildNamespaceStatus, BuildSetIteration,
+    build_set_graph::{self, BuildSetGraph, calculate_packages_to_be_built, diff_graphs},
+    source_info::ConcreteArchitecture,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

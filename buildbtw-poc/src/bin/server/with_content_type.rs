@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use axum::{
     extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
+    http::{StatusCode, request::Parts},
     response::{IntoResponse, Response},
 };
 use axum_extra::handler::HandlerCallWithExtractors;

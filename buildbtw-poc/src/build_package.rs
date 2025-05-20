@@ -10,12 +10,12 @@ use tokio::{
 };
 
 use anyhow::{Context, Result};
-use git2::{build::CheckoutBuilder, Oid, Repository, Status};
+use git2::{Oid, Repository, Status, build::CheckoutBuilder};
 use uuid::Uuid;
 
 use crate::{
-    git::package_source_path, source_info::package_architectures, PackageBuildStatus, Pkgbase,
-    ScheduleBuild, BUILD_DIR,
+    BUILD_DIR, PackageBuildStatus, Pkgbase, ScheduleBuild, git::package_source_path,
+    source_info::package_architectures,
 };
 
 pub async fn build_package(schedule: &ScheduleBuild, import_gpg_keys: bool) -> PackageBuildStatus {

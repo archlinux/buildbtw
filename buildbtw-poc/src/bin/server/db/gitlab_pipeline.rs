@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use buildbtw_poc::{source_info::ConcreteArchitecture, Pkgbase};
+use buildbtw_poc::{Pkgbase, source_info::ConcreteArchitecture};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 

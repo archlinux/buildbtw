@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use gitlab::{
-    api::{
-        groups::projects::GroupProjectsOrderBy, projects::pipelines::PipelineVariable, AsyncQuery,
-    },
     AsyncGitlab,
+    api::{
+        AsyncQuery, groups::projects::GroupProjectsOrderBy, projects::pipelines::PipelineVariable,
+    },
 };
 use graphql_client::GraphQLQuery;
 use regex::Regex;
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
 
 use crate::{
-    git::clone_or_fetch_repositories, pacman_repo::repo_dir_path, PackageBuildStatus, ScheduleBuild,
+    PackageBuildStatus, ScheduleBuild, git::clone_or_fetch_repositories, pacman_repo::repo_dir_path,
 };
 
 pub async fn fetch_all_source_repo_changes(

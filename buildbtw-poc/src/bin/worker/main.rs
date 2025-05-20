@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, TcpListener};
 
 use anyhow::{Context, Result};
-use axum::{debug_handler, extract::State, routing::post, Json, Router};
+use axum::{Json, Router, debug_handler, extract::State, routing::post};
 use clap::Parser;
 use listenfd::ListenFd;
 use reqwest::Body;
@@ -9,7 +9,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::args::{Args, Command};
-use buildbtw_poc::{build_package::build_path, source_info::package_file_name, ScheduleBuild};
+use buildbtw_poc::{ScheduleBuild, build_package::build_path, source_info::package_file_name};
 
 mod args;
 mod tasks;

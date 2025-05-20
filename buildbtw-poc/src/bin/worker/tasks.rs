@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{set_build_status, upload_packages};
-use buildbtw_poc::{build_package::build_package, PackageBuildStatus, ScheduleBuild};
+use buildbtw_poc::{PackageBuildStatus, ScheduleBuild, build_package::build_package};
 
 pub enum Message {
     BuildPackage(ScheduleBuild),

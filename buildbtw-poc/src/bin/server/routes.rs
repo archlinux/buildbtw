@@ -1,14 +1,14 @@
 use anyhow::{Context, Result};
 use axum::extract::{Path, Request};
 use axum::response::Html;
-use axum::{debug_handler, extract::State, Json};
+use axum::{Json, debug_handler, extract::State};
 use buildbtw_poc::build_set_graph::calculate_packages_to_be_built;
 use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
 use buildbtw_poc::source_info::{
-    package_file_name, package_for_architecture, ConcreteArchitecture,
+    ConcreteArchitecture, package_file_name, package_for_architecture,
 };
 use layout::backends::svg::SVGWriter;
-use layout::gv::{parser::DotParser, GraphBuilder};
+use layout::gv::{GraphBuilder, parser::DotParser};
 use minijinja::context;
 use petgraph::visit::EdgeRef;
 use petgraph::visit::NodeRef;
@@ -20,7 +20,7 @@ use crate::db::iteration::BuildSetIterationUpdate;
 use crate::db::namespace::CreateDbBuildNamespace;
 use crate::response_error::ResponseError::{self};
 use crate::response_error::ResponseResult;
-use crate::{db, stream_to_file::stream_to_file, AppState};
+use crate::{AppState, db, stream_to_file::stream_to_file};
 use buildbtw_poc::{
     BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase, Pkgname, SetBuildStatus,
     UpdateBuildNamespace,

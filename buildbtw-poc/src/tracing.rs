@@ -1,4 +1,4 @@
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// - Create a subscriber for tokio-console if the unstable_tokio flag is enabled and `use_tokio_console` is true
 /// - Create a formatting subscriber for outputting logs to stdout

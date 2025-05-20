@@ -3,10 +3,11 @@ use std::time::Duration;
 use ::gitlab::{AsyncGitlab, GitlabBuilder};
 use anyhow::{Context, Result};
 use buildbtw_poc::{
+    BuildNamespaceStatus, PackageBuildStatus,
     build_set_graph::{self, schedule_next_build_in_graph},
     gitlab::{fetch_all_source_repo_changes, set_all_projects_ci_config},
-    iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
-    pacman_repo, BuildNamespaceStatus, PackageBuildStatus,
+    iteration::{NewBuildIterationResult, new_build_set_iteration_is_needed},
+    pacman_repo,
 };
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;

@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use sqlx::{
+    SqlitePool,
     migrate::Migrate,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-    SqlitePool,
 };
 
 pub mod gitlab_pipeline;

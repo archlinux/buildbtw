@@ -2,9 +2,9 @@ use std::net::{SocketAddr, TcpListener};
 
 use anyhow::Result;
 use axum::{
+    Router,
     response::Redirect,
     routing::{get, patch, post},
-    Router,
 };
 use axum_extra::handler::HandlerCallWithExtractors;
 use clap::Parser;
@@ -18,7 +18,7 @@ use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use url::Url;
-use with_content_type::{with_content_type, ApplictionJson};
+use with_content_type::{ApplictionJson, with_content_type};
 
 use crate::args::{Args, Command};
 use buildbtw_poc::pacman_repo::REPO_DIR;
