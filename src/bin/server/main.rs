@@ -2,6 +2,7 @@ use std::net::{SocketAddr, TcpListener};
 
 use anyhow::Result;
 use axum::{
+    response::Redirect,
     routing::{get, patch, post},
     Router,
 };
@@ -88,6 +89,7 @@ async fn main() -> Result<()> {
 
             let worker_sender = tasks::start(db_pool.clone(), args.gitlab).await?;
             let app = Router::new()
+                .route("/", get(|| async {Redirect::to("/namespace")}))
                 .route(
                     "/namespace",
                     post(create_build_namespace).get(
