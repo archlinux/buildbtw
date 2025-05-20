@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use buildbtw::{
+use buildbtw_poc::{
     build_set_graph::BuildSetGraph, iteration::NewIterationReason,
     source_info::ConcreteArchitecture, BuildSetIteration, GitRepoRef,
 };

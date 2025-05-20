@@ -2,9 +2,11 @@ use anyhow::{Context, Result};
 use axum::extract::{Path, Request};
 use axum::response::Html;
 use axum::{debug_handler, extract::State, Json};
-use buildbtw::build_set_graph::calculate_packages_to_be_built;
-use buildbtw::pacman_repo::{add_to_repo, repo_dir_path};
-use buildbtw::source_info::{package_file_name, package_for_architecture, ConcreteArchitecture};
+use buildbtw_poc::build_set_graph::calculate_packages_to_be_built;
+use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
+use buildbtw_poc::source_info::{
+    package_file_name, package_for_architecture, ConcreteArchitecture,
+};
 use layout::backends::svg::SVGWriter;
 use layout::gv::{parser::DotParser, GraphBuilder};
 use minijinja::context;
@@ -19,7 +21,7 @@ use crate::db::namespace::CreateDbBuildNamespace;
 use crate::response_error::ResponseError::{self};
 use crate::response_error::ResponseResult;
 use crate::{db, stream_to_file::stream_to_file, AppState};
-use buildbtw::{
+use buildbtw_poc::{
     BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase, Pkgname, SetBuildStatus,
     UpdateBuildNamespace,
 };
@@ -213,7 +215,7 @@ pub async fn create_namespace_iteration(
         packages_to_be_built: calculate_packages_to_be_built(&namespace)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-        create_reason: buildbtw::iteration::NewIterationReason::CreatedByUser,
+        create_reason: buildbtw_poc::iteration::NewIterationReason::CreatedByUser,
         namespace_id: namespace.id,
     };
 

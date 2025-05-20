@@ -1,6 +1,6 @@
 use crate::args::{Args, Command};
 use anyhow::{Context, Result};
-use buildbtw::{BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef};
+use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef};
 use clap::Parser;
 use colored::Colorize;
 use reqwest::header::ACCEPT;
@@ -11,7 +11,7 @@ mod args;
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    buildbtw::tracing::init(args.verbose, false);
+    buildbtw_poc::tracing::init(args.verbose, false);
     tracing::debug!("{args:?}");
 
     match args.command {
@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
 }
 
 async fn update_namespace(name: String, status: BuildNamespaceStatus) -> Result<()> {
-    let update = buildbtw::UpdateBuildNamespace { status };
+    let update = buildbtw_poc::UpdateBuildNamespace { status };
 
     let response = reqwest::Client::new()
         .patch(format!("http://0.0.0.0:8080/namespace/{name}"))
@@ -55,7 +55,7 @@ async fn create_namespace(
     name: Option<String>,
     origin_changesets: Vec<GitRepoRef>,
 ) -> Result<BuildNamespace> {
-    let create = buildbtw::CreateBuildNamespace {
+    let create = buildbtw_poc::CreateBuildNamespace {
         name,
         origin_changesets,
     };

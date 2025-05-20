@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use ::gitlab::{AsyncGitlab, GitlabBuilder};
 use anyhow::{Context, Result};
-use buildbtw::{
+use buildbtw_poc::{
     build_set_graph::{self, schedule_next_build_in_graph},
     gitlab::{fetch_all_source_repo_changes, set_all_projects_ci_config},
     iteration::{new_build_set_iteration_is_needed, NewBuildIterationResult},
@@ -19,7 +19,7 @@ use crate::{
         global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
     },
 };
-use buildbtw::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
+use buildbtw_poc::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
 
 pub enum Message {}
 
@@ -265,7 +265,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
                 // Query current pipeline status in gitlab
                 let pkgbase = &node.pkgbase;
                 print!("Checking pipeline for {pkgbase}... ");
-                let current_pipeline_status = buildbtw::gitlab::get_pipeline_status(
+                let current_pipeline_status = buildbtw_poc::gitlab::get_pipeline_status(
                     &gitlab_context.client,
                     pipeline.project_gitlab_iid.try_into()?,
                     pipeline.gitlab_iid.try_into()?,
@@ -358,7 +358,7 @@ async fn schedule_build(
     pacman_repo::ensure_repo_exists(&namespace_name, build.iteration, build.architecture).await?;
 
     if let Some(gitlab_context) = maybe_gitlab_context {
-        let pipeline_response = buildbtw::gitlab::create_pipeline(
+        let pipeline_response = buildbtw_poc::gitlab::create_pipeline(
             &gitlab_context.client,
             build,
             &namespace_name,

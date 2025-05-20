@@ -9,7 +9,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::args::{Args, Command};
-use buildbtw::{build_package::build_path, source_info::package_file_name, ScheduleBuild};
+use buildbtw_poc::{build_package::build_path, source_info::package_file_name, ScheduleBuild};
 
 mod args;
 mod tasks;
@@ -37,7 +37,7 @@ async fn schedule_build(
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    buildbtw::tracing::init(args.verbose, false);
+    buildbtw_poc::tracing::init(args.verbose, false);
     tracing::debug!("{args:?}");
 
     match args.command {
@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
 }
 
 async fn set_build_status(
-    status: buildbtw::PackageBuildStatus,
+    status: buildbtw_poc::PackageBuildStatus,
     ScheduleBuild {
         iteration,
         source,
@@ -79,7 +79,7 @@ async fn set_build_status(
         ..
     }: &ScheduleBuild,
 ) -> Result<()> {
-    let data = buildbtw::SetBuildStatus { status };
+    let data = buildbtw_poc::SetBuildStatus { status };
     let (pkgbase, _) = source;
 
     reqwest::Client::new()

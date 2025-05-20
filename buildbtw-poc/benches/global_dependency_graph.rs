@@ -1,4 +1,4 @@
-use buildbtw::{
+use buildbtw_poc::{
     build_set_graph::{build_global_dependency_graphs, gather_packages_metadata},
     BuildNamespace, BuildNamespaceStatus,
 };

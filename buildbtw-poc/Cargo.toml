@@ -1,26 +1,27 @@
 [package]
-name = "buildbtw"
+authors.workspace = true
+description = "Service for building new versions of packages (proof-of-concept)"
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+name = "buildbtw-poc"
+repository.workspace = true
 version = "0.1.0"
-edition = "2021"
 
 [features]
 fake-pkgbuild = []
 
 [dependencies]
-alpm-srcinfo = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
-alpm-types = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
-anyhow = { version = "1.0.95", features = ["backtrace"] }
+alpm-srcinfo.workspace = true
+alpm-types.workspace = true
+anyhow.workspace = true
 axum = { version = "0.8.1", features = ["http2", "macros"] }
 axum-extra = "0.10.0"
 axum-server = "0.7.1"
 camino = { version = "1.1.9", features = ["serde", "serde1"] }
-clap = { version = "4.5.26", features = [
-    "cargo",
-    "derive",
-    "env",
-    "wrap_help",
-] }
-colored = "3.0.0"
+clap.workspace = true
+colored.workspace = true
 console-subscriber = "0.4.1"
 criterion = { version = "0.5.1" }
 derive_more = { version = "2.0.1", features = ["as_ref", "display"] }
@@ -39,8 +40,8 @@ petgraph = { version = "0.8.1", features = [
 redact = "0.1.10"
 regex = "1.11.1"
 reqwest = { version = "0.12.12", features = ["json", "stream"] }
-serde = { version = "1.0.217", features = ["serde_derive"] }
-serde_json = { version = "1.0.135", features = ["raw_value"] }
+serde.workspace = true
+serde_json.workspace = true
 sqlx = { version = "0.8.3", features = [
     "sqlite",
     "runtime-tokio",
@@ -48,8 +49,8 @@ sqlx = { version = "0.8.3", features = [
     "json",
     "time",
 ] }
-strum = { version = "0.27.1", features = ["derive"] }
-thiserror = "2.0.12"
+strum.workspace = true
+thiserror.workspace = true
 time = { version = "0.3.37", features = ["formatting", "parsing", "serde"] }
 tokio = { version = "1.43.0", features = [
     "fs",
@@ -67,7 +68,7 @@ mime_guess = "2.0.5"
 url = "2.5.4"
 
 [dev-dependencies]
-rstest = "0.25.0"
+rstest.workspace = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }

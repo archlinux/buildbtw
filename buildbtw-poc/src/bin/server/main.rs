@@ -21,7 +21,7 @@ use url::Url;
 use with_content_type::{with_content_type, ApplictionJson};
 
 use crate::args::{Args, Command};
-use buildbtw::pacman_repo::REPO_DIR;
+use buildbtw_poc::pacman_repo::REPO_DIR;
 
 mod args;
 pub mod assets;
@@ -45,7 +45,7 @@ struct AppState {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    buildbtw::tracing::init(args.verbose, true);
+    buildbtw_poc::tracing::init(args.verbose, true);
 
     tracing::debug!("{args:#?}");
 

@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use buildbtw::GitRepoRef;
+use buildbtw_poc::GitRepoRef;
 use clap::{Parser, Subcommand};
 
 fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {

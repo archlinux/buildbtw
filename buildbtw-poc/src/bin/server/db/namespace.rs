@@ -1,5 +1,5 @@
 use anyhow::Result;
-use buildbtw::{BuildNamespace, BuildNamespaceStatus, GitRepoRef, UpdateBuildNamespace};
+use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, GitRepoRef, UpdateBuildNamespace};
 use sqlx::{types::Json, SqlitePool};
 
 pub struct CreateDbBuildNamespace {

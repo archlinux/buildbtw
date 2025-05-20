@@ -2,11 +2,13 @@ image: "archlinux:latest"
 
 before_script:
   - pacman -Syu --needed --noconfirm rust gcc cargo-audit pkgconf sqlx-cli podman crun
+  - pushd buildbtw-poc
   - sqlx db create
   - sqlx migrate run
+  - popd
 
 variables:
-  DATABASE_URL: "sqlite:buildbtw_server.sqlite"
+  DATABASE_URL: "sqlite:${CI_PROJECT_DIR}/buildbtw_server.sqlite"
 
 stages:
   - check
@@ -55,7 +57,7 @@ build:
     - if: $CI_COMMIT_BRANCH == "proof-of-concept" && $CI_PIPELINE_SOURCE == "push"
   script:
     - cargo build --release
-    - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest target/release
+    - podman build --format docker --manifest buildbtw-server --file buildbtw-poc/Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest target/release
     - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
 
