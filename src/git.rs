@@ -1,10 +1,9 @@
 use crate::source_info::SourceInfo;
-use crate::{CommitHash, GitRef, Pkgbase, PkgbaseMaintainers};
+use crate::{CommitHash, GitRef, Pkgbase};
 use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use git2::build::RepoBuilder;
 use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
-use reqwest::Client;
 use std::path::Path;
 use tokio::task::JoinSet;
 
@@ -118,28 +117,6 @@ pub async fn retrieve_srcinfo_from_remote_repository(
     read_srcinfo_from_repo(&repo, branch)
         .context("Failed to read srcinfo")
         .context(pkgbase)
-}
-
-pub async fn fetch_all_packaging_repositories(
-    gitlab_domain: String,
-    gitlab_packages_group: String,
-) -> Result<()> {
-    tracing::info!("Fetching all packaging repositories");
-
-    // TODO: query GitLab API for all packaging repositories, otherwise we may miss none-released new depends
-    let repo_pkgbase_url = "https://archlinux.org/packages/pkgbase-maintainer";
-
-    let response = Client::new().get(repo_pkgbase_url).send().await?;
-    let maintainers: PkgbaseMaintainers = serde_json::from_str(response.text().await?.as_str())?;
-    let all_pkgbases = maintainers.keys().collect::<Vec<_>>();
-    clone_or_fetch_repositories(
-        all_pkgbases.into_iter().cloned().collect(),
-        gitlab_domain,
-        gitlab_packages_group,
-    )
-    .await?;
-
-    Ok(())
 }
 
 pub fn get_branch_commit_sha(repo: &Repository, branch: &str) -> Result<CommitHash> {

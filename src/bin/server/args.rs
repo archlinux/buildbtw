@@ -82,8 +82,4 @@ pub enum Command {
         #[arg(long, env)]
         base_url: Url,
     },
-    /// Warmup the Git repository cache
-    /// TODO: we can probably remove this? It's now handled automatically
-    /// in the background.
-    Warmup {},
 }

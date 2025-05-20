@@ -20,7 +20,7 @@ use url::Url;
 use with_content_type::{with_content_type, ApplictionJson};
 
 use crate::args::{Args, Command};
-use buildbtw::{git::fetch_all_packaging_repositories, pacman_repo::REPO_DIR};
+use buildbtw::pacman_repo::REPO_DIR;
 
 mod args;
 pub mod assets;
@@ -138,15 +138,6 @@ async fn main() -> Result<()> {
             axum_server::from_tcp(tcp_listener)
                 .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await?;
-        }
-        Command::Warmup {} => {
-            if let Some(gitlab_args) = args.gitlab {
-                fetch_all_packaging_repositories(
-                    gitlab_args.gitlab_domain,
-                    gitlab_args.gitlab_packages_group,
-                )
-                .await?;
-            }
         }
     }
     Ok(())
