@@ -248,7 +248,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
                 }
 
                 // Check if there's a gitlab pipeline we started
-                // If yes, it will be stored in the DB
+                // If yes, we'll find it in the DB
                 let maybe_pipeline =
                     db::gitlab_pipeline::read_by_iteration_and_pkgbase_and_architecture(
                         pool,
@@ -372,6 +372,7 @@ async fn schedule_build(
             architecture: build.architecture,
             project_gitlab_iid: pipeline_response.project_id.try_into()?,
             gitlab_iid: pipeline_response.id.try_into()?,
+            gitlab_url: pipeline_response.web_url,
         };
         db::gitlab_pipeline::create(pool, db_pipeline).await?
     } else {

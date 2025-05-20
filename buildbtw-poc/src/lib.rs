@@ -145,6 +145,10 @@ impl PackageBuildStatus {
             Self::Failed => "❌",
         }
     }
+
+    pub fn as_description(&self) -> String {
+        format!("{self:?}")
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

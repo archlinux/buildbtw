@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use axum::extract::{Path, Request};
 use axum::response::Html;
@@ -13,6 +15,7 @@ use minijinja::context;
 use petgraph::visit::EdgeRef;
 use petgraph::visit::NodeRef;
 use reqwest::StatusCode;
+use serde::Serialize;
 use tokio::fs;
 use uuid::Uuid;
 
@@ -22,8 +25,8 @@ use crate::response_error::ResponseError::{self};
 use crate::response_error::ResponseResult;
 use crate::{AppState, db, stream_to_file::stream_to_file};
 use buildbtw_poc::{
-    BuildNamespace, BuildSetIteration, CreateBuildNamespace, Pkgbase, Pkgname, SetBuildStatus,
-    UpdateBuildNamespace,
+    BuildNamespace, BuildSetIteration, CreateBuildNamespace, PackageBuildStatus, Pkgbase, Pkgname,
+    SetBuildStatus, UpdateBuildNamespace,
 };
 
 #[debug_handler]
@@ -91,28 +94,68 @@ pub(crate) async fn list_namespaces_json(
 #[debug_handler]
 pub(crate) async fn render_latest_namespace(
     State(state): State<AppState>,
-) -> Result<Html<String>, StatusCode> {
-    let namespace = db::namespace::read_latest(&state.db_pool)
-        .await
-        .map_err(|e| {
-            tracing::info!("{e:?}");
-            StatusCode::NOT_FOUND
-        })?;
+) -> Result<Html<String>, ResponseError> {
+    let namespace = db::namespace::read_latest(&state.db_pool).await?;
 
     show_build_namespace(Path(namespace.name), State(state)).await
+}
+
+#[derive(Serialize)]
+struct PipelineTableEntry {
+    status_icon: String,
+    status_description: String,
+    status: PackageBuildStatus,
+    gitlab_url: Option<String>,
+    pkgbase: Pkgbase,
 }
 
 #[debug_handler]
 pub(crate) async fn show_build_namespace(
     Path(namespace_name): Path<String>,
     State(state): State<AppState>,
-) -> Result<Html<String>, StatusCode> {
-    let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let iterations = db::iteration::list(&state.db_pool, namespace.id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+) -> Result<Html<String>, ResponseError> {
+    let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool).await?;
+    let iterations = db::iteration::list(&state.db_pool, namespace.id).await?;
+
+    let mut pipeline_tables =
+        HashMap::<(Uuid, ConcreteArchitecture), Vec<PipelineTableEntry>>::new();
+
+    for iteration in &iterations {
+        for (architecture, build_graph) in &iteration.packages_to_be_built {
+            let mut table_entries = Vec::new();
+            for node in build_graph.node_weights() {
+                // Many small queries are efficient in sqlite:
+                // https://sqlite.org/np1queryprob.html
+                let gitlab_url =
+                    db::gitlab_pipeline::read_by_iteration_and_pkgbase_and_architecture(
+                        &state.db_pool,
+                        iteration.id,
+                        &node.pkgbase,
+                        *architecture,
+                    )
+                    .await?
+                    .map(|p| p.gitlab_url);
+                let entry = PipelineTableEntry {
+                    status_icon: node.status.as_icon().to_string(),
+                    status_description: node.status.as_description(),
+                    gitlab_url,
+                    pkgbase: node.pkgbase.clone(),
+                    status: node.status,
+                };
+                table_entries.push(entry);
+            }
+
+            table_entries.sort_by_key(|entry| match entry.status {
+                PackageBuildStatus::Building => 0,
+                PackageBuildStatus::Failed => 1,
+                PackageBuildStatus::Built => 2,
+                PackageBuildStatus::Blocked => 3,
+                PackageBuildStatus::Pending => 4,
+            });
+
+            pipeline_tables.insert((iteration.id, *architecture), table_entries);
+        }
+    }
 
     let template = state
         .jinja_env
@@ -123,6 +166,7 @@ pub(crate) async fn show_build_namespace(
         .render(context! {
             namespace => namespace,
             iterations => iterations,
+            pipeline_tables => pipeline_tables,
             base_url => state.base_url
         })
         .unwrap();

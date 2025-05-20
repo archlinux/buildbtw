@@ -6,11 +6,41 @@
     {% set last_iteration = iterations|last %}
     {% if last_iteration %}
         <h2>Current iteration</h2>
-        {% for architecture, _ in last_iteration.packages_to_be_built|items %}
+        {% for architecture, build_graph in last_iteration.packages_to_be_built|items %}
             <p>{{architecture}}</p>
             <p>Pacman repository: <pre>{{base_url}}repo/{{namespace.name}}_{{last_iteration.id}}/os/{{architecture}}</pre></p>
             <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
             </iframe>
+            {% set table_batches = pipeline_tables[(last_iteration.id, architecture)]|batch(30) %}
+            {% for table in table_batches %}
+                {# Hide all batches after the first one, allowing the user to unfold them one by one via nested details elements. #}
+                {% if not loop.first %}
+                    <details><summary>Show more</summary>
+                {% endif %}
+
+                <table><tbody>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Pkgbase</th>
+                    </tr>
+                </thead>
+                {% for entry in table %}
+                    <tr>
+                        <td>{{entry.status_icon}} {{entry.status_description}}:</td>
+                        <td>
+                            <a href="{{entry.gitlab_url}}">{{entry.pkgbase}}</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody></table>
+
+            {% endfor%}
+
+            {# Close all the nested details elements we opened in the loop above. #}
+            {% for _ in range(1, table_batches|length) %}
+                </details>
+            {% endfor %}
         {% endfor %}
     {% endif %}
 

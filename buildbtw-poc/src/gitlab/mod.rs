@@ -9,6 +9,7 @@ use graphql_client::GraphQLQuery;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
+use url::Url;
 
 use crate::{
     PackageBuildStatus, ScheduleBuild, git::clone_or_fetch_repositories, pacman_repo::repo_dir_path,
@@ -162,6 +163,7 @@ pub struct CreatePipelineResponse {
     pub id: u64,
     pub project_id: u64,
     pub status: PipelineStatus,
+    pub web_url: Url,
 }
 
 #[derive(Deserialize, Debug)]

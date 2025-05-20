@@ -1,19 +1,17 @@
 use anyhow::{Context, Result};
 use buildbtw_poc::{Pkgbase, source_info::ConcreteArchitecture};
+use serde::Serialize;
 use sqlx::SqlitePool;
+use url::Url;
 use uuid::Uuid;
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Serialize)]
 pub struct DbGitlabPipeline {
-    #[allow(dead_code)]
     pub id: uuid::Uuid,
 
     // Fields used to identify the node and its build set graph
-    #[allow(dead_code)]
     pub build_set_iteration_id: uuid::Uuid,
-    #[allow(dead_code)]
     pub pkgbase: Pkgbase,
-    #[expect(dead_code)]
     pub architecture: ConcreteArchitecture,
 
     // Fields used to identify the pipeline
@@ -23,6 +21,7 @@ pub struct DbGitlabPipeline {
     // queries anyway.
     pub project_gitlab_iid: i64,
     pub gitlab_iid: i64,
+    pub gitlab_url: String,
 }
 
 pub struct CreateDbGitlabPipeline {
@@ -32,16 +31,18 @@ pub struct CreateDbGitlabPipeline {
 
     pub project_gitlab_iid: i64,
     pub gitlab_iid: i64,
+    pub gitlab_url: Url,
 }
 
 pub async fn create(pool: &SqlitePool, pipeline: CreateDbGitlabPipeline) -> Result<()> {
     let id = uuid::Uuid::new_v4().hyphenated();
+    let url = pipeline.gitlab_url.as_str();
 
     sqlx::query!(
         r#"
         insert into gitlab_pipelines 
-        (id, build_set_iteration_id, pkgbase, architecture, project_gitlab_iid, gitlab_iid)
-        values ($1, $2, $3, $4, $5, $6)
+        (id, build_set_iteration_id, pkgbase, architecture, project_gitlab_iid, gitlab_iid, gitlab_url)
+        values ($1, $2, $3, $4, $5, $6, $7)
         "#,
         id,
         pipeline.build_set_iteration_id,
@@ -49,6 +50,7 @@ pub async fn create(pool: &SqlitePool, pipeline: CreateDbGitlabPipeline) -> Resu
         pipeline.architecture,
         pipeline.project_gitlab_iid,
         pipeline.gitlab_iid,
+        url,
     )
     .execute(pool)
     .await?;
@@ -72,7 +74,8 @@ pub async fn read_by_iteration_and_pkgbase_and_architecture(
             pkgbase,
             architecture as "architecture: ConcreteArchitecture",
             project_gitlab_iid,
-            gitlab_iid
+            gitlab_iid,
+            gitlab_url
         from gitlab_pipelines
         where build_set_iteration_id = $1 and pkgbase = $2 and architecture = $3
         "#,
