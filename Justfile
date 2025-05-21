@@ -1,10 +1,10 @@
 set dotenv-load := true
 
+ci-dev: build-release lint test deny
+
 clean:
     rm -rf source_repos
     rm -rf build
-
-ci-dev: build-release lint test deny
 
 build-release:
     cargo build --release
