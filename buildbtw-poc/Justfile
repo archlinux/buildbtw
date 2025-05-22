@@ -1,16 +1,17 @@
 set dotenv-load := true
+set working-directory := '..'
 
 run-server *args: create-db
     cargo run --bin server -- run {{ args }}
 
 watch-server *args: create-db
-    systemfd --no-pid -s http::8080 -- cargo watch -w src -w templates -w Cargo.toml -- just run-server {{ args }}
+    systemfd --no-pid -s http::8080 -- cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w Cargo.toml -w buildbtw-poc/Cargo.toml -- just --justfile buildbtw-poc/Justfile run-server {{ args }}
 
 run-client *args:
     cargo run --bin client -- {{ args }}
 
 watch-client *args:
-    cargo watch -w src -w templates -w Cargo.toml -- just run-client {{ args }}
+    cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile run-client {{ args }}
 
 run-worker *args:
     cargo run --bin worker -- run {{ args }}
@@ -22,38 +23,35 @@ run-worker-fake *args:
 # so the worker can't ask for a password to
 # use sudo :/
 watch-worker *args:
-    cargo watch -w src -w templates -w Cargo.toml -- just run-worker {{ args }}
-
-warmup-server *args:
-    cargo run --bin server -- warmup {{ args }}
+    cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile run-worker {{ args }}
 
 clean:
-    rm -rf source_repos
-    rm -rf build
+    rm -rf buildbtw-poc/source_repos
+    rm -rf buildbtw-poc/build
     cargo clean -p buildbtw-poc
 
 test *args:
-    cargo test {{ args }}
+    cargo test --package buildbtw-poc {{ args }}
 
 watch-test *args:
-    cargo watch -w src -w templates -w Cargo.toml -- just test {{ args }}
+    cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile test {{ args }}
 
 update-graphql-schema:
-    graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output src/gitlab/gitlab_schema.json
+    graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output buildbtw-poc/src/gitlab/gitlab_schema.json
 
 lint *args:
-    cargo clippy --all-targets {{args}} -- -D warnings
-    cargo fmt -- --check
+    cargo clippy --package buildbtw-poc --all-targets {{args}} -- -D warnings
+    cargo fmt --package buildbtw-poc -- --check
 
 lint-fix:
-    just lint --fix --allow-staged
-    cargo fmt
+    just lint --package buildbtw-poc --fix --allow-staged
+    cargo fmt --package buildbtw-poc
 
 create-db: && migrate-db
     sqlx db create
 
 migrate-db:
-    sqlx migrate run
+    sqlx migrate run --source buildbtw-poc/migrations
 
 reset-db: && create-db
     sqlx db drop
