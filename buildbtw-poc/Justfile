@@ -30,9 +30,7 @@ warmup-server *args:
 clean:
     rm -rf source_repos
     rm -rf build
-
-build-release:
-    cargo build --release
+    cargo clean -p buildbtw-poc
 
 test *args:
     cargo test {{ args }}
@@ -44,12 +42,12 @@ update-graphql-schema:
     graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output src/gitlab/gitlab_schema.json
 
 lint *args:
-    cargo clippy --workspace --all-targets {{args}} -- -D warnings
-    cargo fmt --all -- --check
+    cargo clippy --all-targets {{args}} -- -D warnings
+    cargo fmt -- --check
 
 lint-fix:
     just lint --fix --allow-staged
-    cargo fmt --all
+    cargo fmt
 
 create-db: && migrate-db
     sqlx db create
