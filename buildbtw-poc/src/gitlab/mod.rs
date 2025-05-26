@@ -339,11 +339,10 @@ pub fn gitlab_project_name_to_path(project_name: &str) -> String {
         .unwrap()
         .replace_all(&project_name, "-")
         .to_string();
-    let project_name = Regex::new(r"[_\\-]{2,}")
+    Regex::new(r"[_\\-]{2,}")
         .unwrap()
         .replace_all(&project_name, "-")
-        .to_string();
-    project_name
+        .to_string()
 }
 
 #[cfg(test)]
