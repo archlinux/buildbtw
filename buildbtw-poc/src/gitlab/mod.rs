@@ -177,6 +177,13 @@ pub async fn create_pipeline(
 ) -> Result<CreatePipelineResponse> {
     // Using graphQL for triggering pipelines is not yet possible:
     // https://gitlab.com/gitlab-org/gitlab/-/issues/401480
+    let pkgnames = build
+        .srcinfo
+        .packages
+        .iter()
+        .map(|p| p.name.to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
     let vars = [
         (
             "PACMAN_REPO_PATH",
@@ -184,6 +191,8 @@ pub async fn create_pipeline(
         ),
         ("NAMESPACE_NAME", namespace_name.to_string()),
         ("ITERATION_ID", build.iteration.to_string()),
+        ("PKGBASE", build.source.0.to_string()),
+        ("PKGNAMES", pkgnames),
         ("ARCHITECTURE", build.architecture.to_string()),
     ]
     .into_iter()
@@ -330,11 +339,11 @@ pub fn gitlab_project_name_to_path(project_name: &str) -> String {
         .unwrap()
         .replace_all(&project_name, "-")
         .to_string();
-
-    Regex::new(r"[_\\-]{2,}")
+    let project_name = Regex::new(r"[_\\-]{2,}")
         .unwrap()
         .replace_all(&project_name, "-")
-        .to_string()
+        .to_string();
+    project_name
 }
 
 #[cfg(test)]
