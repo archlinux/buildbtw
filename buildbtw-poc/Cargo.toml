@@ -52,12 +52,7 @@ sqlx = { version = "0.8.3", features = [
 strum.workspace = true
 thiserror.workspace = true
 time = { version = "0.3.37", features = ["formatting", "parsing", "serde"] }
-tokio = { version = "1.43.0", features = [
-    "fs",
-    "rt-multi-thread",
-    "process",
-    "tracing",
-] }
+tokio.workspace = true
 tower-http = { version = "0.6.2", features = ["trace", "fs"] }
 tokio-util = "0.7.14"
 tracing = "0.1.41"

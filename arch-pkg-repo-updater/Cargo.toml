@@ -1,0 +1,17 @@
+[package]
+authors.workspace = true
+description = "Arch Linux packaging Git repository updater"
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+name = "arch-pkg-repo-updater"
+repository.workspace = true
+version = "0.0.1"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true

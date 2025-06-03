@@ -12,6 +12,7 @@ repository = "https://gitlab.archlinux.org/archlinux/alpm/alpm"
 
 [workspace]
 members = [
+    "arch-pkg-repo-updater",
     "buildbtw-poc",
 ]
 # We need to set resolver explicitly since this is a virtual workspace.
@@ -35,3 +36,10 @@ serde = { version = "1.0.217", features = ["serde_derive"] }
 serde_json = { version = "1.0.135", features = ["raw_value"] }
 strum = { version = "0.27.1", features = ["derive"] }
 thiserror = "2.0.12"
+tokio = { version = "1.43.0", features = [
+    "fs",
+    "macros",
+    "process",
+    "rt-multi-thread",
+    "tracing",
+] }

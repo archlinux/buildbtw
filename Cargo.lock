@@ -175,6 +175,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "arch-pkg-repo-updater"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "serde",
+ "thiserror 2.0.12",
+ "tokio",
+]
+
+[[package]]
 name = "async-stream"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
