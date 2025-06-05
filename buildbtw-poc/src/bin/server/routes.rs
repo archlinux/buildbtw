@@ -163,7 +163,7 @@ pub(crate) async fn render_build_namespace_graph(
             format!("label=\"{pkgbase}\n{build_status}\",color=\"{color}\"")
         },
     );
-    let mut dot_parser = DotParser::new(&format!("{:?}", dot_output));
+    let mut dot_parser = DotParser::new(&format!("{dot_output:?}"));
     let tree = dot_parser.process();
     let mut graph_builder = GraphBuilder::new();
     let graph = tree.unwrap();
