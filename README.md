@@ -26,11 +26,12 @@ Information on prior art, technical background, feedback from user interviews an
 
 ## Development
 
-- Install the `sqlx-cli` package.
+- Install `sqlx-cli` (`pacman -Sy sqlx-cli` or `cargo install sqlx-cli`).
 - Optional: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`.
 
 Now you need to run the server, a worker, and then dispatch work to the server using the client.
 
+1. `cd buildbtw-poc`
 1. Run the server: `just watch-server`
 1. Run the worker: `just run-worker` (this builds real packages)
 1. Alternative: Run the worker: `just run-worker-fake` (this builds fake packages to shorten manual cycle testing time)
