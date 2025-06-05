@@ -2,10 +2,10 @@ image: "archlinux:latest"
 
 before_script:
   - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun
-  - pushd buildbtw-poc
+  - cd buildbtw-poc
   - sqlx db create
   - sqlx migrate run
-  - popd
+  - cd ..
 
 variables:
   DATABASE_URL: "sqlite:${CI_PROJECT_DIR}/buildbtw_server.sqlite"
