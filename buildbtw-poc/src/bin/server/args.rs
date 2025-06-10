@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand, command};
+use clap::{command, Parser, Subcommand};
 use url::Url;
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP address
