@@ -35,7 +35,7 @@ Now you need to run the server, a worker, and then dispatch work to the server u
 1. Run the server: `just watch-server`
 1. Run the worker: `just run-worker` (this builds real packages)
 1. Alternative: Run the worker: `just run-worker-fake` (this builds fake packages to shorten manual cycle testing time)
-1. Dispatch a build using the client: `just run-client create-build-namespace --name openimageio openimageio/main`
+1. Dispatch a build using the client: `just run-client new openimageio/main`
 
 ### Optional Setup
 
