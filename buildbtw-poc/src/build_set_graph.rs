@@ -2,11 +2,11 @@
 use std::collections::{HashSet, VecDeque};
 use std::{collections::HashMap, fs::read_dir};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use git2::Repository;
-use petgraph::Directed;
 use petgraph::visit::{Bfs, EdgeRef, Walker};
-use petgraph::{Graph, graph::NodeIndex, prelude::StableGraph};
+use petgraph::Directed;
+use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use tokio::task::spawn_blocking;
@@ -345,8 +345,8 @@ pub fn build_global_dependency_graphs(
                         // TODO we're currently ignoring soname-based dependencies.
                         // This might exclude some packages that need to be rebuilt
                         match dependency {
-                            alpm_srcinfo::RelationOrSoname::BasicSonameV1(_) => None,
-                            alpm_srcinfo::RelationOrSoname::Relation(package_relation) => {
+                            alpm_types::RelationOrSoname::BasicSonameV1(_) => None,
+                            alpm_types::RelationOrSoname::Relation(package_relation) => {
                                 Some(package_relation)
                             }
                         }
