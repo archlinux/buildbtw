@@ -14,7 +14,6 @@ repository = "https://gitlab.archlinux.org/archlinux/alpm/alpm"
 members = [
     "buildbtw-poc",
 ]
-resolver = "3"
 
 [workspace.dependencies]
 alpm-srcinfo = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
