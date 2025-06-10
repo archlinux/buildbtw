@@ -24,17 +24,38 @@ We'll group issues using epics.
 
 Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder.
 
+## Components
+
+This project has four major components:
+
+- **server**: Central component providing the web interface, API, core logic such as build scheduling, and communication with GitLab.
+- **client**: CLI tool to talk to the **server**'s API to dispatch tasks, inspect state and such.
+- **worker**: Runs builds locally as an alternative to using the GitLab custom executor.
+- **GitLab custom executor**: Runs builds dispatched by GitLab CI pipelines.
+
 ## Development
 
 - Install `sqlx-cli` (`pacman -Sy sqlx-cli` or `cargo install sqlx-cli`).
-- Optional: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`.
+- Optional but recommended: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`. This will enable the server to query the GitLab API for changes in package source repositories, and dispatch pipelines for building packges using the GitLab custom executor.
+- Set up your environment variables: `cp .env.example .env`
 
-Now you need to run the server, a worker, and then dispatch work to the server using the client.
+### Running builds on the GitLab custom executor
 
+1. Get a GitLab Personal Access Token with the `read_api` and `api` scopes from [here](https://gitlab.archlinux.org/-/user_settings/personal_access_tokens) and enter in as the value of `GITLAB_TOKEN` in `.env`.
+1. In `.env`, make sure that `RUN_BUILDS_ON_GITLAB=true` is set.
 1. `cd buildbtw-poc`
-1. Run the server: `just watch-server`
-1. Run the worker: `just run-worker` (this builds real packages)
-1. Alternative: Run the worker: `just run-worker-fake` (this builds fake packages to shorten manual cycle testing time)
+1. Run the server: `just watch-server` or `just run-server`
+1. Dispatch a build using the client: `just run-client new openimageio/main`
+
+### Running builds locally
+
+1. Get a GitLab Personal Access Token with the `read_api` scope from [here](https://gitlab.archlinux.org/-/user_settings/personal_access_tokens) and enter in as the value of `GITLAB_TOKEN` in `.env`.
+1. In `.env`, make sure that `RUN_BUILDS_ON_GITLAB=false` is set.
+1. `cd buildbtw-poc`
+1. Run the server: `just watch-server` or `just run-server`
+1. Run the worker:
+    - To build real packages: `just watch-worker` or `just run-worker`
+    - Alternatively, to build fake packages to shorten manual cycle testing time: `just run-worker-fake`
 1. Dispatch a build using the client: `just run-client new openimageio/main`
 
 ### Optional Setup
@@ -42,6 +63,7 @@ Now you need to run the server, a worker, and then dispatch work to the server u
 - Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`) to audit dependencies for security vulnerabilities.
 - Install `graphql_client_cli` (`pacman -Sy graphql-client-cli` or `cargo install graphql_client_cli`) and run `just update-graphql-schema` to update the gitlab GraphQL API schema.
 - Install `tokio-console` (`pacman -Sy tokio-console` or `cargo install tokio-console`) to monitor async tasks in a running buildbtw server.
+- Install `reuse` (`pacman -S reuse`) to check license compliance
 
 ## FAQ
 
