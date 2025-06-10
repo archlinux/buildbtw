@@ -1,7 +1,7 @@
 image: "archlinux:latest"
 
 before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun
+  - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse
   - cd buildbtw-poc
   - sqlx db create
   - sqlx migrate run
@@ -24,6 +24,11 @@ deny:
   stage: check
   script:
     - cargo deny check
+
+reuse:
+  stage: check
+  script:
+    - reuse lint
 
 .cache-rust:
   cache:

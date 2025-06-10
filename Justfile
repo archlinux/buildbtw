@@ -21,3 +21,6 @@ lint *args:
 lint-fix:
     just lint --fix --allow-staged
     cargo fmt --all
+
+license:
+    reuse lint

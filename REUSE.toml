@@ -1,0 +1,11 @@
+SPDX-PackageDownloadLocation = "https://gitlab.archlinux.org/archlinux/buildbtw"
+SPDX-PackageName = "buildbtw"
+SPDX-PackageSupplier = "Arch Linux"
+version = 1
+
+[[annotations]]
+SPDX-FileCopyrightText = "buildbtw Contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+path = [
+    "**",
+]
