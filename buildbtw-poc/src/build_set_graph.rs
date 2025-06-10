@@ -2,11 +2,11 @@
 use std::collections::{HashSet, VecDeque};
 use std::{collections::HashMap, fs::read_dir};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use git2::Repository;
-use petgraph::visit::{Bfs, EdgeRef, Walker};
 use petgraph::Directed;
-use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
+use petgraph::visit::{Bfs, EdgeRef, Walker};
+use petgraph::{Graph, graph::NodeIndex, prelude::StableGraph};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use tokio::task::spawn_blocking;
