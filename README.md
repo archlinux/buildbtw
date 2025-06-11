@@ -58,12 +58,18 @@ This project has four major components:
     - Alternatively, to build fake packages to shorten manual cycle testing time: `just run-worker-fake`
 1. Dispatch a build using the client: `just run-client new openimageio/main`
 
-### Optional Setup
+### Auxiliary commands
 
-- Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`) to audit dependencies for security vulnerabilities.
-- Install `graphql_client_cli` (`pacman -Sy graphql-client-cli` or `cargo install graphql_client_cli`) and run `just update-graphql-schema` to update the gitlab GraphQL API schema.
-- Install `tokio-console` (`pacman -Sy tokio-console` or `cargo install tokio-console`) to monitor async tasks in a running buildbtw server.
-- Install `reuse` (`pacman -S reuse`) to check license compliance
+- `just deny` to audit dependencies for security vulnerabilities.
+    - Requirement: `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
+- `just license` to check license compliance
+    - Requirement: `reuse` (`pacman -S reuse`)
+- `just lint` to run `cargo fmt` and `cargo clippy`
+- `just update-graphql-schema` to update the GitLab GraphQL API schema
+    - Requirement: `graphql_client_cli` (`pacman -Sy graphql-client-cli` or `cargo install graphql_client_cli`)
+- `tokio-console` to monitor async tasks in a running buildbtw server
+    - Requirement: `pacman -Sy tokio-console` or `cargo install tokio-console`
+- `just ci-dev` to run a sequence of recipes that resemble CI
 
 ## FAQ
 
