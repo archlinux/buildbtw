@@ -1,10 +1,9 @@
 image: "archlinux:latest"
 
 before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse
+  - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse just
   - cd buildbtw-poc
-  - sqlx db create
-  - sqlx migrate run
+  - just create-db
   - cd ..
 
 variables:
@@ -18,17 +17,17 @@ stages:
 format:
   stage: check
   script:
-    - cargo fmt --all -- --check
+    - just lint
 
 deny:
   stage: check
   script:
-    - cargo deny check
+    - just deny
 
 reuse:
   stage: check
   script:
-    - reuse lint
+    - just license
 
 .cache-rust:
   cache:
@@ -45,12 +44,11 @@ reuse:
   variables:
     CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
 
-lint-test:
+test:
   stage: check
   extends: .cache-rust
   script:
-    - cargo clippy --workspace --all-targets -- -D warnings
-    - cargo test --workspace --release
+    - just test
 
 build:
   stage: build

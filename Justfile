@@ -1,5 +1,8 @@
 set dotenv-load := true
 
+default:
+    just --list
+
 ci-dev: build-release lint test deny
 
 clean:
@@ -8,19 +11,22 @@ clean:
 build-release:
     cargo build --release
 
-deny:
-    cargo deny check
-
 test *args:
     cargo test {{ args }}
-
-lint *args:
-    cargo clippy --workspace --all-targets {{args}} -- -D warnings
-    cargo fmt --all -- --check
 
 lint-fix:
     just lint --fix --allow-staged
     cargo fmt --all
 
+[group("check")]
+lint *args:
+    cargo clippy --workspace --all-targets {{args}} -- -D warnings
+    cargo fmt --all -- --check
+
+[group("check")]
+deny:
+    cargo deny check
+
+[group("check")]
 license:
     reuse lint

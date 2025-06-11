@@ -1,27 +1,37 @@
 set dotenv-load := true
 set working-directory := '..'
 
+default:
+    just --justfile buildbtw-poc/Justfile --list
+
+[group("server")]
 run-server *args: create-db
     cargo run --bin server -- run {{ args }}
 
+[group("server")]
 watch-server *args: create-db
     systemfd --no-pid -s http::8080 -- cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w Cargo.toml -w buildbtw-poc/Cargo.toml -- just --justfile buildbtw-poc/Justfile run-server {{ args }}
 
+[group("client")]
 run-client *args:
     cargo run --bin client -- {{ args }}
 
+[group("client")]
 watch-client *args:
     cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile run-client {{ args }}
 
+[group("worker")]
 run-worker *args:
     cargo run --bin worker -- run {{ args }}
 
+[group("worker")]
 run-worker-fake *args:
     cargo run --bin worker --features fake-pkgbuild -- run {{ args }}
 
 # TODO `cargo watch` interferes with stdin handling,
-# so the worker can't ask for a password to
-# use sudo :/
+# so the worker can't ask for a password to use sudo :/
+[doc]
+[group("worker")]
 watch-worker *args:
     cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile run-worker {{ args }}
 
@@ -30,9 +40,11 @@ clean:
     rm -rf buildbtw-poc/build
     cargo clean -p buildbtw-poc
 
+[group("test")]
 test *args:
     cargo test --package buildbtw-poc {{ args }}
 
+[group("test")]
 watch-test *args:
     cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile test {{ args }}
 
@@ -47,11 +59,14 @@ lint-fix:
     just lint --package buildbtw-poc --fix --allow-staged
     cargo fmt --package buildbtw-poc
 
+[group("db")]
 create-db: && migrate-db
     sqlx db create
 
+[group("db")]
 migrate-db:
     sqlx migrate run --source buildbtw-poc/migrations
 
+[group("db")]
 reset-db: && create-db
     sqlx db drop

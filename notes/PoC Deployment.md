@@ -1,6 +1,6 @@
 # Proof-of-concept deployment
 
-We're running an evaluation deployment on the `buildbtw-dev` host. 
+We're running an evaluation deployment on the `buildbtw-dev` host.
 
 ## Overview
 
