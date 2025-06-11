@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use alpm_srcinfo::{MergedPackage, SourceInfoV1, source_info::v1::package::Package};
 use alpm_types::Architecture;
 use camino::Utf8PathBuf;
@@ -88,7 +86,7 @@ impl AsRef<Architecture> for ConcreteArchitecture {
 pub fn package_architectures<'a>(
     package: &'a Package,
     source_info: &'a SourceInfo,
-) -> &'a HashSet<Architecture> {
+) -> &'a Vec<Architecture> {
     match &package.architectures {
         None => &source_info.base.architectures,
         Some(value) => value,
@@ -96,15 +94,20 @@ pub fn package_architectures<'a>(
 }
 
 /// All architectures used either in the source info base, or in one of its split packages
-pub fn source_info_architectures(source_info: &SourceInfo) -> HashSet<Architecture> {
+pub fn source_info_architectures(source_info: &SourceInfo) -> Vec<Architecture> {
     source_info
         .packages
         .iter()
-        .fold(source_info.base.architectures.clone(), |set, package| {
+        .fold(source_info.base.architectures.clone(), |mut v, package| {
             if let Some(architectures) = &package.architectures {
-                set.union(architectures).copied().collect()
+                v.extend(architectures);
+                v.sort();
+                v.dedup();
+                v
             } else {
-                set
+                v.sort();
+                v.dedup();
+                v
             }
         })
 }

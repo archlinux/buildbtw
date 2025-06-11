@@ -35,7 +35,7 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 [[package]]
 name = "alpm-common"
 version = "0.1.0"
-source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#c6484b003a5a687ef6548eaf13b1d9ae74faf57f"
+source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#cc1701e373e39928a9b5dea53fed12c30d618870"
 dependencies = [
  "alpm-types",
  "thiserror 2.0.12",
@@ -44,17 +44,17 @@ dependencies = [
 [[package]]
 name = "alpm-parsers"
 version = "0.1.0"
-source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#c6484b003a5a687ef6548eaf13b1d9ae74faf57f"
+source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#cc1701e373e39928a9b5dea53fed12c30d618870"
 dependencies = [
  "serde",
  "testresult",
- "winnow 0.7.10",
+ "winnow 0.7.11",
 ]
 
 [[package]]
 name = "alpm-srcinfo"
 version = "0.1.0"
-source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#c6484b003a5a687ef6548eaf13b1d9ae74faf57f"
+source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#cc1701e373e39928a9b5dea53fed12c30d618870"
 dependencies = [
  "alpm-common",
  "alpm-parsers",
@@ -65,13 +65,13 @@ dependencies = [
  "serde_json",
  "strum",
  "thiserror 2.0.12",
- "winnow 0.7.10",
+ "winnow 0.7.11",
 ]
 
 [[package]]
 name = "alpm-types"
 version = "0.5.0"
-source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#c6484b003a5a687ef6548eaf13b1d9ae74faf57f"
+source = "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main#cc1701e373e39928a9b5dea53fed12c30d618870"
 dependencies = [
  "alpm-parsers",
  "blake2",
@@ -91,7 +91,7 @@ dependencies = [
  "thiserror 2.0.12",
  "time",
  "url",
- "winnow 0.7.10",
+ "winnow 0.7.11",
 ]
 
 [[package]]
@@ -2065,9 +2065,9 @@ dependencies = [
 
 [[package]]
 name = "memchr"
-version = "2.7.4"
+version = "2.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
+checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
 name = "mime"
@@ -2721,9 +2721,9 @@ checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
 
 [[package]]
 name = "reqwest"
-version = "0.12.19"
+version = "0.12.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2f8e5513d63f2e5b386eb5106dc67eaf3f84e95258e210489136b8b92ad6119"
+checksum = "eabf4c97d9130e2bf606614eb937e86edac8292eaa6f422f995d7e8de1eb1813"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2739,12 +2739,10 @@ dependencies = [
  "hyper-rustls",
  "hyper-tls",
  "hyper-util",
- "ipnet",
  "js-sys",
  "log",
  "mime",
  "native-tls",
- "once_cell",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -3709,7 +3707,7 @@ checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
 dependencies = [
  "indexmap 2.9.0",
  "toml_datetime",
- "winnow 0.7.10",
+ "winnow 0.7.11",
 ]
 
 [[package]]
@@ -4414,9 +4412,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.10"
+version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06928c8748d81b05c9be96aad92e1b6ff01833332f281e8cfca3be4b35fc9ec"
+checksum = "74c7b26e3480b707944fc872477815d29a8e429d2f93a1ce000f5fa84a15cbcd"
 dependencies = [
  "memchr",
 ]
