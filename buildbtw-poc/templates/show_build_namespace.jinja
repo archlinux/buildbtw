@@ -29,7 +29,11 @@
                     <tr>
                         <td>{{entry.status_icon}} {{entry.status_description}}:</td>
                         <td>
-                            <a href="{{entry.gitlab_url}}">{{entry.pkgbase}}</a>
+                            {% if entry.gitlab_url %}
+                                <a href="{{entry.gitlab_url}}">{{entry.pkgbase}}</a>
+                            {% else %}
+                                {{entry.pkgbase}}
+                            {% endif %}
                         </td>
                     </tr>
                 {% endfor %}
