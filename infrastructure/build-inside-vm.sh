@@ -17,6 +17,21 @@ cp -R /mnt/src_repo /build
 cd /build
 chown -R builder .
 
+# Import upstream GPG keys
+(
+    set +eu
+    . PKGBUILD
+    if [ "${validpgpkeys[*]}" ]; then
+        keyservers=(
+            hkps://keys.openpgp.org
+            hkps://keyserver.ubuntu.com
+        )
+        for keyserver in "${keyservers[@]}"; do
+            sudo -u builder gpg --keyserver $keyserver --recv-keys ${validpgpkeys[*]}
+        done
+    fi
+)
+
 # Run build
 sudo -u builder bash << EOF
 pkgctl build .
