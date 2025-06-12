@@ -179,10 +179,16 @@ name = "arch-pkg-repo-updater"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "buildbtw-poc",
  "clap",
+ "console-subscriber",
+ "gitlab",
+ "redact",
  "serde",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

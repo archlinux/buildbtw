@@ -11,7 +11,16 @@ version = "0.0.1"
 
 [dependencies]
 anyhow.workspace = true
+buildbtw-poc.workspace = true
 clap.workspace = true
+console-subscriber.workspace = true
+gitlab.workspace = true
+redact.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
