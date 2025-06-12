@@ -1,3 +1,7 @@
+html {
+    color-scheme: light dark;
+}
+
 body {
     font-family: sans-serif;
     max-width: 40rem;
