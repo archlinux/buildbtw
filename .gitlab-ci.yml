@@ -4,7 +4,6 @@ before_script:
   - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse just
   - cd buildbtw-poc
   - just create-db
-  - cd ..
 
 variables:
   DATABASE_URL: "sqlite:${CI_PROJECT_DIR}/buildbtw_server.sqlite"
@@ -28,7 +27,7 @@ deny:
 reuse:
   stage: check
   script:
-    - just license
+    - just licenses
 
 .cache-rust:
   cache:
