@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-
 use anyhow::{Context, Result};
 use axum::extract::{Path, Request};
 use axum::response::Html;
 use axum::{Json, debug_handler, extract::State};
-use buildbtw_poc::build_set_graph::calculate_packages_to_be_built;
+use buildbtw_poc::build_set_graph::{
+    BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built,
+};
 use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
 use buildbtw_poc::source_info::{
     ConcreteArchitecture, package_file_name, package_for_architecture,
@@ -97,7 +97,15 @@ pub(crate) async fn render_latest_namespace(
 ) -> Result<Html<String>, ResponseError> {
     let namespace = db::namespace::read_latest(&state.db_pool).await?;
 
-    show_build_namespace(Path(namespace.name), State(state)).await
+    show_build_namespace_architecture(Path((namespace.name, None)), State(state)).await
+}
+
+#[debug_handler]
+pub(crate) async fn show_build_namespace(
+    Path(namespace_name): Path<String>,
+    state: State<AppState>,
+) -> Result<Html<String>, ResponseError> {
+    show_build_namespace_architecture(Path((namespace_name, None)), state).await
 }
 
 #[derive(Serialize)]
@@ -109,52 +117,94 @@ struct PipelineTableEntry {
     pkgbase: Pkgbase,
 }
 
+impl PipelineTableEntry {
+    fn from_build_package_node(node: &BuildPackageNode, gitlab_url: Option<String>) -> Self {
+        PipelineTableEntry {
+            status_icon: node.status.as_icon().to_string(),
+            status_description: node.status.as_description(),
+            gitlab_url,
+            pkgbase: node.pkgbase.clone(),
+            status: node.status,
+        }
+    }
+}
+
+fn default_architecture_for_namespace(
+    architecture: Option<ConcreteArchitecture>,
+    current_iteration: Option<&BuildSetIteration>,
+) -> (Option<ConcreteArchitecture>, Option<&BuildSetGraph>) {
+    let current_iteration = if let Some(iteration) = current_iteration {
+        iteration
+    } else {
+        return (architecture, None);
+    };
+
+    if let Some(architecture) = architecture {
+        return (
+            Some(architecture),
+            current_iteration.packages_to_be_built.get(&architecture),
+        );
+    }
+    // Try x86_64 as a default
+    if let Some(graph) = current_iteration
+        .packages_to_be_built
+        .get(&ConcreteArchitecture::X86_64)
+    {
+        (Some(ConcreteArchitecture::X86_64), Some(graph))
+    } else {
+        // Otherwise, just use the first available architecture.
+        current_iteration
+            .packages_to_be_built
+            .iter()
+            .next()
+            .map(|(arch, graph)| (Some(*arch), Some(graph)))
+            .unwrap_or((architecture, None))
+    }
+}
+
 #[debug_handler]
-pub(crate) async fn show_build_namespace(
-    Path(namespace_name): Path<String>,
+pub(crate) async fn show_build_namespace_architecture(
+    Path((namespace_name, architecture)): Path<(String, Option<ConcreteArchitecture>)>,
     State(state): State<AppState>,
 ) -> Result<Html<String>, ResponseError> {
     let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool).await?;
     let iterations = db::iteration::list(&state.db_pool, namespace.id).await?;
 
-    let mut pipeline_tables =
-        HashMap::<(Uuid, ConcreteArchitecture), Vec<PipelineTableEntry>>::new();
+    let mut pipeline_table = None;
+    let current_iteration = iterations.last();
+    // If no architecture was specified, take a default one from the current iteration.
+    let (architecture, build_graph) =
+        default_architecture_for_namespace(architecture, current_iteration);
 
-    for iteration in &iterations {
-        for (architecture, build_graph) in &iteration.packages_to_be_built {
-            let mut table_entries = Vec::new();
-            for node in build_graph.node_weights() {
-                // Many small queries are efficient in sqlite:
-                // https://sqlite.org/np1queryprob.html
-                let gitlab_url =
-                    db::gitlab_pipeline::read_by_iteration_and_pkgbase_and_architecture(
-                        &state.db_pool,
-                        iteration.id,
-                        &node.pkgbase,
-                        *architecture,
-                    )
-                    .await?
-                    .map(|p| p.gitlab_url);
-                let entry = PipelineTableEntry {
-                    status_icon: node.status.as_icon().to_string(),
-                    status_description: node.status.as_description(),
-                    gitlab_url,
-                    pkgbase: node.pkgbase.clone(),
-                    status: node.status,
-                };
-                table_entries.push(entry);
-            }
-
-            table_entries.sort_by_key(|entry| match entry.status {
-                PackageBuildStatus::Building => 0,
-                PackageBuildStatus::Failed => 1,
-                PackageBuildStatus::Built => 2,
-                PackageBuildStatus::Blocked => 3,
-                PackageBuildStatus::Pending => 4,
-            });
-
-            pipeline_tables.insert((iteration.id, *architecture), table_entries);
+    if let (Some(current_iteration), Some(architecture), Some(build_graph)) =
+        (current_iteration, architecture, build_graph)
+    {
+        let mut table_entries = Vec::new();
+        for node in build_graph.node_weights() {
+            // Many small queries are efficient in sqlite:
+            // https://sqlite.org/np1queryprob.html
+            let gitlab_url = db::gitlab_pipeline::read_by_iteration_and_pkgbase_and_architecture(
+                &state.db_pool,
+                current_iteration.id,
+                &node.pkgbase,
+                architecture,
+            )
+            .await?
+            .map(|p| p.gitlab_url);
+            table_entries.push(PipelineTableEntry::from_build_package_node(
+                node, gitlab_url,
+            ));
         }
+
+        table_entries.sort_by_key(|entry| match entry.status {
+            PackageBuildStatus::Building => 0,
+            PackageBuildStatus::Failed => 1,
+            PackageBuildStatus::Built => 2,
+            PackageBuildStatus::Blocked => 3,
+            PackageBuildStatus::Pending => 4,
+        });
+
+        pipeline_table = Some(table_entries);
     }
 
     let template = state
@@ -166,8 +216,10 @@ pub(crate) async fn show_build_namespace(
         .render(context! {
             namespace => namespace,
             iterations => iterations,
-            pipeline_tables => pipeline_tables,
-            base_url => state.base_url
+            current_iteration => current_iteration,
+            pipeline_table => pipeline_table,
+            base_url => state.base_url,
+            architecture => architecture,
         })
         .unwrap();
 

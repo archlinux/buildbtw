@@ -20,7 +20,10 @@ use tower_http::{services::ServeDir, trace::TraceLayer};
 use url::Url;
 use with_content_type::{ApplicationJson, with_content_type};
 
-use crate::args::{Args, Command};
+use crate::{
+    args::{Args, Command},
+    routes::show_build_namespace_architecture,
+};
 use buildbtw_poc::pacman_repo::REPO_DIR;
 
 mod args;
@@ -102,6 +105,7 @@ async fn main() -> Result<()> {
                     post(create_namespace_iteration),
                 )
                 .route("/namespace/{name}", get(show_build_namespace))
+                .route("/namespace/{name}/{architecture}", get(show_build_namespace_architecture))
                 .route(
                     "/namespace/{name}/{architecture}/graph",
                     get(render_build_namespace_graph),
