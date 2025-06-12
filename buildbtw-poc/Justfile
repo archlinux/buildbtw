@@ -33,7 +33,7 @@ watch-server *args: create-db
 [group("server")]
 reverse-tunnel:
     echo "Running SSH reverse tunnel here, don't close this terminal"
-    ssh -NR 8080 buildbtw-dev
+    ssh -NR 8080:0.0.0.0:8080 buildbtw-dev
 
 [doc("Run client")]
 [group("client")]
@@ -107,3 +107,23 @@ migrate-db:
 [group("db")]
 reset-db: && create-db
     sqlx db drop
+
+[doc("Deploy GitLab custom runner")]
+deploy-custom-runner:
+    # Make sure /etc/gitlab-runner/config.toml on buildbtw-dev has this:
+    # [[runners]]
+    #   name = "buildbtw-dev"
+    #   url = "https://gitlab.archlinux.org"
+    #   ...
+    #   executor = "custom"
+    #   [runners.custom]
+    #     config_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     config_args = [ "config" ]
+    #     prepare_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     prepare_args = [ "prepare" ]
+    #     run_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     run_args = [ "run" ]
+    #     cleanup_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     cleanup_args = [ "cleanup" ]
+    cat buildbtw-poc/infrastructure/buildbtw-executor.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/buildbtw-executor.sh > /dev/null
+    cat buildbtw-poc/infrastructure/build-inside-vm.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/build-inside-vm.sh > /dev/null
