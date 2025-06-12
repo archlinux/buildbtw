@@ -76,7 +76,7 @@ deploy:
     - chmod 640 ~/.ssh/known_hosts
     - chmod 600 ~/.ssh/id_ed25519
     - chmod 700 ~/.ssh
-    - scp infrastructure/buildbtw-executor buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/buildbtw-executor
-    - scp infrastructure/build-inside-vm buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/build-inside-vm
-    - scp infrastructure/deploy-server buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/deploy-server
-    - ssh buildbtw@${BUILDBTW_SERVER_IPV4} /srv/buildbtw/deploy-server
+    - scp infrastructure/buildbtw-executor.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/buildbtw-executor.sh
+    - scp infrastructure/build-inside-vm.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/build-inside-vm.sh
+    - scp infrastructure/deploy-server.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/deploy-server.sh
+    - ssh buildbtw@${BUILDBTW_SERVER_IPV4} /srv/buildbtw/deploy-server.sh

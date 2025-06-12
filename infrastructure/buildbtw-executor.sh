@@ -25,7 +25,7 @@ prepare() {
 
 # https://docs.gitlab.com/runner/executors/custom.html#run
 run() {
-    # TODO pass repo URL as second argument to build-inside-vm
+    # TODO pass repo URL as second argument to build-inside-vm.sh
     # the host should be reachable at 10.0.2.2 since we're using
     # user mode networking
     pacman_repo_url="http://10.0.2.2:8080/repo/${CUSTOM_ENV_NAMESPACE_NAME}_${CUSTOM_ENV_ITERATION_ID}/os/${CUSTOM_ENV_ARCHITECTURE}"
@@ -35,7 +35,7 @@ run() {
     --volume "$CUSTOM_ENV_CI_PROJECT_DIR":/mnt/src_repo \
     --volume /srv/buildbtw/gitlab-executor:/mnt/bin \
     -- \
-        /mnt/bin/build-inside-vm "${pacman_repo_url}" || exit "${BUILD_FAILURE_EXIT_CODE:-1}"
+        /mnt/bin/build-inside-vm.sh "${pacman_repo_url}" || exit "${BUILD_FAILURE_EXIT_CODE:-1}"
 
     tree "$output_dir"
     # TODO upload build artifacts
