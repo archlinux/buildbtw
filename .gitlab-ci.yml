@@ -1,7 +1,7 @@
 image: "archlinux:latest"
 
 before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse just
+  - pacman -Syu --needed --noconfirm reuse just
 
 buildbtw-poc:
   stage: check
