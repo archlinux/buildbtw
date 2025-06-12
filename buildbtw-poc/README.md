@@ -45,6 +45,8 @@ This project has four major components:
 1. In `.env`, make sure that `RUN_BUILDS_ON_GITLAB=true` is set.
 1. `cd buildbtw-poc`
 1. Run the server: `just watch-server` or `just run-server`
+1. Run the reverse SSH tunnel so the GitLab custom executor can communicate with our local server: `just reverse-tunnel`.
+   Note that only one developer may currently use the tunnel because we were ~lazy~ efficient and hardcoded the ports. Also note that this requires you to have configured a server called `buildbtw-dev` in your `~/.ssh/config`.
 1. Dispatch a build using the client: `just run-client new openimageio/main`
 
 ### Running builds locally

@@ -29,6 +29,12 @@ run-server *args: create-db
 watch-server *args: create-db
     systemfd --no-pid -s http::8080 -- cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w Cargo.toml -w buildbtw-poc/Cargo.toml -- just --justfile buildbtw-poc/Justfile run-server {{ args }}
 
+[doc("Start a reverse SSH tunnel to your local server")]
+[group("server")]
+reverse-tunnel:
+    echo "Running SSH reverse tunnel here, don't close this terminal"
+    ssh -NR 8080 buildbtw-dev
+
 [doc("Run client")]
 [group("client")]
 run-client *args:
