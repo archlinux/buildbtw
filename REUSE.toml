@@ -28,7 +28,7 @@ path = [
     "**.sqlite",
     "**.graphql",
     "**.json",
-    "*.yml",
+    "**.yml",
     ".env*",
     ".gitignore",
     ".gitlab/**",

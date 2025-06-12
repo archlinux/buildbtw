@@ -2,81 +2,17 @@ image: "archlinux:latest"
 
 before_script:
   - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse just
-  - cd buildbtw-poc
-  - just create-db
 
-variables:
-  DATABASE_URL: "sqlite:${CI_PROJECT_DIR}/buildbtw_server.sqlite"
+buildbtw-poc:
+  stage: check
+  trigger:
+    include:
+      - local: buildbtw-poc/.gitlab-ci.yml
 
 stages:
   - check
-  - build
-  # Stop deployments for the time being
-  # - deploy
-
-format:
-  stage: check
-  script:
-    - just lint
-
-deny:
-  stage: check
-  script:
-    - just deny
 
 reuse:
   stage: check
   script:
     - just licenses
-
-.cache-rust:
-  cache:
-    key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
-
-    paths:
-      - .cargo/bin
-      - .cargo/registry/index
-      - .cargo/registry/cache
-      - target/debug/deps
-      - target/debug/build
-      - target/release/deps
-      - target/release/build
-  variables:
-    CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
-
-test:
-  stage: check
-  extends: .cache-rust
-  script:
-    - just test
-
-build:
-  stage: build
-  extends: .cache-rust
-  tags:
-    - vm
-  # For now, we're only publishing builds for the proof-of-concept.
-  rules:
-    - if: $CI_COMMIT_BRANCH == "proof-of-concept" && $CI_PIPELINE_SOURCE == "push"
-  script:
-    - cargo build --release
-    - podman build --format docker --manifest buildbtw-server --file buildbtw-poc/Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest target/release
-    - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
-    - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
-
-# deploy:
-#   stage: deploy
-#   # For now, we're only deploying the proof-of-concept.
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == "proof-of-concept" && $CI_PIPELINE_SOURCE == "push"
-#   script:
-#     - pacman -Syu --needed --noconfirm openssh
-#     - base64 --decode "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-#     - base64 --decode ${BUILDBTW_SSH_PRIVATE_KEY} > ~/.ssh/id_ed25519
-#     - chmod 640 ~/.ssh/known_hosts
-#     - chmod 600 ~/.ssh/id_ed25519
-#     - chmod 700 ~/.ssh
-#     - scp infrastructure/buildbtw-executor.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/buildbtw-executor.sh
-#     - scp infrastructure/build-inside-vm.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/build-inside-vm.sh
-#     - scp infrastructure/deploy-server.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/deploy-server.sh
-#     - ssh buildbtw@${BUILDBTW_SERVER_IPV4} /srv/buildbtw/deploy-server.sh
