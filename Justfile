@@ -6,6 +6,7 @@ default:
 
 [doc("Run a sequence of recipes that resemble CI")]
 ci-dev:
+    just licenses
     just -f buildbtw-poc/Justfile lint
     just -f buildbtw-poc/Justfile deny
     just -f buildbtw-poc/Justfile build-release
