@@ -33,6 +33,7 @@ pub struct Gitlab {
     /// Used for fetching updates to package source repositories (requires `read_api` scope),
     /// dispatching builds to gitlab (requires `api` scope, only if `run-builds-on-gitlab` is true).
     /// If set, requires all other gitlab-related options to be specified as well.
+    /// If omitted, requires all other gitlab-related options to be omitted as well.
     #[arg(long, env, hide_env_values = true, required = false)]
     pub gitlab_token: redact::Secret<String>,
 
