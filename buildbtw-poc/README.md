@@ -37,7 +37,7 @@ This project has four major components:
 
 - Install `sqlx-cli` (`pacman -Sy sqlx-cli` or `cargo install sqlx-cli`).
 - Set up your environment variables: `cp .env.example .env`
-- Optional but recommended: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`. This will enable the server to query the GitLab API for changes in package source repositories, and dispatch pipelines for building packges using the GitLab custom executor.
+- Optional but recommended: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`. This will enable the server to query the GitLab API for changes in package source repositories, and dispatch pipelines for building packages using the GitLab custom executor.
 - If running without a gitlab token: Comment out all gitlab-related settings in `.env`.
 
 ### Running builds on the GitLab custom executor

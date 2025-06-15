@@ -19,7 +19,7 @@ macro_rules! impl_content_type {
     };
 }
 
-impl_content_type!(ApplictionJson, "application/json");
+impl_content_type!(ApplicationJson, "application/json");
 impl_content_type!(TextHtml, "text/html");
 
 // --- implementation details ---

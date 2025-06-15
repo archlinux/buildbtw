@@ -18,7 +18,7 @@ use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use url::Url;
-use with_content_type::{ApplictionJson, with_content_type};
+use with_content_type::{ApplicationJson, with_content_type};
 
 use crate::args::{Args, Command};
 use buildbtw_poc::pacman_repo::REPO_DIR;
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
                 .route(
                     "/namespace",
                     post(create_build_namespace).get(
-                        with_content_type::<ApplictionJson, _>(list_namespaces_json)
+                        with_content_type::<ApplicationJson, _>(list_namespaces_json)
                             .or(list_namespaces_html),
                     ),
                 )

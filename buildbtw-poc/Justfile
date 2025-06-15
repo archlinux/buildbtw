@@ -76,7 +76,7 @@ watch-test *args:
 update-graphql-schema:
     graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output buildbtw-poc/src/gitlab/gitlab_schema.json
 
-[doc("Check for security advisories and licenes compliance in deps")]
+[doc("Check for security advisories and license compliance in deps")]
 [group("check")]
 deny:
     cargo deny check
