@@ -48,11 +48,11 @@ pub(crate) async fn create_build_namespace(
     };
     let namespace = db::namespace::create(create, &state.db_pool).await?;
 
-    let base_url = state.base_url;
-    tracing::info!(
-        "Namespace overview available at: {base_url}/namespace/{}",
-        namespace.name,
-    );
+    let base_url = state
+        .base_url
+        .join(&format!("/namespace/{}", namespace.name))
+        .context("Failed to parse URL")?;
+    tracing::info!("Namespace overview available at: {base_url}",);
 
     Ok(Json(namespace))
 }
