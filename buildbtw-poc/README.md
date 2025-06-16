@@ -35,31 +35,41 @@ This project has four major components:
 
 ## Development
 
-- Install `sqlx-cli` (`pacman -Sy sqlx-cli` or `cargo install sqlx-cli`).
+- Install `sqlx-cli` and `cargo-watch` (`pacman -S sqlx-cli cargo-watch` or `cargo install sqlx-cli cargo-watch`).
+- Install `just` and `systemfd` (`pacman -S just systemfd`).
 - Set up your environment variables: `cp .env.example .env`
 - Optional but recommended: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`. This will enable the server to query the GitLab API for changes in package source repositories, and dispatch pipelines for building packages using the GitLab custom executor.
 - If running without a gitlab token: Comment out all gitlab-related settings in `.env`.
 
 ### Running builds on the GitLab custom executor
 
-1. Get a GitLab Personal Access Token with the `read_api` and `api` scopes from [here](https://gitlab.archlinux.org/-/user_settings/personal_access_tokens) and enter in as the value of `GITLAB_TOKEN` in `.env`.
+1. Get a GitLab Personal Access Token with the `read_api` and `api` scopes from [here](https://gitlab.archlinux.org/-/user_settings/personal_access_tokens?name=buildbtw&scopes=api,read_api) and enter in as the value of `GITLAB_TOKEN` in `.env`.
 1. In `.env`, make sure that `RUN_BUILDS_ON_GITLAB=true` is set.
 1. `cd buildbtw-poc`
 1. Run the server: `just watch-server` or `just run-server`
 1. Run the reverse SSH tunnel so the GitLab custom executor can communicate with our local server: `just reverse-tunnel`.
-   Note that only one developer may currently use the tunnel because we were ~lazy~ efficient and hardcoded the ports. Also note that this requires you to have configured a server called `buildbtw-dev` in your `~/.ssh/config`.
+   Note that only one developer may currently use the tunnel because we were ~lazy~ efficient and hardcoded the ports. Also note that this requires you to have configured a server called `buildbtw-dev` in your `~/.ssh/config`:
+    ```
+    Host buildbtw-dev
+        User <user>
+        HostName 65.108.133.94
+    ```
+<!-- TODO add link to user guide here -->
 1. Dispatch a build using the client: `just run-client new openimageio/main`
+1. Inspect your new build namespace in the web UI at [http://localhost:8080](http://localhost:8080).
 
 ### Running builds locally
 
-1. Get a GitLab Personal Access Token with the `read_api` scope from [here](https://gitlab.archlinux.org/-/user_settings/personal_access_tokens) and enter in as the value of `GITLAB_TOKEN` in `.env`.
+1. Get a GitLab Personal Access Token with the `read_api` scope from [here](https://gitlab.archlinux.org/-/user_settings/personal_access_tokens?name=buildbtw&scopes=read_api) and enter in as the value of `GITLAB_TOKEN` in `.env`.
 1. In `.env`, make sure that `RUN_BUILDS_ON_GITLAB=false` is set.
 1. `cd buildbtw-poc`
 1. Run the server: `just watch-server` or `just run-server`
 1. Run the worker:
     - To build real packages: `just watch-worker` or `just run-worker`
     - Alternatively, to build fake packages to shorten manual cycle testing time: `just run-worker-fake`
+<!-- TODO add link to user guide here -->
 1. Dispatch a build using the client: `just run-client new openimageio/main`
+1. Inspect your new build namespace in the web UI at [http://localhost:8080](http://localhost:8080).
 
 ### Auxiliary commands
 
