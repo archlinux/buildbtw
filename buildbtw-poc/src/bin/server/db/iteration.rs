@@ -131,6 +131,7 @@ pub(crate) async fn list(
             create_reason as "create_reason: Json<NewIterationReason>"
         from build_set_iterations
         where namespace_id = $1
+        order by created_at asc
         "#,
         namespace_id,
     )

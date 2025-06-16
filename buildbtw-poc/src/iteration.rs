@@ -73,7 +73,7 @@ impl IterationDiff {
 }
 pub async fn new_build_set_iteration_is_needed(
     namespace: &BuildNamespace,
-    iterations: &[BuildSetIteration],
+    newest_iteration: Option<&BuildSetIteration>,
 ) -> Result<NewBuildIterationResult> {
     if namespace.status == BuildNamespaceStatus::Cancelled {
         return Ok(NewBuildIterationResult::NoNewIterationNeeded);
@@ -81,7 +81,7 @@ pub async fn new_build_set_iteration_is_needed(
 
     let packages_to_build = calculate_packages_to_be_built(namespace).await?;
 
-    let previous_iteration = if let Some(it) = iterations.last() {
+    let previous_iteration = if let Some(it) = newest_iteration {
         it
     } else {
         return Ok(NewBuildIterationResult::NewIterationNeeded {

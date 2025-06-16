@@ -198,8 +198,9 @@ async fn create_new_namespace_iteration_if_needed(
     pool: &SqlitePool,
     namespace: &BuildNamespace,
 ) -> Result<()> {
-    let previous_iterations = db::iteration::list(pool, namespace.id).await?;
-    let new_iteration = new_build_set_iteration_is_needed(namespace, &previous_iterations).await?;
+    let newest_iteration = db::iteration::read_newest(pool, namespace.id).await.ok();
+    let new_iteration =
+        new_build_set_iteration_is_needed(namespace, newest_iteration.as_ref()).await?;
 
     match new_iteration {
         NewBuildIterationResult::NewIterationNeeded {
