@@ -31,7 +31,7 @@ gitlab = "0.1800.0"
 graphql_client = "0.14.0"
 layout-rs = { version = "0.1.2", features = ["log"] }
 listenfd = "1.0.1"
-minijinja = "2.6.0"
+minijinja = { version = "2.6.0", features = ["loader"] }
 petgraph = { version = "0.8.1", features = [
     "serde",
     "serde-1",

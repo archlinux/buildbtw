@@ -33,6 +33,7 @@ pub mod response_error;
 mod routes;
 pub mod stream_to_file;
 mod tasks;
+pub mod templates;
 pub mod with_content_type;
 
 #[derive(Clone)]
@@ -59,34 +60,7 @@ async fn main() -> Result<()> {
             base_url,
         } => {
             let mut jinja_env = minijinja::Environment::new();
-            jinja_env.add_template(
-                "layout",
-                include_str!(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/templates/layout.jinja"
-                )),
-            )?;
-            jinja_env.add_template(
-                "show_build_namespace",
-                include_str!(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/templates/show_build_namespace.jinja"
-                )),
-            )?;
-            jinja_env.add_template(
-                "render_build_namespace_graph",
-                include_str!(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/templates/render_build_namespace_graph.jinja"
-                )),
-            )?;
-            jinja_env.add_template(
-                "list_build_namespaces",
-                include_str!(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/templates/list_build_namespaces.jinja"
-                )),
-            )?;
+            templates::add_to_jinja_env(&mut jinja_env)?;
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
 
