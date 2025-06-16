@@ -16,6 +16,7 @@ use petgraph::visit::EdgeRef;
 use petgraph::visit::NodeRef;
 use reqwest::StatusCode;
 use serde::Serialize;
+use time::macros::format_description;
 use tokio::fs;
 use uuid::Uuid;
 
@@ -139,6 +140,45 @@ impl PipelineTableEntry {
     }
 }
 
+#[derive(Serialize)]
+struct IterationTableEntry {
+    id: Uuid,
+    created_at: String,
+    create_reason: &'static str,
+}
+
+const FORMAT: &[time::format_description::BorrowedFormatItem<'_>] =
+    format_description!("[year]-[month]-[day] [hour]:[minute]");
+
+impl IterationTableEntry {
+    fn from_iteration(iteration: &BuildSetIteration) -> Self {
+        IterationTableEntry {
+            id: iteration.id,
+            created_at: iteration.created_at.format(FORMAT).unwrap(),
+            create_reason: iteration.create_reason.short_description(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct IterationView {
+    id: Uuid,
+    created_at: String,
+    architectures: Vec<ConcreteArchitecture>,
+    create_reason: &'static str,
+}
+
+impl IterationView {
+    fn from_iteration(iteration: &BuildSetIteration) -> Result<Self> {
+        Ok(IterationView {
+            id: iteration.id,
+            created_at: iteration.created_at.format(FORMAT)?,
+            architectures: iteration.packages_to_be_built.keys().cloned().collect(),
+            create_reason: iteration.create_reason.short_description(),
+        })
+    }
+}
+
 fn default_architecture_for_namespace(
     architecture: Option<ConcreteArchitecture>,
     current_iteration: Option<&BuildSetIteration>,
@@ -190,7 +230,10 @@ pub(crate) async fn show_build_namespace_iteration_architecture(
     } else {
         iterations.last().cloned()
     };
-    let iteration_ids: Vec<_> = iterations.iter().map(|iteration| iteration.id).collect();
+    let iteration_table: Vec<_> = iterations
+        .iter()
+        .map(IterationTableEntry::from_iteration)
+        .collect();
     // If no architecture was specified, take a default one from the current iteration.
     let (architecture, build_graph) =
         default_architecture_for_namespace(architecture, current_iteration.as_ref());
@@ -234,8 +277,8 @@ pub(crate) async fn show_build_namespace_iteration_architecture(
     let rendered = template
         .render(context! {
             namespace => namespace,
-            iteration_ids => iteration_ids,
-            current_iteration => current_iteration,
+            iteration_table => iteration_table,
+            current_iteration => current_iteration.as_ref().map(IterationView::from_iteration).transpose()?,
             pipeline_table => pipeline_table,
             base_url => state.base_url,
             architecture => architecture,
@@ -319,6 +362,7 @@ pub async fn create_namespace_iteration(
 
     let new_iteration = BuildSetIteration {
         id: Uuid::new_v4(),
+        created_at: time::OffsetDateTime::now_utc(),
         origin_changesets: namespace.current_origin_changesets.clone(),
         packages_to_be_built: calculate_packages_to_be_built(&namespace)
             .await

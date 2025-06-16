@@ -154,6 +154,7 @@ impl PackageBuildStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildSetIteration {
     pub id: Uuid,
+    pub created_at: time::OffsetDateTime,
     pub packages_to_be_built: HashMap<ConcreteArchitecture, BuildSetGraph>,
     pub origin_changesets: Vec<GitRepoRef>,
     pub create_reason: NewIterationReason,

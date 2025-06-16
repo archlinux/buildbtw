@@ -214,6 +214,7 @@ async fn create_new_namespace_iteration_if_needed(
 
             let new_iteration = BuildSetIteration {
                 id: Uuid::new_v4(),
+                created_at: time::OffsetDateTime::now_utc(),
                 origin_changesets: namespace.current_origin_changesets.clone(),
                 packages_to_be_built: packages_to_build,
                 create_reason: reason,

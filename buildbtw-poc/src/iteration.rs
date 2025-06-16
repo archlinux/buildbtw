@@ -16,6 +16,17 @@ pub enum NewIterationReason {
     CreatedByUser,
 }
 
+impl NewIterationReason {
+    pub fn short_description(&self) -> &'static str {
+        match self {
+            NewIterationReason::FirstIteration => "First iteration",
+            NewIterationReason::OriginChangesetsChanged => "Origin changesets changed",
+            NewIterationReason::BuildSetGraphChanged { .. } => "Build set graph changed",
+            NewIterationReason::CreatedByUser => "Manually created by user",
+        }
+    }
+}
+
 pub enum NewBuildIterationResult {
     NoNewIterationNeeded,
     NewIterationNeeded {

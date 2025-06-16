@@ -1,18 +1,17 @@
 {% extends "layout" %}
-{% block title %}build namespace <a href="/namespace/{{namespace.name}}">{{namespace.name}}</a>{% endblock %}
+{% block title %}build namespace <a href="/namespace/{{namespace.name}}">{{namespace.name}} ({{namespace.status}})</a>{% endblock %}
 {% block body %}
-
-    <p>Status: {{namespace.status}}</p>
-
     {% if current_iteration %}
         <h2>Iteration {{current_iteration.id}}
-        {% if current_iteration.id == iteration_ids|last %}
+        {% if current_iteration.id == (iteration_table|last).id %}
             (latest)
         {% endif %}
         </h2>
 
+        Created: {{current_iteration.created_at}}, reason: {{current_iteration.create_reason}}
+
         <h2 style="font-size: 1em;">Architectures</h2>
-        {% for other_architecture, _ in current_iteration.packages_to_be_built|items %}
+        {% for other_architecture in current_iteration.architectures %}
             {% if other_architecture != architecture %}
                 <a href="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{other_architecture}}">{{other_architecture}}</a>
             {% else %}
@@ -20,8 +19,7 @@
             {% endif %}
         {% endfor %}
 
-        {% set graph = current_iteration.packages_to_be_built[architecture] %}
-        {% if graph %}
+        {% if pipeline_table %}
             <p>Pacman repository: <pre>{{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{architecture}}</pre></p>
             <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
             </iframe>
@@ -62,19 +60,32 @@
     {% endif %}
 
     <h2>All iterations</h2>
-    {% if iteration_ids|length == 0 %}
+    {% if iteration_table|length == 0 %}
         <p>Calculating packages for first iteration...</p>
     {% else %}
-        <ul>
-            {% for id in iteration_ids %}
-                <li>
-                {% if id == current_iteration.id%}
-                    <span style="font-weight: bold;">{{id}}</span>
+        <table><tbody>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Created</th>
+                <th>Create reason</th>
+            </tr>
+        </thead>
+            {% for entry in iteration_table %}
+            <tr>
+                <td>
+                {% if current_iteration.id == entry.id%}
+                    <span style="font-weight: bold;">{{entry.id}}</span>
                 {% else %}
-                    <a href="/namespace/{{namespace.name}}/{{id}}">{{ id }}</a>
+                    <a href="/namespace/{{namespace.name}}/{{entry.id}}">{{ entry.id }}</a>
                 {% endif %}
-                </li>
+                </td>
+                <td>
+                    {{ entry.created_at }}
+                </td>
+                <td>{{ entry.create_reason }}</td>
+            </tr>
             {% endfor %}
-        </ul>
+        </tbody></table>
     {% endif %}
 {% endblock %}

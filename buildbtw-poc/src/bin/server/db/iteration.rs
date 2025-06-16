@@ -10,7 +10,6 @@ use sqlx::{SqlitePool, types::Json};
 #[derive(sqlx::FromRow)]
 pub(crate) struct DbBuildSetIteration {
     id: uuid::Uuid,
-    #[allow(dead_code)]
     created_at: time::OffsetDateTime,
     namespace_id: uuid::Uuid,
 
@@ -23,6 +22,7 @@ impl From<DbBuildSetIteration> for BuildSetIteration {
     fn from(value: DbBuildSetIteration) -> Self {
         BuildSetIteration {
             id: value.id,
+            created_at: value.created_at,
             packages_to_be_built: value.packages_to_be_built.0,
             origin_changesets: value.origin_changesets.0,
             create_reason: value.create_reason.0,
@@ -34,7 +34,7 @@ impl From<DbBuildSetIteration> for BuildSetIteration {
 pub(crate) async fn create(pool: &SqlitePool, iteration: BuildSetIteration) -> Result<()> {
     let id = uuid::Uuid::new_v4().hyphenated();
     let namespace_id = iteration.namespace_id.hyphenated();
-    let created_at = time::OffsetDateTime::now_utc();
+    let created_at = iteration.created_at;
 
     let packages_to_be_built = Json(iteration.packages_to_be_built);
     let origin_changesets = Json(iteration.origin_changesets);
