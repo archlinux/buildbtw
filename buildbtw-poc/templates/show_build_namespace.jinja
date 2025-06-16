@@ -5,12 +5,16 @@
     <p>Status: {{namespace.status}}</p>
 
     {% if current_iteration %}
-        <h2>Latest iteration</h2>
+        <h2>Iteration {{current_iteration.id}}
+        {% if current_iteration.id == iteration_ids|last %}
+            (latest)
+        {% endif %}
+        </h2>
 
         <h2 style="font-size: 1em;">Architectures</h2>
         {% for other_architecture, _ in current_iteration.packages_to_be_built|items %}
             {% if other_architecture != architecture %}
-                <a href="/namespace/{{namespace.name}}/{{other_architecture}}">{{other_architecture}}</a>
+                <a href="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{other_architecture}}">{{other_architecture}}</a>
             {% else %}
                 <span style="font-weight: bold;">{{other_architecture}}</span>
             {% endif %}
@@ -19,7 +23,7 @@
         {% set graph = current_iteration.packages_to_be_built[architecture] %}
         {% if graph %}
             <p>Pacman repository: <pre>{{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{architecture}}</pre></p>
-            <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
+            <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
             </iframe>
             {% set table_batches = pipeline_table|batch(30) %}
             {% for table in table_batches %}
@@ -58,13 +62,17 @@
     {% endif %}
 
     <h2>All iterations</h2>
-    {% if iterations|length == 0 %}
+    {% if iteration_ids|length == 0 %}
         <p>Calculating packages for first iteration...</p>
     {% else %}
         <ul>
-            {% for iteration in iterations %}
+            {% for id in iteration_ids %}
                 <li>
-                    {{ iteration.id }}
+                {% if id == current_iteration.id%}
+                    <span style="font-weight: bold;">{{id}}</span>
+                {% else %}
+                    <a href="/namespace/{{namespace.name}}/{{id}}">{{ id }}</a>
+                {% endif %}
                 </li>
             {% endfor %}
         </ul>

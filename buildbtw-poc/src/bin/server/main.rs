@@ -22,7 +22,7 @@ use with_content_type::{ApplicationJson, with_content_type};
 
 use crate::{
     args::{Args, Command},
-    routes::show_build_namespace_architecture,
+    routes::{show_build_namespace_iteration, show_build_namespace_iteration_architecture},
 };
 use buildbtw_poc::pacman_repo::REPO_DIR;
 
@@ -105,9 +105,10 @@ async fn main() -> Result<()> {
                     post(create_namespace_iteration),
                 )
                 .route("/namespace/{name}", get(show_build_namespace))
-                .route("/namespace/{name}/{architecture}", get(show_build_namespace_architecture))
+                .route("/namespace/{name}/{iteration}", get(show_build_namespace_iteration))
+                .route("/namespace/{name}/{iteration}/{architecture}", get(show_build_namespace_iteration_architecture))
                 .route(
-                    "/namespace/{name}/{architecture}/graph",
+                    "/namespace/{name}/{iteration_id}/{architecture}/graph",
                     get(render_build_namespace_graph),
                 )
                 .route("/latest_namespace", get(render_latest_namespace))

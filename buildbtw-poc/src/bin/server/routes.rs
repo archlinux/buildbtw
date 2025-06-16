@@ -97,7 +97,8 @@ pub(crate) async fn render_latest_namespace(
 ) -> Result<Html<String>, ResponseError> {
     let namespace = db::namespace::read_latest(&state.db_pool).await?;
 
-    show_build_namespace_architecture(Path((namespace.name, None)), State(state)).await
+    show_build_namespace_iteration_architecture(Path((namespace.name, None, None)), State(state))
+        .await
 }
 
 #[debug_handler]
@@ -105,7 +106,16 @@ pub(crate) async fn show_build_namespace(
     Path(namespace_name): Path<String>,
     state: State<AppState>,
 ) -> Result<Html<String>, ResponseError> {
-    show_build_namespace_architecture(Path((namespace_name, None)), state).await
+    show_build_namespace_iteration_architecture(Path((namespace_name, None, None)), state).await
+}
+
+#[debug_handler]
+pub(crate) async fn show_build_namespace_iteration(
+    Path((namespace_name, iteration_id)): Path<(String, Option<Uuid>)>,
+    state: State<AppState>,
+) -> Result<Html<String>, ResponseError> {
+    show_build_namespace_iteration_architecture(Path((namespace_name, iteration_id, None)), state)
+        .await
 }
 
 #[derive(Serialize)]
@@ -163,21 +173,30 @@ fn default_architecture_for_namespace(
 }
 
 #[debug_handler]
-pub(crate) async fn show_build_namespace_architecture(
-    Path((namespace_name, architecture)): Path<(String, Option<ConcreteArchitecture>)>,
+pub(crate) async fn show_build_namespace_iteration_architecture(
+    Path((namespace_name, iteration_id, architecture)): Path<(
+        String,
+        Option<Uuid>,
+        Option<ConcreteArchitecture>,
+    )>,
     State(state): State<AppState>,
 ) -> Result<Html<String>, ResponseError> {
     let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool).await?;
     let iterations = db::iteration::list(&state.db_pool, namespace.id).await?;
 
     let mut pipeline_table = None;
-    let current_iteration = iterations.last();
+    let current_iteration = if let Some(id) = iteration_id {
+        Some(db::iteration::read(&state.db_pool, id).await?)
+    } else {
+        iterations.last().cloned()
+    };
+    let iteration_ids: Vec<_> = iterations.iter().map(|iteration| iteration.id).collect();
     // If no architecture was specified, take a default one from the current iteration.
     let (architecture, build_graph) =
-        default_architecture_for_namespace(architecture, current_iteration);
+        default_architecture_for_namespace(architecture, current_iteration.as_ref());
 
     if let (Some(current_iteration), Some(architecture), Some(build_graph)) =
-        (current_iteration, architecture, build_graph)
+        (&current_iteration, architecture, build_graph)
     {
         let mut table_entries = Vec::new();
         for node in build_graph.node_weights() {
@@ -215,7 +234,7 @@ pub(crate) async fn show_build_namespace_architecture(
     let rendered = template
         .render(context! {
             namespace => namespace,
-            iterations => iterations,
+            iteration_ids => iteration_ids,
             current_iteration => current_iteration,
             pipeline_table => pipeline_table,
             base_url => state.base_url,
@@ -228,22 +247,15 @@ pub(crate) async fn show_build_namespace_architecture(
 
 #[debug_handler]
 pub(crate) async fn render_build_namespace_graph(
-    Path((namespace_name, architecture)): Path<(String, ConcreteArchitecture)>,
+    Path((_namespace_name, iteration_id, architecture)): Path<(String, Uuid, ConcreteArchitecture)>,
     State(state): State<AppState>,
-) -> Result<Html<String>, StatusCode> {
-    let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let iterations = db::iteration::list(&state.db_pool, namespace.id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+) -> ResponseResult<Html<String>> {
+    let iteration = db::iteration::read(&state.db_pool, iteration_id).await?;
 
-    let latest_packages_to_be_built = &iterations
-        .last()
-        .ok_or(StatusCode::PROCESSING)?
+    let latest_packages_to_be_built = iteration
         .packages_to_be_built
         .get(&architecture)
-        .ok_or(StatusCode::NOT_FOUND)?;
+        .ok_or(ResponseError::NotFound("Build Graph"))?;
 
     let dot_output = petgraph::dot::Dot::with_attr_getters(
         latest_packages_to_be_built,
