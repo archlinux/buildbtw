@@ -251,7 +251,20 @@ pub async fn gather_packages_metadata(
         // TODO: parallelize
         for dir in read_dir("./source_repos")? {
             let dir = dir?;
-            let repo = Repository::open(dir.path())?;
+            let repo = match Repository::open(dir.path()) {
+                Ok(repo) => repo,
+                Err(e) => {
+                    match e.code() {
+                        // Allow arbitrary files that are not git repos
+                        // inside the source_repos dir, such as
+                        // CACHEDIR.TAG (https://bford.info/cachedir/)
+                        git2::ErrorCode::NotFound => {
+                            continue;
+                        }
+                        _ => return Err(anyhow::Error::new(e)),
+                    }
+                }
+            };
             // If this package is in the origin changesets, use the git ref
             // specified there instead of "main".
             let origin_changeset_branch =
