@@ -3,24 +3,13 @@ set -o nounset -o errexit -o pipefail -o xtrace
 
 # https://docs.gitlab.com/runner/executors/custom/#config
 config() {
-    # Set a custom build directory for cloning package sources.
-    # Since we're cloning sources outside of VMs
-    # until https://github.com/svenstaro/vmexec/issues/12 is fixed,
-    # we need to make sure build dirs don't conflict with each other
-    cat << EOS
-        {
-          "builds_dir": "/srv/buildbtw/gitlab-builds/${CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID}/${CUSTOM_ENV_CI_PROJECT_PATH_SLUG}",
-          "cache_dir": "/srv/buildbtw/gitlab-cache/${CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID}/${CUSTOM_ENV_CI_PROJECT_PATH_SLUG}"
-        }
-EOS
+    :
 }
 
 # https://docs.gitlab.com/runner/executors/custom.html#prepare
 prepare() {
-    # Pull image if it doesn't exist and make sure a booted snapshot is available.
-    # temporarily disabled for easier debugging
-    # vmexec run archlinux --pull newer --pmem /var/lib/archbuild:30 -- echo 'VM started'
-    :
+    # Start the VM
+    vmexec run archlinux --detach --pull newer --pmem /var/lib/archbuild:50 -- echo 'VM started'
 }
 
 # https://docs.gitlab.com/runner/executors/custom.html#run
