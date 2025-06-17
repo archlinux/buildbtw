@@ -52,7 +52,7 @@ This project has four major components:
     ```
     Host buildbtw-dev
         User <user>
-        HostName 65.108.133.94
+        HostName buildbtw-dev.pkgbuild.com
     ```
 <!-- TODO add link to user guide here -->
 1. Dispatch a build using the client: `just run-client new openimageio/main`
