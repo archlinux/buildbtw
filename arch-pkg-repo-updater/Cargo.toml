@@ -14,13 +14,16 @@ anyhow.workspace = true
 buildbtw-poc.workspace = true
 clap.workspace = true
 console-subscriber.workspace = true
+directories.workspace = true
 gitlab.workspace = true
 redact.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+time.workspace = true
 tokio.workspace = true
-tracing.workspace = true
+toml.workspace = true
 tracing-subscriber.workspace = true
+tracing.workspace = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
