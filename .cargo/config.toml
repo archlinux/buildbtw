@@ -1,0 +1,4 @@
+[build]
+# Required for collecting tokio task data
+# See https://github.com/tokio-rs/console?tab=readme-ov-file#instrumenting-your-program
+rustflags = ["--cfg", "tokio_unstable"]

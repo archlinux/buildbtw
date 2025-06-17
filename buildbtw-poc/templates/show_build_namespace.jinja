@@ -1,0 +1,91 @@
+{% extends "layout" %}
+{% block title %}build namespace <a href="/namespace/{{namespace.name}}">{{namespace.name}} ({{namespace.status}})</a>{% endblock %}
+{% block body %}
+    {% if current_iteration %}
+        <h2>Iteration {{current_iteration.id}}
+        {% if current_iteration.id == (iteration_table|last).id %}
+            (latest)
+        {% endif %}
+        </h2>
+
+        Created: {{current_iteration.created_at}}, reason: {{current_iteration.create_reason}}
+
+        <h2 style="font-size: 1em;">Architectures</h2>
+        {% for other_architecture in current_iteration.architectures %}
+            {% if other_architecture != architecture %}
+                <a href="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{other_architecture}}">{{other_architecture}}</a>
+            {% else %}
+                <span style="font-weight: bold;">{{other_architecture}}</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if pipeline_table %}
+            <p>Pacman repository: <pre>{{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{architecture}}</pre></p>
+            <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
+            </iframe>
+            {% set table_batches = pipeline_table|batch(30) %}
+            {% for table in table_batches %}
+                {# Hide all batches after the first one, allowing the user to unfold them one by one via nested details elements. #}
+                {% if not loop.first %}
+                    <details><summary>Show more</summary>
+                {% endif %}
+
+                <table><tbody>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Pkgbase</th>
+                    </tr>
+                </thead>
+                {% for entry in table %}
+                    <tr>
+                        <td>{{entry.status_icon}} {{entry.status_description}}:</td>
+                        <td>
+                            {% if entry.gitlab_url %}
+                                <a href="{{entry.gitlab_url}}">{{entry.pkgbase}}</a>
+                            {% else %}
+                                {{entry.pkgbase}}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody></table>
+            {% endfor %}
+
+            {# Close all the nested details elements we opened in the loop above. #}
+            {% for _ in range(1, table_batches|length) %}
+                </details>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+
+    <h2>All iterations</h2>
+    {% if iteration_table|length == 0 %}
+        <p>Calculating packages for first iteration...</p>
+    {% else %}
+        <table><tbody>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Created</th>
+                <th>Create reason</th>
+            </tr>
+        </thead>
+            {% for entry in iteration_table %}
+            <tr>
+                <td>
+                {% if current_iteration.id == entry.id%}
+                    <span style="font-weight: bold;">{{entry.id}}</span>
+                {% else %}
+                    <a href="/namespace/{{namespace.name}}/{{entry.id}}">{{ entry.id }}</a>
+                {% endif %}
+                </td>
+                <td>
+                    {{ entry.created_at }}
+                </td>
+                <td>{{ entry.create_reason }}</td>
+            </tr>
+            {% endfor %}
+        </tbody></table>
+    {% endif %}
+{% endblock %}

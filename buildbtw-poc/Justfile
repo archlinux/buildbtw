@@ -1,0 +1,129 @@
+set dotenv-load := true
+set working-directory := '..'
+
+[doc("List recipes")]
+default:
+    just --justfile buildbtw-poc/Justfile --list
+
+[doc("Build in debug mode")]
+[group("build")]
+build:
+    cargo build
+
+[doc("Build in release mode")]
+[group("build")]
+build-release:
+    cargo build --release
+
+[doc("Clean workspace")]
+clean:
+    cargo clean -p buildbtw-poc
+
+[doc("Run server")]
+[group("server")]
+run-server *args: create-db
+    cargo run --bin server -- run {{ args }}
+
+[doc("Run server and auto-restart on code changes")]
+[group("server")]
+watch-server *args: create-db
+    systemfd --no-pid -s http::8080 -- cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w Cargo.toml -w buildbtw-poc/Cargo.toml -- just --justfile buildbtw-poc/Justfile run-server {{ args }}
+
+[doc("Start a reverse SSH tunnel to your local server")]
+[group("server")]
+reverse-tunnel:
+    echo "Running SSH reverse tunnel here, don't close this terminal"
+    ssh -NR 8080:0.0.0.0:8080 buildbtw-dev
+
+[doc("Run client")]
+[group("client")]
+run-client *args:
+    cargo run --bin client -- {{ args }}
+
+[doc("Run client and auto-restart on code changes")]
+[group("client")]
+watch-client *args:
+    cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile run-client {{ args }}
+
+[doc("Run worker")]
+[group("worker")]
+run-worker *args:
+    cargo run --bin worker -- run {{ args }}
+
+[doc("Run worker (builds fake PKGBUILDs for faster local testing)")]
+[group("worker")]
+run-worker-fake *args:
+    cargo run --bin worker --features fake-pkgbuild -- run {{ args }}
+
+# TODO `cargo watch` interferes with stdin handling,
+# so the worker can't ask for a password to use sudo :/
+[doc("Run worker and auto-restart on code changes")]
+[group("worker")]
+watch-worker *args:
+    cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile run-worker {{ args }}
+
+[doc("Run tests")]
+[group("test")]
+test *args:
+    cargo test --package buildbtw-poc {{ args }}
+
+[doc("Run tests and auto-rerun on code changes")]
+[group("test")]
+watch-test *args:
+    cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile test {{ args }}
+
+[doc("Download GitLab GraphQL API schema")]
+update-graphql-schema:
+    graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output buildbtw-poc/src/gitlab/gitlab_schema.json
+
+[doc("Check for security advisories and license compliance in deps")]
+[group("check")]
+deny:
+    cargo deny check
+
+[doc("Automatically fix lints and formatting")]
+[group("check")]
+lint-fix:
+    just lint --package buildbtw-poc --fix --allow-staged
+    cargo fmt --package buildbtw-poc
+
+[doc("Check lints and formatting")]
+[group("check")]
+lint *args:
+    cargo clippy --package buildbtw-poc --all-targets {{args}} -- -D warnings
+    cargo fmt --package buildbtw-poc -- --check
+
+[doc("Create and migrate database")]
+[group("db")]
+create-db: && migrate-db
+    sqlx db create
+
+[doc("Run database migrations")]
+[group("db")]
+migrate-db:
+    sqlx migrate run --source buildbtw-poc/migrations
+
+[doc("Drop and re-create database")]
+[group("db")]
+reset-db: && create-db
+    sqlx db drop
+
+[doc("Deploy GitLab custom runner")]
+deploy-custom-runner:
+    # Make sure /etc/gitlab-runner/config.toml on buildbtw-dev has this:
+    # [[runners]]
+    #   name = "buildbtw-dev"
+    #   url = "https://gitlab.archlinux.org"
+    #   ...
+    #   executor = "custom"
+    #   [runners.custom]
+    #     config_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     config_args = [ "config" ]
+    #     prepare_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     prepare_args = [ "prepare" ]
+    #     run_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     run_args = [ "run" ]
+    #     cleanup_exec = "/srv/buildbtw/gitlab-executor/buildbtw-executor.sh"
+    #     cleanup_args = [ "cleanup" ]
+    cat buildbtw-poc/infrastructure/buildbtw-executor.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/buildbtw-executor.sh > /dev/null
+    cat buildbtw-poc/infrastructure/build-inside-vm.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/build-inside-vm.sh > /dev/null

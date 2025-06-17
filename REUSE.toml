@@ -1,0 +1,45 @@
+SPDX-PackageDownloadLocation = "https://gitlab.archlinux.org/archlinux/buildbtw"
+SPDX-PackageName = "buildbtw"
+SPDX-PackageSupplier = "Arch Linux"
+version = 1
+
+[[annotations]]
+SPDX-FileCopyrightText = "buildbtw Contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+path = [
+    "**.sh",
+    "**.rs",
+    "**.jinja",
+    "**.sql",
+    "**.css",
+]
+
+[[annotations]]
+SPDX-FileCopyrightText = "buildbtw Contributors"
+SPDX-License-Identifier = "0BSD"
+path = [
+    "**/Containerfile",
+    ".editorconfig",
+    "**.git",
+    "**.gitattributes",
+    "**.toml",
+    "**.json",
+    "*.lock",
+    "**.sqlite",
+    "**.graphql",
+    "**.json",
+    "**.yml",
+    ".env*",
+    ".gitignore",
+    ".gitlab/**",
+    "**/Justfile",
+]
+
+[[annotations]]
+SPDX-FileCopyrightText = "buildbtw Contributors"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+path = [
+    "**.md",
+    "notes/**",
+]
+precedence = "aggregate"

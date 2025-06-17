@@ -1,0 +1,14 @@
+query ChangedProjects($after: String, $group: ID!) {
+    group(fullPath: $group) {
+        projects(sort: ACTIVITY_DESC, after: $after) {
+            nodes {
+                name
+                updatedAt
+            }
+            pageInfo {
+                endCursor
+                hasNextPage
+            }
+        }
+    }
+}

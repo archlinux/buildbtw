@@ -1,29 +1,16 @@
-# buildbtw
+# buildbtw software collection
 
-A service for assisting Arch Linux staff with building new versions of packages.
+## Projects
 
-## Roadmap
+This repo contains a bunch of software maintained by the buildbtw team.
+Check the respective directories for their READMEs.
 
-1. [Collect initial user stories](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/7)
-1. [Build an exploratory PoC](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/3) to discover unknown unknowns and validate the approach we've planned
-1. [Write RFC, outlining major components & architecture](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/4)
-1. [Build and deploy MVP](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/5)
-1. Iterate on the MVP to improve the service, writing new RFCs and requirements as needed
+- [buildbtw-poc](/buildbtw-poc) - the proof of concept buildbtw implementation
 
-The proof of concept will contain some code. This is only to gain a better understanding of the tradeoffs involved in the components and functionality we'll propose in the RFC. 
+## Commands
 
-## Project Management
+There are a bunch of commands you can run at this level:
 
-We're using the issue tracker for requirements and user stories. We're planning to use labels to allow filtering the issues:
-
-- by priority: "must", "should", "could"
-- by effort: XL, L, M, S
-- by type: feature, bug, docs, refactor, ...
-
-We'll group issues using epics.
-
-Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder. 
-
-## FAQ
-
-It's pronounced "buildbytheway".
+- `just ci-dev` to check whether the repo as a whole would pass CI
+- `just licenses` to check license compliance
+    - Requirement: `reuse` (`pacman -S reuse`)

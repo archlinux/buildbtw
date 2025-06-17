@@ -1,0 +1,6 @@
+/target
+source_repos
+build
+data
+.env
+*.sqlite*
