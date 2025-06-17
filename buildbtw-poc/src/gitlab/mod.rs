@@ -183,7 +183,7 @@ pub async fn create_pipeline(
     let package_file_names = build
         .srcinfo
         .packages_for_architecture(*build.architecture.as_ref())
-        .map(|p| package_file_name(&p).to_string())
+        .map(|p| package_file_name(&p, &build.srcinfo).to_string())
         .collect::<Vec<_>>()
         .join(" ");
     let vars = [

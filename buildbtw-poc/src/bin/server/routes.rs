@@ -420,7 +420,7 @@ pub async fn upload_package(
 
     // TODO this is probably paranoid, but I think a version like `../../../../../etc/passwd` might actually be valid
     // An attack like that would require a malicious .SRCINFO, though
-    let path = repo_path.join(package_file_name(&package));
+    let path = repo_path.join(package_file_name(&package, &node.srcinfo));
     if tokio::fs::try_exists(&path).await? {
         // This should only happen if a builder was temporarily unreachable
         // so the build got scheduled elsewhere as well
@@ -430,7 +430,7 @@ pub async fn upload_package(
     // TODO ensure no package exists for the given build yet
     stream_to_file(&path, request.into_body().into_data_stream()).await?;
 
-    add_to_repo(&namespace.name, iteration.id, architecture, &package).await?;
+    add_to_repo(&repo_path, &package, &node.srcinfo).await?;
 
     Ok(())
 }

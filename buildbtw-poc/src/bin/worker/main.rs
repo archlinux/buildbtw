@@ -111,7 +111,7 @@ async fn upload_packages(
     for package in srcinfo.packages_for_architecture(*architecture.as_ref()) {
         // Build path to the file we'll send
         let dir = build_path(*iteration, &source.0);
-        let path = dir.join(package_file_name(&package));
+        let path = dir.join(package_file_name(&package, srcinfo));
 
         // Convert path into async stream body
         let file = tokio::fs::File::open(&path).await.wrap_err(path)?;

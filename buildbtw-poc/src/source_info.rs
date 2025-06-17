@@ -122,29 +122,38 @@ pub fn package_for_architecture(
         .find(|p| p.name.as_ref() == pkgname)
 }
 
-pub fn build_outputs(
-    source_info: &SourceInfo,
-    architecture: ConcreteArchitecture,
-) -> Vec<Utf8PathBuf> {
-    source_info
-        .packages_for_architecture(*architecture.as_ref())
-        .map(|p| package_file_name(&p))
-        .collect()
-}
-
+/// Take a split package for a specific architecture and predict the
+/// name of the package file `makepkg` will generate.
+/// Additionally takes a [SourceInfo] struct to find out if the package
+/// is for the `any` architecture.
 pub fn package_file_name(
     MergedPackage {
         name,
         package_version,
         package_release,
+        architecture,
         ..
     }: &MergedPackage,
+    srcinfo: &SourceInfo,
 ) -> Utf8PathBuf {
+    // Find the architectures of this split package by checking the split package overrides and taking the base architectures as a fallback.
+    let package_architectures = srcinfo
+        .packages
+        .iter()
+        .find(|p| &p.name == name)
+        .and_then(|package| package.architectures.as_ref())
+        .unwrap_or(&srcinfo.base.architectures);
+    // The architecture from MergedPackage actually reflects the architecture of the whole build graph.
+    // For any packages, the filename will instead contain "any".
+    let actual_architecture = if package_architectures.contains(&Architecture::Any) {
+        &Architecture::Any
+    } else {
+        architecture
+    };
     // TODO: make it work for all compression formats
-    // TODO: make it work for different arches
     // We'll probably have to pass in a directory to search for package files
     // here, similar to `find_cached_package` in devtools
     // (parsing makepkg output seems like an ugly alternative)
     // Note: Don't use `ConcreteArchitecture` to determine the architecture in the filename as the filename will contain `any` instead of the concrete architecture
-    format!("{name}-{package_version}-{package_release}-x86_64.pkg.tar.zst").into()
+    format!("{name}-{package_version}-{package_release}-{actual_architecture}.pkg.tar.zst").into()
 }
