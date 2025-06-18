@@ -9,7 +9,7 @@ pub type ResponseResult<T> = std::result::Result<T, ResponseError>;
 #[derive(Debug, Error)]
 pub enum ResponseError {
     #[error("Unknown error")]
-    Anyhow(#[from] anyhow::Error),
+    Eyre(#[from] color_eyre::eyre::Error),
     #[error("Unknown error")]
     IO(#[from] std::io::Error),
     #[error("Given {0} not found")]
@@ -20,7 +20,7 @@ impl IntoResponse for ResponseError {
     fn into_response(self) -> Response {
         tracing::error!("{self:?}");
         let status = match self {
-            ResponseError::Anyhow(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ResponseError::Eyre(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::IO(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
@@ -32,7 +32,7 @@ impl From<sqlx::Error> for ResponseError {
     fn from(value: sqlx::Error) -> Self {
         match value {
             sqlx::Error::RowNotFound => Self::NotFound("database entity"),
-            other => Self::Anyhow(other.into()),
+            other => Self::Eyre(other.into()),
         }
     }
 }

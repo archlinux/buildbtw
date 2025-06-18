@@ -15,12 +15,12 @@ fake-pkgbuild = []
 [dependencies]
 alpm-srcinfo.workspace = true
 alpm-types.workspace = true
-anyhow.workspace = true
 axum = { version = "0.8.1", features = ["http2", "macros"] }
 axum-extra = "0.10.0"
 axum-server = "0.7.1"
 camino = { version = "1.1.9", features = ["serde", "serde1"] }
 clap.workspace = true
+color-eyre.workspace = true
 colored.workspace = true
 console-subscriber.workspace = true
 criterion = { version = "0.6" }

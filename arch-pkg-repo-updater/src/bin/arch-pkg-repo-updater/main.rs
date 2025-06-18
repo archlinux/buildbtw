@@ -1,6 +1,6 @@
 use ::gitlab::{AsyncGitlab, GitlabBuilder};
-use anyhow::{Context, Result};
 use clap::Parser;
+use color_eyre::eyre::{Result, WrapErr};
 
 use buildbtw_poc::gitlab::fetch_all_source_repo_changes;
 
@@ -15,7 +15,7 @@ async fn new_gitlab_client(args: &args::Gitlab) -> Result<AsyncGitlab> {
     )
     .build_async()
     .await
-    .context("Failed to create gitlab client")
+    .wrap_err("Failed to create gitlab client")
 }
 
 #[tokio::main]
@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     tracing::init(args.verbose, true);
+    color_eyre::install()?;
 
     let mut state = State::from_filesystem()?;
     let client = new_gitlab_client(&args.gitlab).await?;

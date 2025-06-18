@@ -2,7 +2,7 @@
 use std::collections::{HashSet, VecDeque};
 use std::{collections::HashMap, fs::read_dir};
 
-use anyhow::{Context, Result, anyhow};
+use color_eyre::eyre::{Context, Result, bail, eyre};
 use git2::Repository;
 use petgraph::Directed;
 use petgraph::visit::{Bfs, EdgeRef, Walker};
@@ -115,9 +115,9 @@ pub async fn calculate_packages_to_be_built(
     );
     let packages_metadata = gather_packages_metadata(namespace.current_origin_changesets.clone())
         .await
-        .context("Error mapping package names to srcinfo")?;
+        .wrap_err("Error mapping package names to srcinfo")?;
     let global_graphs = build_global_dependency_graphs(&packages_metadata)
-        .context("Failed to build global graph of dependents")?;
+        .wrap_err("Failed to build global graph of dependents")?;
 
     tracing::debug!("Calculating build set graph");
 
@@ -169,12 +169,12 @@ async fn calculate_packages_to_be_built_inner(
     // add root nodes from our build namespace so we can start walking the graph
     for (pkgbase, _) in &namespace.current_origin_changesets {
         let PackageMetadata { source_info, .. } = packages_metadata.by_pkgbase(pkgbase).ok_or(
-            anyhow!(r#"Missing source info for origin changeset "{pkgbase}""#),
+            eyre!(r#"Missing source info for origin changeset "{pkgbase}""#),
         )?;
         for package in source_info.packages_for_architecture(*architecture.as_ref()) {
             let pkgname = package.name.to_string();
             let node_index = global_graph.index_map.get(&pkgname).ok_or_else(|| {
-                anyhow!("Failed to get graph index for pkgname {pkgname} ({architecture:?})")
+                eyre!("Failed to get graph index for pkgname {pkgname} ({architecture:?})")
             })?;
             nodes_to_visit.push_back((None, *node_index))
         }
@@ -187,10 +187,10 @@ async fn calculate_packages_to_be_built_inner(
         let package_node = global_graph
             .graph
             .node_weight(global_node_index_to_visit)
-            .ok_or_else(|| anyhow!("Failed to find node in global dependency graph"))?;
+            .ok_or_else(|| eyre!("Failed to find node in global dependency graph"))?;
         let package_metadata @ PackageMetadata { source_info, .. } = packages_metadata
             .by_pkgname(&package_node.pkgname)
-            .ok_or_else(|| anyhow!("Failed to get srcinfo for pkgname {}", package_node.pkgname))?;
+            .ok_or_else(|| eyre!("Failed to get srcinfo for pkgname {}", package_node.pkgname))?;
         let pkgbase = source_info.base.name.clone().into();
 
         // Create build graph node if it doesn't exist
@@ -233,7 +233,7 @@ async fn calculate_packages_to_be_built_inner(
     if petgraph::algo::is_cyclic_directed(&packages_to_be_built) {
         // TODO this causes the system to periodically try to recreate this iteration
         // TODO display this in the web UI properly
-        return Err(anyhow!("Build graph contains cycles"));
+        bail!("Build graph contains cycles");
     }
 
     Ok(packages_to_be_built)
@@ -261,7 +261,7 @@ pub async fn gather_packages_metadata(
                         git2::ErrorCode::NotFound => {
                             continue;
                         }
-                        _ => return Err(anyhow::Error::new(e)),
+                        _ => bail!(e),
                     }
                 }
             };
@@ -277,7 +277,7 @@ pub async fn gather_packages_metadata(
             let branch = origin_changeset_branch.map_or("main", |v| v);
 
             let mut handle_file = || -> Result<()> {
-                let source_info = read_srcinfo_from_repo(&repo, branch).context(format!(
+                let source_info = read_srcinfo_from_repo(&repo, branch).wrap_err(format!(
                     "Failed to read .SRCINFO from repo at {:?}",
                     dir.path()
                 ))?;
@@ -322,7 +322,7 @@ pub async fn gather_packages_metadata(
         })
     })
     .await
-    .context("Failed to build dependency graph")?
+    .wrap_err("Failed to build dependency graph")?
 }
 
 // For all architectures we can find, build a graph

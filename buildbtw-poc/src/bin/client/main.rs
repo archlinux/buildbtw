@@ -1,10 +1,12 @@
-use crate::args::{Args, Command};
-use anyhow::{Context, Result};
-use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef};
 use clap::Parser;
+use color_eyre::eyre::{Context, Result};
 use colored::Colorize;
 use reqwest::header::ACCEPT;
 use time::format_description;
+
+use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef};
+
+use crate::args::{Args, Command};
 
 mod args;
 
@@ -12,6 +14,7 @@ mod args;
 async fn main() -> Result<()> {
     let args = Args::parse();
     buildbtw_poc::tracing::init(args.verbose, false);
+    color_eyre::install()?;
     tracing::debug!("{args:?}");
 
     match args.command {
@@ -43,7 +46,7 @@ async fn update_namespace(name: String, status: BuildNamespaceStatus) -> Result<
         .json(&update)
         .send()
         .await
-        .context("Failed to send to server")?;
+        .wrap_err("Failed to send to server")?;
 
     tracing::trace!("{response:#?}");
 
@@ -65,7 +68,7 @@ async fn create_namespace(
         .json(&create)
         .send()
         .await
-        .context("Failed to send to server")?
+        .wrap_err("Failed to send to server")?
         .json()
         .await?;
 

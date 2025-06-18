@@ -1,15 +1,16 @@
 use std::net::{SocketAddr, TcpListener};
 
-use anyhow::{Context, Result};
 use axum::{Json, Router, debug_handler, extract::State, routing::post};
 use clap::Parser;
+use color_eyre::eyre::{Context, Result};
 use listenfd::ListenFd;
 use reqwest::Body;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use crate::args::{Args, Command};
 use buildbtw_poc::{ScheduleBuild, build_package::build_path, source_info::package_file_name};
+
+use crate::args::{Args, Command};
 
 mod args;
 mod tasks;
@@ -27,7 +28,7 @@ async fn schedule_build(
     state
         .worker_sender
         .send(tasks::Message::BuildPackage(body))
-        .context("Failed to dispatch worker job")
+        .wrap_err("Failed to dispatch worker job")
         .unwrap();
 
     // TODO: return a proper response that can fail?
@@ -38,6 +39,7 @@ async fn schedule_build(
 async fn main() -> Result<()> {
     let args = Args::parse();
     buildbtw_poc::tracing::init(args.verbose, false);
+    color_eyre::install()?;
     tracing::debug!("{args:?}");
 
     match args.command {
@@ -89,7 +91,7 @@ async fn set_build_status(
         .json(&data)
         .send()
         .await
-        .context("Failed to send to server")?
+        .wrap_err("Failed to send to server")?
         .error_for_status()?;
 
     tracing::info!("Sent build status to server");
@@ -112,7 +114,7 @@ async fn upload_packages(
         let path = dir.join(package_file_name(&package));
 
         // Convert path into async stream body
-        let file = tokio::fs::File::open(&path).await.context(path)?;
+        let file = tokio::fs::File::open(&path).await.wrap_err(path)?;
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
 

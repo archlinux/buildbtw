@@ -1,6 +1,5 @@
 use std::net::{SocketAddr, TcpListener};
 
-use anyhow::Result;
 use axum::{
     Router,
     response::Redirect,
@@ -8,18 +7,19 @@ use axum::{
 };
 use axum_extra::handler::HandlerCallWithExtractors;
 use clap::Parser;
+use color_eyre::Result;
 use listenfd::ListenFd;
-use routes::{
-    create_build_namespace, create_namespace_iteration, list_namespaces_html, list_namespaces_json,
-    render_build_namespace_graph, render_latest_namespace, set_build_status, show_build_namespace,
-    update_namespace, upload_package,
-};
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use url::Url;
 use with_content_type::{ApplicationJson, with_content_type};
 
+use crate::routes::{
+    create_build_namespace, create_namespace_iteration, list_namespaces_html, list_namespaces_json,
+    render_build_namespace_graph, render_latest_namespace, set_build_status, show_build_namespace,
+    update_namespace, upload_package,
+};
 use crate::{
     args::{Args, Command},
     routes::{show_build_namespace_iteration, show_build_namespace_iteration_architecture},
@@ -50,6 +50,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     buildbtw_poc::tracing::init(args.verbose, true);
+    color_eyre::install()?;
 
     tracing::debug!("{args:#?}");
 

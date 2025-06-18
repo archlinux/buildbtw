@@ -1,12 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
+use color_eyre::eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use crate::{
     BuildNamespace, BuildNamespaceStatus, BuildSetIteration,
     build_set_graph::{self, BuildSetGraph, calculate_packages_to_be_built, diff_graphs},
     source_info::ConcreteArchitecture,
 };
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum NewIterationReason {

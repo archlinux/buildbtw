@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::Result;
 use sqlx::SqlitePool;
 use time::format_description::well_known::Iso8601;
 
@@ -49,7 +49,7 @@ pub(crate) async fn get_gitlab_last_updated(
 ) -> Result<Option<time::OffsetDateTime>> {
     let date_string = sqlx::query!(
         r#"
-            select gitlab_last_updated 
+            select gitlab_last_updated
             from global_state
         "#,
     )

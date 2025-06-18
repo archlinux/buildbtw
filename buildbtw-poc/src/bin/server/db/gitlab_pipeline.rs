@@ -1,9 +1,10 @@
-use anyhow::{Context, Result};
-use buildbtw_poc::{Pkgbase, source_info::ConcreteArchitecture};
+use color_eyre::eyre::{Context, Result};
 use serde::Serialize;
 use sqlx::SqlitePool;
 use url::Url;
 use uuid::Uuid;
+
+use buildbtw_poc::{Pkgbase, source_info::ConcreteArchitecture};
 
 #[derive(sqlx::FromRow, Serialize)]
 pub struct DbGitlabPipeline {
@@ -40,7 +41,7 @@ pub async fn create(pool: &SqlitePool, pipeline: CreateDbGitlabPipeline) -> Resu
 
     sqlx::query!(
         r#"
-        insert into gitlab_pipelines 
+        insert into gitlab_pipelines
         (id, build_set_iteration_id, pkgbase, architecture, project_gitlab_iid, gitlab_iid, gitlab_url)
         values ($1, $2, $3, $4, $5, $6, $7)
         "#,
@@ -68,8 +69,8 @@ pub async fn read_by_iteration_and_pkgbase_and_architecture(
     sqlx::query_as!(
         DbGitlabPipeline,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
+        select
+            id as "id: uuid::fmt::Hyphenated",
             build_set_iteration_id as "build_set_iteration_id: uuid::fmt::Hyphenated",
             pkgbase,
             architecture as "architecture: ConcreteArchitecture",
@@ -85,5 +86,5 @@ pub async fn read_by_iteration_and_pkgbase_and_architecture(
     )
     .fetch_optional(pool)
     .await
-    .context("Failed to read gitlab pipeline from DB")
+    .wrap_err("Failed to read gitlab pipeline from DB")
 }

@@ -1,8 +1,8 @@
 use std::sync::LazyLock;
 
 use alpm_srcinfo::MergedPackage;
-use anyhow::Result;
 use camino::Utf8PathBuf;
+use color_eyre::eyre::Result;
 use tokio::process::Command;
 use uuid::Uuid;
 

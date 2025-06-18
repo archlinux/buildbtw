@@ -1,18 +1,19 @@
-use anyhow::{Context, Result};
-use buildbtw_poc::GitRepoRef;
 use clap::{Parser, Subcommand};
+use color_eyre::eyre::{OptionExt, Result};
+
+use buildbtw_poc::GitRepoRef;
 
 fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
     let split_values: Vec<_> = value.split("/").collect();
     Ok((
         split_values
             .first()
-            .context("Invalid package source reference")?
+            .ok_or_eyre("Invalid package source reference")?
             .to_string()
             .into(),
         split_values
             .get(1)
-            .context("Invalid package source reference")?
+            .ok_or_eyre("Invalid package source reference")?
             .to_string(),
     ))
 }

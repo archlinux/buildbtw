@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use color_eyre::Result;
+use sqlx::{SqlitePool, types::Json};
+
 use buildbtw_poc::{
     BuildSetIteration, GitRepoRef, build_set_graph::BuildSetGraph, iteration::NewIterationReason,
     source_info::ConcreteArchitecture,
 };
-use sqlx::{SqlitePool, types::Json};
 
 #[derive(sqlx::FromRow)]
 pub(crate) struct DbBuildSetIteration {
@@ -42,7 +43,7 @@ pub(crate) async fn create(pool: &SqlitePool, iteration: BuildSetIteration) -> R
 
     sqlx::query!(
         r#"
-        insert into build_set_iterations 
+        insert into build_set_iterations
         (id, created_at, namespace_id, packages_to_be_built, origin_changesets, create_reason)
         values ($1, $2, $3, $4, $5, $6)
         "#,
@@ -67,8 +68,8 @@ pub(crate) async fn read_newest(
     let iteration = sqlx::query_as!(
         DbBuildSetIteration,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
+        select
+            id as "id: uuid::fmt::Hyphenated",
             created_at as "created_at: time::OffsetDateTime",
             namespace_id as "namespace_id: uuid::fmt::Hyphenated",
             packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
@@ -93,8 +94,8 @@ pub(crate) async fn read(pool: &SqlitePool, iteration_id: uuid::Uuid) -> Result<
     let iteration = sqlx::query_as!(
         DbBuildSetIteration,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
+        select
+            id as "id: uuid::fmt::Hyphenated",
             created_at as "created_at: time::OffsetDateTime",
             namespace_id as "namespace_id: uuid::fmt::Hyphenated",
             packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
@@ -122,8 +123,8 @@ pub(crate) async fn list(
     let iterations = sqlx::query_as!(
         DbBuildSetIteration,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
+        select
+            id as "id: uuid::fmt::Hyphenated",
             created_at as "created_at: time::OffsetDateTime",
             namespace_id as "namespace_id: uuid::fmt::Hyphenated",
             packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
@@ -154,7 +155,7 @@ pub(crate) async fn update(pool: &SqlitePool, iteration: BuildSetIterationUpdate
     let packages_to_be_built = Json(iteration.packages_to_be_built);
     sqlx::query!(
         r#"
-        update build_set_iterations 
+        update build_set_iterations
         set packages_to_be_built = $2
         where id = $1
         "#,

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use color_eyre::eyre::{Context, Result, eyre};
 use gitlab::{
     AsyncGitlab,
     api::{
@@ -80,16 +80,16 @@ pub async fn get_changed_projects_since(
         let response = client
             .graphql::<ChangedProjects>(&query_body)
             .await
-            .context("Failed to fetch changed projects")?
+            .wrap_err("Failed to fetch changed projects")?
             .group
-            .ok_or_else(|| anyhow!("Gitlab packaging group not found"))?
+            .ok_or_else(|| eyre!("Gitlab packaging group not found"))?
             .projects;
 
         end_of_last_query = response.page_info.end_cursor;
 
         let projects = response
             .nodes
-            .ok_or_else(|| anyhow!("Missing projects"))?
+            .ok_or_else(|| eyre!("Missing projects"))?
             .into_iter()
             .flatten();
 
@@ -99,7 +99,7 @@ pub async fn get_changed_projects_since(
                     if project
                         .updated_at
                         .as_ref()
-                        .ok_or_else(|| anyhow!("Missing update date for projects"))?
+                        .ok_or_else(|| eyre!("Missing update date for projects"))?
                         .0
                         .le(&last_fetched) =>
                 {
@@ -221,7 +221,7 @@ pub async fn create_pipeline(
             .build()?
             .query_async(client)
             .await
-            .context("Error creating pipeline")?;
+            .wrap_err("Error creating pipeline")?;
 
     tracing::info!("Dispatched build to gitlab: {response:?}");
 
@@ -244,7 +244,7 @@ pub async fn get_pipeline_status(
         .build()?
         .query_async(client)
         .await
-        .context("Error querying Gitlab Pipeline")?;
+        .wrap_err("Error querying Gitlab Pipeline")?;
 
     Ok(response.status)
 }
@@ -309,7 +309,7 @@ pub async fn set_project_ci_config(
     gitlab::api::ignore(endpoint)
         .query_async(client)
         .await
-        .context("Error updating gitlab project config")?;
+        .wrap_err("Error updating gitlab project config")?;
 
     Ok(())
 }

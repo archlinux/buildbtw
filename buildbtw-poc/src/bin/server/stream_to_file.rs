@@ -1,7 +1,7 @@
-use anyhow::{Context, Result};
 use axum::BoxError;
 use axum::body::Bytes;
 use camino::Utf8Path;
+use color_eyre::eyre::{Context, Result};
 use futures::{Stream, TryStreamExt};
 use tokio::fs::File;
 use tokio::io::{self, BufWriter};
@@ -28,5 +28,5 @@ where
         Ok::<_, io::Error>(())
     }
     .await
-    .context("Failed to stream data to file")
+    .wrap_err("Failed to stream data to file")
 }

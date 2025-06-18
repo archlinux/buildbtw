@@ -1,7 +1,12 @@
 use std::time::Duration;
 
 use ::gitlab::{AsyncGitlab, GitlabBuilder};
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Context, Result};
+use sqlx::SqlitePool;
+use tokio::sync::mpsc::UnboundedSender;
+use uuid::Uuid;
+
+use buildbtw_poc::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
 use buildbtw_poc::{
     BuildNamespaceStatus, PackageBuildStatus,
     build_set_graph::{self, schedule_next_build_in_graph},
@@ -9,9 +14,6 @@ use buildbtw_poc::{
     iteration::{NewBuildIterationResult, new_build_set_iteration_is_needed},
     pacman_repo,
 };
-use sqlx::SqlitePool;
-use tokio::sync::mpsc::UnboundedSender;
-use uuid::Uuid;
 
 use crate::{
     args,
@@ -20,7 +22,6 @@ use crate::{
         global_state::{get_gitlab_last_updated, set_gitlab_last_updated},
     },
 };
-use buildbtw_poc::{BuildNamespace, BuildSetIteration, ScheduleBuild, ScheduleBuildResult};
 
 pub enum Message {}
 
@@ -62,7 +63,7 @@ async fn new_gitlab_client(args: &args::Gitlab) -> Result<AsyncGitlab> {
     )
     .build_async()
     .await
-    .context("Failed to create gitlab client")
+    .wrap_err("Failed to create gitlab client")
 }
 
 async fn update_and_build_all_namespaces_in_loop(
@@ -124,7 +125,7 @@ async fn update_and_build_namespace(
     pool: &sqlx::Pool<sqlx::Sqlite>,
     maybe_gitlab_context: Option<&GitlabContext>,
     namespace: &BuildNamespace,
-) -> std::result::Result<(), anyhow::Error> {
+) -> Result<()> {
     create_new_namespace_iteration_if_needed(pool, namespace).await?;
     if let Some(gitlab_context) = maybe_gitlab_context {
         update_build_set_graphs_from_gitlab_pipelines(pool, namespace, gitlab_context).await?;
@@ -383,7 +384,7 @@ async fn schedule_build(
             .json(build)
             .send()
             .await
-            .context("Failed to send to worker")?;
+            .wrap_err("Failed to send to worker")?;
     }
 
     tracing::info!("Scheduled build: {:?}", build.source);

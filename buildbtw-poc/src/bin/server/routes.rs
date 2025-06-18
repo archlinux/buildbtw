@@ -1,7 +1,19 @@
-use anyhow::{Context, Result};
-use axum::extract::{Path, Request};
-use axum::response::Html;
-use axum::{Json, debug_handler, extract::State};
+use axum::{
+    Json, debug_handler,
+    extract::{Path, Request, State},
+    response::Html,
+};
+use color_eyre::eyre::{OptionExt, Result, WrapErr};
+use layout::backends::svg::SVGWriter;
+use layout::gv::{GraphBuilder, parser::DotParser};
+use minijinja::context;
+use petgraph::visit::{EdgeRef, NodeRef};
+use reqwest::StatusCode;
+use serde::Serialize;
+use time::macros::format_description;
+use tokio::fs;
+use uuid::Uuid;
+
 use buildbtw_poc::build_set_graph::{
     BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built,
 };
@@ -9,26 +21,16 @@ use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
 use buildbtw_poc::source_info::{
     ConcreteArchitecture, package_file_name, package_for_architecture,
 };
-use layout::backends::svg::SVGWriter;
-use layout::gv::{GraphBuilder, parser::DotParser};
-use minijinja::context;
-use petgraph::visit::EdgeRef;
-use petgraph::visit::NodeRef;
-use reqwest::StatusCode;
-use serde::Serialize;
-use time::macros::format_description;
-use tokio::fs;
-use uuid::Uuid;
+use buildbtw_poc::{
+    BuildNamespace, BuildSetIteration, CreateBuildNamespace, PackageBuildStatus, Pkgbase, Pkgname,
+    SetBuildStatus, UpdateBuildNamespace,
+};
 
 use crate::db::iteration::BuildSetIterationUpdate;
 use crate::db::namespace::CreateDbBuildNamespace;
 use crate::response_error::ResponseError::{self};
 use crate::response_error::ResponseResult;
 use crate::{AppState, db, stream_to_file::stream_to_file};
-use buildbtw_poc::{
-    BuildNamespace, BuildSetIteration, CreateBuildNamespace, PackageBuildStatus, Pkgbase, Pkgname,
-    SetBuildStatus, UpdateBuildNamespace,
-};
 
 #[debug_handler]
 pub(crate) async fn create_build_namespace(
@@ -38,7 +40,7 @@ pub(crate) async fn create_build_namespace(
     let name = body.name.unwrap_or(
         body.origin_changesets
             .first()
-            .context("Cannot create a build namespace without origin changesets")?
+            .ok_or_eyre("Cannot create a build namespace without origin changesets")?
             .0
             .to_string(),
     );
@@ -51,7 +53,7 @@ pub(crate) async fn create_build_namespace(
     let base_url = state
         .base_url
         .join(&format!("/namespace/{}", namespace.name))
-        .context("Failed to parse URL")?;
+        .wrap_err("Failed to parse URL")?;
     tracing::info!("Namespace overview available at: {base_url}",);
 
     Ok(Json(namespace))

@@ -1,6 +1,7 @@
-use anyhow::Result;
-use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, GitRepoRef, UpdateBuildNamespace};
+use color_eyre::Result;
 use sqlx::{SqlitePool, types::Json};
+
+use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, GitRepoRef, UpdateBuildNamespace};
 
 pub struct CreateDbBuildNamespace {
     pub name: String,
@@ -21,8 +22,8 @@ pub(crate) async fn create(
         (id, name, status, origin_changesets, created_at)
         values ($1, $2, $3, $4, $5)
         returning
-            id as "id: uuid::fmt::Hyphenated", 
-            name, 
+            id as "id: uuid::fmt::Hyphenated",
+            name,
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
@@ -89,9 +90,9 @@ pub(crate) async fn read(id: uuid::Uuid, pool: &SqlitePool) -> Result<BuildNames
     let db_namespace = sqlx::query_as!(
         DbBuildNamespace,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
-            name, 
+        select
+            id as "id: uuid::fmt::Hyphenated",
+            name,
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
@@ -111,9 +112,9 @@ pub(crate) async fn read_by_name(name: &str, pool: &SqlitePool) -> Result<BuildN
     let db_namespace = sqlx::query_as!(
         DbBuildNamespace,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
-            name, 
+        select
+            id as "id: uuid::fmt::Hyphenated",
+            name,
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
@@ -133,9 +134,9 @@ pub(crate) async fn read_latest(pool: &SqlitePool) -> Result<BuildNamespace> {
     let db_namespace = sqlx::query_as!(
         DbBuildNamespace,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
-            name, 
+        select
+            id as "id: uuid::fmt::Hyphenated",
+            name,
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
@@ -163,8 +164,8 @@ pub(crate) async fn update(
         set status = $2
         where name = $1
         returning
-            id as "id: uuid::fmt::Hyphenated", 
-            name, 
+            id as "id: uuid::fmt::Hyphenated",
+            name,
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
@@ -182,9 +183,9 @@ pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildNamespace>> {
     let namespaces = sqlx::query_as!(
         DbBuildNamespace,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
-            name, 
+        select
+            id as "id: uuid::fmt::Hyphenated",
+            name,
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"
@@ -208,9 +209,9 @@ pub(crate) async fn list_by_status(
     let namespaces = sqlx::query_as!(
         DbBuildNamespace,
         r#"
-        select 
-            id as "id: uuid::fmt::Hyphenated", 
-            name, 
+        select
+            id as "id: uuid::fmt::Hyphenated",
+            name,
             status as "status: DbBuildNamespaceStatus",
             origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
             created_at as "created_at: time::OffsetDateTime"

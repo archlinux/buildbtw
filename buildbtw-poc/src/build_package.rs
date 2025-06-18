@@ -2,14 +2,13 @@
 
 use std::process::Stdio;
 
-use anyhow::anyhow;
 use camino::{Utf8Path, Utf8PathBuf};
 use tokio::{
     fs::{self, File},
     process::Command,
 };
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Result, WrapErr, bail};
 use git2::{Oid, Repository, Status, build::CheckoutBuilder};
 use uuid::Uuid;
 
@@ -105,16 +104,16 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
 
     repo.set_head_detached(Oid::from_str(git_repo_ref)?)?;
     repo.checkout_head(Some(CheckoutBuilder::default().force()))
-        .context("Failed to checkout HEAD")?;
+        .wrap_err("Failed to checkout HEAD")?;
 
     // Sanity check that git status shows no changed files.
     // This should skip untracked and ignored files.
     for status in repo.statuses(None)?.iter() {
         if status.status() != Status::CURRENT {
-            return Err(anyhow!(
+            bail!(
                 "File in working tree does not match the commit to build: {:?}",
                 status.path()
-            ));
+            );
         }
     }
 
@@ -208,7 +207,7 @@ async fn copy_package_source_to_build_dir(schedule: &ScheduleBuild) -> Result<Ut
     let dest_path = build_path(iteration, pkgbase);
     copy_dir_all(package_source_path(pkgbase), &dest_path)
         .await
-        .context("Copying package source to build directory")?;
+        .wrap_err("Copying package source to build directory")?;
 
     Ok(dest_path)
 }

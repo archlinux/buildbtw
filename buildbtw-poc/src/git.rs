@@ -1,11 +1,13 @@
-use crate::source_info::SourceInfo;
-use crate::{CommitHash, GitRef, Pkgbase};
-use anyhow::{Context, Result};
+use std::path::Path;
+
 use camino::Utf8PathBuf;
+use color_eyre::eyre::{Context, Result};
 use git2::build::RepoBuilder;
 use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
-use std::path::Path;
 use tokio::task::JoinSet;
+
+use crate::source_info::SourceInfo;
+use crate::{CommitHash, GitRef, Pkgbase};
 
 pub async fn clone_packaging_repository(
     pkgbase: Pkgbase,
@@ -115,8 +117,8 @@ pub async fn retrieve_srcinfo_from_remote_repository(
 
     // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
     read_srcinfo_from_repo(&repo, branch)
-        .context("Failed to read srcinfo")
-        .context(pkgbase)
+        .wrap_err("Failed to read srcinfo")
+        .wrap_err(pkgbase)
 }
 
 pub fn get_branch_commit_sha(repo: &Repository, branch: &str) -> Result<CommitHash> {
@@ -137,7 +139,7 @@ pub fn read_srcinfo_from_repo(repo: &Repository, branch: &str) -> Result<SourceI
     assert!(!file_blob.is_binary());
 
     let parsed = SourceInfo::from_string(&String::from_utf8(file_blob.content().to_vec())?)?;
-    parsed.source_info().context("Failed to parse SRCINFO")
+    parsed.source_info().wrap_err("Failed to parse SRCINFO")
 }
 
 pub fn package_source_path(pkgbase: &Pkgbase) -> Utf8PathBuf {

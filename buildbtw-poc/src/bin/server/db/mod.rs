@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{Context, Result};
+use color_eyre::eyre::{Context, Result};
 use sqlx::{
     SqlitePool,
     migrate::Migrate,

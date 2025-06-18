@@ -1,9 +1,9 @@
 use std::{collections::HashMap, sync::LazyLock};
 
-use anyhow::{Result, bail};
 use build_set_graph::BuildSetGraph;
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
+use color_eyre::eyre::{Result, bail};
 use derive_more::{AsRef, Display};
 use iteration::NewIterationReason;
 use serde::{Deserialize, Serialize};
