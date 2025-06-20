@@ -59,19 +59,13 @@ pub(crate) async fn create_build_namespace(
     Ok(Json(namespace))
 }
 
-/// For debugging: List all existing namespaces.
-pub(crate) async fn list_namespaces_html(
-    State(state): State<AppState>,
-) -> Result<Html<String>, StatusCode> {
+pub(crate) async fn home_html(State(state): State<AppState>) -> Result<Html<String>, StatusCode> {
     let namespaces = db::namespace::list(&state.db_pool).await.map_err(|e| {
         tracing::info!("{e:?}");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let template = state
-        .jinja_env
-        .get_template("list_build_namespaces")
-        .unwrap();
+    let template = state.jinja_env.get_template("home").unwrap();
 
     let rendered = template
         .render(context! {

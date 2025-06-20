@@ -16,7 +16,7 @@ use url::Url;
 use with_content_type::{ApplicationJson, with_content_type};
 
 use crate::routes::{
-    create_build_namespace, create_namespace_iteration, list_namespaces_html, list_namespaces_json,
+    create_build_namespace, create_namespace_iteration, home_html, list_namespaces_json,
     render_build_namespace_graph, render_latest_namespace, set_build_status, show_build_namespace,
     update_namespace, upload_package,
 };
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
                     "/namespace",
                     post(create_build_namespace).get(
                         with_content_type::<ApplicationJson, _>(list_namespaces_json)
-                            .or(list_namespaces_html),
+                            .or(home_html),
                     ),
                 )
                 .route(

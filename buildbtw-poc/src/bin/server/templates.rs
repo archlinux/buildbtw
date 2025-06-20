@@ -4,7 +4,7 @@ const TEMPLATES: &[&str] = &[
     "layout",
     "show_build_namespace",
     "render_build_namespace_graph",
-    "list_build_namespaces",
+    "home",
 ];
 
 #[derive(rust_embed::Embed)]
