@@ -42,6 +42,7 @@
                     <tr>
                         <th>Status</th>
                         <th>Pkgbase</th>
+                        <th>Commit</th>
                     </tr>
                 </thead>
                 {% for entry in table %}
@@ -54,6 +55,13 @@
                                 {{entry.pkgbase}}
                             {% endif %}
                         </td>
+                        {% if entry.commit_gitlab_url %}
+                        <td><a href="{{entry.commit_gitlab_url}}">
+                            {{entry.commit_hash}}
+                        </a></td>
+                        {% else %}
+                        <td>{{entry.commit_hash}}</td>
+                        {% endif %}
                     </tr>
                 {% endfor %}
                 </tbody></table>
