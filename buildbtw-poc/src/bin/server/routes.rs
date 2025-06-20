@@ -12,11 +12,9 @@ use reqwest::StatusCode;
 use serde::Serialize;
 use time::macros::format_description;
 use tokio::fs;
+use url::Url;
 use uuid::Uuid;
 
-use buildbtw_poc::build_set_graph::{
-    BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built,
-};
 use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
 use buildbtw_poc::source_info::{
     ConcreteArchitecture, package_file_name, package_for_architecture,
@@ -25,12 +23,16 @@ use buildbtw_poc::{
     BuildNamespace, BuildSetIteration, CreateBuildNamespace, PackageBuildStatus, Pkgbase, Pkgname,
     SetBuildStatus, UpdateBuildNamespace,
 };
+use buildbtw_poc::{
+    build_set_graph::{BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built},
+    gitlab::commit_web_url,
+};
 
-use crate::db::iteration::BuildSetIterationUpdate;
 use crate::db::namespace::CreateDbBuildNamespace;
 use crate::response_error::ResponseError::{self};
 use crate::response_error::ResponseResult;
 use crate::{AppState, db, stream_to_file::stream_to_file};
+use crate::{args, db::iteration::BuildSetIterationUpdate};
 
 #[debug_handler]
 pub(crate) async fn create_build_namespace(
@@ -128,17 +130,40 @@ struct PipelineTableEntry {
     status: PackageBuildStatus,
     gitlab_url: Option<String>,
     pkgbase: Pkgbase,
+    commit_hash: String,
+    commit_gitlab_url: Option<Url>,
 }
 
 impl PipelineTableEntry {
-    fn from_build_package_node(node: &BuildPackageNode, gitlab_url: Option<String>) -> Self {
-        PipelineTableEntry {
+    fn try_new(
+        node: &BuildPackageNode,
+        gitlab_url: Option<String>,
+        gitlab_args: &Option<args::Gitlab>,
+    ) -> Result<Self> {
+        let mut commit_hash = node.commit_hash.to_string();
+        commit_hash.truncate(8);
+
+        let commit_gitlab_url = gitlab_args
+            .as_ref()
+            .map(|args| {
+                commit_web_url(
+                    &args.gitlab_domain,
+                    &args.gitlab_packages_group,
+                    &node.pkgbase,
+                    &node.commit_hash,
+                )
+            })
+            .transpose()?;
+
+        Ok(PipelineTableEntry {
             status_icon: node.status.as_icon().to_string(),
             status_description: node.status.as_description(),
             gitlab_url,
             pkgbase: node.pkgbase.clone(),
             status: node.status,
-        }
+            commit_hash,
+            commit_gitlab_url,
+        })
     }
 }
 
@@ -255,9 +280,11 @@ pub(crate) async fn show_build_namespace_iteration_architecture(
             )
             .await?
             .map(|p| p.gitlab_url);
-            table_entries.push(PipelineTableEntry::from_build_package_node(
-                node, gitlab_url,
-            ));
+            table_entries.push(PipelineTableEntry::try_new(
+                node,
+                gitlab_url,
+                &state.gitlab_args,
+            )?);
         }
 
         table_entries.sort_by_key(|entry| match entry.status {

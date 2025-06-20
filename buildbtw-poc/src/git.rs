@@ -123,6 +123,8 @@ pub async fn retrieve_srcinfo_from_remote_repository(
 
 pub fn get_branch_commit_sha(repo: &Repository, branch: &str) -> Result<CommitHash> {
     let branch = repo.find_branch(&format!("origin/{branch}"), BranchType::Remote)?;
+    // TODO might this be actually the wrong id?
+    // the commits this returns don't seem to exist.
     Ok(CommitHash(branch.get().peel_to_commit()?.id().to_string()))
 }
 

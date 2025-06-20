@@ -43,6 +43,7 @@ struct AppState {
     jinja_env: minijinja::Environment<'static>,
     db_pool: SqlitePool,
     base_url: Url,
+    gitlab_args: Option<args::Gitlab>,
 }
 
 #[tokio::main]
@@ -65,7 +66,7 @@ async fn main() -> Result<()> {
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
 
-            let worker_sender = tasks::start(db_pool.clone(), args.gitlab).await?;
+            let worker_sender = tasks::start(db_pool.clone(), args.gitlab.clone()).await?;
             let app = Router::new()
                 .route("/", get(|| async {Redirect::to("/namespace")}))
                 .route(
@@ -104,6 +105,7 @@ async fn main() -> Result<()> {
                     jinja_env,
                     db_pool: db_pool.clone(),
                     base_url,
+                    gitlab_args: args.gitlab
                 });
 
             let mut listenfd = ListenFd::from_env();

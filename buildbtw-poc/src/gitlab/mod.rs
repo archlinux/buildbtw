@@ -12,7 +12,7 @@ use time::{Duration, OffsetDateTime};
 use url::Url;
 
 use crate::{
-    PackageBuildStatus, ScheduleBuild, git::clone_or_fetch_repositories,
+    CommitHash, PackageBuildStatus, Pkgbase, ScheduleBuild, git::clone_or_fetch_repositories,
     pacman_repo::repo_dir_path, source_info::package_file_name,
 };
 
@@ -312,6 +312,19 @@ pub async fn set_project_ci_config(
         .wrap_err("Error updating gitlab project config")?;
 
     Ok(())
+}
+
+pub fn commit_web_url(
+    gitlab_domain: &str,
+    gitlab_packages_group: &str,
+    pkgbase: &Pkgbase,
+    hash: &CommitHash,
+) -> Result<Url> {
+    url::Url::parse(&format!("https://{gitlab_domain}"))?
+        .join(&format!(
+            "/{gitlab_packages_group}/{pkgbase}/-/commit/{hash}"
+        ))
+        .wrap_err("Invalid URL path")
 }
 
 /// Convert arbitrary project names to GitLab valid path names.
