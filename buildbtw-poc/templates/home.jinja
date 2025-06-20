@@ -1,6 +1,22 @@
 {% extends "layout" %}
 {% block title %}home{% endblock %}
 {% block body %}
+    <h2>Currently running builds</h2>
+    <table><tbody>
+        <thead>
+            <tr>
+                <th>pkgbase</th>
+                <th>namespace</th>
+            </tr>
+        </thead>
+        {% for entry in running_builds_table %}
+        <tr>
+            <td><a href="{{entry.gitlab_pipeline_url}}">{{entry.pkgbase}}</a></td>
+            <td><a href="/namespace/{{entry.namespace_name}}">{{entry.namespace_name}}</a></td>
+        </tr>
+        {% endfor %}
+    </tbody></table>
+    <h2>All namespaces</h2>
     <ul>
         {% for namespace in namespaces %}
             <li>

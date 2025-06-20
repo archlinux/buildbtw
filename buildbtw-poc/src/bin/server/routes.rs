@@ -59,17 +59,54 @@ pub(crate) async fn create_build_namespace(
     Ok(Json(namespace))
 }
 
-pub(crate) async fn home_html(State(state): State<AppState>) -> Result<Html<String>, StatusCode> {
-    let namespaces = db::namespace::list(&state.db_pool).await.map_err(|e| {
-        tracing::info!("{e:?}");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+#[derive(Serialize)]
+struct RunningBuildsEntry {
+    gitlab_pipeline_url: Option<String>,
+    pkgbase: Pkgbase,
+    namespace_name: String,
+}
+
+pub(crate) async fn home_html(State(state): State<AppState>) -> ResponseResult<Html<String>> {
+    let namespaces = db::namespace::list(&state.db_pool).await?;
+
+    let mut running_builds_table: Vec<RunningBuildsEntry> = Vec::new();
+    for namespace in db::namespace::list(&state.db_pool).await? {
+        let latest_iteration = db::iteration::read_newest(&state.db_pool, namespace.id).await?;
+
+        for (architecture, graph) in latest_iteration.packages_to_be_built {
+            for node in graph.node_weights() {
+                // Only check nodes that are currently building.
+                if node.status != PackageBuildStatus::Building {
+                    continue;
+                }
+
+                // Check if there's a gitlab pipeline we started
+                // If yes, we'll find it in the DB
+                let maybe_pipeline =
+                    db::gitlab_pipeline::read_by_iteration_and_pkgbase_and_architecture(
+                        &state.db_pool,
+                        latest_iteration.id,
+                        &node.pkgbase,
+                        architecture,
+                    )
+                    .await?
+                    .map(|pipeline| pipeline.gitlab_url);
+
+                running_builds_table.push(RunningBuildsEntry {
+                    gitlab_pipeline_url: maybe_pipeline,
+                    pkgbase: node.pkgbase.clone(),
+                    namespace_name: namespace.name.clone(),
+                });
+            }
+        }
+    }
 
     let template = state.jinja_env.get_template("home").unwrap();
 
     let rendered = template
         .render(context! {
             namespaces => namespaces,
+            running_builds_table => running_builds_table
         })
         .unwrap();
 
