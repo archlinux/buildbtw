@@ -16,14 +16,8 @@ pub struct Args {
 }
 
 #[derive(Debug, Clone, clap::Args)]
-#[group(requires_all = ["gitlab_token", "gitlab_domain", "gitlab_packages_group"], multiple = true)]
+#[group(requires_all = ["gitlab_domain", "gitlab_packages_group"], multiple = true)]
 pub struct Gitlab {
-    /// Used for fetching updates to package source repositories (requires `read_api` scope),
-    /// If set, requires all other gitlab-related options to be specified as well.
-    /// If omitted, requires all other gitlab-related options to be omitted as well.
-    #[arg(env, hide_env_values = true, required = false)]
-    pub gitlab_token: redact::Secret<String>,
-
     /// Domain of the gitlab instance to use for fetching package source repositories and optionally dispatch build pipelines to.
     /// e.g. "gitlab.archlinux.org"
     #[arg(long, env, required = false)]
