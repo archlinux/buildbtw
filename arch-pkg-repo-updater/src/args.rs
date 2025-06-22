@@ -1,4 +1,6 @@
-use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand, ValueHint};
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -7,6 +9,10 @@ pub struct Args {
     /// Provide once to set the log level to "debug", twice for "trace"
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
+
+    /// Specify directory containing all packaging repositories
+    #[arg(long, value_hint = ValueHint::DirPath, value_name = "PATH")]
+    pub target_dir: Option<PathBuf>,
 
     #[command(flatten)]
     pub gitlab: Gitlab,

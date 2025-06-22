@@ -31,6 +31,10 @@ async fn main() -> Result<()> {
             .wrap_err("required environment variable was not provided: GITLAB_TOKEN")?,
     );
 
+    if let Some(target_dir) = args.target_dir {
+        std::env::set_current_dir(target_dir)?;
+    }
+
     let mut state = State::from_filesystem()?;
     let client = new_gitlab_client(&args.gitlab, &gitlab_token).await?;
 
