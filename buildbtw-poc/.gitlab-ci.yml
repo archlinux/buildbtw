@@ -9,8 +9,7 @@ variables:
 stages:
   - check
   - build
-  # Stop deployments for the time being
-  # - deploy
+  - deploy
 
 format:
   stage: check
