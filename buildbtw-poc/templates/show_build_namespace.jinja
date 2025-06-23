@@ -20,7 +20,13 @@
         {% endfor %}
 
         {% if pipeline_table %}
-            <p>Pacman repository: <pre>{{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{architecture}}</pre></p>
+            <p>Pacman repository snippet:
+                <pre>
+[buildbtw-namespace]
+SigLevel = Never
+Server = {{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{architecture}}
+                </pre>
+            </p>
             <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
             </iframe>
             {% set table_batches = pipeline_table|batch(30) %}
