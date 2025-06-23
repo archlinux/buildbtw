@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use color_eyre::eyre::{OptionExt, Result};
 
 use buildbtw_poc::GitRepoRef;
+use url::Url;
 
 fn parse_git_changeset(value: &str) -> Result<GitRepoRef> {
     let split_values: Vec<_> = value.split("/").collect();
@@ -58,4 +59,8 @@ pub struct Args {
 
     #[command(subcommand)]
     pub command: Command,
+
+    /// The URL to contact the server at.
+    #[arg(long, env, default_value = "http://localhost:8080")]
+    pub server_url: Url,
 }

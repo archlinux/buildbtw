@@ -5,6 +5,7 @@ use reqwest::header::ACCEPT;
 use time::format_description;
 
 use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef};
+use url::Url;
 
 use crate::args::{Args, Command};
 
@@ -22,27 +23,31 @@ async fn main() -> Result<()> {
             name,
             origin_changesets,
         } => {
-            create_namespace(name, origin_changesets).await?;
+            create_namespace(name, origin_changesets, &args.server_url).await?;
         }
         Command::Cancel { name } => {
-            update_namespace(name, BuildNamespaceStatus::Cancelled).await?;
+            update_namespace(name, BuildNamespaceStatus::Cancelled, &args.server_url).await?;
         }
         Command::Resume { name } => {
-            update_namespace(name, BuildNamespaceStatus::Active).await?;
+            update_namespace(name, BuildNamespaceStatus::Active, &args.server_url).await?;
         }
-        Command::List {} => list_namespaces().await?,
+        Command::List {} => list_namespaces(&args.server_url).await?,
         Command::Restart { name } => {
-            create_build_iteration(name).await?;
+            create_build_iteration(name, &args.server_url).await?;
         }
     }
     Ok(())
 }
 
-async fn update_namespace(name: String, status: BuildNamespaceStatus) -> Result<()> {
+async fn update_namespace(
+    name: String,
+    status: BuildNamespaceStatus,
+    server_url: &Url,
+) -> Result<()> {
     let update = buildbtw_poc::UpdateBuildNamespace { status };
 
     let response = reqwest::Client::new()
-        .patch(format!("http://0.0.0.0:8080/namespace/{name}"))
+        .patch(server_url.join(&format!("/namespace/{name}"))?)
         .json(&update)
         .send()
         .await
@@ -57,6 +62,7 @@ async fn update_namespace(name: String, status: BuildNamespaceStatus) -> Result<
 async fn create_namespace(
     name: Option<String>,
     origin_changesets: Vec<GitRepoRef>,
+    server_url: &Url,
 ) -> Result<BuildNamespace> {
     let create = buildbtw_poc::CreateBuildNamespace {
         name,
@@ -64,7 +70,7 @@ async fn create_namespace(
     };
 
     let response: BuildNamespace = reqwest::Client::new()
-        .post("http://0.0.0.0:8080/namespace")
+        .post(server_url.join("/namespace")?)
         .json(&create)
         .send()
         .await
@@ -78,9 +84,9 @@ async fn create_namespace(
     Ok(response)
 }
 
-async fn create_build_iteration(name: String) -> Result<BuildSetIteration> {
+async fn create_build_iteration(name: String, server_url: &Url) -> Result<BuildSetIteration> {
     let response: BuildSetIteration = reqwest::Client::new()
-        .post(format!("http://0.0.0.0:8080/namespace/{name}/iteration"))
+        .post(server_url.join(&format!("/namespace/{name}/iteration"))?)
         .json(&())
         .send()
         .await
@@ -92,9 +98,9 @@ async fn create_build_iteration(name: String) -> Result<BuildSetIteration> {
     Ok(response)
 }
 
-async fn list_namespaces() -> Result<()> {
+async fn list_namespaces(server_url: &Url) -> Result<()> {
     let namespaces: Vec<BuildNamespace> = reqwest::Client::new()
-        .get("http://0.0.0.0:8080/namespace")
+        .get(server_url.join("/namespace")?)
         .header(ACCEPT, "application/json")
         .send()
         .await
