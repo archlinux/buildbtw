@@ -55,18 +55,19 @@ build:
     - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest ../target/release
     - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
-# deploy:
-#   stage: deploy
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
-#   script:
-#     - pacman -Syu --needed --noconfirm openssh
-#     - base64 --decode "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-#     - base64 --decode ${BUILDBTW_SSH_PRIVATE_KEY} > ~/.ssh/id_ed25519
-#     - chmod 640 ~/.ssh/known_hosts
-#     - chmod 600 ~/.ssh/id_ed25519
-#     - chmod 700 ~/.ssh
-#     - scp infrastructure/buildbtw-executor.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/buildbtw-executor.sh
-#     - scp infrastructure/build-inside-vm.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/build-inside-vm.sh
-#     - scp infrastructure/deploy-server.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/deploy-server.sh
-#     - ssh buildbtw@${BUILDBTW_SERVER_IPV4} /srv/buildbtw/deploy-server.sh
+
+deploy:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - pacman -Syu --needed --noconfirm openssh
+    - base64 --decode "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+    - base64 --decode ${BUILDBTW_SSH_PRIVATE_KEY} > ~/.ssh/id_ed25519
+    - chmod 640 ~/.ssh/known_hosts
+    - chmod 600 ~/.ssh/id_ed25519
+    - chmod 700 ~/.ssh
+    - scp buildbtw-poc/infrastructure/buildbtw-executor.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/buildbtw-executor.sh
+    - scp buildbtw-poc/infrastructure/build-inside-vm.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/gitlab-executor/build-inside-vm.sh
+    - scp buildbtw-poc/infrastructure/deploy-server.sh buildbtw@${BUILDBTW_SERVER_IPV4}:/srv/buildbtw/deploy-server.sh
+    - ssh buildbtw@${BUILDBTW_SERVER_IPV4} /srv/buildbtw/deploy-server.sh
