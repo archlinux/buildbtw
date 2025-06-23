@@ -69,6 +69,7 @@ pub enum Command {
         #[arg(
             short,
             long,
+            env,
             value_parser(parse_interface),
             number_of_values = 1,
             default_value = "0.0.0.0"
@@ -76,7 +77,7 @@ pub enum Command {
         interface: IpAddr,
 
         /// Port on which to listen
-        #[arg(short, long, default_value = "8080")]
+        #[arg(short, long, env, default_value = "8080")]
         port: u16,
 
         /// Base URL for accessing this server via the network.
