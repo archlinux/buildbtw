@@ -27,15 +27,15 @@ run-server *args: create-db
 [doc("Run server and auto-restart on code changes")]
 [group("server")]
 watch-server *args: create-db
-    systemfd --no-pid -s http::8080 -- cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w Cargo.toml -w buildbtw-poc/Cargo.toml -- just --justfile buildbtw-poc/Justfile run-server {{ args }}
+    systemfd --no-pid -s http::${PORT} -- cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w Cargo.toml -w buildbtw-poc/Cargo.toml -- just --justfile buildbtw-poc/Justfile run-server {{ args }}
 
-[doc("Start a reverse SSH tunnel to your local server")]
+[doc("Start a reverse SSH tunnel to the buildbtw-dev server to make your local backend process available to the GitLab Runner custom executor")]
 [group("server")]
 reverse-tunnel:
     echo "Running SSH reverse tunnel here, don't close this terminal"
-    ssh -N -T -R 8080:0.0.0.0:8080 buildbtw-dev
+    ssh -N -T -R ${PORT}:0.0.0.0:${PORT} buildbtw-dev
 
-[doc("Start a forward tunnel SSH tunnel to the buildbtw server")]
+[doc("Start a forward tunnel SSH tunnel to the buildbtw server to be able to use a local client to dispatch commands to the centrally deployed buildbtw server instance")]
 [group("server")]
 forward-tunnel:
     echo "Running SSH forward tunnel here, don't close this terminal"
