@@ -8,6 +8,7 @@ buildbtw-poc:
   trigger:
     include:
       - local: buildbtw-poc/.gitlab-ci.yml
+    strategy: depend
 
 stages:
   - check
