@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
 
             sqlx::migrate!("./migrations").run(&db_pool).await?;
 
-            let worker_sender = tasks::start(db_pool.clone(), args.gitlab).await?;
+            let worker_sender = tasks::start(db_pool.clone(), args.gitlab, port).await?;
             let app = Router::new()
                 .route("/", get(|| async {Redirect::to("/namespace")}))
                 .route(

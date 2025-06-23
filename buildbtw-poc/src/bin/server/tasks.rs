@@ -33,6 +33,7 @@ struct GitlabContext {
 pub async fn start(
     pool: SqlitePool,
     gitlab_args: Option<args::Gitlab>,
+    server_port: u16,
 ) -> Result<UnboundedSender<Message>> {
     tracing::info!("Starting server tasks");
 
@@ -51,7 +52,7 @@ pub async fn start(
         update_project_ci_settings_in_loop(args.clone()).await?;
     }
 
-    update_and_build_all_namespaces_in_loop(pool.clone(), gitlab_args).await?;
+    update_and_build_all_namespaces_in_loop(pool.clone(), gitlab_args, server_port).await?;
 
     Ok(sender)
 }
@@ -69,6 +70,7 @@ async fn new_gitlab_client(args: &args::Gitlab) -> Result<AsyncGitlab> {
 async fn update_and_build_all_namespaces_in_loop(
     pool: SqlitePool,
     maybe_gitlab_args: Option<args::Gitlab>,
+    server_port: u16,
 ) -> Result<()> {
     let maybe_gitlab_context = if let Some(args) = maybe_gitlab_args {
         if args.run_builds_on_gitlab {
@@ -84,7 +86,9 @@ async fn update_and_build_all_namespaces_in_loop(
     };
     tokio::spawn(async move {
         loop {
-            match update_and_build_all_namespaces(&pool, maybe_gitlab_context.as_ref()).await {
+            match update_and_build_all_namespaces(&pool, maybe_gitlab_context.as_ref(), server_port)
+                .await
+            {
                 Ok(_) => {}
                 Err(e) => tracing::error!("Error while updating build namespaces: {e:?}"),
             };
@@ -100,6 +104,7 @@ async fn update_and_build_all_namespaces_in_loop(
 async fn update_and_build_all_namespaces(
     pool: &SqlitePool,
     maybe_gitlab_context: Option<&GitlabContext>,
+    server_port: u16,
 ) -> Result<()> {
     // Check all build namespaces and see if they need a new iteration.
     let namespaces = db::namespace::list_by_status(pool, BuildNamespaceStatus::Active).await?;
@@ -108,7 +113,9 @@ async fn update_and_build_all_namespaces(
 
     for namespace in namespaces {
         // Try to build all namespaces, and continue on failures.
-        if let Err(e) = update_and_build_namespace(pool, maybe_gitlab_context, &namespace).await {
+        if let Err(e) =
+            update_and_build_namespace(pool, maybe_gitlab_context, &namespace, server_port).await
+        {
             tracing::error!(
                 r#"Error updating namespace "{name}": {e:?}"#,
                 name = namespace.name
@@ -125,12 +132,13 @@ async fn update_and_build_namespace(
     pool: &sqlx::Pool<sqlx::Sqlite>,
     maybe_gitlab_context: Option<&GitlabContext>,
     namespace: &BuildNamespace,
+    server_port: u16,
 ) -> Result<()> {
     create_new_namespace_iteration_if_needed(pool, namespace).await?;
     if let Some(gitlab_context) = maybe_gitlab_context {
         update_build_set_graphs_from_gitlab_pipelines(pool, namespace, gitlab_context).await?;
     }
-    schedule_next_build_if_needed(pool, namespace, maybe_gitlab_context).await?;
+    schedule_next_build_if_needed(pool, namespace, maybe_gitlab_context, server_port).await?;
 
     Ok(())
 }
@@ -311,6 +319,7 @@ async fn schedule_next_build_if_needed(
     pool: &SqlitePool,
     namespace: &BuildNamespace,
     maybe_gitlab_context: Option<&GitlabContext>,
+    server_port: u16,
 ) -> Result<()> {
     if namespace.status == BuildNamespaceStatus::Cancelled {
         return Ok(());
@@ -325,7 +334,7 @@ async fn schedule_next_build_if_needed(
             ScheduleBuildResult::NoPendingPackages => {}
             ScheduleBuildResult::Scheduled(response) => {
                 let new_packages_to_be_built = response.updated_build_set_graph.clone();
-                match schedule_build(pool, &response, maybe_gitlab_context).await {
+                match schedule_build(pool, &response, maybe_gitlab_context, server_port).await {
                     Ok(_) => {
                         iteration
                             .packages_to_be_built
@@ -355,6 +364,7 @@ async fn schedule_build(
     pool: &SqlitePool,
     build: &ScheduleBuild,
     maybe_gitlab_context: Option<&GitlabContext>,
+    server_port: u16,
 ) -> Result<()> {
     tracing::info!("Building pending package: {:?}", build.source);
     let namespace_name = db::namespace::read(build.namespace, pool).await?.name;
@@ -367,6 +377,7 @@ async fn schedule_build(
             build,
             &namespace_name,
             &gitlab_context.args.gitlab_packages_group,
+            server_port,
         )
         .await?;
         let db_pipeline = db::gitlab_pipeline::CreateDbGitlabPipeline {

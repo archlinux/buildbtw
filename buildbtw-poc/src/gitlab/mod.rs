@@ -177,6 +177,7 @@ pub async fn create_pipeline(
     build: &ScheduleBuild,
     namespace_name: &str,
     gitlab_packages_group: &str,
+    server_port: u16,
 ) -> Result<CreatePipelineResponse> {
     // Using graphQL for triggering pipelines is not yet possible:
     // https://gitlab.com/gitlab-org/gitlab/-/issues/401480
@@ -199,6 +200,7 @@ pub async fn create_pipeline(
         ("PKGBASE", build.source.pkgbase.to_string()),
         ("PACKAGE_FILE_NAMES", package_file_names),
         ("ARCHITECTURE", build.architecture.to_string()),
+        ("SERVER_PORT", server_port.to_string()),
     ]
     .into_iter()
     .map(|(key, val)| {

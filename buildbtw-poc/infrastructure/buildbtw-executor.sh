@@ -28,7 +28,7 @@ prepare() {
 run() {
     # the host should be reachable at 10.0.2.2 since we're using
     # user mode networking
-    pacman_repo_url="http://10.0.2.2:8080/repo/${CUSTOM_ENV_NAMESPACE_NAME}_${CUSTOM_ENV_ITERATION_ID}/os/${CUSTOM_ENV_ARCHITECTURE}"
+    pacman_repo_url="http://10.0.2.2:${CUSTOM_ENV_SERVER_PORT}/repo/${CUSTOM_ENV_NAMESPACE_NAME}_${CUSTOM_ENV_ITERATION_ID}/os/${CUSTOM_ENV_ARCHITECTURE}"
     output_dir=$(sudo -u buildbtw mktemp -d)
 
     sudo -u buildbtw --set-home \
@@ -46,7 +46,7 @@ run() {
         # extract everything before first hyphen followed by digit
         pkgname="${file%%-[0-9]*}"
 
-        sudo -u buildbtw --set-home curl -v -X POST --data-binary @"${output_dir}/${file}" "http://127.0.0.1:8080/iteration/${CUSTOM_ENV_ITERATION_ID}/pkgbase/${CUSTOM_ENV_PKGBASE}/pkgname/${pkgname}/architecture/${CUSTOM_ENV_ARCHITECTURE}/package"
+        sudo -u buildbtw --set-home curl -v -X POST --data-binary @"${output_dir}/${file}" "http://127.0.0.1:${CUSTOM_ENV_SERVER_PORT}/iteration/${CUSTOM_ENV_ITERATION_ID}/pkgbase/${CUSTOM_ENV_PKGBASE}/pkgname/${pkgname}/architecture/${CUSTOM_ENV_ARCHITECTURE}/package"
     done
 
     rm -rf "${output_dir}"
