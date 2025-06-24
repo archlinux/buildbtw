@@ -22,13 +22,13 @@ chown -R builder .
 (
     set +eu
     . PKGBUILD
-    if [ "${validpgpkeys[*]}" ]; then
+    if (( ${#validpgpkeys[@]} )); then
         keyservers=(
             hkps://keys.openpgp.org
             hkps://keyserver.ubuntu.com
         )
         for keyserver in "${keyservers[@]}"; do
-            sudo -u builder gpg --keyserver "$keyserver" --recv-keys "${validpgpkeys[*]}"
+            sudo -u builder gpg --keyserver "$keyserver" --recv-keys "${validpgpkeys[@]}"
         done
     fi
 )
