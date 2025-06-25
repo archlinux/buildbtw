@@ -71,7 +71,12 @@ pub(crate) async fn home_html(State(state): State<AppState>) -> ResponseResult<H
 
     let mut running_builds_table: Vec<RunningBuildsEntry> = Vec::new();
     for namespace in db::namespace::list(&state.db_pool).await? {
-        let latest_iteration = db::iteration::read_newest(&state.db_pool, namespace.id).await?;
+        let latest_iteration =
+            if let Ok(i) = db::iteration::read_newest(&state.db_pool, namespace.id).await {
+                i
+            } else {
+                continue;
+            };
 
         for (architecture, graph) in latest_iteration.packages_to_be_built {
             for node in graph.node_weights() {
