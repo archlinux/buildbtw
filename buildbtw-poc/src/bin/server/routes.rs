@@ -14,9 +14,6 @@ use time::macros::format_description;
 use tokio::fs;
 use uuid::Uuid;
 
-use buildbtw_poc::build_set_graph::{
-    BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built,
-};
 use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
 use buildbtw_poc::source_info::{
     ConcreteArchitecture, package_file_name, package_for_architecture,
@@ -24,6 +21,10 @@ use buildbtw_poc::source_info::{
 use buildbtw_poc::{
     BuildNamespace, BuildSetIteration, CreateBuildNamespace, PackageBuildStatus, Pkgbase, Pkgname,
     SetBuildStatus, UpdateBuildNamespace,
+};
+use buildbtw_poc::{
+    BuildNamespaceStatus,
+    build_set_graph::{BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built},
 };
 
 use crate::db::iteration::BuildSetIterationUpdate;
@@ -68,6 +69,11 @@ struct RunningBuildsEntry {
 
 pub(crate) async fn home_html(State(state): State<AppState>) -> ResponseResult<Html<String>> {
     let namespaces = db::namespace::list(&state.db_pool).await?;
+    let (active_namespaces, cancelled_namespaces): (Vec<_>, Vec<_>) =
+        namespaces.into_iter().partition(|ns| match ns.status {
+            BuildNamespaceStatus::Active => true,
+            BuildNamespaceStatus::Cancelled => false,
+        });
 
     let mut running_builds_table: Vec<RunningBuildsEntry> = Vec::new();
     for namespace in db::namespace::list(&state.db_pool).await? {
@@ -110,7 +116,8 @@ pub(crate) async fn home_html(State(state): State<AppState>) -> ResponseResult<H
 
     let rendered = template
         .render(context! {
-            namespaces => namespaces,
+            active_namespaces => active_namespaces,
+            cancelled_namespaces => cancelled_namespaces,
             running_builds_table => running_builds_table
         })
         .unwrap();

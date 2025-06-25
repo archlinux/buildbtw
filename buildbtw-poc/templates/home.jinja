@@ -16,11 +16,19 @@
         </tr>
         {% endfor %}
     </tbody></table>
-    <h2>All namespaces</h2>
+    <h2>Active namespaces</h2>
     <ul>
-        {% for namespace in namespaces %}
+        {% for namespace in active_namespaces %}
             <li>
-                <a href="/namespace/{{namespace.name}}">{{ namespace.name }}</a> ({{namespace.status}})
+                <a href="/namespace/{{namespace.name}}">{{ namespace.name }}</a>
+            </li>
+        {% endfor %}
+    </ul>
+    <h2>Cancelled namespaces</h2>
+    <ul>
+        {% for namespace in cancelled_namespaces %}
+            <li>
+                <a href="/namespace/{{namespace.name}}">{{ namespace.name }}</a>
             </li>
         {% endfor %}
     </ul>
