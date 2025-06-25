@@ -122,7 +122,9 @@ pub struct BuildNamespace {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageBuildDependency {}
 
-#[derive(Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq, Eq, Hash, Copy)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq, Eq, Hash, Copy, PartialOrd, Ord,
+)]
 pub enum PackageBuildStatus {
     Blocked,
     Pending,

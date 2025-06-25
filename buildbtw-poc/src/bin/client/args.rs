@@ -48,6 +48,11 @@ pub enum Command {
         #[arg()]
         name: String,
     },
+    /// Show status and builds for a namespace
+    Show {
+        #[arg()]
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, Parser)]

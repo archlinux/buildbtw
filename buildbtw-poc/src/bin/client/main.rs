@@ -1,11 +1,18 @@
+use std::collections::HashMap;
+
 use clap::Parser;
 use color_eyre::eyre::{Context, Result};
 use colored::Colorize;
+use itertools::Itertools;
 use reqwest::header::ACCEPT;
 use time::format_description;
 
-use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef};
+use buildbtw_poc::{
+    BuildNamespace, BuildNamespaceStatus, BuildSetIteration, GitRepoRef, PackageBuildStatus,
+    build_set_graph::BuildSetGraph,
+};
 use url::Url;
+use uuid::Uuid;
 
 use crate::args::{Args, Command};
 
@@ -34,6 +41,9 @@ async fn main() -> Result<()> {
         Command::List {} => list_namespaces(&args.server_url).await?,
         Command::Restart { name } => {
             create_build_iteration(name, &args.server_url).await?;
+        }
+        Command::Show { name } => {
+            show_namespace(name, &args.server_url).await?;
         }
     }
     Ok(())
@@ -123,6 +133,63 @@ async fn list_namespaces(server_url: &Url) -> Result<()> {
             namespace.created_at.format(&date_format)?.dimmed(),
             namespace.name.bold(),
         );
+    }
+
+    Ok(())
+}
+
+async fn show_namespace(name: String, server_url: &Url) -> Result<()> {
+    let url = server_url.join(&format!("/namespace/{name}"))?;
+    let response: Option<(Uuid, BuildSetGraph)> = reqwest::Client::new()
+        .get(url.clone())
+        .header(ACCEPT, "application/json")
+        .send()
+        .await
+        .context("Failed to read from server")?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    println!(r#"Namespace "{name}" ({url})"#);
+    println!();
+
+    let (iteration_id, graph) = match response {
+        Some(res) => res,
+        None => {
+            println!("Calculating packages to build for first iteration...");
+            return Ok(());
+        }
+    };
+
+    println!("Showing jobs for iteration {iteration_id}");
+    let mut nodes: Vec<_> = graph.node_weights().collect();
+    nodes.sort_by_key(|node| node.status);
+    let node_groups = nodes.into_iter().chunk_by(|node| node.status);
+    let mut node_groups: HashMap<_, _> = node_groups.into_iter().collect();
+
+    let status_order = [
+        PackageBuildStatus::Building,
+        PackageBuildStatus::Built,
+        PackageBuildStatus::Failed,
+        PackageBuildStatus::Pending,
+        PackageBuildStatus::Blocked,
+    ];
+    for status in status_order {
+        if let Some(group) = node_groups.remove(&status) {
+            println!();
+            println!("{} builds", status.as_description());
+            let max_lines = 5;
+
+            let collected_group = group.collect_vec();
+
+            for node in collected_group.iter().take(max_lines) {
+                println!("    {} {}", node.status.as_icon(), node.pkgbase);
+            }
+            if collected_group.len() > max_lines {
+                let more_count = collected_group.len() - max_lines;
+                println!("    [and {more_count} others]");
+            }
+        }
     }
 
     Ok(())

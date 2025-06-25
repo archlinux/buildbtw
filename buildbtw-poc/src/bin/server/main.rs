@@ -17,12 +17,16 @@ use with_content_type::{ApplicationJson, with_content_type};
 
 use crate::routes::{
     create_build_namespace, create_namespace_iteration, home_html, list_namespaces_json,
-    render_build_namespace_graph, render_latest_namespace, set_build_status, show_build_namespace,
-    update_namespace, upload_package,
+    render_build_namespace_graph, render_latest_namespace, set_build_status,
+    show_build_namespace_html, show_build_namespace_iteration_architecture_json,
+    show_build_namespace_iteration_json, show_build_namespace_json, update_namespace,
+    upload_package,
 };
 use crate::{
     args::{Args, Command},
-    routes::{show_build_namespace_iteration, show_build_namespace_iteration_architecture},
+    routes::{
+        show_build_namespace_iteration_architecture_html, show_build_namespace_iteration_html,
+    },
 };
 use buildbtw_poc::pacman_repo::REPO_DIR;
 
@@ -81,9 +85,9 @@ async fn main() -> Result<()> {
                     "/namespace/{name}/iteration",
                     post(create_namespace_iteration),
                 )
-                .route("/namespace/{name}", get(show_build_namespace))
-                .route("/namespace/{name}/{iteration}", get(show_build_namespace_iteration))
-                .route("/namespace/{name}/{iteration}/{architecture}", get(show_build_namespace_iteration_architecture))
+                .route("/namespace/{name}", get(with_content_type::<ApplicationJson, _>(show_build_namespace_json).or(show_build_namespace_html)))
+                .route("/namespace/{name}/{iteration}", get(with_content_type::<ApplicationJson, _>(show_build_namespace_iteration_json).or(show_build_namespace_iteration_html)))
+                .route("/namespace/{name}/{iteration}/{architecture}", get(with_content_type::<ApplicationJson, _>(show_build_namespace_iteration_architecture_json).or(show_build_namespace_iteration_architecture_html)))
                 .route(
                     "/namespace/{name}/{iteration_id}/{architecture}/graph",
                     get(render_build_namespace_graph),

@@ -14,6 +14,8 @@ pub enum ResponseError {
     IO(#[from] std::io::Error),
     #[error("Given {0} not found")]
     NotFound(&'static str),
+    #[error("Unsupported content type: {0}")]
+    UnsupportedContentType(String),
 }
 
 impl IntoResponse for ResponseError {
@@ -23,6 +25,7 @@ impl IntoResponse for ResponseError {
             ResponseError::Eyre(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::IO(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
         };
         (status, self.to_string()).into_response()
     }

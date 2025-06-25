@@ -137,31 +137,54 @@ pub(crate) async fn list_namespaces_json(
 }
 
 /// For debugging: Render the newest build namespace, regardless of its ID.
-#[debug_handler]
 pub(crate) async fn render_latest_namespace(
     State(state): State<AppState>,
 ) -> Result<Html<String>, ResponseError> {
     let namespace = db::namespace::read_latest(&state.db_pool).await?;
 
-    show_build_namespace_iteration_architecture(Path((namespace.name, None, None)), State(state))
-        .await
+    show_build_namespace_iteration_architecture_html(
+        Path((namespace.name, None, None)),
+        State(state),
+    )
+    .await
 }
 
-#[debug_handler]
-pub(crate) async fn show_build_namespace(
+pub(crate) async fn show_build_namespace_html(
     Path(namespace_name): Path<String>,
     state: State<AppState>,
 ) -> Result<Html<String>, ResponseError> {
-    show_build_namespace_iteration_architecture(Path((namespace_name, None, None)), state).await
+    show_build_namespace_iteration_architecture_html(Path((namespace_name, None, None)), state)
+        .await
 }
 
-#[debug_handler]
-pub(crate) async fn show_build_namespace_iteration(
+pub(crate) async fn show_build_namespace_json(
+    Path(namespace_name): Path<String>,
+    state: State<AppState>,
+) -> Result<Json<Option<(Uuid, BuildSetGraph)>>, ResponseError> {
+    show_build_namespace_iteration_architecture_json(Path((namespace_name, None, None)), state)
+        .await
+}
+
+pub(crate) async fn show_build_namespace_iteration_html(
     Path((namespace_name, iteration_id)): Path<(String, Option<Uuid>)>,
     state: State<AppState>,
 ) -> Result<Html<String>, ResponseError> {
-    show_build_namespace_iteration_architecture(Path((namespace_name, iteration_id, None)), state)
-        .await
+    show_build_namespace_iteration_architecture_html(
+        Path((namespace_name, iteration_id, None)),
+        state,
+    )
+    .await
+}
+
+pub(crate) async fn show_build_namespace_iteration_json(
+    Path((namespace_name, iteration_id)): Path<(String, Option<Uuid>)>,
+    state: State<AppState>,
+) -> Result<Json<Option<(Uuid, BuildSetGraph)>>, ResponseError> {
+    show_build_namespace_iteration_architecture_json(
+        Path((namespace_name, iteration_id, None)),
+        state,
+    )
+    .await
 }
 
 #[derive(Serialize)]
@@ -258,7 +281,7 @@ fn default_architecture_for_namespace(
 }
 
 #[debug_handler]
-pub(crate) async fn show_build_namespace_iteration_architecture(
+pub(crate) async fn show_build_namespace_iteration_architecture_html(
     Path((namespace_name, iteration_id, architecture)): Path<(
         String,
         Option<Uuid>,
@@ -331,6 +354,35 @@ pub(crate) async fn show_build_namespace_iteration_architecture(
         .unwrap();
 
     Ok(Html(rendered))
+}
+
+pub(crate) async fn show_build_namespace_iteration_architecture_json(
+    Path((namespace_name, iteration_id, architecture)): Path<(
+        String,
+        Option<Uuid>,
+        Option<ConcreteArchitecture>,
+    )>,
+    State(state): State<AppState>,
+) -> ResponseResult<Json<Option<(Uuid, BuildSetGraph)>>> {
+    let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool).await?;
+    let iterations = db::iteration::list(&state.db_pool, namespace.id).await?;
+
+    let current_iteration = match iteration_id {
+        Some(id) => Some(db::iteration::read(&state.db_pool, id).await?),
+        None => iterations.last().cloned(),
+    };
+
+    let current_iteration = match current_iteration {
+        Some(it) => it,
+        None => return Ok(Json(None)),
+    };
+
+    let (_, build_graph) =
+        default_architecture_for_namespace(architecture, Some(&current_iteration));
+
+    let build_graph = build_graph.ok_or(ResponseError::NotFound("architecture"))?;
+
+    Ok(Json(Some((current_iteration.id, build_graph.clone()))))
 }
 
 #[debug_handler]

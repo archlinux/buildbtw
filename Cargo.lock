@@ -476,6 +476,7 @@ dependencies = [
  "git2",
  "gitlab",
  "graphql_client",
+ "itertools 0.14.0",
  "layout-rs",
  "listenfd",
  "mime_guess",
