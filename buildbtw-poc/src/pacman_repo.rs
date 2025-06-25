@@ -44,7 +44,7 @@ pub async fn add_to_repo(
     let db_filename = repo_file_name();
     let db_path = format!("{repo_dir_path}/{db_filename}");
     cmd.arg(db_path);
-    cmd.arg(repo_dir_path.join(package_file_name(package, srcinfo)));
+    cmd.arg(repo_dir_path.join(package_file_name(package, srcinfo)?));
     cmd.status().await?;
 
     Ok(())
