@@ -7,11 +7,11 @@ Welcome to the buildbtw proof-of-concept!
 Builds are organized in **build namespaces** which are isolated from each other.
 When creating a build namespace, you specify a list of branches in packages you want to build, which we call an **origin changeset**.
 Based on the packages in the origin changesets, buildbtw creates one build graph for each architecture that needs to be built.
-The build graphs contain the packages in the origin changeset, and any **dependents**: packages that depend on the ones in the origin changeset, directly or indirectly. 
+The build graphs contain the packages in the origin changeset, and any **dependents**: packages that depend on the ones in the origin changeset, directly or indirectly.
 Dependents are sometimes also called "reverse dependencies".
 
-If build instructions for any package in a build namespace change, buildbtw will build all packages in the namespace again. 
-To do this, it creates a new **iteration**. 
+If build instructions for any package in a build namespace change, buildbtw will build all packages in the namespace again.
+To do this, it creates a new **iteration**.
 Each iteration has its own build graph and pacman repository.
 
 ## Getting Started
@@ -30,7 +30,7 @@ Host buildbtw-dev
 To make the buildbtw server available locally, run the following in a background terminal:
 
 ```sh
-just forward-tunnel
+ssh -N -T -L 8080:localhost:8080 buildbtw-dev
 ```
 
 Install the `bbtw` package:
