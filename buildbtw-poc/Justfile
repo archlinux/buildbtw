@@ -33,7 +33,13 @@ watch-server *args: create-db
 [group("server")]
 reverse-tunnel:
     echo "Running SSH reverse tunnel here, don't close this terminal"
-    ssh -NR 8080:0.0.0.0:8080 buildbtw-dev
+    ssh -N -T -R 8080:0.0.0.0:8080 buildbtw-dev
+
+[doc("Start a forward tunnel SSH tunnel to the buildbtw server")]
+[group("server")]
+forward-tunnel:
+    echo "Running SSH forward tunnel here, don't close this terminal"
+    ssh -N -T -L 8080:localhost:8080 buildbtw-dev
 
 [doc("Run client")]
 [group("client")]
