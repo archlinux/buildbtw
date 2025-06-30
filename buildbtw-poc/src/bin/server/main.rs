@@ -65,6 +65,8 @@ async fn main() -> Result<()> {
             let db_pool: sqlx::Pool<sqlx::Sqlite> =
                 db::create_and_connect_db(&args.database_url).await?;
 
+            sqlx::migrate!("./migrations").run(&db_pool).await?;
+
             let worker_sender = tasks::start(db_pool.clone(), args.gitlab).await?;
             let app = Router::new()
                 .route("/", get(|| async {Redirect::to("/namespace")}))
