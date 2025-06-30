@@ -1,4 +1,4 @@
-# buildbtw PoC User Guide
+# buildbtw Proof-of-Concept User Guide
 
 Welcome to the buildbtw proof-of-concept!
 
@@ -45,6 +45,8 @@ This should conclude the setup! To verify that everything works, you can list ex
 bbtw list
 ```
 
+### Dispatching builds
+
 Now you can create a new build namespace using the `bbtw new` command. E.g.:
 
 ```sh
@@ -62,6 +64,21 @@ Afterwards, you can install packages from your namespace like so:
 ```sh
 pacman -S buildbtw-namespace/<package>
 ```
+
+### Building git branches with changes
+
+For testing the proof-of-concept, we've cloned all existing package sources in the [packaging-buildbtw-dev](https://gitlab.archlinux.org/packaging-buildbtw-dev/) gitlab group. It's currently private to prevent it from showing up in search results.
+
+To make a change and build the resulting package:
+
+1. Either clone a repository from the `packaging-buildbtw-dev` group, or add a new git remote to an existing package.
+1. Create a git branch containing the changes you want to build.
+1. Push the branch to the `packaging-buildbtw-dev` remote.
+1. Dispatch the build: `bbtw new <package>/<branch>`.
+
+If you change commits or push new ones to your branch, buildbtw will automatically create a new iteration for your namespace.
+
+The PoC server will not see any changes in the normal `packaging` gitlab group.
 
 ## What the PoC can & can't do
 
