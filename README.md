@@ -6,6 +6,7 @@ This repo contains a bunch of software maintained by the buildbtw team.
 Check the respective directories for their READMEs.
 
 - [buildbtw-poc](/buildbtw-poc) - the proof of concept buildbtw implementation
+- [arch-pkg-repo-updater](/arch-pkg-repo-updater) - a tool to sync package repositories
 
 ## Commands
 
