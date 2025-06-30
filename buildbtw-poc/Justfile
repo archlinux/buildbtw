@@ -22,7 +22,7 @@ clean:
 [doc("Run server")]
 [group("server")]
 run-server *args: create-db
-    cargo run --bin server -- run {{ args }}
+    cargo run --bin buildbtw-server -- run {{ args }}
 
 [doc("Run server and auto-restart on code changes")]
 [group("server")]
@@ -44,7 +44,7 @@ forward-tunnel:
 [doc("Run client")]
 [group("client")]
 run-client *args:
-    cargo run --bin client -- {{ args }}
+    cargo run --bin buildbtw-client -- {{ args }}
 
 [doc("Run client and auto-restart on code changes")]
 [group("client")]
@@ -54,12 +54,12 @@ watch-client *args:
 [doc("Run worker")]
 [group("worker")]
 run-worker *args:
-    cargo run --bin worker -- run {{ args }}
+    cargo run --bin buildbtw-worker -- run {{ args }}
 
 [doc("Run worker (builds fake PKGBUILDs for faster local testing)")]
 [group("worker")]
 run-worker-fake *args:
-    cargo run --bin worker --features fake-pkgbuild -- run {{ args }}
+    cargo run --bin buildbtw-worker --features fake-pkgbuild -- run {{ args }}
 
 # TODO `cargo watch` interferes with stdin handling,
 # so the worker can't ask for a password to use sudo :/

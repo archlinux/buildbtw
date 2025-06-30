@@ -9,6 +9,18 @@ name = "buildbtw-poc"
 repository.workspace = true
 version = "0.1.0"
 
+[[bin]]
+name = "buildbtw-client"
+path = "src/bin/client/main.rs"
+
+[[bin]]
+name = "buildbtw-server"
+path = "src/bin/server/main.rs"
+
+[[bin]]
+name = "buildbtw-worker"
+path = "src/bin/worker/main.rs"
+
 [features]
 fake-pkgbuild = []
 

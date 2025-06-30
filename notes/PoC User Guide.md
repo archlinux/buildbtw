@@ -33,10 +33,10 @@ To make the buildbtw server available locally, run the following in a background
 ssh -N -T -L 8080:localhost:8080 buildbtw-dev
 ```
 
-Install the `bbtw` package:
+Install the `buildbtw-poc` package:
 
 ```sh
-pacman -S bbtw
+pacman -S buildbtw-poc
 ```
 
 This should conclude the setup! To verify that everything works, you can list existing build namespaces:

@@ -50,7 +50,7 @@ build:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   script:
-    - cargo build --release --bin server
+    - cargo build --release --bin buildbtw-server
     - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest ../target/release
     - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
