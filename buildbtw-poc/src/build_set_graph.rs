@@ -79,6 +79,7 @@ impl PackagesMetadata {
 pub struct PackageMetadata {
     source_info: SourceInfo,
     commit_hash: CommitHash,
+    branch_name: String,
 }
 
 /// For tracking dependencies between individual packages.
@@ -95,6 +96,7 @@ pub struct PackageNode {
 pub struct BuildPackageNode {
     pub pkgbase: Pkgbase,
     pub commit_hash: CommitHash,
+    pub branch_name: String,
     pub status: PackageBuildStatus,
     pub srcinfo: SourceInfo,
 }
@@ -202,6 +204,7 @@ async fn calculate_packages_to_be_built_inner(
                 let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {
                     pkgbase: pkgbase.clone(),
                     commit_hash: package_metadata.commit_hash.clone(),
+                    branch_name: package_metadata.branch_name.clone(),
                     srcinfo: package_metadata.source_info.clone(),
                     status: PackageBuildStatus::Blocked,
                 });
@@ -296,6 +299,7 @@ pub async fn gather_packages_metadata(
                     PackageMetadata {
                         source_info,
                         commit_hash,
+                        branch_name: branch.to_string(),
                     },
                 );
 
@@ -442,7 +446,10 @@ pub fn schedule_next_build_in_graph(
                 namespace: namespace_id,
                 architecture,
                 srcinfo: node.srcinfo.clone(),
-                source: (node.pkgbase.clone(), node.commit_hash.clone().into()),
+                source: crate::PipelineTarget {
+                    pkgbase: node.pkgbase.clone(),
+                    branch_name: node.branch_name.clone(),
+                },
                 updated_build_set_graph,
             };
             return ScheduleBuildResult::Scheduled(response);

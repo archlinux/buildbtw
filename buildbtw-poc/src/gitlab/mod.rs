@@ -193,7 +193,7 @@ pub async fn create_pipeline(
         ),
         ("NAMESPACE_NAME", namespace_name.to_string()),
         ("ITERATION_ID", build.iteration.to_string()),
-        ("PKGBASE", build.source.0.to_string()),
+        ("PKGBASE", build.source.pkgbase.to_string()),
         ("PACKAGE_FILE_NAMES", package_file_names),
         ("ARCHITECTURE", build.architecture.to_string()),
     ]
@@ -208,15 +208,13 @@ pub async fn create_pipeline(
     .collect::<Result<Vec<_>, _>>()?;
     let project_name = format!(
         "{gitlab_packages_group}/{pkgbase}",
-        pkgbase = build.source.0
+        pkgbase = build.source.pkgbase
     );
     let response: CreatePipelineResponse =
         gitlab::api::projects::pipelines::CreatePipeline::builder()
             // TODO remove hardcoded temporary test project
             .project(project_name)
-            // TODO if project is in the origin changesets, take the respective branch name from there
-            // however, if we want to support arbitrary commit hashes in origin changesets, we need to create branches for those hashes as gitlab only supports running pipelines on branches
-            .ref_("main")
+            .ref_(&build.source.branch_name)
             .variables(vars.into_iter())
             .build()?
             .query_async(client)

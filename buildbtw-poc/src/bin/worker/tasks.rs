@@ -15,12 +15,12 @@ pub fn start(modify_gpg_keyring: bool) -> UnboundedSender<Message> {
         while let Some(msg) = receiver.recv().await {
             match msg {
                 Message::BuildPackage(schedule) => {
-                    tracing::info!("🕑 Building package {:?}", schedule.source.0);
+                    tracing::info!("🕑 Building package {}", schedule.source.pkgbase);
                     let mut result_status = build_package(&schedule, modify_gpg_keyring).await;
 
                     tracing::info!(
                         "build result for {:?}: {result_status:?}",
-                        schedule.source.0
+                        schedule.source.pkgbase
                     );
 
                     // TODO we might want to guarantee some kind of transactionality

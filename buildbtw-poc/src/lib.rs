@@ -74,10 +74,16 @@ pub struct UpdateBuildNamespace {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct PipelineTarget {
+    pub pkgbase: Pkgbase,
+    pub branch_name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ScheduleBuild {
     pub namespace: Uuid,
     pub iteration: Uuid,
-    pub source: GitRepoRef,
+    pub source: PipelineTarget,
     pub architecture: ConcreteArchitecture,
     pub srcinfo: SourceInfo,
     pub updated_build_set_graph: BuildSetGraph,

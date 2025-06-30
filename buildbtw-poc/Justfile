@@ -114,6 +114,11 @@ migrate-db:
 reset-db: && create-db
     sqlx db drop
 
+[doc("Create a new timestamped migration in the migrations folder")]
+[group("db")]
+new-migration name:
+    sqlx migrate add --source buildbtw-poc/migrations {{name}}
+
 [doc("Deploy GitLab custom runner")]
 deploy-custom-runner:
     # Make sure /etc/gitlab-runner/config.toml on buildbtw-dev has this:
