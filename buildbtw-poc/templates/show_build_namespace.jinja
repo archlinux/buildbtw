@@ -11,7 +11,7 @@
         Created: {{current_iteration.created_at}}, reason: {{current_iteration.create_reason}}
 
         <h2 style="font-size: 1em;">Architectures</h2>
-        {% for other_architecture in current_iteration.architectures %}
+        {% for other_architecture in current_iteration.architectures|sort %}
             {% if other_architecture != architecture %}
                 <a href="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{other_architecture}}">{{other_architecture}}</a>
             {% else %}
