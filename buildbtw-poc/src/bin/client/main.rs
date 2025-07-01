@@ -90,7 +90,12 @@ async fn create_namespace(
 
     tracing::trace!("{response:#?}");
 
-    tracing::info!(r#"Created build namespace "{name}""#, name = response.name);
+    println!(
+        r#"Created build namespace "{name}": {namespace_url}"#,
+        name = response.name,
+        namespace_url = server_url
+            .join(format!("/namespace/{name}", name = response.name.as_str()).as_str())?
+    );
     Ok(response)
 }
 
