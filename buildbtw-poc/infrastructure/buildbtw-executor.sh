@@ -33,6 +33,7 @@ run() {
 
     sudo -u buildbtw --set-home \
     vmexec run archlinux --rm --pmem /var/lib/archbuild:30 \
+        --ssh-timeout 120 \
         --volume "${CUSTOM_ENV_CI_PROJECT_DIR}":/mnt/src_repo:ro \
         --volume /srv/buildbtw/gitlab-executor:/mnt/bin:ro \
         --volume "${output_dir}":/mnt/output \
