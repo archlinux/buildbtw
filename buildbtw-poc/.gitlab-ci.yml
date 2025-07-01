@@ -1,3 +1,7 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'parent_pipeline'
+
 before_script:
   - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse just
   - cd buildbtw-poc
