@@ -138,8 +138,8 @@ pub enum PipelineStatus {
 impl From<PipelineStatus> for PackageBuildStatus {
     fn from(value: PipelineStatus) -> Self {
         match value {
-            PipelineStatus::Pending
-            | PipelineStatus::Created
+            PipelineStatus::Pending => PackageBuildStatus::Scheduled,
+            PipelineStatus::Created
             | PipelineStatus::WaitingForResource
             | PipelineStatus::Preparing
             | PipelineStatus::Scheduled
@@ -154,8 +154,8 @@ impl From<PipelineStatus> for PackageBuildStatus {
 }
 
 impl PipelineStatus {
-    pub fn is_finished(&self) -> bool {
-        PackageBuildStatus::from(*self) != PackageBuildStatus::Building
+    pub fn matches_package_build_status(&self, build_status: PackageBuildStatus) -> bool {
+        PackageBuildStatus::from(*self) == build_status
     }
 }
 

@@ -126,10 +126,17 @@ pub struct PackageBuildDependency {}
     Serialize, Deserialize, Debug, Clone, ValueEnum, PartialEq, Eq, Hash, Copy, PartialOrd, Ord,
 )]
 pub enum PackageBuildStatus {
+    /// Other failed builds are blocking this build from running
     Blocked,
+    /// This is waiting to be scheduled
     Pending,
+    /// Sent to the worker to build
+    Scheduled,
+    /// Worker has started building
     Building,
+    /// Build has succeeded
     Built,
+    /// Build as failed
     Failed,
 }
 
@@ -138,6 +145,7 @@ impl PackageBuildStatus {
         match self {
             Self::Blocked => "#cccccc",
             Self::Pending => "black",
+            Self::Scheduled => "grey",
             Self::Building => "orange",
             Self::Built => "green",
             Self::Failed => "red",
@@ -149,6 +157,7 @@ impl PackageBuildStatus {
             Self::Blocked => "🔒",
             Self::Pending => "🕑",
             Self::Building => "🔨",
+            Self::Scheduled => "📅",
             Self::Built => "✅",
             Self::Failed => "❌",
         }

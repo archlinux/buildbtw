@@ -388,6 +388,7 @@ pub fn schedule_next_build_in_graph(
     namespace_id: Uuid,
     iteration_id: Uuid,
     architecture: ConcreteArchitecture,
+    schedule_status: PackageBuildStatus,
 ) -> ScheduleBuildResult {
     // assign default fallback status, if only built nodes are visited, the graph is finished
     let mut fallback_status = ScheduleBuildResult::Finished;
@@ -429,16 +430,15 @@ pub fn schedule_next_build_in_graph(
                     }
                 }
                 // skip nodes that building and tell the scheduler to wait for them to complete
-                PackageBuildStatus::Building => {
+                PackageBuildStatus::Building | PackageBuildStatus::Scheduled => {
                     fallback_status = ScheduleBuildResult::NoPendingPackages;
                     continue;
                 }
                 // process nodes that are pending
                 PackageBuildStatus::Pending => {}
             }
-            // This node is ready to build
-            // reserve it for building
-            updated_build_set_graph[node_idx].status = PackageBuildStatus::Building;
+            // This node is ready to build, reserve it for building
+            updated_build_set_graph[node_idx].status = schedule_status;
 
             // return the information of the scheduled node
             let response = ScheduleBuild {

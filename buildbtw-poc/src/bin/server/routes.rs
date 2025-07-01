@@ -76,6 +76,8 @@ pub(crate) async fn home_html(State(state): State<AppState>) -> ResponseResult<H
         });
 
     let mut running_builds_table: Vec<RunningBuildsEntry> = Vec::new();
+    // Include cancelled namespaces here because they can contain leftover
+    // running builds as well
     for namespace in db::namespace::list(&state.db_pool).await? {
         let latest_iteration =
             if let Ok(i) = db::iteration::read_newest(&state.db_pool, namespace.id).await {
@@ -327,11 +329,12 @@ pub(crate) async fn show_build_namespace_iteration_architecture_html(
         }
 
         table_entries.sort_by_key(|entry| match entry.status {
-            PackageBuildStatus::Building => 0,
-            PackageBuildStatus::Failed => 1,
-            PackageBuildStatus::Built => 2,
-            PackageBuildStatus::Blocked => 3,
-            PackageBuildStatus::Pending => 4,
+            PackageBuildStatus::Scheduled => 0,
+            PackageBuildStatus::Building => 1,
+            PackageBuildStatus::Failed => 2,
+            PackageBuildStatus::Built => 3,
+            PackageBuildStatus::Blocked => 4,
+            PackageBuildStatus::Pending => 5,
         });
 
         pipeline_table = Some(table_entries);

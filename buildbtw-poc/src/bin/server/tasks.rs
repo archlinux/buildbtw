@@ -25,6 +25,9 @@ use crate::{
 
 pub enum Message {}
 
+/// If the `dispatch_builds_to_gitlab` option is `true`, we'll create this struct
+/// to encapsulate all options needed to dispatch those builds.
+/// TODO: rename to something that reflects the implicit connection to that option
 struct GitlabContext {
     args: args::Gitlab,
     client: gitlab::AsyncGitlab,
@@ -264,9 +267,10 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
         let mut new_packages_to_be_built = iteration.packages_to_be_built.clone();
         for (architecture, graph) in iteration.packages_to_be_built {
             for node in graph.node_weights() {
-                // Only check nodes that are currently building.
-                if node.status != PackageBuildStatus::Building {
-                    continue;
+                // Only check nodes that are currently building or scheduled.
+                match node.status {
+                    PackageBuildStatus::Building | PackageBuildStatus::Scheduled => {}
+                    _ => continue,
                 }
 
                 // Check if there's a gitlab pipeline we started
@@ -300,8 +304,8 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
                 )
                 .await?;
 
-                // If it's now finished, update the in-progress build node to reflect this
-                if current_pipeline_status.is_finished() {
+                // If it's changed, update the in-progress build node to reflect this
+                if !current_pipeline_status.matches_package_build_status(node.status) {
                     tracing::debug!(pipeline.gitlab_url, "Pipeline is finished");
                     // Set new status of node, and mark nodes depending on this one
                     // as pending
@@ -312,7 +316,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
                     );
                     new_packages_to_be_built.insert(architecture, new_graph);
                 } else {
-                    tracing::debug!(pipeline.gitlab_url, "Pipeline is running");
+                    tracing::debug!(pipeline.gitlab_url, "Pipeline status is up to date");
                 }
             }
         }
@@ -341,10 +345,28 @@ async fn schedule_next_build_if_needed(
         return Ok(());
     }
 
+    let scheduled_status = match maybe_gitlab_context {
+        // If we dispatch builds to gitlab, set the status to "scheduled".
+        // Later on, the server queries gitlab in the background to check
+        // if the pipeline has moved from "pending" to "building"
+        // and will update the status accordingly.
+        Some(_) => PackageBuildStatus::Scheduled,
+        // If we build using our own worker, set the status to "building"
+        // directly, as the worker has no concept of "pending" builds
+        // and will instead start building instantly.
+        None => PackageBuildStatus::Building,
+    };
+
     // -> schedule build
     let mut iteration = db::iteration::read_newest(pool, namespace.id).await?;
     for (architecture, graph) in iteration.packages_to_be_built.clone() {
-        let build = schedule_next_build_in_graph(&graph, namespace.id, iteration.id, architecture);
+        let build = schedule_next_build_in_graph(
+            &graph,
+            namespace.id,
+            iteration.id,
+            architecture,
+            scheduled_status,
+        );
         match build {
             // TODO: distinguish between no pending packages and failed graph
             ScheduleBuildResult::NoPendingPackages => {}
