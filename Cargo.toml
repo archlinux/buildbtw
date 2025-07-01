@@ -10,6 +10,10 @@ keywords = ["arch", "linux", "packaging", "ci", "building", "graph"]
 license = "GPL-3.0-or-later"
 repository = "https://gitlab.archlinux.org/archlinux/alpm/alpm"
 
+[profile.release]
+codegen-units = 1
+lto = true
+
 [workspace]
 members = [
     "arch-pkg-repo-updater",
