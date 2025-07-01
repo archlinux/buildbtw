@@ -106,15 +106,31 @@ async fn update_and_build_all_namespaces(
     maybe_gitlab_context: Option<&GitlabContext>,
     server_port: u16,
 ) -> Result<()> {
+    // Update gitlab pipeline status for all iterations in all namespaces.
+    if let Some(gitlab_context) = maybe_gitlab_context {
+        let all_iterations = db::iteration::list(pool).await?;
+        let iteration_count = all_iterations.len();
+        tracing::info!("Updating gitlab pipeline statuses in {iteration_count} iteration(s)...");
+
+        if let Err(e) =
+            update_build_set_graphs_from_gitlab_pipelines(pool, all_iterations, gitlab_context)
+                .await
+        {
+            tracing::error!(r#"Error updating gitlab pipeline statuses: {e:?}"#);
+        }
+    }
+
     // Check all build namespaces and see if they need a new iteration.
-    let namespaces = db::namespace::list_by_status(pool, BuildNamespaceStatus::Active).await?;
-    let namespace_count = namespaces.len();
+    let active_namespaces =
+        db::namespace::list_by_status(pool, BuildNamespaceStatus::Active).await?;
+    let namespace_count = active_namespaces.len();
     tracing::info!("Updating and dispatching builds for {namespace_count} active namespace(s)...");
 
-    for namespace in namespaces {
+    for namespace in active_namespaces {
         // Try to build all namespaces, and continue on failures.
         if let Err(e) =
-            update_and_build_namespace(pool, maybe_gitlab_context, &namespace, server_port).await
+            update_and_build_active_namespace(pool, maybe_gitlab_context, &namespace, server_port)
+                .await
         {
             tracing::error!(
                 r#"Error updating namespace "{name}": {e:?}"#,
@@ -128,16 +144,13 @@ async fn update_and_build_all_namespaces(
     Ok(())
 }
 
-async fn update_and_build_namespace(
+async fn update_and_build_active_namespace(
     pool: &sqlx::Pool<sqlx::Sqlite>,
     maybe_gitlab_context: Option<&GitlabContext>,
     namespace: &BuildNamespace,
     server_port: u16,
 ) -> Result<()> {
     create_new_namespace_iteration_if_needed(pool, namespace).await?;
-    if let Some(gitlab_context) = maybe_gitlab_context {
-        update_build_set_graphs_from_gitlab_pipelines(pool, namespace, gitlab_context).await?;
-    }
     schedule_next_build_if_needed(pool, namespace, maybe_gitlab_context, server_port).await?;
 
     Ok(())
@@ -243,11 +256,9 @@ async fn create_new_namespace_iteration_if_needed(
 /// in the build graph.
 async fn update_build_set_graphs_from_gitlab_pipelines(
     pool: &SqlitePool,
-    namespace: &BuildNamespace,
+    iterations: Vec<BuildSetIteration>,
     gitlab_context: &GitlabContext,
 ) -> Result<()> {
-    let iterations = db::iteration::list(pool, namespace.id).await?;
-
     // Visit all build nodes in all iterations
     for iteration in iterations {
         let mut new_packages_to_be_built = iteration.packages_to_be_built.clone();
@@ -276,7 +287,12 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
 
                 // Query current pipeline status in gitlab
                 let pkgbase = &node.pkgbase;
-                print!("Checking pipeline for {pkgbase}... ");
+                tracing::debug!(
+                    pipeline.gitlab_url,
+                    ?pkgbase,
+                    ?architecture,
+                    "Checking pipeline...",
+                );
                 let current_pipeline_status = buildbtw_poc::gitlab::get_pipeline_status(
                     &gitlab_context.client,
                     pipeline.project_gitlab_iid.try_into()?,
@@ -286,7 +302,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
 
                 // If it's now finished, update the in-progress build node to reflect this
                 if current_pipeline_status.is_finished() {
-                    tracing::info!("finished");
+                    tracing::debug!(pipeline.gitlab_url, "Pipeline is finished");
                     // Set new status of node, and mark nodes depending on this one
                     // as pending
                     let new_graph = build_set_graph::set_build_status(
@@ -296,7 +312,7 @@ async fn update_build_set_graphs_from_gitlab_pipelines(
                     );
                     new_packages_to_be_built.insert(architecture, new_graph);
                 } else {
-                    tracing::info!("running");
+                    tracing::debug!(pipeline.gitlab_url, "Pipeline is running");
                 }
             }
         }

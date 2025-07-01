@@ -115,7 +115,31 @@ pub(crate) async fn read(pool: &SqlitePool, iteration_id: uuid::Uuid) -> Result<
     Ok(iteration)
 }
 
-pub(crate) async fn list(
+pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildSetIteration>> {
+    let iterations = sqlx::query_as!(
+        DbBuildSetIteration,
+        r#"
+        select
+            id as "id: uuid::fmt::Hyphenated",
+            created_at as "created_at: time::OffsetDateTime",
+            namespace_id as "namespace_id: uuid::fmt::Hyphenated",
+            packages_to_be_built as "packages_to_be_built: Json<HashMap<ConcreteArchitecture, BuildSetGraph>>",
+            origin_changesets as "origin_changesets: Json<Vec<GitRepoRef>>",
+            create_reason as "create_reason: Json<NewIterationReason>"
+        from build_set_iterations
+        order by created_at asc
+        "#,
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(BuildSetIteration::from)
+    .collect();
+
+    Ok(iterations)
+}
+
+pub(crate) async fn list_for_namespace(
     pool: &SqlitePool,
     namespace_id: uuid::Uuid,
 ) -> Result<Vec<BuildSetIteration>> {

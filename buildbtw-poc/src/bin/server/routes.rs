@@ -290,7 +290,7 @@ pub(crate) async fn show_build_namespace_iteration_architecture_html(
     State(state): State<AppState>,
 ) -> Result<Html<String>, ResponseError> {
     let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool).await?;
-    let iterations = db::iteration::list(&state.db_pool, namespace.id).await?;
+    let iterations = db::iteration::list_for_namespace(&state.db_pool, namespace.id).await?;
 
     let mut pipeline_table = None;
     let current_iteration = if let Some(id) = iteration_id {
@@ -365,7 +365,7 @@ pub(crate) async fn show_build_namespace_iteration_architecture_json(
     State(state): State<AppState>,
 ) -> ResponseResult<Json<Option<(Uuid, BuildSetGraph)>>> {
     let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool).await?;
-    let iterations = db::iteration::list(&state.db_pool, namespace.id).await?;
+    let iterations = db::iteration::list_for_namespace(&state.db_pool, namespace.id).await?;
 
     let current_iteration = match iteration_id {
         Some(id) => Some(db::iteration::read(&state.db_pool, id).await?),
