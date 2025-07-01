@@ -32,7 +32,7 @@ run() {
     output_dir=$(sudo -u buildbtw mktemp -d)
 
     sudo -u buildbtw --set-home \
-    vmexec run archlinux --pmem /var/lib/archbuild:30 \
+    vmexec run archlinux --rm --pmem /var/lib/archbuild:30 \
         --volume "${CUSTOM_ENV_CI_PROJECT_DIR}":/mnt/src_repo:ro \
         --volume /srv/buildbtw/gitlab-executor:/mnt/bin:ro \
         --volume "${output_dir}":/mnt/output \
