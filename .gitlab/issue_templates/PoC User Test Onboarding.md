@@ -4,11 +4,7 @@ I'd like to test the buildbtw proof-of-concept.
 
 <!-- Please delete the text that doesn't match your preferences: -->
 
-I'd like to join a voice call for onboarding. Here are three 1h timeslots where I'm available:
-
-1.
-2.
-3.
+I'd like to join a voice call for onboarding.
 
 <!-- or: -->
 
@@ -16,6 +12,7 @@ I'll onboard on my own.
 
 ## Onboarding checklist for buildbtw team
 
+- [ ] Arrange time and date for voice call
 - [ ] Create user on `buildbtw-dev`: `useradd -m ${USER}`
 - [ ] Add SSH public key: `echo "${PUBKEY}" >> /home/${USER}/.ssh/authorized_keys`
 - [ ] Add to [packaging-buildbtw-dev group](https://gitlab.archlinux.org/groups/packaging-buildbtw-dev/-/group_members)
