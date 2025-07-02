@@ -76,6 +76,10 @@ impl PackagesMetadata {
 }
 
 pub struct PackageMetadata {
+    // TODO: creating this field requires expensive cloning.
+    // we can speed this up by removing this field and reading
+    // the source info directly from the SourceRepos struct
+    // where it's needed.
     source_info: SourceInfo,
     commit_hash: CommitHash,
     branch_name: String,
