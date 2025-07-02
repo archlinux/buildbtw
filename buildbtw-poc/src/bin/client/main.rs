@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
         Command::Resume { name } => {
             update_namespace(name, BuildNamespaceStatus::Active, &args.server_url).await?;
         }
-        Command::List {} => list_namespaces(&args.server_url).await?,
+        Command::List { all } => list_namespaces(&args.server_url, all).await?,
         Command::Restart { name } => {
             create_build_iteration(name, &args.server_url).await?;
         }
@@ -113,7 +113,7 @@ async fn create_build_iteration(name: String, server_url: &Url) -> Result<BuildS
     Ok(response)
 }
 
-async fn list_namespaces(server_url: &Url) -> Result<()> {
+async fn list_namespaces(server_url: &Url, list_all: bool) -> Result<()> {
     let namespaces: Vec<BuildNamespace> = reqwest::Client::new()
         .get(server_url.join("/namespace")?)
         .header(ACCEPT, "application/json")
@@ -127,17 +127,26 @@ async fn list_namespaces(server_url: &Url) -> Result<()> {
 
     let date_format = format_description::parse("[year]-[month]-[day]")?;
 
+    let selected_namespaces = match list_all {
+        false => "active",
+        true => "all",
+    };
+
+    println!("Listing {selected_namespaces} namespaces:");
+
     for namespace in namespaces {
         let status_emoji = match namespace.status {
             BuildNamespaceStatus::Active => "🔄 (active) ".dimmed(),
             BuildNamespaceStatus::Cancelled => "🛑 (stopped)".dimmed(),
         };
 
-        println!(
-            "{status_emoji} {} {}",
-            namespace.created_at.format(&date_format)?.dimmed(),
-            namespace.name.bold(),
-        );
+        if list_all || namespace.status == BuildNamespaceStatus::Active {
+            println!(
+                "{status_emoji} {} {}",
+                namespace.created_at.format(&date_format)?.dimmed(),
+                namespace.name.bold(),
+            );
+        }
     }
 
     Ok(())

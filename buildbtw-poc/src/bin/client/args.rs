@@ -42,7 +42,11 @@ pub enum Command {
         name: String,
     },
     /// List all build namespaces
-    List {},
+    List {
+        /// Show all namespaces, including canceled ones. Default: false
+        #[arg(short, long, action, default_value = "false")]
+        all: bool,
+    },
     /// Manually create a new iteration for a namespace, recalculating the build graph and starting to build from the beginning
     Restart {
         #[arg()]
