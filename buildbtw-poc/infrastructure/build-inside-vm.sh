@@ -3,7 +3,7 @@ set -o nounset -o pipefail -o xtrace -o errexit
 
 REPO_URL=$1
 
-pacman --noconfirm -Sy devtools
+pacman --noconfirm -Syu devtools
 
 # Add buildbtw repo for this namespace
 sed -i "$ a [buildbtw-namespace]\nServer = $REPO_URL" /usr/share/devtools/pacman.conf.d/*
