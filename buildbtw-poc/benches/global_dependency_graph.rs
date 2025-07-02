@@ -1,6 +1,7 @@
 use buildbtw_poc::{
     BuildNamespace, BuildNamespaceStatus,
     build_set_graph::{build_global_dependency_graphs, gather_packages_metadata},
+    source_repos::SourceRepos,
 };
 use criterion::{Criterion, criterion_group, criterion_main};
 use uuid::Uuid;
@@ -20,9 +21,14 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             status: BuildNamespaceStatus::Active,
         };
 
-        gather_packages_metadata(namespace.current_origin_changesets.clone())
-            .await
-            .unwrap()
+        let mut source_repos = SourceRepos::new().await.unwrap();
+
+        gather_packages_metadata(
+            namespace.current_origin_changesets.clone(),
+            &mut source_repos,
+        )
+        .await
+        .unwrap()
     });
     group.bench_function("global_dependency_graph", |b| {
         b.iter(|| {

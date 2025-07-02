@@ -1,20 +1,18 @@
 //! Functionality to determine what needs to be rebuilt when packages change.
+use std::collections::HashMap;
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
-use std::{collections::HashMap, fs::read_dir};
 
 use color_eyre::eyre::{Context, Result, bail, eyre};
-use git2::Repository;
 use petgraph::Directed;
 use petgraph::visit::{Bfs, EdgeRef, Walker};
 use petgraph::{Graph, graph::NodeIndex, prelude::StableGraph};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
-use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
-use crate::git::{get_branch_commit_sha, read_srcinfo_from_repo};
 use crate::source_info::{ConcreteArchitecture, SourceInfo};
+use crate::source_repos::{BranchInfo, SourceRepos};
 use crate::{
     BuildNamespace, CommitHash, GitRepoRef, PackageBuildDependency, PackageBuildStatus, Pkgbase,
     Pkgname, ScheduleBuild, ScheduleBuildResult,
@@ -111,6 +109,7 @@ pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency, Directe
 
 pub async fn calculate_packages_to_be_built(
     namespace: &BuildNamespace,
+    source_repos: &mut SourceRepos,
 ) -> Result<HashMap<ConcreteArchitecture, BuildSetGraph>> {
     tracing::debug!(
         "Calculating packages to be built for namespace: {}",
@@ -118,9 +117,10 @@ pub async fn calculate_packages_to_be_built(
     );
     let start_time = Instant::now();
 
-    let packages_metadata = gather_packages_metadata(namespace.current_origin_changesets.clone())
-        .await
-        .wrap_err("Error mapping package names to srcinfo")?;
+    let packages_metadata =
+        gather_packages_metadata(namespace.current_origin_changesets.clone(), source_repos)
+            .await
+            .wrap_err("Error mapping package names to srcinfo")?;
     let global_graphs = build_global_dependency_graphs(&packages_metadata)
         .wrap_err("Failed to build global graph of dependents")?;
 
@@ -133,8 +133,7 @@ pub async fn calculate_packages_to_be_built(
             &graph,
             architecture,
             &packages_metadata,
-        )
-        .await?;
+        )?;
 
         if packages_to_build.node_count() > 0 {
             tracing::debug!(
@@ -152,7 +151,7 @@ pub async fn calculate_packages_to_be_built(
     Ok(packages)
 }
 
-async fn calculate_packages_to_be_built_inner(
+fn calculate_packages_to_be_built_inner(
     namespace: &BuildNamespace,
     global_graph: &GlobalDependencies,
     architecture: ConcreteArchitecture,
@@ -248,89 +247,63 @@ async fn calculate_packages_to_be_built_inner(
 
 pub async fn gather_packages_metadata(
     origin_changesets: Vec<GitRepoRef>,
+    source_repos: &mut SourceRepos,
 ) -> Result<PackagesMetadata> {
     tracing::debug!("Gathering metadata from .SRCINFO files");
-    spawn_blocking(move || {
-        let mut pkgname_to_pkgbase = HashMap::new();
-        let mut pkgbase_to_metadata = HashMap::new();
-        let mut ignored_packages = 0;
+    let mut pkgname_to_pkgbase = HashMap::new();
+    let mut pkgbase_to_metadata = HashMap::new();
+    let mut ignored_packages = 0;
 
-        // TODO: parallelize
-        for dir in read_dir("./source_repos")? {
-            let dir = dir?;
-            let repo = match Repository::open(dir.path()) {
-                Ok(repo) => repo,
-                Err(e) => {
-                    match e.code() {
-                        // Allow arbitrary files that are not git repos
-                        // inside the source_repos dir, such as
-                        // CACHEDIR.TAG (https://bford.info/cachedir/)
-                        git2::ErrorCode::NotFound => {
-                            continue;
-                        }
-                        _ => bail!(e),
-                    }
-                }
-            };
-            // If this package is in the origin changesets, use the git ref
-            // specified there instead of "main".
-            let origin_changeset_branch =
-                origin_changesets
-                    .iter()
-                    .find_map(|(origin_pkgbase, branch)| {
-                        (**origin_pkgbase.as_ref() == *dir.file_name()).then_some(branch)
-                    });
-            // TODO we might want to build the last released commit instead of main
-            let branch = origin_changeset_branch.map_or("main", |v| v);
+    for (pkgbase, repo) in source_repos.all_repos_mut() {
+        // If this package is in the origin changesets, use the git ref
+        // specified there instead of "main".
+        let origin_changeset_branch = origin_changesets
+            .iter()
+            .find_map(|(origin_pkgbase, branch)| (origin_pkgbase == pkgbase).then_some(branch));
+        // TODO we might want to build the last released commit instead of main
+        let branch = origin_changeset_branch.map_or("main", |v| v);
 
-            let mut handle_file = || -> Result<()> {
-                let source_info = read_srcinfo_from_repo(&repo, branch).wrap_err(format!(
-                    "Failed to read .SRCINFO from repo at {:?}",
-                    dir.path()
-                ))?;
+        let mut handle_file = async || -> Result<()> {
+            let BranchInfo {
+                source_info,
+                commit_hash,
+            } = repo.get_branch_info(branch.to_string()).await?;
 
-                for package in &source_info.packages {
-                    pkgname_to_pkgbase.insert(
-                        package.name.to_string(),
-                        source_info.base.name.clone().into(),
-                    );
-                }
-
-                let commit_hash = get_branch_commit_sha(&repo, branch)?;
-
-                pkgbase_to_metadata.insert(
+            for package in &source_info.packages {
+                pkgname_to_pkgbase.insert(
+                    package.name.to_string(),
                     source_info.base.name.clone().into(),
-                    PackageMetadata {
-                        source_info,
-                        commit_hash,
-                        branch_name: branch.to_string(),
-                    },
                 );
+            }
 
-                Ok(())
-            };
+            pkgbase_to_metadata.insert(
+                source_info.base.name.clone().into(),
+                PackageMetadata {
+                    source_info: source_info.clone(),
+                    commit_hash: commit_hash.clone(),
+                    branch_name: branch.to_string(),
+                },
+            );
 
-            match handle_file() {
-                Ok(()) => {}
-                Err(e) => {
-                    // Since we have too many (unreleased) packages with missing
-                    // .SRCINFOs, this is disabled for now
-                    tracing::trace!("Ignoring package {dir:?}: {e:#}:");
-                    ignored_packages += 1;
-                }
+            Ok(())
+        };
+
+        match handle_file().await {
+            Ok(()) => {}
+            Err(e) => {
+                tracing::trace!("Ignoring package {pkgbase}: {e:#}");
+                ignored_packages += 1;
             }
         }
-        tracing::debug!("READ {} .SRCINFO files", pkgbase_to_metadata.len());
-        tracing::debug!("Found {} pkgnames", pkgname_to_pkgbase.len());
-        tracing::debug!("Skipped {ignored_packages} .SRCINFO files due to errors");
+    }
+    tracing::debug!("READ {} .SRCINFO files", pkgbase_to_metadata.len());
+    tracing::debug!("Found {} pkgnames", pkgname_to_pkgbase.len());
+    tracing::debug!("Skipped {ignored_packages} .SRCINFO files due to errors");
 
-        Ok(PackagesMetadata {
-            pkgbase_to_metadata,
-            pkgname_to_pkgbase,
-        })
+    Ok(PackagesMetadata {
+        pkgbase_to_metadata,
+        pkgname_to_pkgbase,
     })
-    .await
-    .wrap_err("Failed to build dependency graph")?
 }
 
 // For all architectures we can find, build a graph
