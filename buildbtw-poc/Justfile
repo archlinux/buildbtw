@@ -90,7 +90,7 @@ deny:
 [doc("Automatically fix lints and formatting")]
 [group("check")]
 lint-fix:
-    just lint --package buildbtw-poc --fix --allow-staged
+    just --justfile buildbtw-poc/Justfile lint --package buildbtw-poc --fix --allow-staged
     cargo fmt --package buildbtw-poc
 
 [doc("Check lints and formatting")]
