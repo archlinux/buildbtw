@@ -1,5 +1,6 @@
 //! Functionality to determine what needs to be rebuilt when packages change.
 use std::collections::{HashSet, VecDeque};
+use std::time::Instant;
 use std::{collections::HashMap, fs::read_dir};
 
 use color_eyre::eyre::{Context, Result, bail, eyre};
@@ -115,6 +116,8 @@ pub async fn calculate_packages_to_be_built(
         "Calculating packages to be built for namespace: {}",
         namespace.name
     );
+    let start_time = Instant::now();
+
     let packages_metadata = gather_packages_metadata(namespace.current_origin_changesets.clone())
         .await
         .wrap_err("Error mapping package names to srcinfo")?;
@@ -143,7 +146,8 @@ pub async fn calculate_packages_to_be_built(
         }
     }
 
-    tracing::debug!("Build set graph calculated");
+    let elapsed_time = start_time.elapsed();
+    tracing::debug!(?elapsed_time, "Build set graph calculated");
 
     Ok(packages)
 }
