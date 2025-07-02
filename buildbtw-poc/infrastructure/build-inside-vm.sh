@@ -34,6 +34,5 @@ chown -R builder .
 )
 
 # Run build
-sudo -u builder pkgctl build
-
-cp /build/*.pkg.tar.zst /mnt/output/
+export PKGDEST="/mnt/output/"
+sudo --preserve-env="PKGDEST" -u builder pkgctl build
