@@ -7,6 +7,7 @@ use crate::{
     BuildNamespace, BuildNamespaceStatus, BuildSetIteration,
     build_set_graph::{self, BuildSetGraph, calculate_packages_to_be_built, diff_graphs},
     source_info::ConcreteArchitecture,
+    source_repos::SourceRepos,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -86,12 +87,13 @@ impl IterationDiff {
 pub async fn new_build_set_iteration_is_needed(
     namespace: &BuildNamespace,
     newest_iteration: Option<&BuildSetIteration>,
+    source_repos: &mut SourceRepos,
 ) -> Result<NewBuildIterationResult> {
     if namespace.status == BuildNamespaceStatus::Cancelled {
         return Ok(NewBuildIterationResult::NoNewIterationNeeded);
     }
 
-    let packages_to_build = calculate_packages_to_be_built(namespace).await?;
+    let packages_to_build = calculate_packages_to_be_built(namespace, source_repos).await?;
 
     let previous_iteration = if let Some(it) = newest_iteration {
         it

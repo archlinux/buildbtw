@@ -17,6 +17,7 @@ pub mod gitlab;
 pub mod iteration;
 pub mod pacman_repo;
 pub mod source_info;
+pub mod source_repos;
 pub mod tracing;
 
 // TODO use git2::Oid instead?
@@ -27,6 +28,7 @@ pub type GitRef = String;
 pub type Pkgname = String;
 // source repo, branch/commit
 pub type GitRepoRef = (Pkgbase, GitRef);
+pub type BranchName = String;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, AsRef, Display, sqlx::Type)]
 #[sqlx(transparent)]

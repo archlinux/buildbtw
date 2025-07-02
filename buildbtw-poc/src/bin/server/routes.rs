@@ -14,7 +14,6 @@ use time::macros::format_description;
 use tokio::fs;
 use uuid::Uuid;
 
-use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
 use buildbtw_poc::source_info::{
     ConcreteArchitecture, package_file_name, package_for_architecture,
 };
@@ -25,6 +24,10 @@ use buildbtw_poc::{
 use buildbtw_poc::{
     BuildNamespaceStatus,
     build_set_graph::{BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built},
+};
+use buildbtw_poc::{
+    pacman_repo::{add_to_repo, repo_dir_path},
+    source_repos::SourceRepos,
 };
 
 use crate::db::iteration::BuildSetIterationUpdate;
@@ -460,11 +463,15 @@ pub async fn create_namespace_iteration(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // TODO calculate new interation in the background
+    let mut source_repos = SourceRepos::new()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let new_iteration = BuildSetIteration {
         id: Uuid::new_v4(),
         created_at: time::OffsetDateTime::now_utc(),
         origin_changesets: namespace.current_origin_changesets.clone(),
-        packages_to_be_built: calculate_packages_to_be_built(&namespace)
+        packages_to_be_built: calculate_packages_to_be_built(&namespace, &mut source_repos)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
         create_reason: buildbtw_poc::iteration::NewIterationReason::CreatedByUser,

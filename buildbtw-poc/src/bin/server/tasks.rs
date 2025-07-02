@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use ::gitlab::{AsyncGitlab, GitlabBuilder};
+use buildbtw_poc::source_repos::SourceRepos;
 use color_eyre::eyre::{Context, Result};
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
@@ -129,11 +130,18 @@ async fn update_and_build_all_namespaces(
     let namespace_count = active_namespaces.len();
     tracing::info!("Updating and dispatching builds for {namespace_count} active namespace(s)...");
 
+    let mut source_repos = SourceRepos::new().await?;
+
     for namespace in active_namespaces {
         // Try to build all namespaces, and continue on failures.
-        if let Err(e) =
-            update_and_build_active_namespace(pool, maybe_gitlab_context, &namespace, server_port)
-                .await
+        if let Err(e) = update_and_build_active_namespace(
+            pool,
+            maybe_gitlab_context,
+            &namespace,
+            server_port,
+            &mut source_repos,
+        )
+        .await
         {
             tracing::error!(
                 r#"Error updating namespace "{name}": {e:?}"#,
@@ -152,8 +160,9 @@ async fn update_and_build_active_namespace(
     maybe_gitlab_context: Option<&GitlabContext>,
     namespace: &BuildNamespace,
     server_port: u16,
+    source_repos: &mut SourceRepos,
 ) -> Result<()> {
-    create_new_namespace_iteration_if_needed(pool, namespace).await?;
+    create_new_namespace_iteration_if_needed(pool, namespace, source_repos).await?;
     schedule_next_build_if_needed(pool, namespace, maybe_gitlab_context, server_port).await?;
 
     Ok(())
@@ -222,10 +231,12 @@ pub async fn update_project_ci_settings_in_loop(gitlab_args: args::Gitlab) -> Re
 async fn create_new_namespace_iteration_if_needed(
     pool: &SqlitePool,
     namespace: &BuildNamespace,
+    source_repos: &mut SourceRepos,
 ) -> Result<()> {
     let newest_iteration = db::iteration::read_newest(pool, namespace.id).await.ok();
     let new_iteration =
-        new_build_set_iteration_is_needed(namespace, newest_iteration.as_ref()).await?;
+        new_build_set_iteration_is_needed(namespace, newest_iteration.as_ref(), source_repos)
+            .await?;
 
     match new_iteration {
         NewBuildIterationResult::NewIterationNeeded {
