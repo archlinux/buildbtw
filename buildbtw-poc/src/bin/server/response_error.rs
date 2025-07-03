@@ -14,6 +14,8 @@ pub enum ResponseError {
     IO(#[from] std::io::Error),
     #[error("Given {0} not found")]
     NotFound(&'static str),
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
     #[error("Unsupported content type: {0}")]
     UnsupportedContentType(String),
 }
@@ -26,16 +28,60 @@ impl IntoResponse for ResponseError {
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::IO(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            ResponseError::InvalidInput(_) => StatusCode::BAD_REQUEST,
         };
         (status, self.to_string()).into_response()
     }
 }
 
+// TODO: Replace this with a function in [`MapSqlxError`].
 impl From<sqlx::Error> for ResponseError {
     fn from(value: sqlx::Error) -> Self {
         match value {
             sqlx::Error::RowNotFound => Self::NotFound("database entity"),
             other => Self::Eyre(other.into()),
         }
+    }
+}
+
+pub trait MapSqlxError<T> {
+    /// For the given sqlx error, check if it originated
+    /// from a unique constraint conflict, and if so,
+    /// map the error to [`ResponseError::InvalidInput`] with a
+    /// descriptive error message.
+    fn map_unique_constraint(
+        self,
+        constraint_name: &'static str,
+        entity_description: &'static str,
+        field_description: &'static str,
+    ) -> Result<T, ResponseError>;
+}
+
+// TODO: to map multiple unique constraints for a single query, implement this for `ResponseResult` as well to allow chaining multiple calls of this method.
+impl<T> MapSqlxError<T> for Result<T, sqlx::Error> {
+    fn map_unique_constraint(
+        self,
+        constraint_name: &'static str,
+        entity_description: &'static str,
+        field_description: &'static str,
+    ) -> Result<T, ResponseError> {
+        self.map_err(|e| match &e {
+            sqlx::Error::Database(db_error) => {
+                // If the database error was caused by the
+                // specific unique constraint passed in
+                // the arguments, replace the error with
+                // a human-readable error message.
+                let unique_constraint_error_matches =
+                    db_error.is_unique_violation() && db_error.message().contains(constraint_name);
+                if unique_constraint_error_matches {
+                    ResponseError::InvalidInput(format!(
+                        "{entity_description} with this {field_description} already exists."
+                    ))
+                } else {
+                    e.into()
+                }
+            }
+            _ => e.into(),
+        })
     }
 }

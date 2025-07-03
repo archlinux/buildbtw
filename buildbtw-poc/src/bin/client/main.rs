@@ -14,9 +14,13 @@ use buildbtw_poc::{
 use url::Url;
 use uuid::Uuid;
 
-use crate::args::{Args, Command};
+use crate::{
+    args::{Args, Command},
+    error::MapReqwestError,
+};
 
 mod args;
+mod error;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -87,6 +91,8 @@ async fn create_namespace(
         .send()
         .await
         .wrap_err("Failed to send to server")?
+        .map_reqwest_error()
+        .await?
         .json()
         .await?;
 
