@@ -3,6 +3,8 @@ use sqlx::{SqlitePool, types::Json};
 
 use buildbtw_poc::{BuildNamespace, BuildNamespaceStatus, GitRepoRef, UpdateBuildNamespace};
 
+use crate::response_error::{MapSqlxError, ResponseResult};
+
 pub struct CreateDbBuildNamespace {
     pub name: String,
     pub origin_changesets: Vec<GitRepoRef>,
@@ -11,7 +13,7 @@ pub struct CreateDbBuildNamespace {
 pub(crate) async fn create(
     create: CreateDbBuildNamespace,
     pool: &SqlitePool,
-) -> Result<BuildNamespace> {
+) -> ResponseResult<BuildNamespace> {
     let created_at = time::OffsetDateTime::now_utc();
     let id = uuid::Uuid::new_v4().hyphenated();
     let origin_changesets = sqlx::types::Json(create.origin_changesets);
@@ -35,7 +37,8 @@ pub(crate) async fn create(
         created_at
     )
     .fetch_one(pool)
-    .await?;
+    .await
+    .map_unique_constraint("build_namespaces.name", "namespace", "name")?;
 
     Ok(namespace.into())
 }
