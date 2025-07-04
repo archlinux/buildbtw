@@ -21,7 +21,9 @@ mod args;
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
-    buildbtw_poc::tracing::init(args.verbose, false);
+
+    // log warnings by default
+    buildbtw_poc::tracing::init(args.verbose + 1, false);
     color_eyre::install()?;
     tracing::debug!("{args:?}");
 

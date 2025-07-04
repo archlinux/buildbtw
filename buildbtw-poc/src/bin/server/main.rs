@@ -53,7 +53,8 @@ struct AppState {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    buildbtw_poc::tracing::init(args.verbose, true);
+    // log warnings by default
+    buildbtw_poc::tracing::init(args.verbose + 1, true);
     color_eyre::install()?;
 
     tracing::debug!("{args:#?}");

@@ -62,7 +62,7 @@ pub enum Command {
 #[derive(Debug, Clone, Parser)]
 #[command(name = "buildbtw client", author, about, version)]
 pub struct Args {
-    /// Be verbose. Specify twice to be more verbose
+    /// Provide once to set the log level to "info", twice for "debug" and thrice for "trace"
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
