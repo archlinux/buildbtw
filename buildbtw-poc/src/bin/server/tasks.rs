@@ -25,9 +25,10 @@ use crate::{
 
 pub enum Message {}
 
-/// If the `dispatch_builds_to_gitlab` option is `true`, we'll create this struct
-/// to encapsulate all options needed to dispatch those builds.
-/// TODO: rename to something that reflects the implicit connection to that option
+/// If the `dispatch_builds_to_gitlab` option is `true`, we'll create this
+/// struct to encapsulate all options needed to dispatch those builds.
+/// TODO: rename to something that reflects the implicit connection to that
+/// option
 struct GitlabContext {
     args: args::Gitlab,
     client: gitlab::AsyncGitlab,
@@ -255,8 +256,8 @@ async fn create_new_namespace_iteration_if_needed(
 }
 
 /// For all in-progress nodes in all iterations, query
-/// gitlab to check if the pipeline is now finished, and if yes, update the status
-/// in the build graph.
+/// gitlab to check if the pipeline is now finished, and if yes, update the
+/// status in the build graph.
 async fn update_build_set_graphs_from_gitlab_pipelines(
     pool: &SqlitePool,
     iterations: Vec<BuildSetIteration>,

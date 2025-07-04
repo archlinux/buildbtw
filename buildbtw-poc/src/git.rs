@@ -115,7 +115,8 @@ pub async fn retrieve_srcinfo_from_remote_repository(
     let repo =
         clone_or_fetch_repository(pkgbase.clone(), gitlab_domain, gitlab_packages_group).await?;
 
-    // TODO srcinfo might not be up-to-date due to pkgbuild changes not automatically changing srcinfo
+    // TODO srcinfo might not be up-to-date due to pkgbuild changes not
+    // automatically changing srcinfo
     read_srcinfo_from_repo(&repo, branch)
         .wrap_err("Failed to read srcinfo")
         .wrap_err(pkgbase)

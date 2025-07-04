@@ -4,7 +4,8 @@ use clap::{Parser, Subcommand, command};
 use color_eyre::Result;
 use url::Url;
 
-/// Checks wether an interface is valid, i.e. it can be parsed into an IP address
+/// Checks wether an interface is valid, i.e. it can be parsed into an IP
+/// address
 fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
     src.parse::<IpAddr>()
 }
@@ -30,33 +31,36 @@ pub struct Args {
 #[derive(Debug, Clone, clap::Args)]
 #[group(requires_all = ["gitlab_token", "gitlab_domain", "gitlab_packages_group", "run_builds_on_gitlab"], multiple = true)]
 pub struct Gitlab {
-    /// Used for fetching updates to package source repositories (requires `read_api` scope),
-    /// dispatching builds to gitlab (requires `api` scope, only if `run-builds-on-gitlab` is true).
-    /// If set, requires all other gitlab-related options to be specified as well.
-    /// If omitted, requires all other gitlab-related options to be omitted as well.
+    /// Used for fetching updates to package source repositories (requires
+    /// `read_api` scope), dispatching builds to gitlab (requires `api`
+    /// scope, only if `run-builds-on-gitlab` is true). If set, requires all
+    /// other gitlab-related options to be specified as well. If omitted,
+    /// requires all other gitlab-related options to be omitted as well.
     #[arg(long, env, hide_env_values = true, required = false)]
     pub gitlab_token: redact::Secret<String>,
 
-    /// Domain of the gitlab instance to use for fetching package source repositories and optionally dispatch build pipelines to.
+    /// Domain of the gitlab instance to use for fetching package source
+    /// repositories and optionally dispatch build pipelines to.
     /// e.g. "gitlab.archlinux.org"
     #[arg(long, env, required = false)]
     pub gitlab_domain: String,
 
     /// URL path of the group to query for package source repositories.
-    /// All repositories in this group will be cloned and available for building.
-    /// e.g. "archlinux/packaging/packages"
+    /// All repositories in this group will be cloned and available for
+    /// building. e.g. "archlinux/packaging/packages"
     #[arg(long, env, required = false)]
     pub gitlab_packages_group: String,
 
-    /// Dispatch builds to gitlab pipelines instead of a buildbtw worker instance.
-    /// Requires gitlab token to be specified.
+    /// Dispatch builds to gitlab pipelines instead of a buildbtw worker
+    /// instance. Requires gitlab token to be specified.
     // TODO: make this an enum BuildDispatch {Gitlab, Local} and move it
     // out of the `Gitlab` struct
     #[arg(long, env, required = false, default_value = "false")]
     pub run_builds_on_gitlab: bool,
-    /// Update package source CI settings to point to the specified CI configuration file.
-    /// Specifying this will result in changes to the settings of all packages in the group defined by `gitlab_packages_group`.
-    /// See https://gitlab.archlinux.org/help/ci/pipelines/settings.md#specify-a-custom-cicd-configuration-file
+    /// Update package source CI settings to point to the specified CI
+    /// configuration file. Specifying this will result in changes to the
+    /// settings of all packages in the group defined by
+    /// `gitlab_packages_group`. See https://gitlab.archlinux.org/help/ci/pipelines/settings.md#specify-a-custom-cicd-configuration-file
     #[arg(long, env, required = false)]
     pub gitlab_packages_ci_config: Option<String>,
 }

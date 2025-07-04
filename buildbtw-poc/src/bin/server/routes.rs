@@ -304,7 +304,8 @@ pub(crate) async fn show_build_namespace_iteration_architecture_html(
         .iter()
         .map(IterationTableEntry::from_iteration)
         .collect();
-    // If no architecture was specified, take a default one from the current iteration.
+    // If no architecture was specified, take a default one from the current
+    // iteration.
     let (architecture, build_graph) =
         default_architecture_for_namespace(architecture, current_iteration.as_ref());
 
@@ -516,8 +517,9 @@ pub async fn upload_package(
     let repo_path = repo_dir_path(&namespace.name, iteration.id, architecture);
     fs::create_dir_all(&repo_path).await?;
 
-    // TODO this is probably paranoid, but I think a version like `../../../../../etc/passwd` might actually be valid
-    // An attack like that would require a malicious .SRCINFO, though
+    // TODO this is probably paranoid, but I think a version like
+    // `../../../../../etc/passwd` might actually be valid An attack like that
+    // would require a malicious .SRCINFO, though
     let path = repo_path.join(package_file_name(&package, &node.srcinfo)?);
     if tokio::fs::try_exists(&path).await? {
         // This should only happen if a builder was temporarily unreachable

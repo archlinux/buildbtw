@@ -3,7 +3,8 @@ use std::net::IpAddr;
 use clap::{Parser, Subcommand, command};
 use color_eyre::Result;
 
-/// Checks whether an interface is valid, i.e. it can be parsed into an IP address
+/// Checks whether an interface is valid, i.e. it can be parsed into an IP
+/// address
 fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
     src.parse::<IpAddr>()
 }
@@ -11,8 +12,8 @@ fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
 #[derive(Debug, Clone, Parser)]
 #[command(name = "buildbtw worker", author, about, version)]
 pub struct Args {
-    /// Be verbose (log data of incoming and outgoing requests). If given twice it will also log
-    /// the body data.
+    /// Be verbose (log data of incoming and outgoing requests). If given twice
+    /// it will also log the body data.
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 

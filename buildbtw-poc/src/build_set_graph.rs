@@ -83,7 +83,8 @@ pub struct PackageMetadata {
 }
 
 /// For tracking dependencies between individual packages.
-/// Used as an intermediate to calculate which PKGBUILDS to rebuild and in what order.
+/// Used as an intermediate to calculate which PKGBUILDS to rebuild and in what
+/// order.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PackageNode {
     pub pkgname: String,
@@ -103,8 +104,10 @@ pub struct BuildPackageNode {
 
 // TODO we probably want to replace this with a wrapper struct
 // or a custom implementation. We need to:
-// - Look up and change a package node by pkgbase (hard to do efficiently with petgraph's `Graph` struct)
-// - Filter package nodes by status (currently works without an index, which might become slow for large graphs)
+// - Look up and change a package node by pkgbase (hard to do efficiently with
+//   petgraph's `Graph` struct)
+// - Filter package nodes by status (currently works without an index, which
+//   might become slow for large graphs)
 // - Diff two graphs (already is custom functionality built on top)
 pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency, Directed>;
 
@@ -156,8 +159,8 @@ async fn calculate_packages_to_be_built_inner(
 ) -> Result<BuildSetGraph> {
     // TODO use a topological visitor for this
 
-    // We have the global graph. Based on this, find the precise graph of dependents for the
-    // given Pkgbases.
+    // We have the global graph. Based on this, find the precise graph of dependents
+    // for the given Pkgbases.
     let mut packages_to_be_built: BuildSetGraph = Graph::new();
     let mut pkgbase_to_build_graph_node_index: HashMap<Pkgbase, NodeIndex> = HashMap::new();
 
@@ -182,8 +185,8 @@ async fn calculate_packages_to_be_built_inner(
         }
     }
 
-    // Walk through all transitive neighbors of our starting nodes to build a graph of nodes
-    // that we want to rebuild
+    // Walk through all transitive neighbors of our starting nodes to build a graph
+    // of nodes that we want to rebuild
     while let Some((coming_from_node, global_node_index_to_visit)) = nodes_to_visit.pop_front() {
         // Find out the pkgbase of the package we're visiting
         let package_node = global_graph
@@ -390,7 +393,8 @@ pub fn schedule_next_build_in_graph(
     architecture: ConcreteArchitecture,
     schedule_status: PackageBuildStatus,
 ) -> ScheduleBuildResult {
-    // assign default fallback status, if only built nodes are visited, the graph is finished
+    // assign default fallback status, if only built nodes are visited, the graph is
+    // finished
     let mut fallback_status = ScheduleBuildResult::Finished;
 
     // Identify root nodes (nodes with no incoming edges)
