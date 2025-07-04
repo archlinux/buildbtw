@@ -87,18 +87,6 @@ update-graphql-schema:
 deny:
     cargo deny check
 
-[doc("Automatically fix lints and formatting")]
-[group("check")]
-lint-fix:
-    just --justfile buildbtw-poc/Justfile lint --package buildbtw-poc --fix --allow-staged
-    cargo fmt --package buildbtw-poc
-
-[doc("Check lints and formatting")]
-[group("check")]
-lint *args:
-    cargo clippy --package buildbtw-poc --all-targets {{args}} -- -D warnings
-    cargo fmt --package buildbtw-poc -- --check
-
 [doc("Create and migrate database")]
 [group("db")]
 create-db: && migrate-db

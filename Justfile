@@ -15,3 +15,19 @@ ci-dev:
 [doc("Check whether all files have a license")]
 licenses:
     reuse lint
+
+[doc("Check lints and formatting")]
+[group("check")]
+lint *args:
+    cargo clippy --all-targets {{args}} -- -D warnings
+    cargo fmt --check
+
+[doc("Automatically fix lints and formatting")]
+[group("check")]
+lint-fix: format
+    just lint --fix --allow-staged
+
+[doc("Format the source code")]
+[group("check")]
+format:
+    cargo fmt

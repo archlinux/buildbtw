@@ -15,11 +15,6 @@ stages:
   - build
   - deploy
 
-format:
-  stage: check
-  script:
-    - just lint
-
 deny:
   stage: check
   script:
