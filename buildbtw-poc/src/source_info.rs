@@ -94,7 +94,8 @@ pub fn package_architectures<'a>(
     }
 }
 
-/// All architectures used either in the source info base, or in one of its split packages
+/// All architectures used either in the source info base, or in one of its
+/// split packages
 pub fn source_info_architectures(source_info: &SourceInfo) -> Vec<Architecture> {
     source_info
         .packages
@@ -138,15 +139,17 @@ pub fn package_file_name(
     }: &MergedPackage,
     srcinfo: &SourceInfo,
 ) -> Result<Utf8PathBuf> {
-    // Find the architectures of this split package by checking the split package overrides and taking the base architectures as a fallback.
+    // Find the architectures of this split package by checking the split package
+    // overrides and taking the base architectures as a fallback.
     let package_architectures = srcinfo
         .packages
         .iter()
         .find(|p| &p.name == name)
         .and_then(|package| package.architectures.as_ref())
         .unwrap_or(&srcinfo.base.architectures);
-    // The architecture from MergedPackage reflects the architecture of the whole build graph.
-    // But for "any" packages, the filename will instead contain "any", even though the build graph will be for a [`ConcreteArchictecture`].
+    // The architecture from MergedPackage reflects the architecture of the whole
+    // build graph. But for "any" packages, the filename will instead contain
+    // "any", even though the build graph will be for a [`ConcreteArchictecture`].
     let actual_architecture = if package_architectures.contains(&Architecture::Any) {
         &Architecture::Any
     } else {
@@ -156,7 +159,9 @@ pub fn package_file_name(
     // We'll probably have to pass in a directory to search for package files
     // here, similar to `find_cached_package` in devtools
     // (parsing makepkg output seems like an ugly alternative)
-    // Note: Don't use `ConcreteArchitecture` to determine the architecture in the filename as the filename will contain `any` instead of the concrete architecture
+    // Note: Don't use `ConcreteArchitecture` to determine the architecture in the
+    // filename as the filename will contain `any` instead of the concrete
+    // architecture
     let version = alpm_types::Version::new(
         package_version.clone(),
         *epoch,

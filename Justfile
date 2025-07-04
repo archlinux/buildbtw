@@ -30,4 +30,4 @@ lint-fix: format
 [doc("Format the source code")]
 [group("check")]
 format:
-    cargo fmt
+    cargo +nightly fmt

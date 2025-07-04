@@ -25,7 +25,8 @@ async fn main() -> Result<()> {
     tracing::init(args.verbose, true);
     color_eyre::install()?;
 
-    // Used for fetching updates to package source repositories (requires `read_api` scope),
+    // Used for fetching updates to package source repositories (requires `read_api`
+    // scope),
     let gitlab_token = redact::Secret::new(
         std::env::var("GITLAB_TOKEN")
             .wrap_err("required environment variable was not provided: GITLAB_TOKEN")?,

@@ -8,6 +8,14 @@ Check the respective directories for their READMEs.
 - [buildbtw-poc](/buildbtw-poc) - the proof of concept buildbtw implementation
 - [arch-pkg-repo-updater](/arch-pkg-repo-updater) - a tool to sync package repositories
 
+## Development
+
+- Install Rust. It's recommended to work with the stable toolchain by default, but to format the code, you'll need the nightly toolchain as well. With rustup:
+```
+rustup install stable nightly
+rustup default stable
+```
+
 ## Commands
 
 There are a bunch of commands you can run at this level:

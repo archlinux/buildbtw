@@ -57,7 +57,8 @@ pub trait MapSqlxError<T> {
     ) -> Result<T, ResponseError>;
 }
 
-// TODO: to map multiple unique constraints for a single query, implement this for `ResponseResult` as well to allow chaining multiple calls of this method.
+// TODO: to map multiple unique constraints for a single query, implement this
+// for `ResponseResult` as well to allow chaining multiple calls of this method.
 impl<T> MapSqlxError<T> for Result<T, sqlx::Error> {
     fn map_unique_constraint(
         self,

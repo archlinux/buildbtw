@@ -1,6 +1,7 @@
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
-/// - Create a subscriber for tokio-console if the tokio_unstable flag is enabled and `use_tokio_console` is true
+/// - Create a subscriber for tokio-console if the tokio_unstable flag is
+///   enabled and `use_tokio_console` is true
 /// - Create a formatting subscriber for outputting logs to stdout
 /// - In the formatting subscriber, filter using the `RUST_LOG` env variable
 /// - If `RUST_LOG` is not set, filter using the `verbose` argument:

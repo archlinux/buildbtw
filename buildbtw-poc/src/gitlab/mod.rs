@@ -191,8 +191,8 @@ pub async fn create_pipeline(
         .collect::<Vec<_>>()
         .join(" ");
     // Each of these will be prefixed with `CUSTOM_ENV_` by the gitlab runner.
-    // E.g. `PKGBASE` will be available as `CUSTOM_ENV_PKGBASE` in buildbtw-executor.sh.
-    // For more, see: https://docs.gitlab.com/runner/executors/custom/#stages
+    // E.g. `PKGBASE` will be available as `CUSTOM_ENV_PKGBASE` in
+    // buildbtw-executor.sh. For more, see: https://docs.gitlab.com/runner/executors/custom/#stages
     let vars = [
         (
             "PACMAN_REPO_PATH",

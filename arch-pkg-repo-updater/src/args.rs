@@ -24,14 +24,15 @@ pub struct Args {
 #[derive(Debug, Clone, clap::Args)]
 #[group(requires_all = ["gitlab_domain", "gitlab_packages_group"], multiple = true)]
 pub struct Gitlab {
-    /// Domain of the gitlab instance to use for fetching package source repositories and optionally dispatch build pipelines to.
+    /// Domain of the gitlab instance to use for fetching package source
+    /// repositories and optionally dispatch build pipelines to.
     /// e.g. "gitlab.archlinux.org"
     #[arg(long, env, required = false)]
     pub gitlab_domain: String,
 
     /// URL path of the group to query for package source repositories.
-    /// All repositories in this group will be cloned and available for building.
-    /// e.g. "archlinux/packaging/packages"
+    /// All repositories in this group will be cloned and available for
+    /// building. e.g. "archlinux/packaging/packages"
     #[arg(long, env, required = false)]
     pub gitlab_packages_group: String,
 }

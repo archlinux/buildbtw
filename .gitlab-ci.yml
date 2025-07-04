@@ -9,6 +9,10 @@ image: "archlinux:latest"
 before_script:
   - pacman -Syu --needed --noconfirm reuse just rustup
 
+.with-rust:
+  before_script:
+    - rustup install stable
+
 buildbtw-poc:
   stage: check
   trigger:
@@ -25,6 +29,8 @@ reuse:
     - just licenses
 
 format:
+  extends: .with-rust
   stage: check
   script:
-    - just lint
+    - rustup install nightly
+    - just format

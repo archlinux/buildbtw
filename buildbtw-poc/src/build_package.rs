@@ -97,7 +97,8 @@ async fn import_gpg_keys(build_dir: &Utf8Path) -> Result<()> {
     Ok(())
 }
 
-/// Make HEAD point to the commit at `repo_ref`, and update working tree and index to match that commit
+/// Make HEAD point to the commit at `repo_ref`, and update working tree and
+/// index to match that commit
 async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Result<()> {
     let crate::PipelineTarget { branch_name, .. } = &schedule.source;
     let repo = Repository::open(path)?;
@@ -117,7 +118,8 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
         }
     }
 
-    // Replace the real PKGBUILD with a fake PKGBUILD to speed up compilation during testing.
+    // Replace the real PKGBUILD with a fake PKGBUILD to speed up compilation during
+    // testing.
     if cfg!(feature = "fake-pkgbuild") {
         let pkgbuild = generate_fake_pkgbuild(schedule)?;
         let pkgbuild_path = path.join("PKGBUILD");
