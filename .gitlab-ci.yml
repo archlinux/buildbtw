@@ -23,3 +23,8 @@ reuse:
   stage: check
   script:
     - just licenses
+
+format:
+  stage: check
+  script:
+    - just lint
