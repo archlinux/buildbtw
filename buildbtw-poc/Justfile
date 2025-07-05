@@ -13,7 +13,7 @@ build:
 [doc("Build in release mode")]
 [group("build")]
 build-release:
-    cargo build --release
+    cargo build --locked --release
 
 [doc("Clean workspace")]
 clean:
