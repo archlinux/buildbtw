@@ -28,7 +28,6 @@ deny:
 .cache-rust:
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
-
     paths:
       - .cargo/bin
       - .cargo/registry/index
@@ -46,15 +45,23 @@ test:
   script:
     - just test
 
-build:
-  stage: build
+build-release:
+  stage: check
   extends: .cache-rust
-  tags:
-    - vm
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+  artifacts:
+    paths:
+      - target/release
   script:
     - cargo build --release --bin buildbtw-server
+
+build-release-image:
+  stage: build
+  tags:
+    - vm # Build in vm so podman build works without issues
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  needs: ["build-release"]
+  script:
     - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest ../target/release
     - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
@@ -63,6 +70,7 @@ deploy:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+  needs: ["build-release-image"]
   script:
     - pacman -Syu --needed --noconfirm openssh
     - base64 --decode "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
