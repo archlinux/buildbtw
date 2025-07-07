@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use source_info::{ConcreteArchitecture, SourceInfo};
 use uuid::Uuid;
 
+pub mod api;
 pub mod build_package;
 pub mod build_set_graph;
 pub mod git;

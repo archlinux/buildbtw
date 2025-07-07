@@ -16,9 +16,6 @@ use url::Url;
 use uuid::Uuid;
 
 use buildbtw_poc::gitlab::commit_web_url;
-use buildbtw_poc::source_info::{
-    ConcreteArchitecture, package_file_name, package_for_architecture,
-};
 use buildbtw_poc::source_repos::SourceRepos;
 use buildbtw_poc::{
     BuildNamespace, BuildSetIteration, CreateBuildNamespace, PackageBuildStatus, Pkgbase, Pkgname,
@@ -29,7 +26,12 @@ use buildbtw_poc::{
     build_set_graph::{BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built},
 };
 use buildbtw_poc::{
+    api::ArchitectureIteration,
+    source_info::{ConcreteArchitecture, package_file_name, package_for_architecture},
+};
+use buildbtw_poc::{
     GitRepoRef,
+    api::ShowNamespaceJson,
     pacman_repo::{add_to_repo, repo_dir_path},
 };
 
@@ -168,7 +170,7 @@ pub(crate) async fn show_build_namespace_html(
 pub(crate) async fn show_build_namespace_json(
     Path(namespace_name): Path<String>,
     state: State<AppState>,
-) -> Result<Json<Option<(Uuid, BuildSetGraph)>>, ResponseError> {
+) -> Result<Json<ShowNamespaceJson>, ResponseError> {
     show_build_namespace_iteration_architecture_json(Path((namespace_name, None, None)), state)
         .await
 }
@@ -187,7 +189,7 @@ pub(crate) async fn show_build_namespace_iteration_html(
 pub(crate) async fn show_build_namespace_iteration_json(
     Path((namespace_name, iteration_id)): Path<(String, Option<Uuid>)>,
     state: State<AppState>,
-) -> Result<Json<Option<(Uuid, BuildSetGraph)>>, ResponseError> {
+) -> Result<Json<ShowNamespaceJson>, ResponseError> {
     show_build_namespace_iteration_architecture_json(
         Path((namespace_name, iteration_id, None)),
         state,
@@ -409,8 +411,9 @@ pub(crate) async fn show_build_namespace_iteration_architecture_json(
         Option<ConcreteArchitecture>,
     )>,
     State(state): State<AppState>,
-) -> ResponseResult<Json<Option<(Uuid, BuildSetGraph)>>> {
+) -> ResponseResult<Json<ShowNamespaceJson>> {
     let namespace = db::namespace::read_by_name(&namespace_name, &state.db_pool).await?;
+
     let iterations = db::iteration::list_for_namespace(&state.db_pool, namespace.id).await?;
 
     let current_iteration = match iteration_id {
@@ -420,15 +423,27 @@ pub(crate) async fn show_build_namespace_iteration_architecture_json(
 
     let current_iteration = match current_iteration {
         Some(it) => it,
-        None => return Ok(Json(None)),
+        None => {
+            return Ok(Json(ShowNamespaceJson {
+                architecture_iteration: None,
+                namespace,
+            }));
+        }
     };
 
-    let (_, build_graph) =
+    let (architecture, build_graph) =
         default_architecture_for_namespace(architecture, Some(&current_iteration));
 
     let build_graph = build_graph.ok_or(ResponseError::NotFound("architecture"))?;
 
-    Ok(Json(Some((current_iteration.id, build_graph.clone()))))
+    Ok(Json(ShowNamespaceJson {
+        architecture_iteration: Some(ArchitectureIteration {
+            id: current_iteration.id,
+            architecture,
+            build_graph: build_graph.clone(),
+        }),
+        namespace,
+    }))
 }
 
 #[debug_handler]
