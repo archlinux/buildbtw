@@ -1,6 +1,6 @@
 {% extends "layout" %}
 {% block title %}build namespace <a href="/namespace/{{namespace.name}}">{{namespace.name}} ({{namespace.status}})</a>{% endblock %}
-{% block body %}
+{% block content %}
     {% if current_iteration %}
         <h2>Iteration {{current_iteration.id}}
         {% if current_iteration.id == (iteration_table|last).id %}
@@ -8,25 +8,26 @@
         {% endif %}
         </h2>
 
-        Created: {{current_iteration.created_at}}, reason: {{current_iteration.create_reason}}
+        <p>
+            Iteration created at {{current_iteration.created_at}}
+        </p>
 
-        <h2 style="font-size: 1em;">Architectures</h2>
-        {% for other_architecture in current_iteration.architectures|sort %}
-            {% if other_architecture != architecture %}
+        <p>
+        <span>Architectures: </span>
+        {%- for other_architecture in current_iteration.architectures|sort %}
+            {%- if other_architecture != architecture -%}
                 <a href="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{other_architecture}}">{{other_architecture}}</a>
-            {% else %}
+            {%- else -%}
                 <span style="font-weight: bold;">{{other_architecture}}</span>
-            {% endif %}
+            {%- endif -%}
+            {%- if not loop.last -%}
+            <span>, </span>
+            {%- endif -%}
         {% endfor %}
+        </p>
 
         {% if pipeline_table %}
-            <p>Pacman repository snippet:
-                <pre>
-[buildbtw-namespace]
-SigLevel = Never
-Server = {{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{architecture}}
-                </pre>
-            </p>
+            <h3>Builds</h3>
             <iframe id="graph-iframe" src="/namespace/{{namespace.name}}/{{current_iteration.id}}/{{architecture}}/graph" style="width: 100%; height: 30rem;">
             </iframe>
             {% set table_batches = pipeline_table|batch(30) %}
@@ -62,6 +63,16 @@ Server = {{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{archi
             {% for _ in range(1, table_batches|length) %}
                 </details>
             {% endfor %}
+
+            <h3>Pacman repository snippet</h3>
+            <p>
+                By pasting this snippet into your <code>pacman.conf</code>, you can install packages from this iteration locally.
+                <pre>
+[buildbtw-namespace]
+SigLevel = Never
+Server = {{base_url}}repo/{{namespace.name}}_{{current_iteration.id}}/os/{{architecture}}
+                </pre>
+            </p>
         {% endif %}
     {% endif %}
 
