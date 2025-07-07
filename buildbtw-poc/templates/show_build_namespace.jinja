@@ -13,6 +13,19 @@
         </p>
 
         <p>
+        <span>Origin changesets: </span>
+        {% for git_repo_ref in current_iteration.origin_changesets %}
+            {{git_repo_ref[0]}}/{{git_repo_ref[1]}}
+            {%- if not loop.last -%}
+            <span>, </span>
+            {%- endif -%}
+        {% endfor %}
+        {% if current_iteration.more_origin_changesets_count > 0 %}
+            and {{current_iteration.more_origin_changesets_count}} more
+        {% endif %}
+        </p>
+
+        <p>
         <span>Architectures: </span>
         {%- for other_architecture in current_iteration.architectures|sort %}
             {%- if other_architecture != architecture -%}
