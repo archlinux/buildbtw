@@ -19,6 +19,7 @@ use buildbtw_poc::gitlab::commit_web_url;
 use buildbtw_poc::source_info::{
     ConcreteArchitecture, package_file_name, package_for_architecture,
 };
+use buildbtw_poc::source_repos::SourceRepos;
 use buildbtw_poc::{
     BuildNamespace, BuildSetIteration, CreateBuildNamespace, PackageBuildStatus, Pkgbase, Pkgname,
     SetBuildStatus, UpdateBuildNamespace,
@@ -28,8 +29,8 @@ use buildbtw_poc::{
     build_set_graph::{BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built},
 };
 use buildbtw_poc::{
+    GitRepoRef,
     pacman_repo::{add_to_repo, repo_dir_path},
-    source_repos::SourceRepos,
 };
 
 use crate::db::namespace::CreateDbBuildNamespace;
@@ -264,15 +265,27 @@ struct IterationView {
     created_at: String,
     architectures: Vec<ConcreteArchitecture>,
     create_reason: &'static str,
+    origin_changesets: Vec<GitRepoRef>,
+    more_origin_changesets_count: usize,
 }
 
 impl IterationView {
     fn from_iteration(iteration: &BuildSetIteration) -> Result<Self> {
+        let shown_changesets: Vec<_> = iteration
+            .origin_changesets
+            .iter()
+            .take(10)
+            .cloned()
+            .collect();
+        let more_origin_changesets_count =
+            iteration.origin_changesets.len() - shown_changesets.len();
         Ok(IterationView {
             id: iteration.id,
             created_at: iteration.created_at.format(FORMAT)?,
             architectures: iteration.packages_to_be_built.keys().cloned().collect(),
             create_reason: iteration.create_reason.short_description(),
+            origin_changesets: shown_changesets,
+            more_origin_changesets_count,
         })
     }
 }
