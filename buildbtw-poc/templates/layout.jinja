@@ -1,11 +1,8 @@
-<!doctype html>
-<html>
-    <head>
-        <title>buildbtw - {% block title %}{% endblock %}</title>
-    </head>
-    <link rel="stylesheet" href="/assets/main.css">
-<body>
-<h1><a href="/namespace">buildbtw</a> - {{ self.title() }}</h1>
-{% block body %}{% endblock %}
-</body>
-</html>
+{% extends "base" %}
+{% block head %}
+    <title>buildbtw - {% block title %}{% endblock %}</title>
+{% endblock %}
+{% block body %}
+    <h1><a href="/namespace">buildbtw</a> - {{ self.title() }}</h1>
+    {% block content %}{% endblock %}
+{% endblock %}

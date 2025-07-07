@@ -1,6 +1,7 @@
 use color_eyre::eyre::{OptionExt, Result, WrapErr};
 
 const TEMPLATES: &[&str] = &[
+    "base",
     "layout",
     "show_build_namespace",
     "render_build_namespace_graph",
