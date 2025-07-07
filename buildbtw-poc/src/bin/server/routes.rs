@@ -14,7 +14,6 @@ use time::macros::format_description;
 use tokio::fs;
 use uuid::Uuid;
 
-use buildbtw_poc::pacman_repo::{add_to_repo, repo_dir_path};
 use buildbtw_poc::source_info::{
     ConcreteArchitecture, package_file_name, package_for_architecture,
 };
@@ -25,6 +24,10 @@ use buildbtw_poc::{
 use buildbtw_poc::{
     BuildNamespaceStatus,
     build_set_graph::{BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built},
+};
+use buildbtw_poc::{
+    GitRepoRef,
+    pacman_repo::{add_to_repo, repo_dir_path},
 };
 
 use crate::db::iteration::BuildSetIterationUpdate;
@@ -236,6 +239,7 @@ struct IterationView {
     created_at: String,
     architectures: Vec<ConcreteArchitecture>,
     create_reason: &'static str,
+    origin_changesets: Vec<GitRepoRef>,
 }
 
 impl IterationView {
@@ -245,6 +249,7 @@ impl IterationView {
             created_at: iteration.created_at.format(FORMAT)?,
             architectures: iteration.packages_to_be_built.keys().cloned().collect(),
             create_reason: iteration.create_reason.short_description(),
+            origin_changesets: iteration.origin_changesets.clone(),
         })
     }
 }
