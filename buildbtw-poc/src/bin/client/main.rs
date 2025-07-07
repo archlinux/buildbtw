@@ -172,17 +172,30 @@ async fn show_namespace(name: String, server_url: &Url) -> Result<()> {
         .await?;
 
     println!(r#"Namespace "{name}" ({url})"#);
-    println!();
 
     let iteration = match response.architecture_iteration {
         Some(res) => res,
         None => {
+            println!();
             println!("Calculating packages to build for first iteration...");
             return Ok(());
         }
     };
 
-    println!("Showing jobs for iteration {}", iteration.id);
+    let shown_changesets = iteration.origin_changesets.iter().take(10);
+    let more_changesets_count = iteration.origin_changesets.len() - shown_changesets.len();
+    let more_changesets_str = if more_changesets_count > 0 {
+        &format!("and {more_changesets_count} more")
+    } else {
+        ""
+    };
+    let changeset_list = shown_changesets
+        .map(|(pkgbase, git_repo_ref)| format!("{pkgbase}/{git_repo_ref}"))
+        .join(", ");
+    println!("Origin changesets: {changeset_list} {more_changesets_str}");
+    println!();
+
+    println!("Jobs for latest iteration ({}):", iteration.id);
     let mut nodes: Vec<_> = iteration.build_graph.node_weights().collect();
     nodes.sort_by_key(|node| node.status);
     let node_groups = nodes.into_iter().chunk_by(|node| node.status);

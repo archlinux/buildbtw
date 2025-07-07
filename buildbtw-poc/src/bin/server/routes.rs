@@ -26,13 +26,13 @@ use buildbtw_poc::{
     build_set_graph::{BuildPackageNode, BuildSetGraph, calculate_packages_to_be_built},
 };
 use buildbtw_poc::{
-    api::ArchitectureIteration,
-    source_info::{ConcreteArchitecture, package_file_name, package_for_architecture},
-};
-use buildbtw_poc::{
     GitRepoRef,
     api::ShowNamespaceJson,
     pacman_repo::{add_to_repo, repo_dir_path},
+};
+use buildbtw_poc::{
+    api::ArchitectureIteration,
+    source_info::{ConcreteArchitecture, package_file_name, package_for_architecture},
 };
 
 use crate::db::namespace::CreateDbBuildNamespace;
@@ -434,13 +434,16 @@ pub(crate) async fn show_build_namespace_iteration_architecture_json(
     let (architecture, build_graph) =
         default_architecture_for_namespace(architecture, Some(&current_iteration));
 
-    let build_graph = build_graph.ok_or(ResponseError::NotFound("architecture"))?;
+    let build_graph = build_graph
+        .ok_or(ResponseError::NotFound("architecture"))?
+        .clone();
 
     Ok(Json(ShowNamespaceJson {
         architecture_iteration: Some(ArchitectureIteration {
             id: current_iteration.id,
+            origin_changesets: current_iteration.origin_changesets,
             architecture,
-            build_graph: build_graph.clone(),
+            build_graph,
         }),
         namespace,
     }))

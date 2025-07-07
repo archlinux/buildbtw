@@ -4,7 +4,9 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{BuildNamespace, build_set_graph::BuildSetGraph, source_info::ConcreteArchitecture};
+use crate::{
+    BuildNamespace, GitRepoRef, build_set_graph::BuildSetGraph, source_info::ConcreteArchitecture,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShowNamespaceJson {
@@ -19,5 +21,6 @@ pub struct ShowNamespaceJson {
 pub struct ArchitectureIteration {
     pub id: Uuid,
     pub architecture: Option<ConcreteArchitecture>,
+    pub origin_changesets: Vec<GitRepoRef>,
     pub build_graph: BuildSetGraph,
 }
