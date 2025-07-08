@@ -138,3 +138,7 @@ deploy-custom-runner:
     #     cleanup_args = [ "cleanup" ]
     cat buildbtw-poc/infrastructure/buildbtw-executor.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/buildbtw-executor.sh > /dev/null
     cat buildbtw-poc/infrastructure/build-inside-vm.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/build-inside-vm.sh > /dev/null
+
+[doc("Run performance benchmarks")]
+bench:
+    cargo bench
