@@ -2,10 +2,9 @@ workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'parent_pipeline'
 
-before_script:
-  - pacman -Syu --needed --noconfirm rust gcc cargo-deny pkgconf sqlx-cli podman crun reuse just
-  - cd buildbtw-poc
-  - just create-db
+.default-before-script:
+  before_script:
+    - pacman -Syu --needed --noconfirm sqlx-cli podman crun reuse just
 
 variables:
   DATABASE_URL: "sqlite:${CI_PROJECT_DIR}/buildbtw_server.sqlite"
@@ -15,12 +14,10 @@ stages:
   - build
   - deploy
 
-deny:
-  stage: check
-  script:
-    - just deny
-
-.cache-rust:
+.with-rust:
+  before_script:
+    - !reference [".default-before-script", "before_script"]
+    - pacman -Syu --needed --noconfirm rust gcc pkgconf
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
     paths:
@@ -36,37 +33,43 @@ deny:
 
 test:
   stage: check
-  extends: .cache-rust
+  extends: .with-rust
   script:
+    - just create-db
     - just test
 
 build-release:
   stage: check
-  extends: .cache-rust
+  extends: .with-rust
   artifacts:
     paths:
       - target/release
   script:
+    - just create-db
     - cargo build --release --package buildbtw-poc
 
 build-release-image:
   stage: build
+  extends: .default-before-script
   tags:
     - vm # Build in vm so podman build works without issues
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   needs: ["build-release"]
   script:
+    - cd buildbtw-poc
     - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest ../target/release
     - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
 
 deploy:
   stage: deploy
+  extends: .default-before-script
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   needs: ["build-release-image"]
   script:
+    - cd buildbtw-poc
     - pacman -Syu --needed --noconfirm openssh
     - base64 --decode "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - base64 --decode ${BUILDBTW_SSH_PRIVATE_KEY} > ~/.ssh/id_ed25519

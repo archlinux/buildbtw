@@ -6,12 +6,28 @@ workflow:
 
 image: "archlinux:latest"
 
-before_script:
-  - pacman -Syu --needed --noconfirm reuse just rustup
+.default-before-script:
+  before_script:
+    - pacman -Syu --needed --noconfirm just
 
 .with-rust:
   before_script:
-    - rustup install stable
+    - !reference [".default-before-script", "before_script"]
+    # Use rustup instead of rust package so we can
+    # install the nightly toolchain alongside stable
+    - pacman -Syu --needed --noconfirm rustup just gcc
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
+    paths:
+      - .cargo/bin
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target/debug/deps
+      - target/debug/build
+      - target/release/deps
+      - target/release/build
+  variables:
+    CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
 
 buildbtw-poc:
   stage: check
@@ -25,12 +41,22 @@ stages:
 
 reuse:
   stage: check
+  extends: .default-before-script
   script:
+    - pacman -Syu --needed --noconfirm reuse
     - just licenses
 
-format:
-  extends: .with-rust
+deny:
   stage: check
+  extends: .with-rust
+  script:
+    - rustup install stable
+    - pacman -Syu --needed --noconfirm cargo-deny
+    - just deny
+
+format:
+  stage: check
+  extends: .with-rust
   script:
     - rustup install nightly
     - just format
