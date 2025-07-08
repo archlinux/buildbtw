@@ -2,11 +2,11 @@
 use std::collections::{HashSet, VecDeque};
 use std::{collections::HashMap, fs::read_dir};
 
-use color_eyre::eyre::{Context, Result, bail, eyre};
+use color_eyre::eyre::{bail, eyre, Context, Result};
 use git2::Repository;
-use petgraph::Directed;
 use petgraph::visit::{Bfs, EdgeRef, Walker};
-use petgraph::{Graph, graph::NodeIndex, prelude::StableGraph};
+use petgraph::Directed;
+use petgraph::{graph::NodeIndex, prelude::StableGraph, Graph};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use tokio::task::spawn_blocking;
@@ -76,6 +76,7 @@ impl PackagesMetadata {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PackageMetadata {
     source_info: SourceInfo,
     commit_hash: CommitHash,
@@ -111,7 +112,7 @@ pub type BuildSetGraph = Graph<BuildPackageNode, PackageBuildDependency, Directe
 pub async fn calculate_packages_to_be_built(
     namespace: &BuildNamespace,
 ) -> Result<HashMap<ConcreteArchitecture, BuildSetGraph>> {
-    tracing::debug!(
+    tracing::info!(
         "Calculating packages to be built for namespace: {}",
         namespace.name
     );
@@ -178,6 +179,11 @@ async fn calculate_packages_to_be_built_inner(
             let node_index = global_graph.index_map.get(&pkgname).ok_or_else(|| {
                 eyre!("Failed to get graph index for pkgname {pkgname} ({architecture:?})")
             })?;
+            tracing::info!(
+                "adding node index {:?} for package {:?}",
+                node_index,
+                pkgname.to_string()
+            );
             nodes_to_visit.push_back((None, *node_index))
         }
     }
@@ -195,9 +201,33 @@ async fn calculate_packages_to_be_built_inner(
             .ok_or_else(|| eyre!("Failed to get srcinfo for pkgname {}", package_node.pkgname))?;
         let pkgbase = source_info.base.name.clone().into();
 
+        tracing::info!(
+            "calculate_packages_to_be_built_inner for {:?}",
+            &package_node.pkgname
+        );
+
         // Create build graph node if it doesn't exist
         let build_graph_node_index =
             if let Some(index) = pkgbase_to_build_graph_node_index.get(&pkgbase) {
+                // Remember to visit this node's neighbors in the future
+                for edge in global_graph.graph.edges(global_node_index_to_visit) {
+                    let target = edge.target();
+
+                    // Find out the pkgbase of the package we're visiting
+                    let target_node = global_graph
+                        .graph
+                        .node_weight(target)
+                        .ok_or_else(|| eyre!("Failed to find node in global dependency graph"))?;
+
+                    tracing::info!(
+                        "calculate_packages_to_be_built_inner add graph node for {:?} -> {:?}",
+                        &package_node.pkgname,
+                        target_node.pkgname,
+                    );
+
+                    nodes_to_visit.push_back((Some(*index), target));
+                }
+
                 *index
             } else {
                 // Add this node to the buildset graph
@@ -212,7 +242,21 @@ async fn calculate_packages_to_be_built_inner(
 
                 // Remember to visit this node's neighbors in the future
                 for edge in global_graph.graph.edges(global_node_index_to_visit) {
-                    nodes_to_visit.push_back((Some(build_graph_node_index), edge.target()))
+                    let target = edge.target();
+
+                    // Find out the pkgbase of the package we're visiting
+                    let target_node = global_graph
+                        .graph
+                        .node_weight(target)
+                        .ok_or_else(|| eyre!("Failed to find node in global dependency graph"))?;
+
+                    tracing::info!(
+                        "calculate_packages_to_be_built_inner add graph node for {:?} -> {:?}",
+                        &package_node.pkgname,
+                        target_node.pkgname,
+                    );
+
+                    nodes_to_visit.push_back((Some(build_graph_node_index), target));
                 }
 
                 build_graph_node_index
@@ -286,6 +330,9 @@ pub async fn gather_packages_metadata(
                 ))?;
 
                 for package in &source_info.packages {
+                    if (dir.file_name()) == "boost" {
+                        tracing::info!("    package -> {:?}", package.name.to_string());
+                    }
                     pkgname_to_pkgbase.insert(
                         package.name.to_string(),
                         source_info.base.name.clone().into(),
@@ -344,6 +391,7 @@ pub fn build_global_dependency_graphs(
         for architecture in ConcreteArchitecture::iter() {
             // Note: `packages_for_architecture` also returns packages with
             // the `Any` architecture which is very convenient here.
+
             for dependent_package in dependent_metadata
                 .source_info
                 .packages_for_architecture(*architecture.as_ref())
@@ -353,6 +401,14 @@ pub fn build_global_dependency_graphs(
                 // get graph index of the current package
                 let dependent_index =
                     dependency_graph.get_or_insert_node(&dependent_package.name.to_string());
+
+                if "boost" == dependent_metadata.source_info.base.name.to_string() {
+                    tracing::info!(
+                        "adding dependencies of {:?} to graph",
+                        &dependent_package.name.to_string()
+                    );
+                }
+
                 // Add edge between current package and its dependencies
                 // TODO add optional dependencies
                 let dependencies = dependent_package
@@ -371,6 +427,13 @@ pub fn build_global_dependency_graphs(
 
                 for dependency in dependencies {
                     let dependency = strip_pkgname_version_constraint(&dependency.name.to_string());
+                    if "boost" == dependent_metadata.source_info.base.name.to_string() {
+                        tracing::info!(
+                            "    dependency of {:?}: {:?}",
+                            &dependent_package.name.to_string(),
+                            &dependency
+                        );
+                    }
                     let dependency_index = dependency_graph.get_or_insert_node(&dependency);
                     dependency_graph
                         .graph
@@ -398,6 +461,7 @@ pub fn schedule_next_build_in_graph(
         .node_indices()
         .filter(|&node| graph.edges_directed(node, petgraph::Incoming).count() == 0)
         .collect();
+    tracing::info!("Root nodes: {:?}\n", root_nodes);
 
     // TODO build things in parallel where possible
     // Traverse the graph from each root node using BFS to unblock sub-graphs
