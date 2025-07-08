@@ -174,6 +174,8 @@ fn calculate_packages_to_be_built_inner(
     // root nodes. To reconstruct edges in the new graph, we'll store the node we
     // came from as well.
     let mut nodes_to_visit: VecDeque<NodeToVisit> = VecDeque::new();
+    // Keep track of visited pkgname node edges during depth first search
+    let mut visited: HashSet<NodeIndex> = HashSet::new();
 
     // add root nodes from our build namespace so we can start walking the graph
     for (pkgbase, _) in &namespace.current_origin_changesets {
@@ -192,6 +194,12 @@ fn calculate_packages_to_be_built_inner(
     // Walk through all transitive neighbors of our starting nodes to build a graph of nodes
     // that we want to rebuild
     while let Some((coming_from_node, global_node_index_to_visit)) = nodes_to_visit.pop_front() {
+        // Skip visited package nodes to avoid infinite loops on cycles
+        if visited.contains(&global_node_index_to_visit) {
+            continue;
+        }
+        visited.insert(global_node_index_to_visit);
+
         // Find out the pkgbase of the package we're visiting
         let package_node = global_graph
             .graph
