@@ -60,14 +60,15 @@
                 </thead>
                 {% for entry in table %}
                     <tr>
-                        <td>{{entry.status_icon}} {{entry.status_description}}:</td>
                         <td>
-                            {% if entry.gitlab_url %}
-                                <a href="{{entry.gitlab_url}}">{{entry.pkgbase}}</a>
-                            {% else %}
-                                {{entry.pkgbase}}
-                            {% endif %}
+                        {{entry.status_icon}}
+                        {% if entry.gitlab_url %}
+                            <a href="{{entry.gitlab_url}}">{{entry.status_description}}</a>:
+                        {% else %}
+                            {{entry.status_description}}:
+                        {% endif %}
                         </td>
+                        <td>{{entry.pkgbase}}</td>
                         {% if entry.commit_gitlab_url %}
                         <td><a href="{{entry.commit_gitlab_url}}">
                             {{entry.commit_hash}}
