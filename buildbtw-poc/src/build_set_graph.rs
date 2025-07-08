@@ -217,13 +217,14 @@ fn calculate_packages_to_be_built_inner(
                 });
                 pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), build_graph_node_index);
 
-                // Remember to visit this node's neighbors in the future
-                for edge in global_graph.graph.edges(global_node_index_to_visit) {
-                    nodes_to_visit.push_back((Some(build_graph_node_index), edge.target()))
-                }
-
                 build_graph_node_index
             };
+
+        // Remember to visit this node's neighbors in the future
+        for edge in global_graph.graph.edges(global_node_index_to_visit) {
+            let edge_target_index = edge.target();
+            nodes_to_visit.push_back((Some(build_graph_node_index), edge_target_index));
+        }
 
         // If we stored the edge we used to get to this node,
         // add it to the new graph we're building.
