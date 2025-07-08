@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
             update_namespace(name, BuildNamespaceStatus::Active, &args.server_url).await?;
         }
         Command::List { all } => list_namespaces(&args.server_url, all).await?,
-        Command::Restart { name } => {
+        Command::Retry { name } => {
             create_build_iteration(name, &args.server_url).await?;
         }
         Command::Show { name } => {
