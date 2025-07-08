@@ -48,7 +48,7 @@ pub enum Command {
         all: bool,
     },
     /// Manually create a new iteration for a namespace, recalculating the build graph and starting to build from the beginning
-    Restart {
+    Retry {
         #[arg()]
         name: String,
     },
