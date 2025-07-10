@@ -11,7 +11,7 @@ run-server *args: create-db
 
 [doc("Run PoC server and auto-restart on code changes")]
 [group("run")]
-watch-server *args: create-db
+watch-server *args: (ensure-command "systemfd") create-db
     systemfd --no-pid -s http::${PORT} -- cargo watch -- just run-server {{ args }}
 
 [doc("Run PoC client")]
@@ -62,7 +62,7 @@ ci-dev: licenses lint deny build-release test
 
 [doc("Check whether all files have a license")]
 [group("check")]
-licenses:
+licenses: (ensure-command "reuse")
     reuse lint
 
 [doc("Check lints and formatting")]
@@ -83,7 +83,7 @@ format:
 
 [doc("Check for security advisories and license compliance in deps")]
 [group("check")]
-deny:
+deny: (ensure-command "cargo-deny")
     cargo deny check
 
 [doc("Run tests")]
@@ -98,7 +98,7 @@ watch-test *args:
 
 [doc("Download GitLab GraphQL API schema for the PoC")]
 [group("dev")]
-update-graphql-schema:
+update-graphql-schema: (ensure-command "graphql-client")
     graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output buildbtw-poc/src/gitlab/gitlab_schema.json
 
 [doc("Clean workspace")]
@@ -120,22 +120,22 @@ forward-tunnel:
 
 [doc("Create and migrate PoC database")]
 [group("dev")]
-create-db: && migrate-db
+create-db: (ensure-command "sqlx") && migrate-db
     sqlx db create
 
 [doc("Run PoC database migrations")]
 [group("dev")]
-migrate-db:
+migrate-db: (ensure-command "sqlx")
     sqlx migrate run --source buildbtw-poc/migrations
 
 [doc("Drop and re-create PoC database")]
 [group("dev")]
-reset-db: && create-db
+reset-db: (ensure-command "sqlx") && create-db
     sqlx db drop
 
 [doc("Create a new timestamped migration in the PoC migrations folder")]
 [group("dev")]
-new-migration name:
+new-migration name: (ensure-command "sqlx")
     sqlx migrate add --source buildbtw-poc/migrations {{name}}
 
 [doc("Deploy GitLab custom runner")]
@@ -158,3 +158,18 @@ deploy-custom-runner:
     #     cleanup_args = [ "cleanup" ]
     cat buildbtw-poc/infrastructure/buildbtw-executor.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/buildbtw-executor.sh > /dev/null
     cat buildbtw-poc/infrastructure/build-inside-vm.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/build-inside-vm.sh > /dev/null
+
+[doc("Ensures that one or more required commands are installed")]
+[private]
+ensure-command +command:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    read -r -a commands <<< "{{ command }}"
+
+    for cmd in "${commands[@]}"; do
+        if ! command -v "$cmd" > /dev/null 2>&1 ; then
+            printf "Couldn't find required executable '%s'\n" "$cmd" >&2
+            exit 1
+        fi
+    done
