@@ -1,12 +1,14 @@
 #!/usr/bin/bash
 set -o nounset -o pipefail -o xtrace -o errexit
 
-REPO_URL=$1
-
 pacman --noconfirm -Syu devtools
 
-# Add buildbtw repo for this namespace
-sed -i "$ a [buildbtw-namespace]\nServer = $REPO_URL" /usr/share/devtools/pacman.conf.d/*
+# Add custom buildbtw repo for this namespace.
+# This can be disabled by passing "no_custom_repo".
+REPO_URL=$1
+if [[ "$REPO_URL" != "no_custom_repo" ]]; then
+    sed -i "$ a [buildbtw-namespace]\nServer = $REPO_URL" /usr/share/devtools/pacman.conf.d/*
+fi
 
 # Create user to run the build as non-root
 # but give them sudo access because it actually does need root
