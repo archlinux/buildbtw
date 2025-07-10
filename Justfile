@@ -159,6 +159,30 @@ deploy-custom-runner:
     cat buildbtw-poc/infrastructure/buildbtw-executor.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/buildbtw-executor.sh > /dev/null
     cat buildbtw-poc/infrastructure/build-inside-vm.sh | ssh buildbtw-dev sudo tee /srv/buildbtw/gitlab-executor/build-inside-vm.sh > /dev/null
 
+[doc("Build the given package using vmexec to debug issues")]
+[group("dev")]
+debug-build-in-vmexec package build_dir vmexec_cmd="vmexec" vmexec_args="run": (ensure-command "pkgctl")
+    #!/usr/bin/env bash
+    set -euxo pipefail
+
+    # Set up working directory with package source
+    absolute_infra_dir=$(realpath "./buildbtw-poc/infrastructure")
+    absolute_build_dir=$(realpath "{{build_dir}}")
+    mkdir -p "$absolute_build_dir/output"
+    # Run `pkgctl clone` in a subshell to keep the current working directory
+    (cd "$absolute_build_dir" && test ! -d {{package}} && pkgctl repo clone {{package}})
+    # TODO: Somehow, including the .git directory will break the VM?
+    rm -rf "$absolute_build_dir/{{package}}/.git"
+
+    RUST_LOG=debug {{vmexec_cmd}} {{vmexec_args}} archlinux \
+        --pmem /var/lib/archbuild:30 \
+        --pull newer \
+        --volume "$absolute_build_dir/{{package}}:/mnt/src_repo:ro" \
+        --volume "$absolute_infra_dir:/mnt/bin:ro" \
+        --volume "$absolute_build_dir/output:/mnt/output" \
+        -- \
+        /mnt/bin/build-inside-vm.sh "no_custom_repo"
+
 [doc("Ensures that one or more required commands are installed")]
 [private]
 ensure-command +command:
