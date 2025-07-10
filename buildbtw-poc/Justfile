@@ -142,3 +142,18 @@ deploy-custom-runner:
 [doc("Run performance benchmarks")]
 bench:
     cargo bench
+
+# Ensures that one or more required commands are installed
+[private]
+ensure-command +command:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    read -r -a commands <<< "{{ command }}"
+
+    for cmd in "${commands[@]}"; do
+        if ! command -v "$cmd" > /dev/null 2>&1 ; then
+            printf "Couldn't find required executable '%s'\n" "$cmd" >&2
+            exit 1
+        fi
+    done
