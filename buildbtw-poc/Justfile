@@ -26,7 +26,7 @@ run-server *args: create-db
 
 [doc("Run server and auto-restart on code changes")]
 [group("server")]
-watch-server *args: create-db
+watch-server *args: (ensure-command "systemfd") create-db
     systemfd --no-pid -s http::${PORT} -- cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w Cargo.toml -w buildbtw-poc/Cargo.toml -- just --justfile buildbtw-poc/Justfile run-server {{ args }}
 
 [doc("Start a reverse SSH tunnel to the buildbtw-dev server to make your local backend process available to the GitLab Runner custom executor")]
@@ -79,12 +79,12 @@ watch-test *args:
     cargo watch -w buildbtw-poc/src -w buildbtw-poc/templates -w buildbtw-poc/Cargo.toml -w Cargo.toml -- just --justfile buildbtw-poc/Justfile test {{ args }}
 
 [doc("Download GitLab GraphQL API schema")]
-update-graphql-schema:
+update-graphql-schema: (ensure-command "graphql-client")
     graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output buildbtw-poc/src/gitlab/gitlab_schema.json
 
 [doc("Check for security advisories and license compliance in deps")]
 [group("check")]
-deny:
+deny: (ensure-command "cargo-deny")
     cargo deny check
 
 [doc("Automatically fix lints and formatting")]
@@ -101,22 +101,22 @@ lint *args:
 
 [doc("Create and migrate database")]
 [group("db")]
-create-db: && migrate-db
+create-db: (ensure-command "sqlx") && migrate-db
     sqlx db create
 
 [doc("Run database migrations")]
 [group("db")]
-migrate-db:
+migrate-db: (ensure-command "sqlx")
     sqlx migrate run --source buildbtw-poc/migrations
 
 [doc("Drop and re-create database")]
 [group("db")]
-reset-db: && create-db
+reset-db: (ensure-command "sqlx") && create-db
     sqlx db drop
 
 [doc("Create a new timestamped migration in the migrations folder")]
 [group("db")]
-new-migration name:
+new-migration name: (ensure-command "sqlx")
     sqlx migrate add --source buildbtw-poc/migrations {{name}}
 
 [doc("Deploy GitLab custom runner")]
@@ -142,3 +142,18 @@ deploy-custom-runner:
 [doc("Run performance benchmarks")]
 bench:
     cargo bench
+
+# Ensures that one or more required commands are installed
+[private]
+ensure-command +command:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    read -r -a commands <<< "{{ command }}"
+
+    for cmd in "${commands[@]}"; do
+        if ! command -v "$cmd" > /dev/null 2>&1 ; then
+            printf "Couldn't find required executable '%s'\n" "$cmd" >&2
+            exit 1
+        fi
+    done
