@@ -10,6 +10,7 @@ use minijinja::context;
 use petgraph::visit::{EdgeRef, NodeRef};
 use reqwest::StatusCode;
 use serde::Serialize;
+use serde_json::json;
 use time::macros::format_description;
 use tokio::fs;
 use url::Url;
@@ -461,29 +462,16 @@ pub(crate) async fn render_build_namespace_graph(
         .get(&architecture)
         .ok_or(ResponseError::NotFound("Build Graph"))?;
 
-    let dot_output = petgraph::dot::Dot::with_attr_getters(
-        latest_packages_to_be_built,
-        &[petgraph::dot::Config::EdgeNoLabel],
-        &|graph, edge| {
-            let color = graph[edge.source()].status.as_color();
-            format!("color=\"{color}\"")
-        },
-        &|_graph, node| {
-            let color = node.weight().status.as_color();
-            let build_status = node.weight().status.as_icon();
-            let pkgbase = &node.weight().pkgbase;
-            format!("label=\"{pkgbase}\n{build_status}\",color=\"{color}\"")
-        },
-    );
-    let mut dot_parser = DotParser::new(&format!("{dot_output:?}"));
-    let tree = dot_parser.process();
-    let mut graph_builder = GraphBuilder::new();
-    let graph = tree.unwrap();
-    graph_builder.visit_graph(&graph);
-    let mut visual_graph = graph_builder.get();
-    let mut svg = SVGWriter::new();
-    visual_graph.do_it(false, false, false, &mut svg);
-    let svg_content = svg.finalize();
+    let cytoscape_edges = latest_packages_to_be_built.edge_references().map(|edge| {
+        let id = format!("edge_{}", edge.id().index());
+        json!({"data": {"id": id, "source": edge.source(), "target": edge.target()}
+        })
+    });
+    let cytoscape_nodes = latest_packages_to_be_built.node_indices().map(|ix| {
+        let label = &latest_packages_to_be_built[ix].pkgbase;
+        json!({"data": {"id": ix, "label": label}})
+    });
+    let cytoscape_elements: serde_json::Value = cytoscape_nodes.chain(cytoscape_edges).collect();
 
     let template = state
         .jinja_env
@@ -492,7 +480,7 @@ pub(crate) async fn render_build_namespace_graph(
 
     let rendered = template
         .render(context! {
-            svg => svg_content,
+            cytoscape_elements => cytoscape_elements,
         })
         .unwrap();
 
