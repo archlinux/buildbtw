@@ -13,12 +13,10 @@ repository = "https://gitlab.archlinux.org/archlinux/alpm/alpm"
 [profile.release]
 codegen-units = 1
 lto = true
+debug = true
 
 [workspace]
-members = [
-    "arch-pkg-repo-updater",
-    "buildbtw-poc",
-]
+members = ["arch-pkg-repo-updater", "buildbtw-poc"]
 # We need to set resolver explicitly since this is a virtual workspace.
 # See https://doc.rust-lang.org/cargo/reference/workspaces.html#virtual-workspace
 resolver = "3"
