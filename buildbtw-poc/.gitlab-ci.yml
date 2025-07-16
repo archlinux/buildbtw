@@ -52,7 +52,7 @@ build-release:
     paths:
       - target/release
   script:
-    - cargo build --release --bin buildbtw-server
+    - cargo build --release --package buildbtw-poc
 
 build-release-image:
   stage: build
