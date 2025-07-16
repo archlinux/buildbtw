@@ -102,6 +102,11 @@ watch-test *args:
 update-graphql-schema: (ensure-command "graphql-client")
     graphql-client introspect-schema "https://$GITLAB_DOMAIN/api/graphql" --authorization "$GITLAB_TOKEN" --output buildbtw-poc/src/gitlab/gitlab_schema.json
 
+[doc("Add lots of data for testing")]
+[group("dev")]
+seed-server:
+    cargo run --bin buildbtw-server seed
+
 [doc("Clean workspace")]
 [group("dev")]
 clean:

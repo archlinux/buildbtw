@@ -133,7 +133,7 @@ pub(crate) async fn read_by_name(name: &str, pool: &SqlitePool) -> Result<BuildN
     Ok(db_namespace.into())
 }
 
-pub(crate) async fn read_latest(pool: &SqlitePool) -> Result<BuildNamespace> {
+pub(crate) async fn read_latest(pool: &SqlitePool) -> ResponseResult<BuildNamespace> {
     let db_namespace = sqlx::query_as!(
         DbBuildNamespace,
         r#"

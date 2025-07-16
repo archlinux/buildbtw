@@ -55,6 +55,7 @@ These need to be run in the root of the repository.
 - `just deploy-custom-runner` to temporarily override the deployed GitLab custom runner configuration
 - `just watch-client` to run PoC client and auto-restart on code changes
 - `tokio-console` to monitor async tasks in a running buildbtw server
+- `just seed-server` to insert some test data into the server's database
 
 #### Database Management
 - `just create-db` to create and migrate PoC database

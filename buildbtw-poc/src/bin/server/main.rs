@@ -40,6 +40,9 @@ mod tasks;
 pub mod templates;
 pub mod with_content_type;
 
+#[cfg(debug_assertions)]
+mod seed;
+
 #[derive(Clone)]
 struct AppState {
     #[allow(dead_code)]
@@ -129,6 +132,14 @@ async fn main() -> Result<()> {
             axum_server::from_tcp(tcp_listener)
                 .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await?;
+        }
+        #[cfg(debug_assertions)]
+        Command::Seed {} => {
+            let db_pool: sqlx::Pool<sqlx::Sqlite> =
+                db::create_and_connect_db(&args.database_url).await?;
+            sqlx::migrate!("./migrations").run(&db_pool).await?;
+
+            seed::seed(&db_pool).await?;
         }
     }
     Ok(())
