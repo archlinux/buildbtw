@@ -64,6 +64,8 @@ pub struct Gitlab {
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// Run the server
+    ///
+    /// Will migrate the database before running.
     Run {
         /// Interface to bind to
         #[arg(
@@ -84,4 +86,9 @@ pub enum Command {
         #[arg(long, env)]
         base_url: Url,
     },
+    /// Seed the database with lots of entries for testing
+    ///
+    /// Will migrate the database before running.
+    #[cfg(debug_assertions)]
+    Seed {},
 }

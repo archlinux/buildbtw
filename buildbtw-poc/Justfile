@@ -142,3 +142,7 @@ deploy-custom-runner:
 [doc("Run performance benchmarks")]
 bench:
     cargo bench
+
+[doc("Add lots of data for testing")]
+seed:
+    cargo run --bin buildbtw-server seed
