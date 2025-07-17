@@ -469,7 +469,6 @@ dependencies = [
  "clap",
  "color-eyre",
  "colored",
- "console-subscriber",
  "criterion",
  "derive_more",
  "futures",

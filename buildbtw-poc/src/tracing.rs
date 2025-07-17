@@ -12,12 +12,6 @@ use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::Subscribe
 pub fn init(verbose: u8, use_tokio_console: bool) {
     let tracing_registry = tracing_subscriber::registry();
 
-    let console_layer = if cfg!(tokio_unstable) && use_tokio_console {
-        Some(console_subscriber::spawn())
-    } else {
-        None
-    };
-
     let env_filter = EnvFilter::try_from_default_env().ok();
 
     let env_filter = env_filter.unwrap_or(match verbose {
@@ -30,5 +24,5 @@ pub fn init(verbose: u8, use_tokio_console: bool) {
     });
     let env_layer = tracing_subscriber::fmt::layer().with_filter(env_filter);
 
-    tracing_registry.with(console_layer).with(env_layer).init();
+    tracing_registry.with(env_layer).init();
 }
