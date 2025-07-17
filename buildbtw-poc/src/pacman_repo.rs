@@ -1,15 +1,11 @@
 use std::sync::LazyLock;
 
-use alpm_srcinfo::MergedPackage;
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::Result;
 use tokio::process::Command;
 use uuid::Uuid;
 
-use crate::{
-    NAMESPACE_DATA_DIR,
-    source_info::{ConcreteArchitecture, SourceInfo, package_file_name},
-};
+use crate::{NAMESPACE_DATA_DIR, source_info::ConcreteArchitecture};
 
 pub static REPO_DIR: LazyLock<Utf8PathBuf> = LazyLock::new(|| NAMESPACE_DATA_DIR.join("repos"));
 
@@ -35,16 +31,12 @@ pub fn repo_file_name() -> Utf8PathBuf {
 }
 
 /// Add a package to the pacman repository db in the given directory.
-pub async fn add_to_repo(
-    repo_dir_path: &Utf8Path,
-    package: &MergedPackage,
-    srcinfo: &SourceInfo,
-) -> Result<()> {
+pub async fn add_to_repo(repo_dir_path: &Utf8Path, package_file_name: &Utf8Path) -> Result<()> {
     let mut cmd = Command::new("repo-add");
     let db_filename = repo_file_name();
     let db_path = format!("{repo_dir_path}/{db_filename}");
     cmd.arg(db_path);
-    cmd.arg(repo_dir_path.join(package_file_name(package, srcinfo)?));
+    cmd.arg(repo_dir_path.join(package_file_name));
     cmd.status().await?;
 
     Ok(())

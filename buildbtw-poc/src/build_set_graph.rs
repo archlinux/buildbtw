@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
 
+use camino::Utf8PathBuf;
 use color_eyre::eyre::{Context, Result, bail, eyre};
 use petgraph::Directed;
 use petgraph::visit::{Bfs, EdgeRef, Walker};
@@ -11,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use uuid::Uuid;
 
-use crate::source_info::{ConcreteArchitecture, SourceInfo};
+use crate::source_info::{ConcreteArchitecture, SourceInfo, package_file_name};
 use crate::source_repos::{BranchInfo, SourceRepos};
 use crate::{
     BuildNamespace, CommitHash, GitRepoRef, PackageBuildDependency, PackageBuildStatus, Pkgbase,
@@ -101,7 +102,40 @@ pub struct BuildPackageNode {
     pub commit_hash: CommitHash,
     pub branch_name: String,
     pub status: PackageBuildStatus,
-    pub srcinfo: SourceInfo,
+    pub package_file_names: HashMap<alpm_types::Name, Utf8PathBuf>,
+    pub version: alpm_types::Version,
+}
+
+impl BuildPackageNode {
+    fn new(
+        PackageMetadata {
+            source_info,
+            commit_hash,
+            branch_name,
+        }: &PackageMetadata,
+        architecture: ConcreteArchitecture,
+    ) -> Result<BuildPackageNode> {
+        Ok(BuildPackageNode {
+            pkgbase: source_info.base.name.clone().into(),
+            commit_hash: commit_hash.clone(),
+            branch_name: branch_name.clone(),
+            status: PackageBuildStatus::Blocked,
+            package_file_names: source_info
+                .packages_for_architecture(*architecture.as_ref())
+                .map(|package| {
+                    Ok((
+                        package.name.clone(),
+                        package_file_name(&package, source_info)?,
+                    ))
+                })
+                .collect::<Result<HashMap<_, _>>>()?,
+            version: alpm_types::Version::new(
+                source_info.base.package_version.clone(),
+                source_info.base.epoch,
+                source_info.base.package_release.clone().into(),
+            ),
+        })
+    }
 }
 
 // TODO we probably want to replace this with a wrapper struct
@@ -216,13 +250,8 @@ fn calculate_packages_to_be_built_inner(
                 *index
             } else {
                 // Add this node to the buildset graph
-                let build_graph_node_index = packages_to_be_built.add_node(BuildPackageNode {
-                    pkgbase: pkgbase.clone(),
-                    commit_hash: package_metadata.commit_hash.clone(),
-                    branch_name: package_metadata.branch_name.clone(),
-                    srcinfo: package_metadata.source_info.clone(),
-                    status: PackageBuildStatus::Blocked,
-                });
+                let build_graph_node_index = packages_to_be_built
+                    .add_node(BuildPackageNode::new(package_metadata, architecture)?);
                 pkgbase_to_build_graph_node_index.insert(pkgbase.clone(), build_graph_node_index);
 
                 build_graph_node_index
@@ -435,12 +464,14 @@ pub fn schedule_next_build_in_graph(
                 iteration: iteration_id,
                 namespace: namespace_id,
                 architecture,
-                srcinfo: node.srcinfo.clone(),
                 source: crate::PipelineTarget {
                     pkgbase: node.pkgbase.clone(),
                     branch_name: node.branch_name.clone(),
                 },
                 updated_build_set_graph,
+                package_file_names: node.package_file_names.clone(),
+                version: node.version.clone(),
+                pkgbase: node.pkgbase.clone(),
             };
             return ScheduleBuildResult::Scheduled(response);
         }

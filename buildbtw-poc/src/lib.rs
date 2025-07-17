@@ -7,7 +7,7 @@ use color_eyre::eyre::{Result, bail};
 use derive_more::{AsRef, Display};
 use iteration::NewIterationReason;
 use serde::{Deserialize, Serialize};
-use source_info::{ConcreteArchitecture, SourceInfo};
+use source_info::ConcreteArchitecture;
 use uuid::Uuid;
 
 pub mod api;
@@ -88,8 +88,10 @@ pub struct ScheduleBuild {
     pub iteration: Uuid,
     pub source: PipelineTarget,
     pub architecture: ConcreteArchitecture,
-    pub srcinfo: SourceInfo,
     pub updated_build_set_graph: BuildSetGraph,
+    pub package_file_names: HashMap<alpm_types::Name, Utf8PathBuf>,
+    pub pkgbase: Pkgbase,
+    pub version: alpm_types::Version,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -6,6 +6,7 @@ use gitlab::{
     },
 };
 use graphql_client::GraphQLQuery;
+use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
@@ -13,7 +14,7 @@ use url::Url;
 
 use crate::{
     CommitHash, PackageBuildStatus, Pkgbase, ScheduleBuild, git::clone_or_fetch_repositories,
-    pacman_repo::repo_dir_path, source_info::package_file_name,
+    pacman_repo::repo_dir_path,
 };
 
 pub async fn fetch_all_source_repo_changes(
@@ -181,15 +182,7 @@ pub async fn create_pipeline(
 ) -> Result<CreatePipelineResponse> {
     // Using graphQL for triggering pipelines is not yet possible:
     // https://gitlab.com/gitlab-org/gitlab/-/issues/401480
-    let package_file_names = build
-        .srcinfo
-        .packages_for_architecture(*build.architecture.as_ref())
-        .map(|p| package_file_name(&p, &build.srcinfo))
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .map(String::from)
-        .collect::<Vec<_>>()
-        .join(" ");
+
     // Each of these will be prefixed with `CUSTOM_ENV_` by the gitlab runner.
     // E.g. `PKGBASE` will be available as `CUSTOM_ENV_PKGBASE` in buildbtw-executor.sh.
     // For more, see: https://docs.gitlab.com/runner/executors/custom/#stages
@@ -201,7 +194,10 @@ pub async fn create_pipeline(
         ("NAMESPACE_NAME", namespace_name.to_string()),
         ("ITERATION_ID", build.iteration.to_string()),
         ("PKGBASE", build.source.pkgbase.to_string()),
-        ("PACKAGE_FILE_NAMES", package_file_names),
+        (
+            "PACKAGE_FILE_NAMES",
+            build.package_file_names.values().join(" "),
+        ),
         ("ARCHITECTURE", build.architecture.to_string()),
         ("SERVER_PORT", server_port.to_string()),
     ]

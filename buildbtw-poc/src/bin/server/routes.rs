@@ -30,10 +30,7 @@ use buildbtw_poc::{
     api::ShowNamespaceJson,
     pacman_repo::{add_to_repo, repo_dir_path},
 };
-use buildbtw_poc::{
-    api::ArchitectureIteration,
-    source_info::{ConcreteArchitecture, package_file_name, package_for_architecture},
-};
+use buildbtw_poc::{api::ArchitectureIteration, source_info::ConcreteArchitecture};
 
 use crate::db::namespace::CreateDbBuildNamespace;
 use crate::response_error::ResponseError::{self};
@@ -572,8 +569,10 @@ pub async fn upload_package(
         .ok_or(ResponseError::NotFound("pkgbase"))?
         .weight;
 
-    let package = package_for_architecture(&node.srcinfo, architecture, &pkgname)
-        .ok_or(ResponseError::NotFound("pkgname"))?;
+    let package_file_name = node
+        .package_file_names
+        .get(&pkgname.parse().wrap_err("Invalid pkgname")?)
+        .ok_or_eyre("Build graph does not contain a file name for the given pkgname")?;
 
     // Calculate path for writing the file
     // This should only use safe inputs such as those read from the DB,
@@ -583,7 +582,7 @@ pub async fn upload_package(
 
     // TODO this is probably paranoid, but I think a version like `../../../../../etc/passwd` might actually be valid
     // An attack like that would require a malicious .SRCINFO, though
-    let path = repo_path.join(package_file_name(&package, &node.srcinfo)?);
+    let path = repo_path.join(package_file_name);
     if tokio::fs::try_exists(&path).await? {
         // This should only happen if a builder was temporarily unreachable
         // so the build got scheduled elsewhere as well
@@ -593,7 +592,7 @@ pub async fn upload_package(
     // TODO ensure no package exists for the given build yet
     stream_to_file(&path, request.into_body().into_data_stream()).await?;
 
-    add_to_repo(&repo_path, &package, &node.srcinfo).await?;
+    add_to_repo(&repo_path, package_file_name).await?;
 
     Ok(())
 }

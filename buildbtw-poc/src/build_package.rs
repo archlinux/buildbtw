@@ -3,6 +3,7 @@
 use std::process::Stdio;
 
 use camino::{Utf8Path, Utf8PathBuf};
+use itertools::Itertools;
 use tokio::{
     fs::{self, File},
     process::Command,
@@ -12,10 +13,7 @@ use color_eyre::eyre::{Result, WrapErr, bail};
 use git2::{Oid, Repository, Status, build::CheckoutBuilder};
 use uuid::Uuid;
 
-use crate::{
-    BUILD_DIR, PackageBuildStatus, Pkgbase, ScheduleBuild, git::package_source_path,
-    source_info::package_architectures,
-};
+use crate::{BUILD_DIR, PackageBuildStatus, Pkgbase, ScheduleBuild, git::package_source_path};
 
 pub async fn build_package(schedule: &ScheduleBuild, import_gpg_keys: bool) -> PackageBuildStatus {
     match build_package_inner(schedule, import_gpg_keys).await {
@@ -128,38 +126,27 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
     Ok(())
 }
 
-fn generate_fake_pkgbuild(ScheduleBuild { srcinfo, .. }: &ScheduleBuild) -> Result<String> {
-    let pkgnames = format!(
-        "({})",
-        srcinfo
-            .packages
-            .iter()
-            .map(|pkg| pkg.name.as_ref())
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
-
+fn generate_fake_pkgbuild(
+    ScheduleBuild {
+        package_file_names,
+        architecture,
+        version,
+        pkgbase,
+        ..
+    }: &ScheduleBuild,
+) -> Result<String> {
     // Generate stub package_foo() functions
     let mut package_funcs = String::new();
-    for pkg in &srcinfo.packages {
-        let pkgarchs = format!(
-            "({})",
-            package_architectures(pkg, srcinfo)
-                .iter()
-                .map(|a| a.to_string())
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+    for pkgname in package_file_names.keys() {
+        let pkgarchs = format!("({architecture})");
 
         let func = format!(
             r#"
 package_{pkgname}() {{
-    arch={pkgarch}
+    arch={pkgarchs}
     echo 1
 }}
                 "#,
-            pkgname = pkg.name,
-            pkgarch = pkgarchs,
         );
 
         package_funcs.push_str(&func);
@@ -168,7 +155,8 @@ package_{pkgname}() {{
     Ok(format!(
         r#"
 pkgbase={pkgbase}
-pkgname={pkgname}
+pkgname=({pkgname})
+epoch={epoch}
 pkgver={pkgver}
 pkgrel={pkgrel}
 pkgdesc=dontcare
@@ -179,17 +167,19 @@ source=()
 
 {package_funcs}
         "#,
-        pkgbase = srcinfo.base.name,
-        pkgname = pkgnames,
-        pkgver = srcinfo.base.package_version,
-        pkgrel = srcinfo.base.package_release,
-        arch = srcinfo
-            .base
-            .architectures
-            .iter()
-            .map(|a| a.to_string())
-            .collect::<Vec<_>>()
-            .join(" ")
+        pkgbase = pkgbase,
+        pkgname = package_file_names.values().join(" "),
+        epoch = version
+            .epoch
+            .map(|e| format!("epoch={e}"))
+            .unwrap_or_default(),
+        pkgver = version.pkgver,
+        pkgrel = version
+            .pkgrel
+            .as_ref()
+            .map(|rel| format!("pkgrel={rel}"))
+            .unwrap_or_default(),
+        arch = architecture
     ))
 }
 
