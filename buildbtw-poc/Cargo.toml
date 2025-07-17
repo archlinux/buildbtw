@@ -34,7 +34,6 @@ camino = { version = "1.1.9", features = ["serde", "serde1"] }
 clap.workspace = true
 color-eyre.workspace = true
 colored.workspace = true
-console-subscriber.workspace = true
 criterion = { version = "0.6" }
 derive_more = { version = "2.0.1", features = ["as_ref", "display"] }
 futures = "0.3.31"
