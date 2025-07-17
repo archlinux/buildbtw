@@ -99,7 +99,6 @@ async fn update_and_build_all_namespaces_in_loop(
                 Ok(_) => {}
                 Err(e) => tracing::error!("Error while updating build namespaces: {e:?}"),
             };
-            tokio::time::sleep(Duration::from_secs(10)).await
         }
     });
 
