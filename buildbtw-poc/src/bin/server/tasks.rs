@@ -3,6 +3,8 @@ use std::time::Duration;
 use ::gitlab::{AsyncGitlab, GitlabBuilder};
 use buildbtw_poc::source_repos::SourceRepos;
 use color_eyre::eyre::{Context, Result};
+use futures::stream::BoxStream;
+use futures::{StreamExt, TryStreamExt};
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
@@ -16,6 +18,7 @@ use buildbtw_poc::{
     pacman_repo,
 };
 
+use crate::db::iteration::DbBuildSetIteration;
 use crate::{
     args,
     db::{
@@ -112,9 +115,9 @@ async fn update_and_build_all_namespaces(
 ) -> Result<()> {
     // Update gitlab pipeline status for all iterations in all namespaces.
     if let Some(gitlab_context) = maybe_gitlab_context {
-        let all_iterations = db::iteration::list(pool).await?;
-        let iteration_count = all_iterations.len();
-        tracing::info!("Updating gitlab pipeline statuses in {iteration_count} iteration(s)...");
+        let all_iterations = db::iteration::list(pool);
+        // let iteration_count = all_iterations.len();
+        // tracing::info!("Updating gitlab pipeline statuses in {iteration_count} iteration(s)...");
 
         if let Err(e) =
             update_build_set_graphs_from_gitlab_pipelines(pool, all_iterations, gitlab_context)
@@ -270,11 +273,12 @@ async fn create_new_namespace_iteration_if_needed(
 /// in the build graph.
 async fn update_build_set_graphs_from_gitlab_pipelines(
     pool: &SqlitePool,
-    iterations: Vec<BuildSetIteration>,
+    mut iterations: BoxStream<'_, Result<DbBuildSetIteration, sqlx::Error>>,
     gitlab_context: &GitlabContext,
 ) -> Result<()> {
     // Visit all build nodes in all iterations
-    for iteration in iterations {
+    while let Some(iteration) = iterations.try_next().await? {
+        let iteration = BuildSetIteration::from(iteration);
         let mut new_packages_to_be_built = iteration.packages_to_be_built.clone();
         for (architecture, graph) in iteration.packages_to_be_built {
             for node in graph.node_weights() {
