@@ -115,6 +115,7 @@ pub(crate) async fn read(pool: &SqlitePool, iteration_id: uuid::Uuid) -> Result<
     Ok(iteration)
 }
 
+// TODO use a streaming result here to reduce memory usage.
 pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildSetIteration>> {
     let iterations = sqlx::query_as!(
         DbBuildSetIteration,

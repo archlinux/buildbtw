@@ -8,9 +8,7 @@ use reqwest::Body;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use buildbtw_poc::{
-    PipelineTarget, ScheduleBuild, build_package::build_path, source_info::package_file_name,
-};
+use buildbtw_poc::{PipelineTarget, ScheduleBuild, build_package::build_path};
 
 use crate::args::{Args, Command};
 
@@ -107,21 +105,20 @@ async fn upload_packages(
         iteration,
         source,
         architecture,
-        srcinfo,
+        package_file_names,
         ..
     }: &ScheduleBuild,
 ) -> Result<()> {
-    for package in srcinfo.packages_for_architecture(*architecture.as_ref()) {
+    for (pkgname, package_file_name) in package_file_names {
         // Build path to the file we'll send
         let dir = build_path(*iteration, &source.pkgbase);
-        let path = dir.join(package_file_name(&package, srcinfo)?);
+        let path = dir.join(package_file_name);
 
         // Convert path into async stream body
         let file = tokio::fs::File::open(&path).await.wrap_err(path)?;
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
 
-        let pkgname = package.name;
         let PipelineTarget { pkgbase, .. } = source;
 
         reqwest::Client::new()
