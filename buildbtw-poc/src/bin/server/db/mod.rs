@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use color_eyre::eyre::{Context, Result};
+use futures::stream::BoxStream;
 use sqlx::{
     SqlitePool,
     migrate::Migrate,
@@ -11,6 +12,8 @@ pub mod gitlab_pipeline;
 pub mod global_state;
 pub mod iteration;
 pub mod namespace;
+
+pub type Stream<'a, T> = BoxStream<'a, Result<T, sqlx::Error>>;
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 

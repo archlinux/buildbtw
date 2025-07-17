@@ -8,6 +8,8 @@ use buildbtw_poc::{
     source_info::ConcreteArchitecture,
 };
 
+use crate::db;
+
 #[derive(sqlx::FromRow)]
 pub(crate) struct DbBuildSetIteration {
     id: uuid::Uuid,
@@ -115,9 +117,8 @@ pub(crate) async fn read(pool: &SqlitePool, iteration_id: uuid::Uuid) -> Result<
     Ok(iteration)
 }
 
-// TODO use a streaming result here to reduce memory usage.
-pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildSetIteration>> {
-    let iterations = sqlx::query_as!(
+pub(crate) fn list(pool: &SqlitePool) -> db::Stream<DbBuildSetIteration> {
+    sqlx::query_as!(
         DbBuildSetIteration,
         r#"
         select
@@ -131,13 +132,7 @@ pub(crate) async fn list(pool: &SqlitePool) -> Result<Vec<BuildSetIteration>> {
         order by created_at asc
         "#,
     )
-    .fetch_all(pool)
-    .await?
-    .into_iter()
-    .map(BuildSetIteration::from)
-    .collect();
-
-    Ok(iterations)
+    .fetch(pool)
 }
 
 pub(crate) async fn list_for_namespace(
