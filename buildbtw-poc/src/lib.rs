@@ -89,6 +89,7 @@ pub struct ScheduleBuild {
     pub source: PipelineTarget,
     pub architecture: ConcreteArchitecture,
     pub srcinfo: SourceInfo,
+    // TODO: this doesn't need to be sent to the worker, and it's heavy
     pub updated_build_set_graph: BuildSetGraph,
 }
 
