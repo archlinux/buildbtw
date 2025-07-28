@@ -2,7 +2,8 @@ set dotenv-load := true
 
 [doc("List recipes")]
 default:
-    just --list
+    # --unsorted: list groups in the order specified in the justfile
+    just --list --unsorted
 
 [doc("Run PoC server")]
 [group("run")]
