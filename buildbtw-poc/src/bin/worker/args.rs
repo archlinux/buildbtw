@@ -18,6 +18,10 @@ pub struct Args {
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
+    /// Collecting Tokio console telemetry
+    #[arg(long, env, default_value = "false")]
+    pub tokio_console_telemetry: bool,
+
     #[command(subcommand)]
     pub command: Command,
 }

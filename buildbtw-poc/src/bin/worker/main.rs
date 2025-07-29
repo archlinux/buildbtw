@@ -41,7 +41,7 @@ async fn schedule_build(
 async fn main() -> Result<()> {
     let args = Args::parse();
     // log warnings by default
-    buildbtw_poc::tracing::init(args.verbose + 1, false);
+    buildbtw_poc::tracing::init(args.verbose + 1, args.tokio_console_telemetry);
     color_eyre::install()?;
     tracing::debug!("{args:?}");
 
