@@ -131,10 +131,8 @@ pub fn package_for_architecture(
 pub fn package_file_name(
     MergedPackage {
         name,
-        package_version,
-        package_release,
+        version,
         architecture,
-        epoch,
         ..
     }: &MergedPackage,
     srcinfo: &SourceInfo,
@@ -162,17 +160,12 @@ pub fn package_file_name(
     // Note: Don't use `ConcreteArchitecture` to determine the architecture in the
     // filename as the filename will contain `any` instead of the concrete
     // architecture
-    let version = alpm_types::Version::new(
-        package_version.clone(),
-        *epoch,
-        Some(package_release.clone()),
-    );
     Ok(alpm_types::PackageFileName::new(
         name.clone(),
-        version,
+        version.clone(),
         *actual_architecture,
         Some(alpm_types::CompressionAlgorithmFileExtension::Zstd),
-    )?
+    )
     .to_string()
     .into())
 }

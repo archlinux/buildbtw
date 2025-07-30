@@ -183,8 +183,8 @@ source=()
         "#,
         pkgbase = srcinfo.base.name,
         pkgname = pkgnames,
-        pkgver = srcinfo.base.package_version,
-        pkgrel = srcinfo.base.package_release,
+        pkgver = srcinfo.base.version.pkgver,
+        pkgrel = srcinfo.base.version.pkgrel,
         arch = srcinfo
             .base
             .architectures
