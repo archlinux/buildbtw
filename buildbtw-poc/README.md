@@ -1,6 +1,6 @@
 # buildbtw-poc
 
-A service for assisting Arch Linux staff with building new versions of packages.
+This is a Rust-based proof-of-concept service that assists Arch Linux staff with building new package versions through automated dependency resolution, build scheduling, and CI/CD integration.
 
 ## Roadmap
 
@@ -54,9 +54,10 @@ This project has four major components:
         User <user>
         HostName buildbtw-dev.pkgbuild.com
     ```
-<!-- TODO add link to user guide here -->
 1. Dispatch a build using the client: `just run-client new openimageio/main`
 1. Inspect your new build namespace in the web UI at [http://localhost:8080](http://localhost:8080).
+
+For more detailed usage instructions, see the [PoC User Guide](../notes/PoC_User_Guide.md).
 
 ### Running builds locally
 
@@ -66,9 +67,10 @@ This project has four major components:
 1. Run the worker:
     - To build real packages: `just watch-worker` or `just run-worker`
     - Alternatively, to build fake packages to shorten manual cycle testing time: `just run-worker-fake`
-<!-- TODO add link to user guide here -->
 1. Dispatch a build using the client: `just run-client new openimageio/main`
 1. Inspect your new build namespace in the web UI at [http://localhost:8080](http://localhost:8080).
+
+For more detailed usage instructions, see the [PoC User Guide](../notes/PoC_User_Guide.md)
 
 ### Auxiliary commands
 
