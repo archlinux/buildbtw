@@ -24,15 +24,6 @@ We'll group issues using epics.
 
 Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder.
 
-## Components
-
-This project has four major components:
-
-- **server**: Central component providing the web interface, API, core logic such as build scheduling, and communication with GitLab.
-- **client**: CLI tool to talk to the **server**'s API to dispatch tasks, inspect state and such.
-- **worker**: Runs builds locally as an alternative to using the GitLab custom executor.
-- **GitLab custom executor**: Runs builds dispatched by GitLab CI pipelines.
-
 ## Development
 
 - Install `sqlx-cli` and `cargo-watch` (`pacman -S sqlx-cli cargo-watch` or `cargo install sqlx-cli cargo-watch`).
