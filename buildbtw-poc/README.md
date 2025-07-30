@@ -2,32 +2,13 @@
 
 This is a Rust-based proof-of-concept service that assists Arch Linux staff with building new package versions through automated dependency resolution, build scheduling, and CI/CD integration.
 
-## Roadmap
-
-1. [Collect initial user stories](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/7)
-1. [Build an exploratory PoC](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/3) to discover unknown unknowns and validate the approach we've planned
-1. [Write RFC, outlining major components & architecture](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/4)
-1. [Build and deploy MVP](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/5)
-1. Iterate on the MVP to improve the service, writing new RFCs and requirements as needed
-
 The proof of concept will contain some code. This is only to gain a better understanding of the tradeoffs involved in the components and functionality we'll propose in the RFC.
-
-## Project Management
-
-We're using the issue tracker for requirements and user stories. We're planning to use labels to allow filtering the issues:
-
-- by need: "must", "should", "could", "won't"
-- by effort: XL, L, M, S
-- by scope: feature, bug, docs, refactor, ...
-
-We'll group issues using epics.
-
-Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder.
 
 ## Development
 
 - Install `sqlx-cli` and `cargo-watch` (`pacman -S sqlx-cli cargo-watch` or `cargo install sqlx-cli cargo-watch`).
 - Install `just` and `systemfd` (`pacman -S just systemfd`).
+- Optional: Install `graphql_client_cli` for GraphQL schema updates (`pacman -S graphql-client-cli` or `cargo install graphql_client_cli`).
 - Set up your environment variables: `cp .env.example .env`
 - Optional but recommended: Get a personal access token for gitlab.archlinux.org with the `api` scope and put it into `.env`. This will enable the server to query the GitLab API for changes in package source repositories, and dispatch pipelines for building packages using the GitLab custom executor.
 - If running without a gitlab token: Comment out all gitlab-related settings in `.env`.
@@ -63,16 +44,25 @@ For more detailed usage instructions, see the [PoC User Guide](../notes/PoC_User
 
 For more detailed usage instructions, see the [PoC User Guide](../notes/PoC_User_Guide.md)
 
-### Auxiliary commands
+### Commands
 
-- `just deny` to audit dependencies for security vulnerabilities.
-    - Requirement: `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
-- `just lint` to run `cargo fmt` and `cargo clippy`
+These need to be run in the root of the repository.
+
+#### Development & Debugging
 - `just update-graphql-schema` to update the GitLab GraphQL API schema
-    - Requirement: `graphql_client_cli` (`pacman -Sy graphql-client-cli` or `cargo install graphql_client_cli`)
+- `just reverse-tunnel` to start a reverse SSH tunnel to the buildbtw-dev server to make your local backend process available to the GitLab Runner custom executor
+- `just forward-tunnel` to start forward SSH tunnel to buildbtw server for local client access
+- `just deploy-custom-runner` to temporarily override the deployed GitLab custom runner configuration
+- `just watch-client` to run PoC client and auto-restart on code changes
 - `tokio-console` to monitor async tasks in a running buildbtw server
-    - Requirement: `pacman -Sy tokio-console` or `cargo install tokio-console`
-- `just ci-dev` to run a sequence of recipes that resemble CI
+
+#### Database Management
+- `just create-db` to create and migrate PoC database
+- `just migrate-db` to run PoC database migrations
+- `just reset-db` to drop and re-create PoC database
+- `just new-migration <name>` to create a new timestamped migration
+
+#### Infrastructure
 
 ## Development Port Coordination
 
