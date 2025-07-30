@@ -83,6 +83,15 @@ For more detailed usage instructions, see the [PoC User Guide](../notes/PoC_User
     - Requirement: `pacman -Sy tokio-console` or `cargo install tokio-console`
 - `just ci-dev` to run a sequence of recipes that resemble CI
 
+## Development Port Coordination
+
+When running builds on the GitLab custom executor, each developer needs a unique port for the reverse SSH tunnel. Please coordinate with the buildbtw team and update this list when claiming a port:
+
+| Developer | Port |
+|-----------|------|
+| raffomania | 8081 |
+| svenstaro | 8079 |
+
 ## FAQ
 
 It's pronounced "buildbytheway".
