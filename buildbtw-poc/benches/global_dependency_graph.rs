@@ -12,27 +12,25 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let rt = tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap();
-    let pkgname_to_srcinfo_map = rt.block_on(async {
-        let namespace = BuildNamespace {
-            id: Uuid::new_v4(),
-            name: "test namespace".to_string(),
-            current_origin_changesets: Vec::new(),
-            created_at: time::OffsetDateTime::now_utc(),
-            status: BuildNamespaceStatus::Active,
-        };
+    let namespace = BuildNamespace {
+        id: Uuid::new_v4(),
+        name: "test namespace".to_string(),
+        current_origin_changesets: Vec::new(),
+        created_at: time::OffsetDateTime::now_utc(),
+        status: BuildNamespaceStatus::Active,
+    };
 
-        let mut source_repos = SourceRepos::new().await.unwrap();
-
-        gather_packages_metadata(
-            namespace.current_origin_changesets.clone(),
-            &mut source_repos,
-        )
-        .await
-        .unwrap()
-    });
     group.bench_function("global_dependency_graph", |b| {
-        b.iter(|| {
-            build_global_dependency_graphs(&pkgname_to_srcinfo_map).unwrap();
+        b.to_async(&rt).iter(async || {
+            let mut source_repos = SourceRepos::new().await.unwrap();
+
+            let packages_metadata = gather_packages_metadata(
+                namespace.current_origin_changesets.clone(),
+                &mut source_repos,
+            )
+            .await
+            .unwrap();
+            build_global_dependency_graphs(&packages_metadata).unwrap();
         })
     });
 }

@@ -35,7 +35,7 @@ clap.workspace = true
 color-eyre.workspace = true
 colored.workspace = true
 console-subscriber.workspace = true
-criterion = { version = "0.7" }
+criterion = { version = "0.7", features = ["async_tokio"] }
 derive_more = { version = "2.0.1", features = ["as_ref", "display"] }
 futures = "0.3.31"
 git2 = "0.20.2"

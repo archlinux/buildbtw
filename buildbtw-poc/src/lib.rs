@@ -118,6 +118,10 @@ pub enum BuildNamespaceStatus {
 pub struct BuildNamespace {
     pub id: Uuid,
     pub name: String,
+    // TODO: the pkgbases here conflate two meanings currently:
+    // 1. pkgbase as specified in .SRCINFO
+    // 2. Directory name in source_repos / name of the git repo in gitlab
+    // These are *almost* always the same
     pub current_origin_changesets: Vec<GitRepoRef>,
     pub created_at: time::OffsetDateTime,
     pub status: BuildNamespaceStatus,
