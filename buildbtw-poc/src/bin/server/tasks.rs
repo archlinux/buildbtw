@@ -4,7 +4,6 @@ use ::gitlab::{AsyncGitlab, GitlabBuilder};
 use buildbtw_poc::source_repos::SourceRepos;
 use color_eyre::eyre::{Context, Result};
 use futures::TryStreamExt;
-use futures::stream::BoxStream;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;

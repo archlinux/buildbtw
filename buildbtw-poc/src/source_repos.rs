@@ -13,18 +13,22 @@ use std::{collections::HashMap, time::Instant};
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::{
     Section,
-    eyre::{Context, Result},
+    eyre::{Context, OptionExt, Result},
 };
+use derive_more::Display;
 use tokio::task::spawn_blocking;
 
 use crate::{
-    BranchName, CommitHash, Pkgbase,
+    BranchName, CommitHash,
     git::{get_branch_commit_sha, read_srcinfo_from_repo},
     source_info::SourceInfo,
 };
 
+#[derive(Hash, PartialEq, Eq, Display, Clone)]
+pub struct DirName(pub String);
+
 pub struct SourceRepos {
-    source_repos: HashMap<Pkgbase, SourceRepo>,
+    source_repos: HashMap<DirName, SourceRepo>,
 }
 
 pub struct SourceRepo {
@@ -53,12 +57,12 @@ impl SourceRepos {
                 // CACHEDIR.TAG (https://bford.info/cachedir/)
                 continue;
             }
-            let pkgbase: Pkgbase = dir.file_name().to_string().into();
+            let dir_name = DirName(dir.file_name().to_string());
             let source_repo = SourceRepo {
                 source_infos: HashMap::new(),
                 path: dir.into_path(),
             };
-            source_repos.insert(pkgbase, source_repo);
+            source_repos.insert(dir_name, source_repo);
         }
 
         // Prime the cache with main branch infos as
@@ -89,8 +93,20 @@ impl SourceRepos {
         Ok(SourceRepos { source_repos })
     }
 
-    pub fn all_repos_mut(&mut self) -> impl Iterator<Item = (&Pkgbase, &mut SourceRepo)> {
+    pub fn all_repos_mut(&mut self) -> impl Iterator<Item = (&DirName, &mut SourceRepo)> {
         self.source_repos.iter_mut()
+    }
+
+    pub async fn get_branch_info(
+        &mut self,
+        dir_name: &DirName,
+        branch_name: String,
+    ) -> Result<&BranchInfo> {
+        self.source_repos
+            .get_mut(dir_name)
+            .ok_or_eyre(format!("missing SourceRepo for directory{dir_name}"))?
+            .get_branch_info(branch_name)
+            .await
     }
 }
 
