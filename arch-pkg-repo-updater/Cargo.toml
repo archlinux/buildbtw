@@ -7,7 +7,7 @@ keywords.workspace = true
 license.workspace = true
 name = "arch-pkg-repo-updater"
 repository.workspace = true
-version = "0.0.1"
+version = "0.0.2"
 
 [dependencies]
 buildbtw-poc.workspace = true
