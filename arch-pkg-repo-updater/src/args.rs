@@ -11,7 +11,7 @@ pub struct Args {
     pub verbose: u8,
 
     /// Specify directory containing all packaging repositories
-    #[arg(long, value_hint = ValueHint::DirPath, value_name = "PATH")]
+    #[arg(long, env, value_hint = ValueHint::DirPath, value_name = "PATH")]
     pub target_dir: Option<PathBuf>,
 
     #[command(flatten)]
