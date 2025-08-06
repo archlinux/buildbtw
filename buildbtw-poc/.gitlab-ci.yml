@@ -58,7 +58,7 @@ build-release-image:
   needs: ["build-release"]
   script:
     - cd buildbtw-poc
-    - podman build --format docker --manifest buildbtw-server --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest ../target/release
+    - podman build --format docker --manifest buildbtw-server-poc --file Containerfile --manifest registry.archlinux.org/archlinux/buildbtw:poc-server-latest ../target/release
     - echo "$CI_JOB_TOKEN" | podman login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
     - podman push registry.archlinux.org/archlinux/buildbtw:poc-server-latest
 

@@ -10,15 +10,15 @@ repository.workspace = true
 version = "0.1.0"
 
 [[bin]]
-name = "buildbtw-client"
+name = "buildbtw-client-poc"
 path = "src/bin/client/main.rs"
 
 [[bin]]
-name = "buildbtw-server"
+name = "buildbtw-server-poc"
 path = "src/bin/server/main.rs"
 
 [[bin]]
-name = "buildbtw-worker"
+name = "buildbtw-worker-poc"
 path = "src/bin/worker/main.rs"
 
 [features]
