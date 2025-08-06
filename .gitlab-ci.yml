@@ -29,13 +29,6 @@ image: "archlinux:latest"
   variables:
     CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
 
-buildbtw-poc:
-  stage: check
-  trigger:
-    include:
-      - local: buildbtw-poc/.gitlab-ci.yml
-    strategy: depend
-
 stages:
   - check
 

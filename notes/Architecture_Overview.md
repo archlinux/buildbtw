@@ -4,10 +4,10 @@
 
 buildbtw follows a client-server architecture with four primary components:
 
-1. **Server** (`buildbtw-server`): Central web service providing REST API, web interface, and orchestration logic
-2. **Client** (`buildbtw-client`): CLI tool for dispatching build requests and inspecting system state
-3. **Worker** (`buildbtw-worker`): Local build executor that processes packages using `pkgctl`
-4. **GitLab Custom Executor**: Dispatches GitLab CI pipelines with [vmexec](https://gitlab.archlinux.org/archlinux/vmexec) VMs to run builds
+1. **Server** (`backend` crate): Central web service providing REST API, web interface, and orchestration logic
+2. **Client** (`client` crate): CLI tool for dispatching build requests and inspecting system state
+3. **Worker** (`worker` crate): Local build executor that processes packages using `pkgctl`
+4. **GitLab Custom Executor** (`gitlab-executor` crate): Dispatches GitLab CI pipelines with [vmexec](https://gitlab.archlinux.org/archlinux/vmexec) VMs to run builds
 
 ## Server Functionality
 
