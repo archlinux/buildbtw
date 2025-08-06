@@ -54,7 +54,7 @@ build-release:
 
 [doc("Run a sequence of recipes that resemble CI")]
 [group("check")]
-ci-dev: licenses lint deny build-release test
+ci-dev: licenses lint check-dependencies build-release test
 
 [doc("Check whether all files have a license")]
 [group("check")]
@@ -79,7 +79,7 @@ format:
 
 [doc("Check for security advisories and license compliance in deps")]
 [group("check")]
-deny: (ensure-command "cargo-deny")
+check-dependencies: (ensure-command "cargo-deny")
     cargo deny check
 
 [doc("Run tests")]

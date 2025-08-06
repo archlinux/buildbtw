@@ -53,7 +53,7 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 
 - `just ci-dev` to check whether the repo as a whole would pass CI
 - `just licenses` to check license compliance
-- `just deny` to audit dependencies for security vulnerabilities.
+- `just check-dependencies` to audit dependencies, e.g. for security vulnerabilities.
 - `just lint` to run `cargo fmt` and `cargo clippy`
 - `just lint-fix` to automatically fix lints and formatting
 - `just format` to format the source code

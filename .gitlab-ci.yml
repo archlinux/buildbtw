@@ -31,25 +31,38 @@ image: "archlinux:latest"
 
 stages:
   - check
+  - build
 
-reuse:
+licenses:
   stage: check
   extends: .default-before-script
   script:
     - pacman -Syu --needed --noconfirm reuse
     - just licenses
 
-deny:
+check-dependencies:
   stage: check
   extends: .with-rust
   script:
     - rustup install stable
     - pacman -Syu --needed --noconfirm cargo-deny
-    - just deny
+    - just check-dependencies
 
 format:
   stage: check
   extends: .with-rust
   script:
     - rustup install nightly
-    - just format
+    - just lint
+
+test:
+  stage: check
+  extends: .with-rust
+  script:
+    - just test
+
+build-release:
+  stage: build
+  extends: .with-rust
+  script:
+    - just build-release
