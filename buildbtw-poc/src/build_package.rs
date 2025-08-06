@@ -10,7 +10,8 @@ use tokio::{
 };
 
 use color_eyre::eyre::{Result, WrapErr, bail};
-use git2::{Oid, Repository, Status, build::CheckoutBuilder};
+// use git2::{Oid, Repository, Status, build::CheckoutBuilder};
+use gix::ObjectId;
 use uuid::Uuid;
 
 use crate::{BUILD_DIR, PackageBuildStatus, Pkgbase, ScheduleBuild, git::package_source_path};
@@ -101,7 +102,7 @@ async fn checkout_build_git_ref(path: &Utf8Path, schedule: &ScheduleBuild) -> Re
     let crate::PipelineTarget { branch_name, .. } = &schedule.source;
     let repo = Repository::open(path)?;
 
-    repo.set_head_detached(Oid::from_str(branch_name)?)?;
+    repo.set_head_detached(ObjectId::from_str(branch_name)?)?;
     repo.checkout_head(Some(CheckoutBuilder::default().force()))
         .wrap_err("Failed to checkout HEAD")?;
 

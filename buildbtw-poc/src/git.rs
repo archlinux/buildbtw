@@ -2,8 +2,8 @@ use std::path::Path;
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Context, Result};
-use git2::build::RepoBuilder;
-use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
+// use git2::build::RepoBuilder;
+// use git2::{BranchType, FetchOptions, RemoteCallbacks, Repository};
 use tokio::task::JoinSet;
 
 use crate::source_info::SourceInfo;
@@ -13,7 +13,7 @@ pub async fn clone_packaging_repository(
     pkgbase: Pkgbase,
     gitlab_domain: String,
     gitlab_packages_group: String,
-) -> Result<git2::Repository> {
+) -> Result<gix::Repository> {
     tokio::task::spawn_blocking(move || {
         tracing::info!("Cloning {pkgbase}");
 
