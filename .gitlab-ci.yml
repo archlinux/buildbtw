@@ -52,4 +52,4 @@ format:
   extends: .with-rust
   script:
     - rustup install nightly
-    - just format
+    - just lint
