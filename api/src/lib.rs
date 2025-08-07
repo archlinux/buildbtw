@@ -1,3 +1,1 @@
-fn main() {
-    println!("Hello, world!");
-}
+//! Library with common data structures of buildbtw client and backend.
