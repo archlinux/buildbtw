@@ -16,6 +16,7 @@ image: "archlinux:latest"
     # Use rustup instead of rust package so we can
     # install the nightly toolchain alongside stable
     - pacman -Syu --needed --noconfirm rustup just gcc
+    - rustup default stable
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
     paths:
@@ -51,7 +52,6 @@ format:
   stage: check
   extends: .with-rust
   script:
-    - rustup install nightly
     - just lint
 
 test:
