@@ -28,6 +28,29 @@ members = [
 # See https://doc.rust-lang.org/cargo/reference/workspaces.html#virtual-workspace
 resolver = "3"
 
+# Lints that are "warn" will be fine in development,
+# but the CI will reject them.
+# "forbid" cannot be overridden, e.g. with an inline comment.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+single_use_lifetimes = "warn"
+trivial_casts = "warn"
+unreachable_pub = "warn"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+variant_size_differences = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
 [workspace.dependencies]
 alpm-srcinfo = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
 alpm-types = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
