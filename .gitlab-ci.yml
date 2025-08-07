@@ -32,7 +32,7 @@ image: "archlinux:latest"
 stages:
   - check
 
-reuse:
+licenses:
   stage: check
   extends: .default-before-script
   script:
@@ -53,3 +53,9 @@ format:
   script:
     - rustup install nightly
     - just lint
+
+test:
+  stage: check
+  extends: .with-rust
+  script:
+    - just test
