@@ -36,9 +36,9 @@ Information on prior art, technical background, feedback from user interviews an
 
 ## Development
 
-- Install Rust. It's recommended to work with the stable toolchain by default, but to format the code, you'll need the nightly toolchain as well. With rustup:
+- Install Rust. It's recommended to work with the stable toolchain. With rustup:
 ```
-rustup install stable nightly
+rustup install stable
 rustup default stable
 ```
 - Install `just` (`pacman -S just` or `cargo install just`)

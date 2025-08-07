@@ -75,7 +75,7 @@ lint-fix: format
 [doc("Format the source code")]
 [group("check")]
 format:
-    cargo +nightly fmt
+    cargo fmt
 
 [doc("Check for security advisories and license compliance in deps")]
 [group("check")]

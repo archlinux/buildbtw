@@ -13,9 +13,7 @@ image: "archlinux:latest"
 .with-rust:
   before_script:
     - !reference [".default-before-script", "before_script"]
-    # Use rustup instead of rust package so we can
-    # install the nightly toolchain alongside stable
-    - pacman -Syu --needed --noconfirm rustup just gcc
+    - pacman -Syu --needed --noconfirm rust just gcc
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
     paths:
@@ -44,7 +42,6 @@ check-dependencies:
   stage: check
   extends: .with-rust
   script:
-    - rustup install stable
     - pacman -Syu --needed --noconfirm cargo-deny
     - just check-dependencies
 
@@ -52,7 +49,6 @@ format:
   stage: check
   extends: .with-rust
   script:
-    - rustup install nightly
     - just lint
 
 test:
