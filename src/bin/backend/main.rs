@@ -6,4 +6,24 @@
 //!
 //! It coordinates with the local worker or GitLab runners to process package
 //! builds in VMs.
-fn main() {}
+
+use clap::Parser;
+use color_eyre::Result;
+
+use crate::args::Args;
+
+mod args;
+mod db;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let args = Args::parse();
+
+    match args.command {
+        args::Command::Run {} => {
+            db::create_migrate_connect(args.database_url).await?;
+        }
+    }
+
+    Ok(())
+}
