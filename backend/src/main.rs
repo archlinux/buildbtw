@@ -11,10 +11,21 @@ use clap::Parser;
 use color_eyre::Result;
 
 use crate::args::Args;
+
 mod args;
+mod build_status;
+mod concrete_architecture;
+mod db;
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _args = Args::parse();
+    let args = Args::parse();
+
+    match args.command {
+        args::Command::Run {} => {
+            db::create_migrate_connect(args.database_url).await?;
+        }
+    }
 
     Ok(())
 }

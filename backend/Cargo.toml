@@ -20,6 +20,16 @@ axum-extra = "0.10.1"
 axum-server = "0.7.2"
 clap.workspace = true
 color-eyre.workspace = true
+redact.workspace = true
+sea-orm = { version = "1.1.14", features = [
+    "sqlx-sqlite",
+    "runtime-tokio-rustls",
+    "macros",
+    "with-time",
+    "with-json",
+    "with-uuid",
+    "debug-print",
+] }
 tokio.workspace = true
 url.workspace = true
 
