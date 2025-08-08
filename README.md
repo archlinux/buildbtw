@@ -33,6 +33,7 @@ Information on prior art, technical background, feedback from user interviews an
 - [Architecture Overview](notes/Architecture_Overview.md)
 - [PoC User Guide](notes/PoC_User_Guide.md)
 - [PoC Deployment](notes/PoC_Deployment.md)
+- [Contribution Guide](notes/Contributing.md)
 
 ## Development
 
