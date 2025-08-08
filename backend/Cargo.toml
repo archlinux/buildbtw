@@ -30,6 +30,9 @@ sea-orm = { version = "1.1.14", features = [
     "with-uuid",
     "debug-print",
 ] }
+serde.workspace = true
+serde_json.workspace = true
+strum.workspace = true
 tokio.workspace = true
 url.workspace = true
 
