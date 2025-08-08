@@ -2,7 +2,7 @@ use clap::Parser;
 
 #[derive(Debug, Clone, Parser)]
 #[command(name = "buildbtw backend", author, about, version)]
-pub struct Args {
+pub(crate) struct Args {
     /// Be verbose (e.g. log data of incoming and outgoing requests).
     /// Provide once to set the log level to "info", twice for "debug" and
     /// thrice for "trace"
