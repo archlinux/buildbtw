@@ -6,4 +6,3 @@
 //! Workers can run on the same machine as the server or on separate build
 //! nodes. They report results to the backend via its JSON API.
 fn main() {}
-
