@@ -97,6 +97,11 @@ watch-test *args:
 clean:
     cargo clean
 
+[doc("Generate a file with a timestamped name for a new migration")]
+[group("dev")]
+generate-migration *name: (ensure-command "sea-orm-cli")
+    sea-orm-cli migrate generate --migration-dir src/bin/backend/db/migrations "{{name}}"
+
 [doc("Ensures that one or more required commands are installed")]
 [private]
 ensure-command +command:
