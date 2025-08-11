@@ -1,4 +1,5 @@
-[workspace.package]
+[package]
+name = "buildbtw"
 authors = [
     "Levente Polyak <anthraxx@archlinux.org>",
     "Rafael Epplée <raffomania@archlinux.org>",
@@ -15,23 +16,10 @@ codegen-units = 1
 lto = true
 debug = true
 
-[workspace]
-members = [
-    "api",
-    "repo-manager",
-    "backend",
-    "worker",
-    "gitlab-executor",
-    "client",
-]
-# We need to set resolver explicitly since this is a virtual workspace.
-# See https://doc.rust-lang.org/cargo/reference/workspaces.html#virtual-workspace
-resolver = "3"
-
 # Lints that are "warn" will be fine in development,
 # but the CI will reject them.
 # "forbid" cannot be overridden, e.g. with an inline comment.
-[workspace.lints.rust]
+[lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
 missing_debug_implementations = "warn"
@@ -42,7 +30,7 @@ unused_lifetimes = "warn"
 unused_qualifications = "warn"
 variant_size_differences = "warn"
 
-[workspace.lints.clippy]
+[lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
 todo = "warn"
@@ -51,10 +39,9 @@ dbg_macro = "warn"
 print_stdout = "warn"
 print_stderr = "warn"
 
-[workspace.dependencies]
+[dependencies]
 alpm-srcinfo = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
 alpm-types = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
-api = { path = "./api", version = "0.1.0" }
 clap = { version = "4.5.42", features = [
     "cargo",
     "derive",

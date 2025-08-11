@@ -92,7 +92,7 @@ test *args:
 watch-test *args:
     cargo watch -- just test {{ args }}
 
-[doc("Clean workspace")]
+[doc("Clean up build artifacts, caches, and temporary files")]
 [group("dev")]
 clean:
     cargo clean

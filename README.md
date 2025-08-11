@@ -65,4 +65,4 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just build` to build in debug mode
 - `just build-release` to build in release mode
 - `just bench` to run performance benchmarks
-- `just clean` to clean workspace
+- `just clean` to remove build artifacts, caches, and temporary files
