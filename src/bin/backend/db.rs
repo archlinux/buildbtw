@@ -4,6 +4,9 @@
 
 use color_eyre::eyre::Result;
 use sea_orm::{Database, DatabaseConnection};
+use sea_orm_migration::MigratorTrait;
+
+use crate::db::migrations::Migrator;
 
 mod branch_name;
 mod build;
@@ -11,6 +14,7 @@ mod build_status;
 mod changesets;
 mod concrete_architecture;
 mod iteration;
+mod migrations;
 mod namespace;
 mod new_iteration_reason;
 mod pkgbase;
@@ -22,8 +26,7 @@ mod pkgnames;
 /// database.
 pub async fn create_migrate_connect(db_url: redact::Secret<String>) -> Result<DatabaseConnection> {
     let db = Database::connect(db_url.expose_secret()).await?;
-    // Check that we can "reach" the sqlite file
-    db.ping().await?;
+    Migrator::up(&db, None).await?;
 
     Ok(db)
 }
