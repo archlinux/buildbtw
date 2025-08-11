@@ -8,6 +8,7 @@ image: "archlinux:latest"
 
 .default-before-script:
   before_script:
+    - pacman-key --init
     - pacman -Syu --needed --noconfirm just
 
 .with-rust:
