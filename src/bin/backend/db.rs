@@ -22,8 +22,8 @@ mod version;
 /// Create the database at the given URL if it doesn't exist,
 /// run any migrations that have not run yet, and return a connection to the
 /// database.
-pub async fn create_migrate_connect(db_url: redact::Secret<String>) -> Result<DatabaseConnection> {
-    let db = Database::connect(db_url.expose_secret()).await?;
+pub async fn create_migrate_connect(db_url: String) -> Result<DatabaseConnection> {
+    let db = Database::connect(db_url).await?;
     // Check that we can "reach" the sqlite file
     db.ping().await?;
 
