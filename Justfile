@@ -102,6 +102,10 @@ clean:
 generate-migration *name: (ensure-command "sea-orm-cli")
     sea-orm-cli migrate generate --migration-dir src/bin/backend/db/migrations "{{name}}"
 
+[group("dev")]
+migrate-database:
+    cargo run --bin backend migrate-database
+
 [doc("Ensures that one or more required commands are installed")]
 [private]
 ensure-command +command:

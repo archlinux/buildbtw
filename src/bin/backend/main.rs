@@ -23,6 +23,9 @@ async fn main() -> Result<()> {
         args::Command::Run {} => {
             db::create_migrate_connect(args.database_url).await?;
         }
+        args::Command::MigrateDatabase {} => {
+            db::create_migrate_connect(args.database_url).await?;
+        }
     }
 
     Ok(())
