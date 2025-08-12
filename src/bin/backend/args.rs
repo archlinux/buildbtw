@@ -8,8 +8,8 @@ pub struct Args {
     pub verbose: u8,
 
     /// Location of the SQLite database.
-    #[arg(long, env, hide_env_values = true)]
-    pub database_url: redact::Secret<String>,
+    #[arg(long, env)]
+    pub database_url: String,
 
     #[command(subcommand)]
     pub command: Command,
