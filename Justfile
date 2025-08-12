@@ -112,6 +112,10 @@ generate-migration *name: (ensure-command "sea-orm-cli")
 migrate-database:
     cargo run --bin backend migrate-database
 
+[group("dev")]
+reset-database: && migrate-database
+    rm -f $DATABASE_FILE
+
 [doc("Ensures that one or more required commands are installed")]
 [private]
 ensure-command +command:
