@@ -21,4 +21,9 @@ pub enum Command {
     ///
     /// Will migrate the database before running.
     Run {},
+
+    /// Migrate the database
+    ///
+    /// Will create the database file if it doesn't exist yet.
+    MigrateDatabase {},
 }
