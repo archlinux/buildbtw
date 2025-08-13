@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::db::branch_name::BranchName;
+use crate::schema::branch_name::BranchName;
 
 use super::{
     pkgbase::Pkgbase, pkgnames::Pkgnames, repository_name::RepositoryName, version::Version,
