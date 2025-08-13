@@ -9,19 +9,19 @@ use sea_orm_migration::MigratorTrait;
 
 pub use crate::migrations::Migrator;
 
-mod branch_name;
-mod build;
-mod build_status;
-mod changesets;
-mod concrete_architecture;
-mod iteration;
-mod namespace;
-mod new_iteration_reason;
-mod pkgbase;
-mod pkgname;
-mod pkgnames;
-mod repository_name;
-mod version;
+pub mod branch_name;
+pub mod build;
+pub mod build_status;
+pub mod changesets;
+pub mod concrete_architecture;
+pub mod iteration;
+pub mod namespace;
+pub mod new_iteration_reason;
+pub mod pkgbase;
+pub mod pkgname;
+pub mod pkgnames;
+pub mod repository_name;
+pub mod version;
 
 /// Create the database at the given URL if it doesn't exist,
 /// run any migrations that have not run yet, and return a connection to the

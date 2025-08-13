@@ -14,6 +14,7 @@ use crate::args::Args;
 
 mod args;
 mod migrations;
+mod queries;
 mod schema;
 #[cfg(test)]
 mod tests;
