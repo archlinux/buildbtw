@@ -2,7 +2,7 @@ use color_eyre::Result;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
 
-use crate::db::Migrator;
+use crate::schema::Migrator;
 
 #[tokio::test]
 /// Check that the migrations don't raise an error when run on an empty

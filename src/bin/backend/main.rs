@@ -13,7 +13,8 @@ use color_eyre::Result;
 use crate::args::Args;
 
 mod args;
-mod db;
+mod migrations;
+mod schema;
 #[cfg(test)]
 mod tests;
 
@@ -23,10 +24,10 @@ async fn main() -> Result<()> {
 
     match args.command {
         args::Command::Run {} => {
-            let _db = db::create_migrate_connect(&args.database_file).await?;
+            let _db = schema::create_migrate_connect(&args.database_file).await?;
         }
         args::Command::MigrateDatabase {} => {
-            db::create_migrate_connect(&args.database_file).await?;
+            schema::create_migrate_connect(&args.database_file).await?;
         }
     }
 

@@ -7,7 +7,7 @@ use color_eyre::eyre::Result;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 
-pub use crate::db::migrations::Migrator;
+pub use crate::migrations::Migrator;
 
 mod branch_name;
 mod build;
@@ -15,7 +15,6 @@ mod build_status;
 mod changesets;
 mod concrete_architecture;
 mod iteration;
-mod migrations;
 mod namespace;
 mod new_iteration_reason;
 mod pkgbase;

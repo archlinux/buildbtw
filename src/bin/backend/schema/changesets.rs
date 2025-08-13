@@ -1,7 +1,7 @@
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{branch_name::BranchName, repository_name::RepositoryName};
+use crate::schema::{branch_name::BranchName, repository_name::RepositoryName};
 
 /// A collection of branches in package source repositories.
 ///
