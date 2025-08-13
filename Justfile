@@ -54,7 +54,13 @@ build-release:
 
 [doc("Run a sequence of recipes that resemble CI")]
 [group("check")]
-ci-dev: licenses lint check-dependencies build-release test
+ci-dev:
+    #!/usr/bin/parallel --shebang --tmux --fg
+    just licenses
+    just lint
+    just check-dependencies
+    just build-release
+    just test
 
 [doc("Check whether all files have a license")]
 [group("check")]
