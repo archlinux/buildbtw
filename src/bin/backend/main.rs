@@ -14,6 +14,8 @@ use crate::args::Args;
 
 mod args;
 mod db;
+#[cfg(test)]
+mod tests;
 
 #[tokio::main]
 async fn main() -> Result<()> {

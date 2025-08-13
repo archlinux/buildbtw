@@ -7,7 +7,7 @@ use color_eyre::eyre::Result;
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 
-use crate::db::migrations::Migrator;
+pub use crate::db::migrations::Migrator;
 
 mod branch_name;
 mod build;
