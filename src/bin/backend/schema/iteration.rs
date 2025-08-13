@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::db::{
+use crate::schema::{
     build, changesets::Changesets, namespace, new_iteration_reason::NewIterationReason,
 };
 
