@@ -1,11 +1,11 @@
 use sea_orm::entity::prelude::*;
 
-use crate::db::branch_name::BranchName;
+use crate::schema::branch_name::BranchName;
 
-use crate::db::build_status::BuildStatus;
-use crate::db::concrete_architecture::ConcreteArchitecture;
-use crate::db::iteration;
-use crate::db::{
+use crate::schema::build_status::BuildStatus;
+use crate::schema::concrete_architecture::ConcreteArchitecture;
+use crate::schema::iteration;
+use crate::schema::{
     pkgbase::Pkgbase, pkgnames::Pkgnames, repository_name::RepositoryName, version::Version,
 };
 

@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::db::iteration;
+use crate::schema::iteration;
 
 /// A logical grouping of package repositories and build configurations.
 ///

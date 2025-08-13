@@ -2,7 +2,7 @@
 //!
 //! Contrary to our style guide, this file is named mod.rs instead of
 //! migrations.rs due to the following seaORM issue:
-//! https://github.com/SeaQL/sea-orm/discussions/2559
+//! <https://github.com/SeaQL/sea-orm/issues/2690>
 
 use sea_orm_migration::prelude::*;
 
