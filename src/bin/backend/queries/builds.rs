@@ -4,5 +4,11 @@ use crate::{db_fields::BuildStatus, entities::builds};
 
 /// Return a query returning all builds, optionally filtered by status.
 pub fn list(status: Option<BuildStatus>) -> sea_orm::Select<builds::Entity> {
-    builds::Entity::find().filter(builds::Column::Status.eq(status))
+    let mut query = builds::Entity::find();
+
+    if let Some(status_filter) = status {
+        query = query.filter(builds::Column::Status.eq(status_filter));
+    }
+
+    query
 }

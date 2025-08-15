@@ -11,6 +11,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveValueType)]
 pub struct BranchName(String);
 
+impl BranchName {
+    #[cfg(test)]
+    pub fn test_value(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
 use strum::{Display, EnumString};
 
 /// States a build can be in.
@@ -50,7 +57,7 @@ use sea_orm::FromJsonQueryResult;
 ///
 /// Each changeset entry represents a package and its
 /// git branch that contains changes to be built.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult, Default)]
 pub struct Changesets(Vec<(RepositoryName, BranchName)>);
 
 /// [`alpm_types::Architecture`], but without the `Any` variant.
@@ -128,6 +135,13 @@ pub enum NewIterationReason {
 /// Newtype to prevent accidental mixups with pkgnames.
 pub struct Pkgbase(String);
 
+impl Pkgbase {
+    #[cfg(test)]
+    pub fn test_value(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveValueType)]
 /// Newtype to prevent accidental mixups with pkgbases.
 pub struct Pkgname(String);
@@ -135,6 +149,13 @@ pub struct Pkgname(String);
 /// A collection of package names in a PKGBUILD.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
 pub struct Pkgnames(Vec<Pkgname>);
+
+impl Pkgnames {
+    #[cfg(test)]
+    pub fn test_value() -> Self {
+        Self(vec![Pkgname("test-package".to_string())])
+    }
+}
 
 /// A repository name used for package builds.
 ///
@@ -145,6 +166,27 @@ pub struct Pkgnames(Vec<Pkgname>);
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveValueType)]
 pub struct RepositoryName(String);
 
+impl RepositoryName {
+    #[cfg(test)]
+    pub fn test_value(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
 /// Provides SeaORM compatibility for ALPM package versions.
 #[derive(Clone, Debug, PartialEq, Eq, FromJsonQueryResult, Serialize, Deserialize)]
 pub struct Version(alpm_types::FullVersion);
+
+impl Version {
+    #[cfg(test)]
+    #[allow(clippy::unwrap_used)]
+    pub fn test_value() -> Self {
+        use std::str::FromStr;
+
+        use alpm_types::{FullVersion, PackageRelease, PackageVersion};
+
+        let pkgver = PackageVersion::from_str("1.0.0").unwrap();
+        let pkgrel = PackageRelease::from_str("1").unwrap();
+        Self(FullVersion::new(pkgver, pkgrel, None))
+    }
+}

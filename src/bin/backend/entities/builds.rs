@@ -16,10 +16,9 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "builds")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub created_at: time::OffsetDateTime,
-
     pub iteration_id: Uuid,
 
     pub architecture: ConcreteArchitecture,

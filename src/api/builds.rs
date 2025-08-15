@@ -47,7 +47,7 @@ pub struct ListByStatusQuery {
 /// Each build targets a specific architecture and contains all the metadata
 /// needed to execute the build. Builds are the atomic units of work that get
 /// scheduled and executed either in gitlab pipelines or by the local worker.
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Build {
     /// Used to reference this build, e.g. in API endpoint paths.
     pub id: Uuid,
