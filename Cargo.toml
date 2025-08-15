@@ -69,6 +69,7 @@ tokio = { version = "1.47.0", features = [
     "process",
     "rt-multi-thread",
     "tracing",
+    "signal",
 ] }
 toml = "0.9.4"
 time = { version = "0.3.41", features = ["formatting", "parsing", "serde"] }
@@ -89,3 +90,7 @@ sea-orm-migration = { version = "1.1.14", features = [
     "sqlx-sqlite",
 ], default-features = false }
 camino = "1.1.11"
+axum = "0.8.4"
+tower-http = { version = "0.6.6", features = [
+    "timeout",
+], default-features = false }
