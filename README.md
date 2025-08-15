@@ -44,6 +44,7 @@ rustup default stable
 ```
 - Install `just` (`pacman -S just` or `cargo install just`)
 - Install `sea-orm-cli` (`pacman -S sea-orm-cli`)
+- Install `cargo-nextest` (`pacman -S cargo-nextest`)
 - For license checking: Install `reuse` (`pacman -S reuse`)
 - For security auditing: Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
 
