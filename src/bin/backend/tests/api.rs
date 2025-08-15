@@ -1,0 +1,83 @@
+use crate::tests::test_ctx::TestCtx;
+
+use buildbtw::api;
+use reqwest::StatusCode;
+use rstest::rstest;
+
+/// Test listing builds with various status filters
+#[rstest]
+#[case(Some(api::builds::Status::Building))]
+#[case(Some(api::builds::Status::Pending))]
+#[case(Some(api::builds::Status::Built))]
+#[case(Some(api::builds::Status::Failed))]
+#[case(Some(api::builds::Status::Blocked))]
+#[case(Some(api::builds::Status::Scheduled))]
+#[case(None)]
+#[tokio::test]
+async fn test_list_builds_by_status(#[case] status: Option<api::builds::Status>) {
+    let ctx = TestCtx::new().await;
+
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ListByStatus {})
+        .add_query_params(api::builds::ListByStatusQuery { status })
+        .await;
+
+    response.assert_status_ok();
+    let builds: Vec<api::builds::Build> = response.json();
+    assert!(
+        builds.is_empty(),
+        "Should return empty list when no builds exist"
+    );
+}
+
+/// Test API endpoint with invalid query parameters
+#[rstest]
+#[tokio::test]
+async fn test_list_builds_invalid_status() {
+    let ctx = TestCtx::new().await;
+
+    // Test with invalid status string directly
+    let response = ctx.server.get("/api/v1/builds?status=InvalidStatus").await;
+
+    // Should return bad request for invalid enum value
+    response.assert_status(StatusCode::BAD_REQUEST);
+}
+
+/// Test API endpoint concurrent access
+#[rstest]
+#[tokio::test]
+async fn test_concurrent_api_access() {
+    let ctx = TestCtx::new().await;
+
+    // Make multiple concurrent requests using tokio::join!
+    let (r1, r2, r3, r4, r5) = tokio::join!(
+        ctx.server
+            .typed_get(&api::builds::ListByStatus {})
+            .add_query_params(api::builds::ListByStatusQuery { status: None }),
+        ctx.server
+            .typed_get(&api::builds::ListByStatus {})
+            .add_query_params(api::builds::ListByStatusQuery { status: None }),
+        ctx.server
+            .typed_get(&api::builds::ListByStatus {})
+            .add_query_params(api::builds::ListByStatusQuery { status: None }),
+        ctx.server
+            .typed_get(&api::builds::ListByStatus {})
+            .add_query_params(api::builds::ListByStatusQuery { status: None }),
+        ctx.server
+            .typed_get(&api::builds::ListByStatus {})
+            .add_query_params(api::builds::ListByStatusQuery { status: None }),
+    );
+
+    let responses = vec![r1, r2, r3, r4, r5];
+
+    // All requests should succeed
+    for response in responses {
+        response.assert_status_ok();
+        let builds: Vec<api::builds::Build> = response.json();
+        assert!(
+            builds.is_empty(),
+            "Each concurrent request should return the same data"
+        );
+    }
+}

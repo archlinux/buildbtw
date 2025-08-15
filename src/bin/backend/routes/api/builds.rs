@@ -3,7 +3,7 @@ use buildbtw::api::builds;
 
 use crate::{db, db_fields, queries, response_error::ResponseResult};
 
-pub async fn list_by_status(
+pub async fn list(
     _: builds::ListByStatus,
     Query(builds::ListByStatusQuery { status }): Query<builds::ListByStatusQuery>,
     db::Tx(tx): db::Tx,
