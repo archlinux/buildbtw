@@ -9,3 +9,6 @@
     - Generated entities have "String" as every column type which is not precise enough.
     - Generated migrations need a copy-pasted definition of the entity inside the migration, which removes most of the benefit of auto-generation.
 - Add database indexes only when they are actually used in an existing query.
+- "Don't stutter": Prefer names that take the context of the containing modules into account. This reduces import statements and prevents name collisions at the usage site. Don't take this rule as gospel though: sometimes it's more readable to `use` a struct directly, e.g. if it's used all over the place.
+    - Prefer: `builds::Status` or `builds::list_by_status`
+    - Avoid: `builds::BuildStatus` or `builds::list_builds_by_status`

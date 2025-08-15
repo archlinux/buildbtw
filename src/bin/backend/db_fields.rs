@@ -31,6 +31,19 @@ pub enum BuildStatus {
     Failed,
 }
 
+impl From<buildbtw::api::builds::Status> for BuildStatus {
+    fn from(value: buildbtw::api::builds::Status) -> Self {
+        match value {
+            buildbtw::api::builds::Status::Blocked => BuildStatus::Blocked,
+            buildbtw::api::builds::Status::Pending => BuildStatus::Pending,
+            buildbtw::api::builds::Status::Scheduled => BuildStatus::Scheduled,
+            buildbtw::api::builds::Status::Building => BuildStatus::Building,
+            buildbtw::api::builds::Status::Built => BuildStatus::Built,
+            buildbtw::api::builds::Status::Failed => BuildStatus::Failed,
+        }
+    }
+}
+
 use sea_orm::FromJsonQueryResult;
 
 /// A collection of branches in package source repositories.

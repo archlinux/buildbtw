@@ -1,3 +1,4 @@
+use buildbtw::api;
 use sea_orm::entity::prelude::*;
 
 use crate::{
@@ -29,6 +30,12 @@ pub struct Model {
     pub status: BuildStatus,
     pub version: Version,
     pub pkgnames: Pkgnames,
+}
+
+impl From<Model> for api::builds::Build {
+    fn from(value: Model) -> Self {
+        api::builds::Build { id: value.id }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
