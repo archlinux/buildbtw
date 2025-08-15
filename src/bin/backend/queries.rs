@@ -1,0 +1,5 @@
+//! Functionality for interacting with the database, e.g. from web server
+//! endpoints. By convention, we usually return query builders (e.g.
+//! [sea_orm::Select]) from functions here, so callers can add pagination,
+//! stream results, etc.
+pub mod builds;
