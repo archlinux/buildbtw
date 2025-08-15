@@ -85,7 +85,7 @@ check-dependencies: (ensure-command "cargo-deny")
 [doc("Run tests")]
 [group("test")]
 test *args:
-    cargo test {{ args }}
+    cargo nextest run {{ args }}
 
 [doc("Run tests and auto-rerun on code changes")]
 [group("test")]
