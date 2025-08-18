@@ -14,6 +14,11 @@ use crate::args::Args;
 
 mod args;
 mod db;
+mod db_fields;
+mod entities;
+mod migrations;
+#[cfg(test)]
+mod tests;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,7 +26,10 @@ async fn main() -> Result<()> {
 
     match args.command {
         args::Command::Run {} => {
-            db::create_migrate_connect(args.database_url).await?;
+            let _db = db::connect_and_migrate(&args.database_file).await?;
+        }
+        args::Command::MigrateDatabase {} => {
+            db::connect_and_migrate(&args.database_file).await?;
         }
     }
 

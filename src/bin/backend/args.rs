@@ -1,3 +1,5 @@
+use camino::Utf8PathBuf;
+
 #[derive(Debug, Clone, clap::Parser)]
 #[command(name = "buildbtw backend", author, about, version)]
 pub struct Args {
@@ -7,9 +9,10 @@ pub struct Args {
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
-    /// Location of the SQLite database.
-    #[arg(long, env, hide_env_values = true)]
-    pub database_url: redact::Secret<String>,
+    /// Path to the SQLite database file, relative to the working directory of
+    /// the backend process.
+    #[arg(long, env)]
+    pub database_file: Utf8PathBuf,
 
     #[command(subcommand)]
     pub command: Command,
@@ -21,4 +24,9 @@ pub enum Command {
     ///
     /// Will migrate the database before running.
     Run {},
+
+    /// Migrate the database
+    ///
+    /// Will create the database file if it doesn't exist yet.
+    MigrateDatabase {},
 }

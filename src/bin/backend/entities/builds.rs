@@ -1,12 +1,10 @@
 use sea_orm::entity::prelude::*;
 
-use crate::db::branch_name::BranchName;
-
-use crate::db::build_status::BuildStatus;
-use crate::db::concrete_architecture::ConcreteArchitecture;
-use crate::db::iteration;
-use crate::db::{
-    pkgbase::Pkgbase, pkgnames::Pkgnames, repository_name::RepositoryName, version::Version,
+use crate::{
+    db_fields::{
+        BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositoryName, Version,
+    },
+    entities::iterations,
 };
 
 /// A single package build job within an iteration.
@@ -36,14 +34,14 @@ pub struct Model {
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "iteration::Entity",
+        belongs_to = "iterations::Entity",
         from = "Column::IterationId",
-        to = "iteration::Column::Id"
+        to = "iterations::Column::Id"
     )]
     Iteration,
 }
 
-impl Related<iteration::Entity> for Entity {
+impl Related<iterations::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Iteration.def()
     }

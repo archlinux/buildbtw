@@ -91,7 +91,7 @@ check-dependencies: (ensure-command "cargo-deny")
 [doc("Run tests")]
 [group("test")]
 test *args:
-    cargo test {{ args }}
+    cargo nextest run {{ args }}
 
 [doc("Run tests and auto-rerun on code changes")]
 [group("test")]
@@ -102,6 +102,19 @@ watch-test *args:
 [group("dev")]
 clean:
     cargo clean
+
+[doc("Generate a file with a timestamped name for a new migration")]
+[group("dev")]
+generate-migration *name: (ensure-command "sea-orm-cli")
+    sea-orm-cli migrate generate --migration-dir src/bin/backend/db/migrations "{{name}}"
+
+[group("dev")]
+migrate-database:
+    cargo run --bin backend migrate-database
+
+[group("dev")]
+reset-database: && migrate-database
+    rm -f $DATABASE_FILE
 
 [doc("Ensures that one or more required commands are installed")]
 [private]

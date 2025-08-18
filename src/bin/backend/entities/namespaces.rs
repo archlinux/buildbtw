@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::db::iteration;
+use crate::entities::iterations;
 
 /// A logical grouping of package repositories and build configurations.
 ///
@@ -21,11 +21,11 @@ pub struct Model {
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "iteration::Entity")]
+    #[sea_orm(has_many = "iterations::Entity")]
     Iterations,
 }
 
-impl Related<iteration::Entity> for Entity {
+impl Related<iterations::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Iterations.def()
     }
