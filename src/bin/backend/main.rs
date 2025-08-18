@@ -14,6 +14,7 @@ use crate::args::Args;
 
 mod args;
 mod db;
+mod db_fields;
 mod migrations;
 mod schema;
 #[cfg(test)]

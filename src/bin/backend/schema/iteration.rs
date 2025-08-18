@@ -1,7 +1,8 @@
 use sea_orm::entity::prelude::*;
 
-use crate::schema::{
-    build, changesets::Changesets, namespace, new_iteration_reason::NewIterationReason,
+use crate::{
+    db_fields::{Changesets, NewIterationReason},
+    schema::{build, namespace},
 };
 
 /// A build cycle within a namespace.

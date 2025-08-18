@@ -1,12 +1,10 @@
 use sea_orm::entity::prelude::*;
 
-use crate::schema::branch_name::BranchName;
-
-use crate::schema::build_status::BuildStatus;
-use crate::schema::concrete_architecture::ConcreteArchitecture;
-use crate::schema::iteration;
-use crate::schema::{
-    pkgbase::Pkgbase, pkgnames::Pkgnames, repository_name::RepositoryName, version::Version,
+use crate::{
+    db_fields::{
+        BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositoryName, Version,
+    },
+    schema::iteration,
 };
 
 /// A single package build job within an iteration.
