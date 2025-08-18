@@ -4,7 +4,7 @@ use crate::{
     db_fields::{
         BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositoryName, Version,
     },
-    schema::iterations,
+    entities::iterations,
 };
 
 /// A single package build job within an iteration.
