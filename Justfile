@@ -72,6 +72,7 @@ licenses: (ensure-command "reuse")
 lint *args:
     cargo clippy --all-targets {{args}} -- -D warnings
     cargo fmt --check
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --document-private-items
 
 [doc("Automatically fix lints and formatting")]
 [group("check")]
