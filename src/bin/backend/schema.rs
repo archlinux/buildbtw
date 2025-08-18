@@ -4,7 +4,7 @@
 
 use camino::Utf8Path;
 use color_eyre::eyre::Result;
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{Database, DatabaseConnection, TransactionTrait};
 use sea_orm_migration::MigratorTrait;
 
 pub use crate::migrations::Migrator;
@@ -29,7 +29,9 @@ mod version;
 pub async fn create_migrate_connect(db_file: &Utf8Path) -> Result<DatabaseConnection> {
     let db_url = format!("sqlite://{db_file}?mode=rwc");
     let db = Database::connect(db_url).await?;
-    Migrator::up(&db, None).await?;
+    let tx = db.begin().await?;
+    Migrator::up(&tx, None).await?;
+    tx.commit().await?;
 
     Ok(db)
 }

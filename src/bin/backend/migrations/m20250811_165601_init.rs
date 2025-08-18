@@ -44,14 +44,6 @@ enum Builds {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let db = manager.get_connection();
-        // Since the SchemaManager uses a single SQLite connection instead
-        // of a pool, we can just use raw SQL statements for wrapping the
-        // migration in a transaction.
-        // The db.begin() statement doesn't work because we can't pass the
-        // struct it returns to manager.create_table() and other functions.
-        db.execute_unprepared("BEGIN IMMEDIATE").await?;
-
         manager
             .create_table(
                 Table::create()
@@ -107,8 +99,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-
-        db.execute_unprepared("COMMIT").await?;
 
         Ok(())
     }
