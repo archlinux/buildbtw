@@ -4,7 +4,7 @@ use crate::{
     db_fields::{
         BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositoryName, Version,
     },
-    schema::iteration,
+    schema::iterations,
 };
 
 /// A single package build job within an iteration.
@@ -34,14 +34,14 @@ pub struct Model {
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "iteration::Entity",
+        belongs_to = "iterations::Entity",
         from = "Column::IterationId",
-        to = "iteration::Column::Id"
+        to = "iterations::Column::Id"
     )]
     Iteration,
 }
 
-impl Related<iteration::Entity> for Entity {
+impl Related<iterations::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Iteration.def()
     }

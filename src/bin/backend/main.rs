@@ -26,10 +26,10 @@ async fn main() -> Result<()> {
 
     match args.command {
         args::Command::Run {} => {
-            let _db = db::create_migrate_connect(&args.database_file).await?;
+            let _db = db::connect_and_migrate(&args.database_file).await?;
         }
         args::Command::MigrateDatabase {} => {
-            db::create_migrate_connect(&args.database_file).await?;
+            db::connect_and_migrate(&args.database_file).await?;
         }
     }
 

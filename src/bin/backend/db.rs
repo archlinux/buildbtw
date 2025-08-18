@@ -8,7 +8,7 @@ use crate::migrations::Migrator;
 /// Create the database at the given URL if it doesn't exist,
 /// run any migrations that have not run yet, and return a connection to the
 /// database.
-pub async fn create_migrate_connect(db_file: &Utf8Path) -> Result<DatabaseConnection> {
+pub async fn connect_and_migrate(db_file: &Utf8Path) -> Result<DatabaseConnection> {
     let db_url = format!("sqlite://{db_file}?mode=rwc");
     let db = Database::connect(db_url).await?;
     let tx = db.begin().await?;

@@ -2,7 +2,7 @@ use sea_orm::entity::prelude::*;
 
 use crate::{
     db_fields::{Changesets, NewIterationReason},
-    schema::{build, namespace},
+    schema::{builds, namespaces},
 };
 
 /// A build cycle within a namespace.
@@ -26,23 +26,23 @@ pub struct Model {
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "build::Entity")]
+    #[sea_orm(has_many = "builds::Entity")]
     Builds,
     #[sea_orm(
-        belongs_to = "namespace::Entity",
+        belongs_to = "namespaces::Entity",
         from = "Column::NamespaceId",
-        to = "namespace::Column::Id"
+        to = "namespaces::Column::Id"
     )]
     Namespace,
 }
 
-impl Related<build::Entity> for Entity {
+impl Related<builds::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Builds.def()
     }
 }
 
-impl Related<namespace::Entity> for Entity {
+impl Related<namespaces::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Namespace.def()
     }
