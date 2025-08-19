@@ -11,6 +11,10 @@ pub struct Args {
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
+    /// Collect telemetry and allow connecting with `tokio-console`
+    #[arg(long, env, default_value = "false")]
+    pub tokio_console_telemetry: bool,
+
     /// Path to the SQLite database file, relative to the working directory of
     /// the backend process.
     #[arg(long, env)]
