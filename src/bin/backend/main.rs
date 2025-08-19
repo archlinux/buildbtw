@@ -33,6 +33,8 @@ mod tests;
 async fn main() -> Result<()> {
     let args = Args::parse();
 
+    buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry);
+
     match args.command {
         args::Command::Run { interface, port } => {
             let db = db::connect_and_migrate(&args.database_file).await?;
@@ -79,12 +81,10 @@ async fn shutdown_signal() {
 
     tokio::select! {
         _ = ctrl_c => {
-            // todo: replace this once we have tracing
-            println!("Received SIGINT, shutting down...")
+            tracing::info!("Received SIGINT, shutting down...")
         },
         _ = terminate => {
-            // todo: replace this once we have tracing
-            println!("Received SIGTERM, shutting down...")
+            tracing::info!("Received SIGTERM, shutting down...")
         },
     }
 }
