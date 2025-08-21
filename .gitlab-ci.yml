@@ -55,6 +55,8 @@ format:
 test:
   stage: check
   extends: .with-rust
+  variables:
+    RUST_LOG: debug
   script:
     - pacman -Syu --needed --noconfirm cargo-nextest
     - just test
