@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 
 use crate::{
-    db_fields::{Changesets, NewIterationReason},
+    db_fields::{Changesets, NewIterationReason, TextUuid},
     entities::{builds, namespaces},
 };
 
@@ -15,9 +15,9 @@ use crate::{
 #[sea_orm(table_name = "iterations")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: Uuid,
+    pub id: TextUuid,
     pub created_at: time::OffsetDateTime,
-    pub namespace_id: Uuid,
+    pub namespace_id: TextUuid,
 
     pub changesets: Changesets,
     pub reason: NewIterationReason,

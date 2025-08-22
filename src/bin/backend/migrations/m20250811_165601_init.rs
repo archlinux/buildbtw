@@ -48,7 +48,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Namespaces::Table)
-                    .col(blob(Namespaces::Id).primary_key())
+                    .col(text(Namespaces::Id).primary_key())
                     .col(text(Namespaces::Name).unique_key())
                     .col(text(Namespaces::CreatedAt))
                     .extra("STRICT")
@@ -60,9 +60,9 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Iterations::Table)
-                    .col(blob(Iterations::Id).primary_key())
+                    .col(text(Iterations::Id).primary_key())
                     .col(text(Iterations::CreatedAt))
-                    .col(blob(Iterations::NamespaceId))
+                    .col(text(Iterations::NamespaceId))
                     .col(text(Iterations::Changesets))
                     .col(text(Iterations::Reason))
                     .foreign_key(
@@ -79,9 +79,9 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Builds::Table)
-                    .col(blob(Builds::Id).primary_key())
+                    .col(text(Builds::Id).primary_key())
                     .col(text(Builds::CreatedAt))
-                    .col(blob(Builds::IterationId))
+                    .col(text(Builds::IterationId))
                     .col(text(Builds::Architecture))
                     .col(text(Builds::Pkgbase))
                     .col(text(Builds::BranchName))

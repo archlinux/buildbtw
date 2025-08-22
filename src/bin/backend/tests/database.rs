@@ -22,8 +22,8 @@ async fn test_foreign_key_constraints() {
 
     // Create the iteration manually to test foreign key enforcement
     let iteration = iterations::ActiveModel {
-        id: Set(Uuid::new_v4()),
-        namespace_id: Set(non_existent_namespace_id),
+        id: Set(Uuid::new_v4().into()),
+        namespace_id: Set(non_existent_namespace_id.into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
         changesets: Set(Changesets::default()),
         reason: Set(NewIterationReason::FirstIteration),
@@ -49,7 +49,7 @@ async fn test_unique_constraints() {
 
     // Create first namespace
     let _namespace1 = namespaces::ActiveModel {
-        id: Set(Uuid::new_v4()),
+        id: Set(Uuid::new_v4().into()),
         name: Set("unique-namespace".to_string()),
         created_at: Set(time::OffsetDateTime::now_utc()),
     }
@@ -59,7 +59,7 @@ async fn test_unique_constraints() {
 
     // Try to create second namespace with same name - should fail
     let result = namespaces::ActiveModel {
-        id: Set(Uuid::new_v4()),
+        id: Set(Uuid::new_v4().into()),
         name: Set("unique-namespace".to_string()),
         created_at: Set(time::OffsetDateTime::now_utc()),
     }
@@ -84,7 +84,7 @@ async fn test_data_integrity() {
 
     // Create namespace
     let namespace = namespaces::ActiveModel {
-        id: Set(Uuid::new_v4()),
+        id: Set(Uuid::new_v4().into()),
         name: Set("integrity-test".to_string()),
         created_at: Set(time::OffsetDateTime::now_utc()),
     }
@@ -94,7 +94,7 @@ async fn test_data_integrity() {
 
     // Create iteration
     let iteration = iterations::ActiveModel {
-        id: Set(Uuid::new_v4()),
+        id: Set(Uuid::new_v4().into()),
         namespace_id: Set(namespace.id),
         created_at: Set(time::OffsetDateTime::now_utc()),
         changesets: Set(Changesets::default()),
@@ -106,7 +106,7 @@ async fn test_data_integrity() {
 
     // Create build
     let _build = builds::ActiveModel {
-        id: Set(Uuid::new_v4()),
+        id: Set(Uuid::new_v4().into()),
         iteration_id: Set(iteration.id),
         pkgbase: Set(Pkgbase::test_value("test-package")),
         branch_name: Set(BranchName::test_value("main")),
