@@ -1,0 +1,19 @@
+# Run authelia for testing OIDC
+---
+services:
+  authelia:
+    image: "authelia/authelia"
+    container_name: authelia
+    volumes:
+      - "./configuration.yml:/config/configuration.yml"
+      - "./users_database.yml:/config/users_database.yml"
+      - "./certificate.pem:/config/certificate.pem"
+      - "./key.pem:/config/key.pem"
+    restart: "unless-stopped"
+    healthcheck:
+      ## In production the healthcheck section should be commented.
+      disable: true
+    environment:
+      TZ: "Europe/Berlin"
+    ports:
+      - "127.0.0.1:9091:9091"

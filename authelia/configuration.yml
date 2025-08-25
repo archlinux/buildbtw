@@ -1,0 +1,51 @@
+---
+# Adapted from https://github.com/authelia/authelia/blob/master/examples/compose/local/authelia/configuration.yml
+server:
+  address: "tcp://:9091"
+  tls:
+    key: "/config/key.pem"
+    certificate: "/config/certificate.pem"
+
+log:
+  level: "debug"
+
+totp:
+  issuer: "authelia.com"
+
+identity_validation:
+  reset_password:
+    jwt_secret: "a_very_important_secret"
+
+authentication_backend:
+  file:
+    path: "/config/users_database.yml"
+
+access_control:
+  default_policy: "deny"
+  rules:
+    - domain: "secure.buildbtw.localhost"
+      policy: "one_factor"
+
+session:
+  secret: "insecure_session_secret"
+
+  cookies:
+    - name: "authelia_session"
+      domain: "buildbtw.localhost" # Should match whatever your root protected domain is
+      authelia_url: "https://authelia.buildbtw.localhost"
+      expiration: "1 hour" # 1 hour
+      inactivity: "5 minutes" # 5 minutes
+
+regulation:
+  max_retries: 3
+  find_time: "2 minutes"
+  ban_time: "5 minutes"
+
+storage:
+  encryption_key: "you_must_generate_a_random_string_of_more_than_twenty_chars_and_configure_this"
+  local:
+    path: "/config/db.sqlite3"
+
+notifier:
+  filesystem:
+    filename: "/config/notification.txt"
