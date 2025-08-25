@@ -47,6 +47,7 @@ rustup default stable
 - Install `cargo-nextest` (`pacman -S cargo-nextest`)
 - For license checking: Install `reuse` (`pacman -S reuse`)
 - For security auditing: Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
+- For running the tests and running a local OIDC provider: Install `mkcert` and `podman` (`pacman -S mkcert podman`, also see [Arch Wiki Podman Page](https://wiki.archlinux.org/title/Podman) for configuration. Rootless podman is recommended)
 
 ## Commands
 

@@ -4,3 +4,4 @@ build
 data
 .env
 *.sqlite*
+test-containers/*.pem
