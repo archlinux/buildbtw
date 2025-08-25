@@ -13,6 +13,7 @@ use clap::Parser;
 use color_eyre::{Result, eyre::Context};
 use sea_orm::DatabaseConnection;
 use tokio::{net::TcpListener, signal};
+use url::Url;
 
 use crate::{args::Args, server_state::ServerState};
 
@@ -21,6 +22,7 @@ mod db;
 mod db_fields;
 mod entities;
 mod migrations;
+mod oidc;
 mod queries;
 mod response_error;
 mod router;
@@ -36,9 +38,15 @@ async fn main() -> Result<()> {
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry);
 
     match args.command {
-        args::Command::Run { interface, port } => {
+        args::Command::Run {
+            interface,
+            port,
+            oidc,
+            base_url,
+            cookie_encryption_key,
+        } => {
             let db = db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
-            run_server(interface, port, db).await?;
+            run_server(interface, port, db, &base_url, oidc, cookie_encryption_key).await?;
         }
         args::Command::MigrateDatabase {} => {
             db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
@@ -50,8 +58,19 @@ async fn main() -> Result<()> {
 
 /// Create an axum service and make it listen on the given interface and
 /// port.
-async fn run_server(interface: IpAddr, port: u16, db: DatabaseConnection) -> Result<()> {
-    let server_state = ServerState { db };
+async fn run_server(
+    interface: IpAddr,
+    port: u16,
+    db: DatabaseConnection,
+    base_url: &Url,
+    oidc_args: Option<args::Oidc>,
+    cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
+) -> Result<()> {
+    let server_state = ServerState {
+        db,
+        oidc: oidc::MaybeConfig::initialize(base_url, oidc_args).await,
+        cookie_encryption_key,
+    };
     let router = router::new().with_state(server_state);
     let listener = TcpListener::bind(format!("{interface}:{port}")).await?;
 

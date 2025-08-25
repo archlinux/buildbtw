@@ -3,5 +3,6 @@
 mod api;
 mod db_fields;
 mod migrations;
+mod oidc;
 mod test_ctx;
 mod web;
