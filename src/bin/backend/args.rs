@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use camino::Utf8PathBuf;
 
-#[derive(Debug, Clone, clap::Parser)]
+#[derive(Debug, clap::Parser)]
 #[command(name = "buildbtw backend", author, about, version)]
 pub struct Args {
     /// Be verbose (e.g. log data of incoming and outgoing requests).
@@ -24,7 +24,7 @@ pub struct Args {
     pub command: Command,
 }
 
-#[derive(Debug, Clone, clap::Subcommand)]
+#[derive(Debug, clap::Subcommand)]
 pub enum Command {
     /// Run the server
     ///
@@ -44,12 +44,32 @@ pub enum Command {
         /// Port on which to listen
         #[arg(short, long, env, default_value = "8080")]
         port: u16,
+
+        #[clap(flatten)]
+        oidc: OidcArgs,
     },
 
     /// Migrate the database
     ///
     /// Will create the database file if it doesn't exist yet.
     MigrateDatabase {},
+}
+
+#[derive(clap::Args, Debug)]
+#[group(requires_all = ["oidc_client_id", "oidc_client_secret", "oidc_issuer_url", "oidc_issuer_name"])]
+pub struct OidcArgs {
+    /// To use OIDC, all options beginning with `oidc` must be set.
+    /// We support RS*, PS*, or HS* signature algorithms.
+    /// Configure your redirect URL to be `{base_url}/login_oidc_redirect`.
+    #[clap(long, env, required = false)]
+    pub oidc_client_id: String,
+    #[clap(hide_env_values = true, long, env, required = false)]
+    pub oidc_client_secret: String,
+    #[clap(long, env, required = false)]
+    pub oidc_issuer_url: String,
+    /// This will be displayed on the login page.
+    #[clap(long, env, required = false)]
+    pub oidc_issuer_name: String,
 }
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP

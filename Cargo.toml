@@ -106,3 +106,4 @@ tower-http = { version = "0.6.6", features = [
 axum-extra = { version = "0.10.1", features = ["typed-routing"] }
 axum-test = { version = "17.3.0", features = ["typed-routing"] }
 uuid = { version = "1.18.0", features = ["v4", "serde"] }
+openidconnect = "4.0.1"

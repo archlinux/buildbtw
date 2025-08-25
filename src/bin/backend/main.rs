@@ -21,6 +21,7 @@ mod db;
 mod db_fields;
 mod entities;
 mod migrations;
+mod oidc;
 mod queries;
 mod response_error;
 mod router;
@@ -36,7 +37,9 @@ async fn main() -> Result<()> {
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry);
 
     match args.command {
-        args::Command::Run { interface, port } => {
+        args::Command::Run {
+            interface, port, ..
+        } => {
             let db = db::connect_and_migrate(&args.database_file).await?;
             run_server(interface, port, db).await?;
         }
@@ -51,7 +54,10 @@ async fn main() -> Result<()> {
 /// Create an axum service and make it listen on the given interface and
 /// port.
 async fn run_server(interface: IpAddr, port: u16, db: DatabaseConnection) -> Result<()> {
-    let server_state = ServerState { db };
+    let server_state = ServerState {
+        db,
+        oidc: oidc::State::NotConfigured,
+    };
     let router = router::new().with_state(server_state);
     let listener = TcpListener::bind(format!("{interface}:{port}")).await?;
 
