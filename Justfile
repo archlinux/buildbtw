@@ -76,7 +76,7 @@ lint *args:
 
 [doc("Automatically fix lints and formatting")]
 [group("check")]
-lint-fix: format
+lint-fix: && format
     cargo clippy --all-targets --fix -- -D warnings
 
 [doc("Format the source code")]
