@@ -1,8 +1,10 @@
 use std::net::IpAddr;
 
 use camino::Utf8PathBuf;
+use color_eyre::eyre::{Context, Result};
+use url::Url;
 
-#[derive(Debug, Clone, clap::Parser)]
+#[derive(Debug, clap::Parser)]
 #[command(name = "buildbtw backend", author, about, version)]
 pub struct Args {
     /// Be verbose (e.g. log data of incoming and outgoing requests).
@@ -24,7 +26,10 @@ pub struct Args {
     pub command: Command,
 }
 
-#[derive(Debug, Clone, clap::Subcommand)]
+#[derive(Debug, clap::Subcommand)]
+// Allow having large size differences between enum variants as this enum is only ever constructed
+// once when running
+#[expect(clippy::large_enum_variant)]
 pub enum Command {
     /// Run the server
     ///
@@ -44,6 +49,18 @@ pub enum Command {
         /// Port on which to listen
         #[arg(short, long, env, default_value = "8080")]
         port: u16,
+
+        #[clap(flatten)]
+        oidc: Option<Oidc>,
+
+        /// URL the backend server is reachable at, including protocol. Port can be omitted if it's the standard port. E.g. <https://buildbtw.archlinux.org>
+        #[arg(long, env)]
+        base_url: Url,
+
+        /// 64 characters
+        /// You can generate this with e.g. `pwgen 64`.
+        #[arg(long, env, value_parser(parse_cookie_encryption_key))]
+        cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
     },
 
     /// Migrate the database
@@ -52,8 +69,36 @@ pub enum Command {
     MigrateDatabase {},
 }
 
+#[derive(clap::Args, Debug)]
+#[group(requires_all = ["oidc_client_id", "oidc_client_secret", "oidc_issuer_url", "oidc_issuer_name"])]
+pub struct Oidc {
+    /// To use OIDC, all options beginning with `oidc` must be set.
+    /// We support RS*, PS*, or HS* signature algorithms.
+    /// Configure your redirect URL to be `{buildbtw_base_url}/oidc/authorized`.
+    #[clap(long, env, required = false)]
+    pub oidc_client_id: String,
+    /// OIDC client secret as configured in your OIDC provider.
+    #[clap(hide_env_values = true, long, env, required = false)]
+    pub oidc_client_secret: String,
+    /// Base URL of the OIDC provider.
+    #[clap(long, env, required = false)]
+    pub oidc_issuer_url: String,
+    /// This will be displayed on the login page.
+    #[clap(long, env, required = false)]
+    pub oidc_issuer_name: String,
+}
+
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP
 /// address
 fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
     src.parse::<IpAddr>()
+}
+
+/// Create a [axum_extra::extract::cookie::Key] from a string
+fn parse_cookie_encryption_key(
+    src: &str,
+) -> Result<redact::Secret<axum_extra::extract::cookie::Key>> {
+    axum_extra::extract::cookie::Key::try_from(src.as_bytes())
+        .wrap_err("Failed to parse encryption key")
+        .map(redact::Secret::new)
 }
