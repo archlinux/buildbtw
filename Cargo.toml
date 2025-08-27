@@ -113,3 +113,6 @@ regex = "1.11.2"
 openidconnect = { version = "4.0.1", features = [
     "timing-resistant-secret-traits",
 ] }
+thirtyfour = { version = "0.36.1", features = [
+    "rustls-tls",
+], default-features = false }

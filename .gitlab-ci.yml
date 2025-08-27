@@ -9,7 +9,7 @@ image: "archlinux:latest"
 .default-before-script:
   before_script:
     - pacman-key --init
-    - pacman -Syu --needed --noconfirm just
+    - pacman -Syu --needed --noconfirm just mkcert
 
 .with-rust:
   before_script:
@@ -53,12 +53,15 @@ format:
     - just lint
 
 test:
+  tags:
+    # the test suite needs to spawn podman containers, so we run this job in a VM
+    - vm
   stage: check
   extends: .with-rust
   variables:
     RUST_LOG: debug
   script:
-    - pacman -Syu --needed --noconfirm cargo-nextest
+    - pacman -Syu --needed --noconfirm cargo-nextest podman jq geckodriver firefox
     - just test
 
 build-release:

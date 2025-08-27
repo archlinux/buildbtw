@@ -44,9 +44,28 @@ async fn main() -> Result<()> {
             oidc,
             base_url,
             cookie_encryption_key,
+            authelia_container,
         } => {
             let db = db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
+
+            // Don't drop the authelia container before the call to `run_server` below
+            // finishes. Dropping the container will stop it.
+            let maybe_authelia_container = if authelia_container.run_authelia_container {
+                let authelia = buildbtw::authelia::Container::new(Some(
+                    authelia_container.authelia_container_port,
+                ))
+                .await?;
+
+                Some(authelia)
+            } else {
+                None
+            };
+
             run_server(interface, port, db, &base_url, oidc, cookie_encryption_key).await?;
+
+            // We don't really need the explicit drop here, but it makes sure the container
+            // is not accidentally dropped earlier.
+            drop(maybe_authelia_container);
         }
         args::Command::MigrateDatabase {} => {
             db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;

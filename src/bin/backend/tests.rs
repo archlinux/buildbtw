@@ -2,6 +2,7 @@
 #![allow(clippy::expect_used)]
 mod api;
 mod db_fields;
+mod geckodriver;
 mod migrations;
 mod oidc;
 mod test_ctx;

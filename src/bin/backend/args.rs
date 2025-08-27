@@ -61,6 +61,10 @@ pub enum Command {
         /// You can generate this with e.g. `pwgen 64`.
         #[arg(long, env, value_parser(parse_cookie_encryption_key))]
         cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
+
+        #[cfg(debug_assertions)]
+        #[clap(flatten)]
+        authelia_container: AutheliaContainer,
     },
 
     /// Migrate the database
@@ -86,6 +90,19 @@ pub struct Oidc {
     /// This will be displayed on the login page.
     #[clap(long, env, required = false)]
     pub oidc_issuer_name: String,
+}
+
+#[derive(clap::Args, Debug)]
+#[group(requires_all = ["run_authelia_container"])]
+pub struct AutheliaContainer {
+    /// Run a podman container with authelia as an OIDC provider alongside
+    /// the buildbtw server for local development.
+    #[arg(long, env)]
+    pub run_authelia_container: bool,
+
+    /// Port the Authelia container should listen on.
+    #[arg(long, env)]
+    pub authelia_container_port: u32,
 }
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP
