@@ -1,13 +1,14 @@
+use std::time::Duration;
+
 use axum_test::TestResponse;
 use buildbtw::web;
 use color_eyre::Result;
 use openidconnect::{AuthorizationCode, CsrfToken};
 use rstest::rstest;
+use thirtyfour::{By, CapabilitiesHelper, prelude::ElementQueryable};
+use tracing::debug;
 
-use crate::{
-    oidc,
-    tests::test_ctx::{TestCtx, ctx, ctx_with_oidc},
-};
+use crate::tests::test_ctx::{TestCtx, ctx, ctx_with_oidc};
 
 #[rstest]
 #[tokio::test]
@@ -66,70 +67,61 @@ async fn test_authelia_configured(#[future(awt)] ctx_with_oidc: TestCtx) {
 }
 
 #[rstest]
+#[rstest]
 #[tokio::test]
-async fn test_oidc_end_to_end_flow(#[future(awt)] ctx_with_oidc: TestCtx) -> Result<()> {
-    // This test exercises the complete OIDC login flow
-    let mut ctx = ctx_with_oidc;
+async fn test_e2e_authelia_login(#[future(awt)] ctx_with_oidc: TestCtx) -> Result<()> {
+    // Exercise the whole OIDC login process using a real browser
+    let _gecko = crate::tests::test_ctx::start_geckodriver(4444).await?;
+
+    // Set up the thirtyfour client.
+
+    // Use headless firefox.
+    let mut capabilities = thirtyfour::DesiredCapabilities::firefox();
+    capabilities.set_headless()?;
+    capabilities.accept_insecure_certs(true)?;
+
+    let c = thirtyfour::WebDriver::new("http://localhost:4444", capabilities).await?;
 
     // Step 1: Start the login process
-    let start_login_response: TestResponse = ctx.server.typed_get(&web::oidc::StartLogin {}).await;
+    c.goto(
+        ctx_with_oidc
+            .base_url
+            .join(&web::oidc::StartLogin {}.to_string())?
+            .to_string(),
+    )
+    .await?;
 
-    // This should fail because the OIDC provider at https://authelia.buildbtw.localhost:9091
-    // is not running, which means the discovery process will fail
-    // The test demonstrates the complete flow would work if the provider was
-    // available
-    start_login_response.assert_status_see_other();
-
-    let cookie = start_login_response.cookie(oidc::LOGIN_ATTEMPT_COOKIE_NAME);
-
-    // If we got a redirect (unlikely without a real provider), check that it's
-    // external
-    let location = start_login_response.headers().get("location");
-    assert!(
-        location.is_some(),
-        "Redirect response should have Location header"
-    );
-
-    let location_str = location.unwrap().to_str().unwrap();
-
-    let reqwest_client = reqwest::ClientBuilder::new()
-        // Seems like `add_root_certificate` is broken for both rustls and
-        // native TLS: https://github.com/seanmonstar/reqwest/issues/1554
-        // https://github.com/seanmonstar/reqwest/issues/1260
-        // ಠ╭╮ಠ
-        .danger_accept_invalid_certs(true)
-        .build()?;
-    let _authelia_response = reqwest_client
-        .get(location_str)
-        .send()
+    // Wait for username field to appear
+    let username_field = c
+        .query(By::Id("username-textfield"))
+        .wait(Duration::from_secs(5), Duration::from_secs(1))
+        .first()
+        .await?;
+    username_field.send_keys("testuser").await?;
+    c.find(By::Id("password-textfield"))
         .await?
-        .text()
+        .send_keys("testpassword")
+        .await?;
+    c.find(By::Id("sign-in-button")).await?.click().await?;
+
+    // Wait for authorization button to appear and be clickable
+    c.query(By::Id("openid-consent-accept"))
+        .and_clickable()
+        .first()
+        .await?
+        .click()
         .await?;
 
+    let url = c.current_url().await?.to_string();
     assert!(
-        location_str.contains("authelia.buildbtw.localhost:9091"),
-        "Redirect should point to the configured OIDC provider"
+        url.starts_with("http://buildbtw.localhost:8080/oidc/authorized"),
+        "expected {url} to start with the URL of buildbtw's authorized page"
     );
 
-    // Step 2: Simulate the callback from the OIDC provider
-    // In a real scenario, the user would be redirected to the provider,
-    // authenticate, and then redirected back with code and state parameters
+    // TODO once the backend can store logged in users in a session, verify that we
+    // are logged in here
 
-    let mock_code = AuthorizationCode::new("mock_authorization_code".to_string());
-    let mock_state = CsrfToken::new("mock_csrf_token".to_string());
-
-    ctx.server.add_cookie(cookie);
-    ctx.server.add_query_param("code", mock_code.secret());
-    ctx.server.add_query_param("state", mock_state.secret());
-    let callback_response: TestResponse = ctx
-        .server
-        .typed_get(&web::oidc::Authorized {})
-        // In a real test with a running provider, we'd need to preserve cookies here
-        .await;
-
-    ctx.server.clear_query_params();
-
-    callback_response.assert_status_ok();
+    c.quit().await?;
 
     Ok(())
 }

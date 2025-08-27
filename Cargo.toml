@@ -111,3 +111,9 @@ uuid = { version = "1.18.0", features = ["v4", "serde"] }
 nutype = { version = "0.6.2", features = ["derive_unsafe", "serde", "regex"] }
 regex = "1.11.2"
 openidconnect = "4.0.1"
+thirtyfour = { version = "0.36.1", features = [
+    "rustls-tls",
+], default-features = false }
+rustainers = { version = "0.15.1", default-features = false, features = [
+    "rustls-tls-native-roots",
+] }

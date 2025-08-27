@@ -1,0 +1,113 @@
+---
+# This configuration is used for automated testing in local containers.
+# It's highly insecure and should not be used as a reference for any production usage.
+# Adapted from https://github.com/authelia/authelia/blob/master/examples/compose/local/authelia/configuration.yml
+server:
+  address: "tcp://:9091"
+  tls:
+    key: "/config/key.pem"
+    certificate: "/config/certificate.pem"
+
+log:
+  level: "debug"
+
+totp:
+  issuer: "authelia.com"
+
+identity_validation:
+  reset_password:
+    jwt_secret: "a_very_important_secret"
+
+authentication_backend:
+  file:
+    path: "/config/users_database.yml"
+
+access_control:
+  default_policy: "one_factor"
+
+session:
+  secret: "insecure_session_secret"
+
+  cookies:
+    - name: "authelia_session"
+      domain: "buildbtw.localhost" # Should match whatever your root protected domain is
+      authelia_url: "https://authelia.buildbtw.localhost"
+      expiration: "1 hour" # 1 hour
+      inactivity: "5 minutes" # 5 minutes
+
+regulation:
+  max_retries: 3
+  find_time: "2 minutes"
+  ban_time: "5 minutes"
+
+storage:
+  encryption_key: "you_must_generate_a_random_string_of_more_than_twenty_chars_and_configure_this"
+  local:
+    path: "/config/db.sqlite3"
+
+notifier:
+  filesystem:
+    filename: "/config/notification.txt"
+
+identity_providers:
+  oidc:
+    clients:
+      - client_id: "buildbtw-test"
+        client_name: "My Application"
+        client_secret: "$pbkdf2-sha512$310000$c8p78n7pUMln0jzvd4aK4Q$JNRBzwAo0ek5qKn50cFzzvE9RXV88h1wJn5KGiHrD0YKtZaR/nCb2CJPOsKaPK0hjf.9yHxzQGZziziccp6Yng" # The digest of 'insecure_secret'.
+        public: false
+        authorization_policy: "one_factor"
+        redirect_uris:
+          # Unfortunately, authelia does not support globs or regexes for redirect_uris, so we need to rely on a hardcoded global domain for the buildbtw server. For this reason, we configure tests relying on this to run one after another in `.config/nextest.toml`.
+          - "http://buildbtw.localhost:8080/oidc/authorized"
+        scopes:
+          - "openid"
+          - "groups"
+          - "email"
+          - "profile"
+        grant_types:
+          - "authorization_code"
+        response_types:
+          - "code"
+        response_modes:
+          - "query"
+        require_pkce: true
+        pkce_challenge_method: "S256"
+        access_token_signed_response_alg: "none"
+        userinfo_signed_response_alg: "none"
+        token_endpoint_auth_method: "client_secret_basic"
+        revocation_endpoint_auth_method: "client_secret_basic"
+        introspection_endpoint_auth_method: "client_secret_basic"
+        pushed_authorization_request_endpoint_auth_method: "client_secret_basic"
+    jwks:
+      - key_id: "example"
+        # Generated using `openssl genrsa`
+        key: |
+          -----BEGIN PRIVATE KEY-----
+          MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCE7nLrzUSgGRGM
+          wyaUmqp7hp6Bn46LehtyzKN3oNPjIUmyBTIKxTrQ43GsAA65pENvNMwm2LERw5/U
+          o4su5CjWY0VJ+Y4+W4st7nOLiIsfnwejSiGStvvA0wnGZ/OfLd8HWtfbs9oM5lx6
+          JmxpcVgx9ClBZIJFBQtH3QunsgVniqs9qct2wOvbWBuWsMcLkBKPRgJQmSGIXdzn
+          Axyh9cB8A/gDIoewMV2xMG1xUdqZ6X1d6ppTNrD31h+ijTacUhSgo8MVFX2RWvI1
+          eu9MckaAJ91n3AaXdep1wL8Vmbel86ZbAuUwM8qStq6M2avcaQM7JdVbrEfwEur2
+          hfLDiccVAgMBAAECggEACObW4fIwWEWVe/Gi5xdRt00/1rpSl1spSg9oxZ1gKGOV
+          myA8m6VdgkODhzBxy/4IrgJrxruCurJ474phdasTDlg+JEKxQye/iDyMQZnL3JA6
+          Y2BBeKEG9tYAX5Lyfi8E3RSOQ/N6n0aF3CraiQJtajBJhaGEv7kjaj/j2epSm6kA
+          Ms+B6NYS+VkhEEcDCFN9Xr/hFPtDSx0tttV92fM9YoQo2wz+1vov/z65e2fP8pxu
+          us0IkEfbdAeaQTTZlTLxcCVwlcKkZAp18avKuUvUE109qitV4hQK4p1xhh5IJ/xB
+          BFEpxo1eAnw7Itjwp0DhQNx+Y7z1V+Go013D5lt+AQKBgQC59Mns9ka+N0L0Ls8T
+          E9DnLzFIIa5qoLrASljL9MV5dQ/N4csuiUomfpUlc83L/hhQ887yi8Tz6/wK9SXG
+          mWzsGE8ZfBK8R5MjthTzEDmWMsSVAsnvMOfPN6h511lhyAVFVLg8Y7uyqrXwPBgU
+          pBvMYvC5KhiJbU74f9sGj1BMVQKBgQC3AKM9VGsF5GW+rQ8gJ26SfhGMXKELYvZm
+          iZQl2r2YtM9V2PqvNnnsGV1yGTTXSQCT3M19FMSf2RSNQslPxTAi3n6KiK8ZGLFo
+          cp6fRKq0yFpRQb2pk3miTSAUMShJXkbUaTZaumW0mESz8ny10EOyLHQnB6eraBuF
+          SKrjQKpPwQKBgAHZmZit6o5B5nyfapf5/n4OTiM1kpKk/rajBrcgvEY1D+8wa+EO
+          pJo1cC5rNITvBjbn9gsbsN3sXxmMzs9m/1pp83+BaH5PB/u2+AZjBu+jmakR2ghz
+          KBs7poVvywfaAZNrAFo5c8iXQjAdqO+roksqQNLWxF+5oqt+OiOakWXxAoGADCTZ
+          sE8yzvBKJC4dy9dyCfyds3/OHBBUI5fLoftzC3gsLhk5AXmO+7DvN4weqo6ooCdN
+          55gCOE1ShNFCxK1kNVwob48Ed5jg5Pp+Njl7ToXhIHVJXcBwmOmfUFe2wa+k6aGV
+          vs2RxDs6i+pyhios49z5VEG4ybId6WlaFbyL0MECgYEAiK6r/VIhOj78A6ruGGQ+
+          uB4fjbzKVsdnFtLhjMYOUPl7fZifWll3EAgZZKyMgzjXfqhMpWvPuTOF0OcYedSU
+          ox7UbsInX+Mguv4yqDnobcvzqRTjI1Pv+p+lerN+U4cG5BWdGmlC5D+Bf8veuDDt
+          y5BOGfMTFnO8MvNQ8HSx8AQ=
+          -----END PRIVATE KEY-----

@@ -44,10 +44,9 @@ rustup default stable
 ```
 - Install `just` (`pacman -S just` or `cargo install just`)
 - Install `sea-orm-cli` (`pacman -S sea-orm-cli`)
-- Install `cargo-nextest` (`pacman -S cargo-nextest`)
 - For license checking: Install `reuse` (`pacman -S reuse`)
 - For security auditing: Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
-- For running the tests and running a local OIDC provider: Install `mkcert` and `podman` (`pacman -S mkcert podman`, also see [Arch Wiki Podman Page](https://wiki.archlinux.org/title/Podman) for configuration. Rootless podman is recommended)
+- For running the tests and running a local OIDC provider: `pacman -S cargo-nextest mkcert jq podman geckodriver firefox`. See [Arch Wiki Podman Page](https://wiki.archlinux.org/title/Podman) for podman configuration. Rootless podman is recommended.
 
 ## Commands
 
@@ -70,3 +69,13 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just build-release` to build in release mode
 - `just bench` to run performance benchmarks
 - `just clean` to remove build artifacts, caches, and temporary files
+
+## Running end-to-end tests
+
+Once you've installed the dependencies listed in the development setup section, running `just test` should work. There's a lot going on behind the scenes, though:
+
+- An [authelia](https://www.authelia.com/) container with a testing configuration is started to test our server's OIDC implementation
+- [mkcert](https://github.com/FiloSottile/mkcert) is called to generate a TLS certificate for the authelia container and install it in your browser's allowlist
+- A [geckodriver](https://github.com/mozilla/geckodriver) process listening on port 4444 is started, allowing the tests to drive a headless firefox instance
+
+For debugging (or fun), you can watch the firefox window open and interact with webpages by disabling the `set_headless()` call in any given test.

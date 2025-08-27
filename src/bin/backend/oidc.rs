@@ -43,7 +43,7 @@ impl MaybeConfig {
     pub async fn initialize(base_url: &Url, args: Option<args::Oidc>) -> MaybeConfig {
         match Self::try_initialize_state(base_url, args).await {
             Ok(conf) => {
-                tracing::info!("OIDC enabled.");
+                tracing::info!("OIDC enabled");
                 MaybeConfig::Configured(conf)
             }
             Err(e) => {
@@ -63,10 +63,8 @@ impl MaybeConfig {
         // client accept them.
         #[cfg(test)]
         {
-            let cert_bytes = std::fs::read("authelia/certificate.pem")?;
-            let cert = reqwest::Certificate::from_pem(&cert_bytes)?;
             reqwest_client_builder = reqwest_client_builder
-                .add_root_certificate(cert)
+                // .add_root_certificate(todo!())
                 // Seems like `add_root_certificate` is broken for both rustls and
                 // native TLS: https://github.com/seanmonstar/reqwest/issues/1554
                 // https://github.com/seanmonstar/reqwest/issues/1260
