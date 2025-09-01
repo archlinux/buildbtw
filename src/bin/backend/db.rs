@@ -1,16 +1,26 @@
 use axum::{extract::FromRequestParts, http::request::Parts};
-use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use color_eyre::eyre::Result;
 use sea_orm::{Database, DatabaseConnection, DatabaseTransaction, TransactionTrait};
 use sea_orm_migration::MigratorTrait;
 
 use crate::{migrations::Migrator, response_error::ResponseError, server_state::ServerState};
 
+pub enum SQLiteLocation {
+    File(Utf8PathBuf),
+    #[cfg(test)]
+    Memory,
+}
+
 /// Create the database at the given URL if it doesn't exist,
 /// run any migrations that have not run yet, and return a connection to the
 /// database.
-pub async fn connect_and_migrate(db_file: &Utf8Path) -> Result<DatabaseConnection> {
-    let db_url = format!("sqlite://{db_file}?mode=rwc");
+pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseConnection> {
+    let db_url = match location {
+        SQLiteLocation::File(file) => &format!("sqlite://{file}?mode=rwc"),
+        #[cfg(test)]
+        SQLiteLocation::Memory => "sqlite::memory:",
+    };
     let db = Database::connect(db_url).await?;
     let tx = db.begin().await?;
     Migrator::up(&tx, None).await?;

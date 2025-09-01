@@ -37,11 +37,11 @@ async fn main() -> Result<()> {
 
     match args.command {
         args::Command::Run { interface, port } => {
-            let db = db::connect_and_migrate(&args.database_file).await?;
+            let db = db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
             run_server(interface, port, db).await?;
         }
         args::Command::MigrateDatabase {} => {
-            db::connect_and_migrate(&args.database_file).await?;
+            db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
         }
     }
 
