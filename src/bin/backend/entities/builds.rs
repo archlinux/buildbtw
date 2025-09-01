@@ -3,7 +3,7 @@ use sea_orm::entity::prelude::*;
 
 use crate::{
     db_fields::{
-        BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositoryName, TextUuid,
+        BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositorySlug, TextUuid,
         Version,
     },
     entities::iterations,
@@ -25,7 +25,7 @@ pub struct Model {
     pub architecture: ConcreteArchitecture,
     pub pkgbase: Pkgbase,
     pub branch_name: BranchName,
-    pub repository_name: RepositoryName,
+    pub repository_name: RepositorySlug,
     pub commit_hash: String,
     pub status: BuildStatus,
     pub version: Version,
