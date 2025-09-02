@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use camino::Utf8PathBuf;
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -8,6 +10,10 @@ pub struct Args {
     /// thrice for "trace"
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
+
+    /// Collect telemetry and allow connecting with `tokio-console`
+    #[arg(long, env, default_value = "false")]
+    pub tokio_console_telemetry: bool,
 
     /// Path to the SQLite database file, relative to the working directory of
     /// the backend process.
@@ -23,10 +29,31 @@ pub enum Command {
     /// Run the server
     ///
     /// Will migrate the database before running.
-    Run {},
+    Run {
+        /// Interface to bind to
+        #[arg(
+            short,
+            long,
+            env,
+            value_parser(parse_interface),
+            number_of_values = 1,
+            default_value = "0.0.0.0"
+        )]
+        interface: IpAddr,
+
+        /// Port on which to listen
+        #[arg(short, long, env, default_value = "8080")]
+        port: u16,
+    },
 
     /// Migrate the database
     ///
     /// Will create the database file if it doesn't exist yet.
     MigrateDatabase {},
+}
+
+/// Checks wether an interface is valid, i.e. it can be parsed into an IP
+/// address
+fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
+    src.parse::<IpAddr>()
 }

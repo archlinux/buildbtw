@@ -1,8 +1,10 @@
+use buildbtw::api;
 use sea_orm::entity::prelude::*;
 
 use crate::{
     db_fields::{
-        BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositoryName, Version,
+        BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositorySlug, TextUuid,
+        Version,
     },
     entities::iterations,
 };
@@ -15,20 +17,27 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "builds")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: Uuid,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: TextUuid,
     pub created_at: time::OffsetDateTime,
-
-    pub iteration_id: Uuid,
+    pub iteration_id: TextUuid,
 
     pub architecture: ConcreteArchitecture,
     pub pkgbase: Pkgbase,
     pub branch_name: BranchName,
-    pub repository_name: RepositoryName,
+    pub repository_name: RepositorySlug,
     pub commit_hash: String,
     pub status: BuildStatus,
     pub version: Version,
     pub pkgnames: Pkgnames,
+}
+
+impl From<Model> for api::builds::Build {
+    fn from(value: Model) -> Self {
+        api::builds::Build {
+            id: value.id.into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]

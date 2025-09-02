@@ -28,6 +28,7 @@ trivial_casts = "warn"
 unused_lifetimes = "warn"
 unused_qualifications = "warn"
 variant_size_differences = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
 
 [lints.clippy]
 unwrap_used = "deny"
@@ -58,7 +59,7 @@ reqwest = { version = "0.12.22", features = [
     "stream",
     "rustls-tls",
 ], default-features = false }
-rstest = "0.26.1"
+rstest = { version = "0.26.1", default-features = false }
 serde = { version = "1.0.219", features = ["serde_derive"] }
 serde_json = { version = "1.0.141", features = ["raw_value"] }
 strum = { version = "0.27.2", features = ["derive"] }
@@ -69,6 +70,7 @@ tokio = { version = "1.47.0", features = [
     "process",
     "rt-multi-thread",
     "tracing",
+    "signal",
 ] }
 toml = "0.9.4"
 time = { version = "0.3.41", features = ["formatting", "parsing", "serde"] }
@@ -89,3 +91,20 @@ sea-orm-migration = { version = "1.1.14", features = [
     "sqlx-sqlite",
 ], default-features = false }
 camino = "1.1.11"
+axum = { version = "0.8.4", features = [
+    "macros",
+    "tracing",
+    "tokio",
+    "json",
+    "query",
+    "http1",
+    "http2",
+], default-features = false }
+tower-http = { version = "0.6.6", features = [
+    "timeout",
+], default-features = false }
+axum-extra = { version = "0.10.1", features = ["typed-routing"] }
+axum-test = { version = "17.3.0", features = ["typed-routing"] }
+uuid = { version = "1.18.0", features = ["v4", "serde"] }
+nutype = { version = "0.6.2", features = ["derive_unsafe", "serde", "regex"] }
+regex = "1.11.2"
