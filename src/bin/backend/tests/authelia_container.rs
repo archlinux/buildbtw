@@ -108,7 +108,6 @@ impl ToRunnableContainer for AutheliaImage {
 }
 
 /// Start Authelia container using rustainers
-#[rstest::fixture]
 pub async fn authelia_container() -> color_eyre::Result<AutheliaContainer> {
     // Ensure certificates exist
     setup_authelia_certificates()?;

@@ -6,9 +6,8 @@ use color_eyre::Result;
 use openidconnect::{AuthorizationCode, CsrfToken};
 use rstest::rstest;
 use thirtyfour::{By, CapabilitiesHelper, prelude::ElementQueryable};
-use tracing::debug;
 
-use crate::tests::test_ctx::{TestCtx, ctx, ctx_with_oidc};
+use crate::tests::test_ctx::{TestCtx, TestCtxBuilder, ctx};
 
 #[rstest]
 #[tokio::test]
@@ -46,11 +45,10 @@ async fn test_oidc_authorized_not_configured(#[future(awt)] ctx: TestCtx) {
     assert!(response_text.contains("Unknown error"));
 }
 
-#[rstest]
 #[tokio::test]
-async fn test_authelia_configured(#[future(awt)] ctx_with_oidc: TestCtx) {
-    // Test that our OIDC configuration uses the correct hardcoded values
-    let ctx = ctx_with_oidc;
+async fn test_authelia_configured() {
+    // Test that our OIDC configuration works with the authelia container
+    let ctx = TestCtxBuilder::new().with_authelia().build().await;
 
     // We can't directly access the OIDC config from the test context,
     // but we can verify it was configured by checking the start_login endpoint
@@ -66,12 +64,15 @@ async fn test_authelia_configured(#[future(awt)] ctx_with_oidc: TestCtx) {
     )
 }
 
-#[rstest]
-#[rstest]
 #[tokio::test]
-async fn test_e2e_authelia_login(#[future(awt)] ctx_with_oidc: TestCtx) -> Result<()> {
+async fn test_e2e_authelia_login() -> Result<()> {
     // Exercise the whole OIDC login process using a real browser
-    let _gecko = crate::tests::test_ctx::start_geckodriver(4444).await?;
+    let ctx_with_oidc = TestCtxBuilder::new()
+        .with_http_transport()
+        .with_geckodriver()
+        .with_authelia()
+        .build()
+        .await;
 
     // Set up the thirtyfour client.
 

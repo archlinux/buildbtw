@@ -3,6 +3,7 @@
 mod api;
 mod authelia_container;
 mod db_fields;
+mod geckodriver;
 mod migrations;
 mod oidc;
 mod test_ctx;
