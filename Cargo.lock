@@ -517,7 +517,6 @@ dependencies = [
  "camino",
  "clap",
  "color-eyre",
- "colored",
  "console-subscriber",
  "directories",
  "gitlab",

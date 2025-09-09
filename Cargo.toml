@@ -49,7 +49,6 @@ clap = { version = "4.5.42", features = [
     "wrap_help",
 ] }
 color-eyre = "0.6"
-colored = "3.0.0"
 console-subscriber = "0.4.1"
 directories = "6.0.0"
 gitlab = "0.1802.0"
