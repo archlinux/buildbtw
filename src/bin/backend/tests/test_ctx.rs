@@ -5,7 +5,7 @@ use crate::{
     args, db, oidc, router,
     server_state::ServerState,
     tests::{
-        authelia_container::{AutheliaContainer, authelia_container},
+        authelia_container::AutheliaContainer,
         geckodriver::{self, ProcessGuard},
     },
 };
@@ -62,10 +62,10 @@ impl TestCtxBuilder {
         let base_url = Url::parse("http://buildbtw.localhost:8080").unwrap();
 
         let (maybe_authelia_container, oidc_config) = if self.enable_authelia {
-            let container = authelia_container()
+            let container = AutheliaContainer::new()
                 .await
                 .expect("Failed to start Authelia container");
-            let authelia_port = container.port.host_port().await.unwrap();
+            let authelia_port = container.host_port().await.unwrap();
             let oidc_args = args::Oidc {
                 oidc_client_id: "buildbtw-test".to_string(),
                 oidc_client_secret: "insecure_secret".to_string(),

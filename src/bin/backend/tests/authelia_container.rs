@@ -1,173 +1,172 @@
-use std::time::Duration;
+use std::{net::SocketAddr, time::Duration};
 
-use rustainers::{
-    Container, ExposedPort, ImageName, RunnableContainer, RunnableContainerBuilder,
-    ToRunnableContainer, Volume, WaitStrategy,
-    runner::{RunOption, Runner},
-};
+use camino::Utf8PathBuf;
+use color_eyre::eyre::{Context, OptionExt};
+use color_eyre::{Result, eyre::eyre};
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Child;
 
 /// Container wrapper for Authelia
 pub struct AutheliaContainer {
-    /// The running container.
-    /// This is not accessed, but we need to store the container to prevent it
-    /// from being dropped too early.
-    _container: Container<AutheliaImage>,
-    pub port: ExposedPort,
+    /// Container process handle for cleanup
+    container_process: Child,
+    /// Container name for port querying
+    container_name: String,
 }
 
 impl AutheliaContainer {
-    pub fn new(container: Container<AutheliaImage>) -> Self {
-        let container_id = container.id().to_string();
+    /// Start a new Authelia container using raw podman commands
+    pub async fn new() -> Result<Self> {
+        setup_certificates()?;
+        let container = Self::start_container().await?;
+        container.wait_for_authelia_listening().await?;
 
-        tracing::debug!("Creating Authelia container with ID: {}", container_id);
+        tracing::debug!("Authelia should be ready for connections");
 
-        // Spawn a background task to forward container logs
-        tokio::spawn(async move {
-            // Give the container a moment to start before trying to get logs
-            tokio::time::sleep(Duration::from_millis(500)).await;
-
-            Self::forward_container_logs(container_id.clone())
-                .await
-                .unwrap()
-        });
-
-        Self {
-            port: container.port.clone(),
-            _container: container,
-        }
+        Ok(container)
     }
 
-    /// Forward container logs to the test logging system
-    async fn forward_container_logs(
-        container_id: String,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Now start following new logs
-        tracing::info!("Starting to follow logs for container {}", container_id);
+    async fn start_container() -> Result<Self> {
+        let test_containers_path =
+            Utf8PathBuf::try_from(std::env::current_dir()?.join("test-containers"))?;
+
+        // Generate a unique container name for referencing it later on
+        let container_name = format!("authelia-test-{}", uuid::Uuid::new_v4().simple());
 
         let mut child = tokio::process::Command::new("podman")
-            .args(["logs", "--follow", "--since", "1s", &container_id])
+            .args([
+                "run",
+                "--rm",
+                "--name",
+                &container_name,
+                "-p",
+                "9091",
+                "-e",
+                "TZ=Europe/Berlin",
+                "-v",
+                &format!(
+                    "{}:/config/configuration.yml:ro",
+                    test_containers_path.join("configuration.yml")
+                ),
+                "-v",
+                &format!(
+                    "{}:/config/users_database.yml:ro",
+                    test_containers_path.join("users_database.yml")
+                ),
+                "-v",
+                &format!(
+                    "{}:/config/certificate.pem:ro",
+                    test_containers_path.join("certificate.pem")
+                ),
+                "-v",
+                &format!(
+                    "{}:/config/key.pem:ro",
+                    test_containers_path.join("key.pem")
+                ),
+                "docker.io/authelia/authelia:4",
+            ])
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()?;
+            .spawn()
+            .map_err(|e| eyre!("Failed to spawn podman: {e}"))?;
 
-        let stdout = child.stdout.take().unwrap();
+        // Wrap authelia logs in tracing calls to give them context
+        // We only read stdout since authelia doesn't log on stderr
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_eyre("Failed to take stdout of child process")?;
 
-        // Only forward stdout, as authelia only logs on stdout.
-        let stdout_task = tokio::spawn(async move {
-            let reader = BufReader::new(stdout);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                tracing::debug!(line);
+        tokio::spawn(async move {
+            let stdout_reader = BufReader::new(stdout);
+            let mut stdout_lines = stdout_reader.lines();
+            while let Ok(Some(line)) = stdout_lines.next_line().await {
+                tracing::debug!(target: "authelia", "{line}");
             }
         });
 
-        // Wait for the log streams to complete or the process to exit (with timeout)
-        tokio::time::timeout(Duration::from_secs(60), async {
-            tokio::select! {
-                _ = stdout_task => {},
-                _ = child.wait() => {},
+        tracing::info!("Authelia container started with name: {container_name}");
+
+        Ok(AutheliaContainer {
+            container_process: child,
+            container_name,
+        })
+    }
+
+    /// Wait for the container to be ready by checking if it's listening on port
+    /// 9091
+    async fn wait_for_authelia_listening(&self) -> Result<()> {
+        tracing::debug!("Waiting for Authelia to start...");
+
+        tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                // Check if the container is listening on port 9091
+                if self.host_port().await.is_ok() {
+                    return;
+                }
+
+                tokio::time::sleep(Duration::from_millis(500)).await;
             }
         })
         .await
-        .expect("Log forwarding timed out");
+        .wrap_err("Timeout waiting for authelia to start listening")?;
 
         Ok(())
     }
-}
 
-/// Custom Authelia image for rustainers
-#[derive(Debug, Clone)]
-pub struct AutheliaImage {
-    /// This uses interior mutability to communicate the allocated host port to
-    /// the test later on
-    port: ExposedPort,
-}
+    /// Get the host port that Authelia is exposed on - queries podman for
+    /// actual host port
+    pub async fn host_port(&self) -> Result<u16> {
+        let output = tokio::process::Command::new("podman")
+            .args(["port", &self.container_name, "9091/tcp"])
+            .output()
+            .await
+            .map_err(|e| eyre!("Failed to run podman port: {e}"))?;
 
-impl Default for AutheliaImage {
-    fn default() -> Self {
-        Self {
-            port: ExposedPort::new(9091),
+        if !output.status.success() {
+            return Err(eyre!(
+                "podman port failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
+
+        let port_output = String::from_utf8_lossy(&output.stdout);
+        let port_str = port_output.trim();
+
+        // Parse output like "0.0.0.0:58473" or "127.0.0.1:58473"
+        let socket_addr = port_str
+            .parse::<SocketAddr>()
+            .map_err(|e| eyre!("Failed to parse socket address '{}': {}", port_str, e))?;
+
+        let host_port = socket_addr.port();
+
+        Ok(host_port)
     }
 }
 
-impl ToRunnableContainer for AutheliaImage {
-    fn to_runnable(&self, _builder: RunnableContainerBuilder) -> RunnableContainer {
-        let image_name = "docker.io/authelia/authelia:4";
-        let image = image_name.parse::<ImageName>().expect("Valid image name");
+impl Drop for AutheliaContainer {
+    fn drop(&mut self) {
+        // Check if the container already exited
+        let Ok(maybe_status) = self.container_process.try_wait() else {
+            tracing::error!("Failed to check status of Authelia container process");
+            return;
+        };
 
-        RunnableContainer::builder()
-            .with_image(image)
-            .with_container_name(Some("authelia".to_string()))
-            .with_port_mappings([self.port.clone()])
-            .with_env([("TZ".to_string(), "Europe/Berlin".to_string())])
-            .with_wait_strategy(WaitStrategy::None)
-            .build()
+        if maybe_status.is_some() {
+            // Process already exited
+            return;
+        }
+
+        // Force remove the container to ensure cleanup (only killing the process
+        // without awaiting it can result in zombie processes)
+        let _ = std::process::Command::new("podman")
+            .args(["rm", "-f", &self.container_name])
+            .output();
     }
-}
-
-/// Start Authelia container using rustainers
-pub async fn authelia_container() -> color_eyre::Result<AutheliaContainer> {
-    // Ensure certificates exist
-    setup_authelia_certificates()?;
-
-    // Get a container runner (podman preferred as configured in Cargo.toml)
-    let runner = Runner::auto()
-        .map_err(|e| color_eyre::eyre::eyre!("Failed to detect container runner: {}", e))?;
-
-    // Get the path to test containers
-    let test_containers_path = std::env::current_dir()?.join("test-containers");
-
-    // Create the Authelia image configuration
-    let image = AutheliaImage::default();
-
-    // Configure the run options with volumes and timeout
-    let options = RunOption::builder()
-        .with_wait_interval(Duration::from_secs(2))
-        .with_volumes([
-            Volume::bind_mount(
-                test_containers_path.join("configuration.yml"),
-                "/config/configuration.yml",
-            ),
-            Volume::bind_mount(
-                test_containers_path.join("users_database.yml"),
-                "/config/users_database.yml",
-            ),
-            Volume::bind_mount(
-                test_containers_path.join("certificate.pem"),
-                "/config/certificate.pem",
-            ),
-            Volume::bind_mount(test_containers_path.join("key.pem"), "/config/key.pem"),
-        ])
-        .build();
-
-    // Start the Authelia container with volume mounts
-    tracing::info!("Starting Authelia container with rustainers...");
-
-    let container = tokio::time::timeout(
-        Duration::from_secs(20),
-        runner.start_with_options(image, options),
-    )
-    .await
-    .map_err(|_| color_eyre::eyre::eyre!("Timeout starting Authelia container after 120 seconds"))?
-    .map_err(|e| color_eyre::eyre::eyre!("Failed to start Authelia container: {}", e))?;
-
-    tracing::info!("Authelia container started successfully");
-
-    // Create the container wrapper (this starts log forwarding)
-    let authelia_container = AutheliaContainer::new(container);
-
-    // Give Authelia time to fully initialize
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    tracing::debug!("Authelia should be ready for connections");
-
-    Ok(authelia_container)
 }
 
 /// Setup authelia certificates if they don't exist.
 /// This uses `mkcert` under the hood
-fn setup_authelia_certificates() -> color_eyre::Result<()> {
+fn setup_certificates() -> Result<()> {
     let test_containers_path = std::env::current_dir()?.join("test-containers");
     let cert_path = test_containers_path.join("certificate.pem");
     let key_path = test_containers_path.join("key.pem");
@@ -188,10 +187,10 @@ fn setup_authelia_certificates() -> color_eyre::Result<()> {
         ])
         .current_dir(&test_containers_path)
         .output()
-        .map_err(|e| color_eyre::eyre::eyre!("Failed to run mkcert: {}", e))?;
+        .map_err(|e| eyre!("Failed to run mkcert: {e}"))?;
 
     if !output.status.success() {
-        return Err(color_eyre::eyre::eyre!(
+        return Err(eyre!(
             "mkcert failed: {}",
             String::from_utf8_lossy(&output.stderr)
         ));
