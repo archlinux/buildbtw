@@ -32,12 +32,12 @@ pub async fn fetch_all_source_repo_changes(
             result.first()
         );
         last_fetched = first_result
-            .updated_at
+            .last_activity_at
             .clone()
             .map(OffsetDateTime::from)
-            // Work around inaccuracy of the `updated_at` field
+            // Work around inaccuracy of the `updated_at` and `last_activity_at` field
             // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/32
-            .map(|date| date - Duration::minutes(6));
+            .map(|date| date - Duration::minutes(61));
     };
 
     // Run git fetch for updated repos
@@ -98,7 +98,7 @@ pub async fn get_changed_projects_since(
             match last_fetched {
                 Some(last_fetched)
                     if project
-                        .updated_at
+                        .last_activity_at
                         .as_ref()
                         .ok_or_else(|| eyre!("Missing update date for projects"))?
                         .0

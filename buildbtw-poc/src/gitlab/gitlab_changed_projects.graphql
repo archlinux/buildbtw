@@ -4,6 +4,7 @@ query ChangedProjects($after: String, $group: ID!) {
             nodes {
                 name
                 updatedAt
+                lastActivityAt
             }
             pageInfo {
                 endCursor
