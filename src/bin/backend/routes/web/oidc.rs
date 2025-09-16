@@ -1,12 +1,18 @@
+use std::ops::Deref;
+
 use axum::{
     extract::{Query, State},
     response::Redirect,
 };
 use axum_extra::extract::PrivateCookieJar;
 use buildbtw::web;
+use color_eyre::eyre::ContextCompat;
+use openidconnect::LocalizedClaim;
 
 use crate::{
+    db,
     oidc::{self},
+    queries,
     response_error::ResponseResult,
     server_state::ServerState,
 };
@@ -28,6 +34,7 @@ pub async fn authorized(
     Query(oidc_query): Query<web::oidc::LoginRedirectQuery>,
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
+    db::Tx(tx): db::Tx,
 ) -> ResponseResult<()> {
     let oidc_config = server_state.oidc.get_config()?;
     let login_attempt = oidc::LoginAttempt::from_cookie_jar(cookie_jar)?;
@@ -40,5 +47,29 @@ pub async fn authorized(
     .await?;
     tracing::debug!(?user_info, "User authorized via OIDC");
 
+    let username = claim_to_string(user_info.nickname())
+        .or(user_info.preferred_username().map(|n| n.to_string()))
+        .or(claim_to_string(user_info.name()))
+        .wrap_err("Neither nickname nor name provided")?;
+
+    // Performs an upsert operation to ensure user consistency.
+    //
+    // This creates a new user record on first login or updates the existing
+    // user with the latest data owned by the SSO provider, keeping user
+    // information in sync across logins.
+    queries::users::upsert(user_info.subject().to_string(), username)
+        .exec(&tx)
+        .await?;
+
+    tx.commit().await?;
+
     Ok(())
+}
+
+/// Convert an optional [LocalizedClaim] into an optional string by taking the
+/// value for the first language available.
+fn claim_to_string<T: Deref<Target = String>>(claim: Option<&LocalizedClaim<T>>) -> Option<String> {
+    claim
+        .and_then(|claim| claim.iter().next())
+        .map(|(_, nickname)| nickname.to_string())
 }

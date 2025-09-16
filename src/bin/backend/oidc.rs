@@ -23,7 +23,7 @@ use openidconnect::core::{
 };
 use openidconnect::{
     AccessTokenHash, AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce,
-    OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, TokenResponse,
+    OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
 };
 use openidconnect::{PkceCodeVerifier, reqwest};
 use serde::{Deserialize, Serialize};
@@ -155,6 +155,8 @@ pub async fn start_login(Config { oidc_client, .. }: Config) -> Result<(Url, Log
             CsrfToken::new_random,
             Nonce::new_random,
         )
+        // See <https://openid.net/specs/openid-connect-core-1_0.html#UserInfo>, "5.4 Requesting Claims using Scope values"
+        .add_scope(Scope::new("profile".to_string()))
         // Set the PKCE code challenge.
         .set_pkce_challenge(pkce_challenge)
         .url();

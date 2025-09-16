@@ -7,11 +7,15 @@
 use sea_orm_migration::prelude::*;
 
 mod m20250811_165601_init;
+mod m20250923_000000_add_users;
 
 pub struct Migrator;
 
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(m20250811_165601_init::Migration)]
+        vec![
+            Box::new(m20250811_165601_init::Migration),
+            Box::new(m20250923_000000_add_users::Migration),
+        ]
     }
 }

@@ -5,3 +5,4 @@
 pub mod builds;
 pub mod iterations;
 pub mod namespaces;
+pub mod users;
