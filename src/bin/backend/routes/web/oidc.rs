@@ -6,7 +6,9 @@ use axum_extra::extract::PrivateCookieJar;
 use buildbtw::web;
 
 use crate::{
+    db,
     oidc::{self},
+    queries,
     response_error::ResponseResult,
     server_state::ServerState,
 };
@@ -28,6 +30,7 @@ pub async fn authorized(
     Query(oidc_query): Query<web::oidc::LoginRedirectQuery>,
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
+    db::Tx(tx): db::Tx,
 ) -> ResponseResult<()> {
     let oidc_config = server_state.oidc.get_config()?;
     let login_attempt = oidc::LoginAttempt::from_cookie_jar(cookie_jar)?;
@@ -39,6 +42,10 @@ pub async fn authorized(
     )
     .await?;
     tracing::debug!(?user_info, "User authorized via OIDC");
+
+    queries::users::upsert(user_info.subject().to_string())
+        .exec(&tx)
+        .await?;
 
     Ok(())
 }
