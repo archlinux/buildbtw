@@ -119,3 +119,100 @@ fn parse_cookie_encryption_key(
         .wrap_err("Failed to parse encryption key")
         .map(redact::Secret::new)
 }
+
+#[cfg(test)]
+#[expect(clippy::unwrap_used)]
+#[expect(clippy::expect_used)]
+mod tests {
+    use std::net::IpAddr;
+
+    use clap::Parser;
+    use url::Url;
+
+    use super::*;
+
+    #[test]
+    fn test_run_command_with_all_optional_flags() {
+        let args = vec![
+            "buildbtw-backend",
+            "-vvv", // verbose: 3 (trace level)
+            "--tokio-console-telemetry",
+            "--database-file",
+            "/tmp/test.db",
+            "run",
+            "--interface",
+            "127.0.0.1",
+            "--port",
+            "3000",
+            "--base-url",
+            "https://example.com",
+            "--cookie-encryption-key",
+            "1234567890123456789012345678901234567890123456789012345678901234",
+            "--oidc-client-id",
+            "test-client-id",
+            "--oidc-client-secret",
+            "test-client-secret",
+            "--oidc-issuer-url",
+            "https://auth.example.com",
+            "--oidc-issuer-name",
+            "Test OIDC Provider",
+            "--run-authelia-container",
+            "--authelia-container-port",
+            "9091",
+        ];
+
+        let parsed_args = Args::try_parse_from(args).expect("Failed to parse args");
+
+        // Verify top-level args
+        assert_eq!(parsed_args.verbose, 3);
+        assert!(parsed_args.tokio_console_telemetry);
+        assert_eq!(parsed_args.database_file.as_str(), "/tmp/test.db");
+
+        // Verify Run command and its args
+        let Command::Run {
+            interface,
+            port,
+            oidc,
+            base_url,
+            cookie_encryption_key: _,
+            authelia_container,
+        } = parsed_args.command
+        else {
+            panic!("Expected Run command");
+        };
+
+        assert_eq!(interface, "127.0.0.1".parse::<IpAddr>().unwrap());
+        assert_eq!(port, 3000);
+        assert_eq!(base_url, Url::parse("https://example.com").unwrap());
+
+        // Verify OIDC config is present and has correct values
+        let oidc = oidc.expect("OIDC should be present");
+        assert_eq!(oidc.oidc_client_id, "test-client-id");
+        assert_eq!(oidc.oidc_client_secret, "test-client-secret");
+        assert_eq!(oidc.oidc_issuer_url, "https://auth.example.com");
+        assert_eq!(oidc.oidc_issuer_name, "Test OIDC Provider");
+
+        assert!(authelia_container.run_authelia_container);
+        assert_eq!(authelia_container.authelia_container_port, 9091);
+    }
+
+    #[test]
+    fn test_migrate_database_command() {
+        let args = vec![
+            "buildbtw-backend",
+            "--database-file",
+            "/tmp/migrate.db",
+            "migrate-database",
+        ];
+
+        let parsed_args = Args::try_parse_from(args).expect("Failed to parse args");
+
+        // Verify defaults for optional flags
+        assert_eq!(parsed_args.verbose, 0);
+        assert!(!parsed_args.tokio_console_telemetry);
+        assert_eq!(parsed_args.database_file.as_str(), "/tmp/migrate.db");
+
+        // Verify MigrateDatabase command
+        assert!(matches!(parsed_args.command, Command::MigrateDatabase {}));
+    }
+}
