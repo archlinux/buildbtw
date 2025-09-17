@@ -34,43 +34,46 @@ pub enum Command {
     /// Run the server
     ///
     /// Will migrate the database before running.
-    Run {
-        /// Interface to bind to
-        #[arg(
-            short,
-            long,
-            env,
-            value_parser(parse_interface),
-            number_of_values = 1,
-            default_value = "0.0.0.0"
-        )]
-        interface: IpAddr,
-
-        /// Port on which to listen
-        #[arg(short, long, env, default_value = "8080")]
-        port: u16,
-
-        #[clap(flatten)]
-        oidc: Option<Oidc>,
-
-        /// URL the backend server is reachable at, including protocol. Port can be omitted if it's the standard port. E.g. <https://buildbtw.archlinux.org>
-        #[arg(long, env)]
-        base_url: Url,
-
-        /// 64 characters
-        /// You can generate this with e.g. `pwgen 64`.
-        #[arg(long, env, value_parser(parse_cookie_encryption_key))]
-        cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
-
-        #[cfg(debug_assertions)]
-        #[clap(flatten)]
-        authelia_container: AutheliaContainer,
-    },
+    Run(RunArgs),
 
     /// Migrate the database
     ///
     /// Will create the database file if it doesn't exist yet.
     MigrateDatabase {},
+}
+
+#[derive(Debug, clap::Args)]
+pub struct RunArgs {
+    /// Interface to bind to
+    #[arg(
+        short,
+        long,
+        env,
+        value_parser(parse_interface),
+        number_of_values = 1,
+        default_value = "0.0.0.0"
+    )]
+    pub interface: IpAddr,
+
+    /// Port on which to listen
+    #[arg(short, long, env, default_value = "8080")]
+    pub port: u16,
+
+    #[clap(flatten)]
+    pub oidc: Option<Oidc>,
+
+    /// URL the backend server is reachable at, including protocol. Port can be omitted if it's the standard port. E.g. <https://buildbtw.archlinux.org>
+    #[arg(long, env)]
+    pub base_url: Url,
+
+    /// 64 characters
+    /// You can generate this with e.g. `pwgen 64`.
+    #[arg(long, env, value_parser(parse_cookie_encryption_key))]
+    pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
+
+    #[cfg(debug_assertions)]
+    #[clap(flatten)]
+    pub authelia_container: AutheliaContainer,
 }
 
 #[derive(clap::Args, Debug)]
@@ -169,14 +172,14 @@ mod tests {
         assert_eq!(parsed_args.database_file.as_str(), "/tmp/test.db");
 
         // Verify Run command and its args
-        let Command::Run {
+        let Command::Run(RunArgs {
             interface,
             port,
             oidc,
             base_url,
             cookie_encryption_key: _,
             authelia_container,
-        } = parsed_args.command
+        }) = parsed_args.command
         else {
             panic!("Expected Run command");
         };
