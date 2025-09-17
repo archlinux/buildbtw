@@ -13,6 +13,7 @@ use clap::Parser;
 use color_eyre::{Result, eyre::Context};
 use sea_orm::DatabaseConnection;
 use tokio::{net::TcpListener, signal};
+use tracing::info;
 use url::Url;
 
 use crate::{args::Args, server_state::ServerState};
@@ -92,6 +93,7 @@ async fn run_server(
     };
     let router = router::new().with_state(server_state);
     let listener = TcpListener::bind(format!("{interface}:{port}")).await?;
+    info!("Server available at: {}", base_url);
 
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown_signal())
