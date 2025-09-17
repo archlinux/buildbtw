@@ -5,8 +5,12 @@ use crate::oidc;
 /// Global shared state for axum handlers
 #[derive(Clone, Debug)]
 pub struct ServerState {
+    /// SQLite connection for storing things on disk
     pub db: DatabaseConnection,
+    /// Client configuration for logging in using a third-party OIDC
+    /// provider
     pub oidc: oidc::MaybeConfig,
+    /// Used to encrypt values stored as cookies in user's browsers
     pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
 }
 
