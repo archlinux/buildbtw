@@ -19,6 +19,7 @@ mod args;
 mod db;
 mod db_fields;
 mod entities;
+mod input;
 mod migrations;
 mod oidc;
 mod queries;

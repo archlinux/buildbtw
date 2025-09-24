@@ -10,7 +10,7 @@ use color_eyre::eyre::ContextCompat;
 use openidconnect::LocalizedClaim;
 
 use crate::{
-    db,
+    db, input,
     oidc::{self},
     queries,
     response_error::ResponseResult,
@@ -52,14 +52,17 @@ pub async fn authorized(
         .or(claim_to_string(user_info.name()))
         .wrap_err("Neither nickname nor name provided")?;
 
+    let create = input::users::ValidatedCreate::try_new(input::users::Create {
+        oidc_id: user_info.subject().to_string(),
+        username,
+    })?;
+
     // Performs an upsert operation to ensure user consistency.
     //
     // This creates a new user record on first login or updates the existing
     // user with the latest data owned by the SSO provider, keeping user
     // information in sync across logins.
-    queries::users::upsert(user_info.subject().to_string(), username)
-        .exec(&tx)
-        .await?;
+    queries::users::upsert(create).exec(&tx).await?;
 
     tx.commit().await?;
 
