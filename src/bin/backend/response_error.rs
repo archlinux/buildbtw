@@ -32,8 +32,8 @@ pub enum ResponseError {
     InvalidInput(#[from] garde::Report),
 
     /// Unsupported content type requested by client.
-    #[expect(dead_code)]
     #[error("Unsupported content type: {0}")]
+    #[expect(dead_code)]
     UnsupportedContentType(String),
 }
 

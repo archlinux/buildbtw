@@ -10,7 +10,7 @@ use color_eyre::eyre::ContextCompat;
 use openidconnect::LocalizedClaim;
 
 use crate::{
-    db, input,
+    db, from_request, input,
     oidc::{self},
     queries,
     response_error::ResponseResult,
@@ -35,9 +35,9 @@ pub async fn authorized(
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
-) -> ResponseResult<()> {
+) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_config = server_state.oidc.get_config()?;
-    let login_attempt = oidc::LoginAttempt::from_cookie_jar(cookie_jar)?;
+    let login_attempt = oidc::LoginAttempt::from_cookie_jar(&cookie_jar)?;
     let user_info = oidc::convert_authorization_code_to_user_info(
         oidc_config,
         login_attempt,
@@ -62,11 +62,18 @@ pub async fn authorized(
     // This creates a new user record on first login or updates the existing
     // user with the latest data owned by the SSO provider, keeping user
     // information in sync across logins.
-    queries::users::upsert(create).exec(&tx).await?;
+    let user = queries::users::upsert(create).exec(&tx).await?;
+
+    let session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(&tx)
+        .await?;
 
     tx.commit().await?;
 
-    Ok(())
+    let cookie_jar =
+        from_request::sessions::save_in_cookie_jar(session.last_insert_id.into(), cookie_jar);
+
+    Ok((cookie_jar, Redirect::to(&web::builds::Index {}.to_string())))
 }
 
 /// Convert an optional [LocalizedClaim] into an optional string by taking the

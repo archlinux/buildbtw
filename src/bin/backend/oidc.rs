@@ -181,10 +181,10 @@ pub struct LoginAttempt {
     pub pkce_verifier: PkceCodeVerifier,
 }
 
-pub const LOGIN_ATTEMPT_COOKIE_NAME: &str = "oidc_login_attempt";
+pub const LOGIN_ATTEMPT_COOKIE_NAME: &str = "buildbtw_oidc_login_attempt";
 
 impl LoginAttempt {
-    pub fn from_cookie_jar(jar: PrivateCookieJar) -> Result<Self> {
+    pub fn from_cookie_jar(jar: &PrivateCookieJar) -> Result<Self> {
         let cookie = jar
             .get(LOGIN_ATTEMPT_COOKIE_NAME)
             .wrap_err("Cookie not found")?;

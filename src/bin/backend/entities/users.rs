@@ -1,6 +1,7 @@
 use sea_orm::entity::prelude::*;
 
 use crate::db_fields::TextUuid;
+use crate::entities::sessions;
 
 /// A buildbtw user associated to an unique OIDC-ID.
 ///
@@ -28,6 +29,15 @@ pub struct Model {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_many = "sessions::Entity")]
+    Sessions,
+}
+
+impl Related<sessions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Sessions.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

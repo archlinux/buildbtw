@@ -7,14 +7,14 @@ use crate::tests::test_ctx::{TestCtx, ctx};
 /// Test the index endpoint returns expected content
 #[rstest]
 #[tokio::test]
-async fn test_index_ok(#[future(awt)] ctx: TestCtx) {
+async fn test_index_anonymous(#[future(awt)] ctx: TestCtx) {
     let response = ctx.server.typed_get(&web::builds::Index {}).await;
 
     response.assert_status_ok();
-    response.assert_text("Bonjour!");
+    response.assert_text_contains("Bonjour!");
 
     // Test that it's plain text, not JSON
-    response.assert_header("content-type", "text/plain; charset=utf-8");
+    response.assert_header("content-type", "text/html; charset=utf-8");
 }
 
 /// Test that 404 errors work properly for non-existent routes
