@@ -58,7 +58,6 @@ reqwest = { version = "0.12.22", features = [
     "stream",
     "rustls-tls",
 ], default-features = false }
-rstest = { version = "0.26.1", default-features = false }
 serde = { version = "1.0.219", features = ["serde_derive"] }
 serde_json = { version = "1.0.141", features = ["raw_value"] }
 strum = { version = "0.27.2", features = ["derive"] }
@@ -102,8 +101,20 @@ axum = { version = "0.8.4", features = [
 tower-http = { version = "0.6.6", features = [
     "timeout",
 ], default-features = false }
-axum-extra = { version = "0.10.1", features = ["typed-routing"] }
-axum-test = { version = "17.3.0", features = ["typed-routing"] }
+axum-extra = { version = "0.10.1", features = [
+    "typed-routing",
+    "cookie-private",
+] }
 uuid = { version = "1.18.0", features = ["v4", "serde"] }
 nutype = { version = "0.6.2", features = ["derive_unsafe", "serde", "regex"] }
 regex = "1.11.2"
+openidconnect = { version = "4.0.1", features = [
+    "timing-resistant-secret-traits",
+] }
+
+[dev-dependencies]
+axum-test = { version = "17.3.0", features = ["typed-routing"] }
+thirtyfour = { version = "0.36.1", features = [
+    "rustls-tls",
+], default-features = false }
+rstest = { version = "0.26.1", default-features = false }

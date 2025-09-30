@@ -117,6 +117,11 @@ migrate-database:
 reset-database: && migrate-database
     rm -f $DATABASE_FILE
 
+[group("dev")]
+[doc("Install the development certificates in the system's trust store, e.g. for browsers. Requires root.")]
+install-authelia-ca:
+    mkcert -install
+
 [doc("Ensures that one or more required commands are installed")]
 [private]
 ensure-command +command:

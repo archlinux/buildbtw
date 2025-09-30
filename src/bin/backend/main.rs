@@ -7,12 +7,11 @@
 //! It coordinates with the local worker or GitLab runners to process package
 //! builds in VMs.
 
-use std::net::IpAddr;
-
 use clap::Parser;
 use color_eyre::{Result, eyre::Context};
 use sea_orm::DatabaseConnection;
 use tokio::{net::TcpListener, signal};
+use tracing::info;
 
 use crate::{args::Args, server_state::ServerState};
 
@@ -21,6 +20,7 @@ mod db;
 mod db_fields;
 mod entities;
 mod migrations;
+mod oidc;
 mod queries;
 mod response_error;
 mod router;
@@ -36,9 +36,29 @@ async fn main() -> Result<()> {
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry);
 
     match args.command {
-        args::Command::Run { interface, port } => {
+        args::Command::Run(run_args) => {
             let db = db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
-            run_server(interface, port, db).await?;
+
+            // Don't drop the authelia container before the call to `run_server` below
+            // finishes. Dropping the container will stop it.
+            #[cfg(debug_assertions)]
+            let maybe_authelia_container = if run_args.authelia_container.run_authelia_container {
+                let authelia = buildbtw::authelia::Container::new(Some(
+                    run_args.authelia_container.authelia_container_port,
+                ))
+                .await?;
+
+                Some(authelia)
+            } else {
+                None
+            };
+
+            run_server(db, run_args).await?;
+
+            // We don't really need the explicit drop here, but it makes sure the container
+            // is not accidentally dropped earlier.
+            #[cfg(debug_assertions)]
+            drop(maybe_authelia_container);
         }
         args::Command::MigrateDatabase {} => {
             db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
@@ -50,10 +70,25 @@ async fn main() -> Result<()> {
 
 /// Create an axum service and make it listen on the given interface and
 /// port.
-async fn run_server(interface: IpAddr, port: u16, db: DatabaseConnection) -> Result<()> {
-    let server_state = ServerState { db };
+async fn run_server(
+    db: DatabaseConnection,
+    args::RunArgs {
+        interface,
+        port,
+        oidc,
+        base_url,
+        cookie_encryption_key,
+        ..
+    }: args::RunArgs,
+) -> Result<()> {
+    let server_state = ServerState {
+        db,
+        oidc: oidc::MaybeConfig::initialize(&base_url, oidc).await,
+        cookie_encryption_key,
+    };
     let router = router::new().with_state(server_state);
     let listener = TcpListener::bind(format!("{interface}:{port}")).await?;
+    info!("Server available at: {}", base_url);
 
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown_signal())

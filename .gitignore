@@ -4,3 +4,4 @@ build
 data
 .env
 *.sqlite*
+authelia/*.pem

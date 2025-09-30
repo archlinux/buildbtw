@@ -6,6 +6,10 @@ version = 2
 yanked = "deny"
 ignore = [
     #"RUSTSEC-0000-0000",
+    # https://github.com/Vrtgs/thirtyfour/issues/283
+    "RUSTSEC-2024-0436",
+    # https://github.com/ramosbugs/openidconnect-rs/issues/140
+    "RUSTSEC-2023-0071",
 ]
 
 # This section is considered when running `cargo deny check licenses`
@@ -14,16 +18,16 @@ ignore = [
 [licenses]
 version = 2
 allow = [
-  "Apache-2.0",
-  "BSD-3-Clause",
-  "CDLA-Permissive-2.0",
-  "GPL-3.0",
-  "ISC",
-  "LGPL-2.0",
-  "MIT",
-  "MPL-2.0",
-  "Unicode-3.0",
-  "Zlib",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "GPL-3.0",
+    "ISC",
+    "LGPL-2.0",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
 ]
 
 # This section is considered when running `cargo deny check bans`.
