@@ -12,7 +12,7 @@ Check the respective directories for their READMEs.
 
 1. ✅ [Collect initial user stories](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/?sort=priority&state=all&label_name%5B%5D=buildbtw%3A%3Auser-story&first_page_size=100)
 1. ✅ [Build an exploratory PoC](https://gitlab.archlinux.org/archlinux/buildbtw/-/milestones/11) to discover unknown unknowns and validate the approach we've planned
-1. ⚙️ [Write RFC, outlining major components & architecture](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/4)
+1. ✅ [Write RFC, outlining major components & architecture](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/4)
 1. ⚙️ [Build and deploy MVP](https://gitlab.archlinux.org/archlinux/buildbtw/-/milestones/10#tab-issues)
 1. Iterate on the MVP to improve the service, writing new RFCs and requirements as needed
 
