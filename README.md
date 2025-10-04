@@ -46,6 +46,7 @@ rustup default stable
 - Install `sea-orm-cli` (`pacman -S sea-orm-cli`)
 - For license checking: Install `reuse` (`pacman -S reuse`)
 - For security auditing: Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
+- For releasing: Install `cargo-release` (`pacman -S cargo-release` or `cargo install cargo-release`)
 - For running the tests and running a local OIDC provider: `pacman -S cargo-nextest mkcert jq podman geckodriver firefox`. See [Arch Wiki Podman Page](https://wiki.archlinux.org/title/Podman) for podman configuration. Rootless podman is recommended.
 
 ## Commands
@@ -79,3 +80,11 @@ Once you've installed the dependencies listed in the development setup section, 
 - A [geckodriver](https://github.com/mozilla/geckodriver) process listening on port 4444 is started, allowing the tests to drive a headless firefox instance
 
 For debugging (or fun), you can watch the firefox window open and interact with webpages by disabling the `set_headless()` call in any given test.
+
+## Releasing
+
+1. Make sure the *Unreleased* section in `CHANGELOG.md` is up to date.
+1. Run `cargo release <version>` and check that the output e
+1. `cargo release --execute <version>`
+1. Releases will automatically be deployed by GitLab CI.
+1. Manually update Arch packages.
