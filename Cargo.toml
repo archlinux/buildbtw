@@ -1,5 +1,6 @@
 [package]
 name = "buildbtw"
+version = "0.0.1"
 authors = [
     "Levente Polyak <anthraxx@archlinux.org>",
     "Rafael Epplée <raffomania@archlinux.org>",
