@@ -43,8 +43,8 @@ print_stdout = "warn"
 print_stderr = "warn"
 
 [dependencies]
-alpm-srcinfo = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
-alpm-types = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
+alpm-srcinfo = "0.3.0"
+alpm-types = "0.7.0"
 clap = { version = "4.5.42", features = [
     "cargo",
     "derive",
