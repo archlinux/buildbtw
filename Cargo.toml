@@ -1,5 +1,7 @@
 [package]
 name = "buildbtw"
+version = "0.0.1"
+description = "A service for assisting Arch Linux staff with building new versions of packages"
 authors = [
     "Levente Polyak <anthraxx@archlinux.org>",
     "Rafael Epplée <raffomania@archlinux.org>",
@@ -8,6 +10,7 @@ authors = [
 edition = "2024"
 homepage = "https://gitlab.archlinux.org/archlinux/buildbtw"
 keywords = ["arch", "linux", "packaging", "ci", "building", "graph"]
+readme = "README.md"
 license = "GPL-3.0-or-later"
 repository = "https://gitlab.archlinux.org/archlinux/buildbtw"
 
@@ -40,8 +43,8 @@ print_stdout = "warn"
 print_stderr = "warn"
 
 [dependencies]
-alpm-srcinfo = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
-alpm-types = { git = "https://gitlab.archlinux.org/archlinux/alpm/alpm.git", branch = "main" }
+alpm-srcinfo = "0.3.0"
+alpm-types = "0.7.0"
 clap = { version = "4.5.42", features = [
     "cargo",
     "derive",
