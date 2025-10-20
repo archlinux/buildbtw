@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{db, entities, queries, response_error::ResponseError, server_state::ServerState};
 
-const SESSION_ID_COOKIE_NAME: &str = "buildbtw_session_id";
+pub const SESSION_ID_COOKIE_NAME: &str = "buildbtw_session_id";
 
 /// Holds authentication data for a logged-in user.
 ///
@@ -19,7 +19,6 @@ const SESSION_ID_COOKIE_NAME: &str = "buildbtw_session_id";
 /// It is passed to request handlers that require authentication, allowing
 /// them to access both the session information and the owning user's data.
 pub struct AuthUser {
-    #[expect(dead_code)]
     pub session: entities::sessions::Model,
     pub user: entities::users::Model,
 }
@@ -103,4 +102,15 @@ pub fn save_in_cookie_jar(session_id: Uuid, cookie_jar: PrivateCookieJar) -> Pri
     // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
     // cookie.set_secure(true);
     cookie_jar.add(cookie)
+}
+
+pub fn remove_from_cookie_jar(cookie_jar: PrivateCookieJar) -> PrivateCookieJar {
+    let mut cookie = Cookie::from(SESSION_ID_COOKIE_NAME);
+    cookie.set_same_site(SameSite::Strict);
+    cookie.set_path("/");
+    cookie.set_http_only(true);
+    // TODO: serve the backend using TLS and enable the "Secure" flag
+    // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
+    // cookie.set_secure(true);
+    cookie_jar.remove(cookie)
 }

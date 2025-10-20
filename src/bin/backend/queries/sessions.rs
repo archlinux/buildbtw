@@ -1,6 +1,7 @@
-use sea_orm::{ActiveValue::Set, EntityTrait, Insert, Select};
+use sea_orm::{ActiveValue::Set, DeleteMany, EntityTrait, Insert, Select};
 use uuid::Uuid;
 
+use crate::db_fields::TextUuid;
 use crate::entities::sessions;
 
 pub fn insert(user_id: Uuid) -> Insert<sessions::ActiveModel> {
@@ -16,4 +17,8 @@ pub fn insert(user_id: Uuid) -> Insert<sessions::ActiveModel> {
 
 pub fn by_id(id: Uuid) -> Select<sessions::Entity> {
     sessions::Entity::find_by_id(id)
+}
+
+pub fn delete(session_id: TextUuid) -> DeleteMany<sessions::Entity> {
+    sessions::Entity::delete_by_id(session_id)
 }

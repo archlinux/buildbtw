@@ -5,6 +5,7 @@ use axum_extra::routing::RouterExt;
 
 use crate::server_state::ServerState;
 
+mod account;
 pub mod index;
 mod oidc;
 
@@ -13,4 +14,5 @@ pub fn router() -> Router<ServerState> {
         .typed_get(index::index)
         .typed_get(oidc::start_login)
         .typed_get(oidc::authorized)
+        .typed_get(account::logout)
 }
