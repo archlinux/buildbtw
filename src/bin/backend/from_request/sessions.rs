@@ -31,6 +31,9 @@ pub struct AuthUser {
 /// extractor provides their session and user data; otherwise it returns
 /// `None` without causing a rejection. This is useful for endpoints that
 /// work for both authenticated and unauthenticated users.
+///
+/// Internally, this calls the standard [`FromRequestParts<ServerState>`]
+/// implementation for [`AuthUser`] and converts its result into an `Option`
 impl OptionalFromRequestParts<ServerState> for AuthUser {
     type Rejection = ResponseError;
 
@@ -38,13 +41,37 @@ impl OptionalFromRequestParts<ServerState> for AuthUser {
         parts: &mut Parts,
         state: &ServerState,
     ) -> Result<Option<Self>, Self::Rejection> {
+        Ok(
+            <AuthUser as FromRequestParts<ServerState>>::from_request_parts(parts, state)
+                .await
+                .ok(),
+        )
+    }
+}
+
+/// Extractor for enforcing authentication on protected endpoints.
+///
+/// This implementation ensures that a valid authenticated user exists
+/// before the request handler is executed. If the user is not authenticated,
+/// the request is rejected with an appropriate error response.
+///
+/// When authentication succeeds, the user's session model is loaded and
+/// its last access time is automatically updated in the database, ensuring
+/// accurate session activity tracking.
+impl FromRequestParts<ServerState> for AuthUser {
+    type Rejection = ResponseError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServerState,
+    ) -> Result<Self, Self::Rejection> {
         let cookie_jar: PrivateCookieJar = PrivateCookieJar::from_request_parts(parts, state)
             .await
             .wrap_err("Failed to extract cookie jar")?;
         let db::Tx(tx) = db::Tx::from_request_parts(parts, state).await?;
         let Some(cookie) = cookie_jar.get(SESSION_ID_COOKIE_NAME) else {
             // Missing session cookie
-            return Ok(None);
+            return Err(ResponseError::Unauthorized);
         };
         let id: Uuid = cookie
             .value()
@@ -57,13 +84,13 @@ impl OptionalFromRequestParts<ServerState> for AuthUser {
             .await?
         else {
             // Session does not exist in the database
-            return Ok(None);
+            return Err(ResponseError::Unauthorized);
         };
 
         // Can only happen on severe corruption, as the session has a foreign key on the user
         let user = user.wrap_err("Session does not have a user")?;
 
-        Ok(Some(AuthUser { session, user }))
+        Ok(AuthUser { session, user })
     }
 }
 

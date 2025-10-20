@@ -35,6 +35,10 @@ pub enum ResponseError {
     #[error("Unsupported content type: {0}")]
     #[expect(dead_code)]
     UnsupportedContentType(String),
+
+    /// Unauthorized access.
+    #[error("Unauthorized")]
+    Unauthorized,
 }
 
 impl IntoResponse for ResponseError {
@@ -49,6 +53,7 @@ impl IntoResponse for ResponseError {
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             ResponseError::InvalidInput(_) => StatusCode::BAD_REQUEST,
+            ResponseError::Unauthorized => StatusCode::UNAUTHORIZED,
         };
         // Send only the opaque description using the display trait, to avoid leaking
         // information
