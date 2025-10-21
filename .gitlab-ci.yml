@@ -67,5 +67,21 @@ test:
 build-release:
   stage: build
   extends: .with-rust
+  artifacts:
+    paths:
+      - target/release/backend
   script:
     - just build-release
+
+push-container-image:
+  tags:
+    # we build containers so it's easier to do this in a VM
+    - vm
+  stage: build
+  extends: .default-before-script
+  needs: ["build-release"]
+  script:
+    - pacman -Syu --needed --noconfirm podman
+    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - just build-release-container-image
+    - podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"

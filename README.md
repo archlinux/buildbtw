@@ -68,6 +68,7 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 
 - `just build` to build in debug mode
 - `just build-release` to build in release mode
+- `just build-release-container-image` to put the release binary into a container image
 - `just bench` to run performance benchmarks
 - `just clean` to remove build artifacts, caches, and temporary files
 
