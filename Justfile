@@ -91,12 +91,12 @@ check-dependencies: (ensure-command "cargo-deny")
 
 [doc("Run tests")]
 [group("test")]
-test *args:
+test *args: (ensure-command "geckodriver")
     cargo nextest run {{ args }}
 
 [doc("Run tests and auto-rerun on code changes")]
 [group("test")]
-watch-test *args:
+watch-test *args: (ensure-command "geckodriver")
     cargo watch -- just test {{ args }}
 
 [doc("Clean up build artifacts, caches, and temporary files")]
