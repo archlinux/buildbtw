@@ -43,8 +43,8 @@ print_stdout = "warn"
 print_stderr = "warn"
 
 [dependencies]
-alpm-srcinfo = "0.3.0"
-alpm-types = "0.7.0"
+alpm-srcinfo = "0.4.0"
+alpm-types = "0.8.0"
 clap = { version = "4.5.42", features = [
     "cargo",
     "derive",
@@ -54,7 +54,7 @@ clap = { version = "4.5.42", features = [
 color-eyre = "0.6"
 console-subscriber = "0.4.1"
 directories = "6.0.0"
-gitlab = "0.1802.0"
+gitlab = "0.1804.0"
 redact = "0.1.11"
 reqwest = { version = "0.12.22", features = [
     "json",
@@ -116,7 +116,7 @@ openidconnect = { version = "4.0.1", features = [
 ] }
 
 [dev-dependencies]
-axum-test = { version = "17.3.0", features = ["typed-routing"] }
+axum-test = { version = "18.1.0", features = ["typed-routing"] }
 thirtyfour = { version = "0.36.1", features = [
     "rustls-tls",
 ], default-features = false }
