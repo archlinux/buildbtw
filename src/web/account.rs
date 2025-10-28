@@ -11,3 +11,11 @@ pub struct Logout {}
 #[derive(TypedPath, Deserialize, Debug)]
 #[typed_path("/account/session")]
 pub struct SessionList {}
+
+/// Revoke an active user session.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/account/session/{session_id}/revoke")]
+pub struct SessionRevoke {
+    /// Session id to revoke
+    pub session_id: String,
+}

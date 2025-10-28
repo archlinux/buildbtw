@@ -207,3 +207,139 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     Ok(())
 }
+
+/// Test session revoke endpoint needs authorization
+#[rstest]
+#[tokio::test]
+async fn test_session_revoke_unauthorized(#[future(awt)] ctx: TestCtx) {
+    let session = Uuid::new_v4();
+    let response = ctx
+        .server
+        .typed_get(&web::account::SessionRevoke {
+            session_id: session.to_string(),
+        })
+        .await;
+
+    response.assert_status_unauthorized();
+    response.assert_header("content-type", "text/plain; charset=utf-8");
+    response.assert_text_contains("Unauthorized");
+}
+
+/// Test session revoke endpoint kills the session
+#[rstest]
+#[tokio::test]
+async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let db = &ctx.state.db;
+
+    // Create a valid user
+    let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+        oidc_id: "OIDC_ID".to_string(),
+        username: "username".to_string(),
+    })?;
+    let user = queries::users::upsert(create).exec(db).await?;
+
+    // Create our session we use for the requests
+    let session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(db)
+        .await?;
+    let session_id = session.last_insert_id.0;
+
+    // Create cookie jar with the current session
+    let private_jar = ctx.private_cookie_jar();
+    let private_jar = crate::from_request::sessions::save_in_cookie_jar(session_id, private_jar);
+    let cookies = private_jar.to_encrypted_cookie_jar()?;
+
+    // Request the endpoint to test
+    let response = ctx
+        .server
+        .typed_get(&web::account::SessionRevoke {
+            session_id: session_id.to_string(),
+        })
+        .add_cookies(cookies.clone())
+        .await;
+    response.assert_status_see_other();
+
+    // Check that we are logged out
+    let response = ctx
+        .server
+        .typed_get(&web::builds::Index {})
+        .add_cookies(cookies)
+        .await;
+    response.assert_status_ok();
+    response.assert_text_contains("Bonjour");
+
+    // Check if the session has been removed from the database
+    let session_record = queries::sessions::by_id(session_id).one(db).await?;
+    assert!(
+        session_record.is_none(),
+        "expected a session record to not exist after revoke",
+    );
+
+    Ok(())
+}
+
+/// Test session revoke endpoint kills another session which isn't our own
+#[rstest]
+#[tokio::test]
+async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let db = &ctx.state.db;
+
+    // Create a valid user
+    let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+        oidc_id: "OIDC_ID".to_string(),
+        username: "username".to_string(),
+    })?;
+    let user = queries::users::upsert(create).exec(db).await?;
+
+    // Create our session we use for the requests
+    let session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(db)
+        .await?;
+    let session_id = session.last_insert_id.0;
+
+    // Create another session we want to kill
+    let other_session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(db)
+        .await?;
+    let other_session_id = other_session.last_insert_id.0;
+
+    // Create cookie jar with the current session
+    let private_jar = ctx.private_cookie_jar();
+    let private_jar = crate::from_request::sessions::save_in_cookie_jar(session_id, private_jar);
+    let cookies = private_jar.to_encrypted_cookie_jar()?;
+
+    // Request the endpoint to test
+    let response = ctx
+        .server
+        .typed_get(&web::account::SessionRevoke {
+            session_id: other_session_id.to_string(),
+        })
+        .add_cookies(cookies.clone())
+        .await;
+    response.assert_status_see_other();
+
+    // Check that we are not logged out
+    let response = ctx
+        .server
+        .typed_get(&web::builds::Index {})
+        .add_cookies(cookies)
+        .await;
+    response.assert_status_ok();
+    response.assert_text_contains("Logged in as username");
+
+    // Check if our session has been removed from the database
+    let session_record = queries::sessions::by_id(session_id).one(db).await?;
+    assert!(
+        session_record.is_some(),
+        "expected our session record to exist",
+    );
+
+    // Check if the other session has been removed from the database
+    let session_record = queries::sessions::by_id(other_session_id).one(db).await?;
+    assert!(
+        session_record.is_none(),
+        "expected other session record to not exist",
+    );
+
+    Ok(())
+}
