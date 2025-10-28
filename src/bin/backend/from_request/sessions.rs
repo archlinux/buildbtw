@@ -7,6 +7,7 @@ use axum_extra::extract::{
     cookie::{Cookie, SameSite},
 };
 use color_eyre::eyre::{Context, ContextCompat};
+use sea_orm::IntoActiveModel;
 use uuid::Uuid;
 
 use crate::{db, entities, queries, response_error::ResponseError, server_state::ServerState};
@@ -88,6 +89,11 @@ impl FromRequestParts<ServerState> for AuthUser {
 
         // Can only happen on severe corruption, as the session has a foreign key on the user
         let user = user.wrap_err("Session does not have a user")?;
+
+        let session = queries::sessions::update_last_accessed_time(session.into_active_model())
+            .exec(&tx)
+            .await?;
+        tx.commit().await?;
 
         Ok(AuthUser { session, user })
     }

@@ -27,3 +27,15 @@ pub fn by_user_id(user_id: TextUuid) -> Select<sessions::Entity> {
 pub fn delete(session_id: TextUuid) -> DeleteMany<sessions::Entity> {
     sessions::Entity::delete_by_id(session_id)
 }
+
+pub fn delete_old_sessions(delta: time::Duration) -> DeleteMany<sessions::Entity> {
+    let before_datetime = time::OffsetDateTime::now_utc() - delta;
+    sessions::Entity::delete_many().filter(sessions::Column::LastAccessed.lt(before_datetime))
+}
+
+pub fn update_last_accessed_time(
+    mut session: sessions::ActiveModel,
+) -> UpdateOne<sessions::ActiveModel> {
+    session.last_accessed = Set(time::OffsetDateTime::now_utc());
+    sessions::Entity::update(session)
+}
