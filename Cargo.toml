@@ -9,10 +9,11 @@ authors = [
 ]
 edition = "2024"
 homepage = "https://gitlab.archlinux.org/archlinux/buildbtw"
-keywords = ["arch", "linux", "packaging", "ci", "building", "graph"]
+keywords = ["arch", "linux", "packaging", "archlinux", "ci"]
 readme = "README.md"
 license = "GPL-3.0-or-later"
 repository = "https://gitlab.archlinux.org/archlinux/buildbtw"
+publish = false
 
 [profile.release]
 codegen-units = 1
