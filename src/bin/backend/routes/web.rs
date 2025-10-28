@@ -15,4 +15,5 @@ pub fn router() -> Router<ServerState> {
         .typed_get(oidc::start_login)
         .typed_get(oidc::authorized)
         .typed_get(account::logout)
+        .typed_get(account::session_list)
 }

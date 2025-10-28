@@ -6,3 +6,8 @@ use serde::Deserialize;
 #[derive(TypedPath, Deserialize, Debug)]
 #[typed_path("/account/logout")]
 pub struct Logout {}
+
+/// List active user sessions.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/account/session")]
+pub struct SessionList {}

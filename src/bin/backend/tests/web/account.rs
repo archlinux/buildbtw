@@ -4,11 +4,12 @@ use buildbtw::web;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
 use rstest::rstest;
+use sea_orm::TransactionTrait;
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
 
-use crate::tests::test_ctx::{TestCtx, ctx};
-use crate::{queries, tests::test_ctx::TestCtxBuilder};
+use crate::queries;
+use crate::tests::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
 
 /// Test the full logout flow really invalidates the session
 #[tokio::test]
@@ -146,4 +147,63 @@ async fn test_logout_unauthorized(#[future(awt)] ctx: TestCtx) {
     response.assert_status_unauthorized();
     response.assert_header("content-type", "text/plain; charset=utf-8");
     response.assert_text_contains("Unauthorized");
+}
+
+/// Test session list endpoint needs authorization
+#[rstest]
+#[tokio::test]
+async fn test_session_list_unauthorized(#[future(awt)] ctx: TestCtx) {
+    let response = ctx.server.typed_get(&web::account::SessionList {}).await;
+
+    response.assert_status_unauthorized();
+    response.assert_header("content-type", "text/plain; charset=utf-8");
+    response.assert_text_contains("Unauthorized");
+}
+
+/// Test session list endpoint lists existing sessions
+#[rstest]
+#[tokio::test]
+async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let db = &ctx.state.db;
+    let tx = db.begin().await?;
+
+    // Create a valid user
+    let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+        oidc_id: "OIDC_ID".to_string(),
+        username: "username".to_string(),
+    })?;
+    let user = queries::users::upsert(create).exec(&tx).await?;
+
+    // Create our session we use for the requests
+    let session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(&tx)
+        .await?;
+
+    // Create another session for our user and see if it will be listed
+    let another_session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(&tx)
+        .await?;
+
+    tx.commit().await?;
+
+    // Create cookie jar with the current session
+    let private_jar = ctx.private_cookie_jar();
+    let private_jar =
+        crate::from_request::sessions::save_in_cookie_jar(session.last_insert_id.0, private_jar);
+    let cookies = private_jar.to_encrypted_cookie_jar()?;
+
+    // Request the endpoint to test
+    let response = ctx
+        .server
+        .typed_get(&web::account::SessionList {})
+        .add_cookies(cookies)
+        .await;
+
+    response.assert_status_ok();
+    response.assert_header("content-type", "text/html; charset=utf-8");
+
+    response.assert_text_contains(session.last_insert_id.0.to_string());
+    response.assert_text_contains(another_session.last_insert_id.0.to_string());
+
+    Ok(())
 }
