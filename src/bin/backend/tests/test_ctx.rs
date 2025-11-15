@@ -132,7 +132,7 @@ impl TestCtxBuilder {
 
     pub async fn build(self) -> TestCtx {
         // Using tracing in tests allows us to see error descriptions when tests fail.
-        buildbtw::tracing::init(0, false);
+        let _ = buildbtw::tracing::init(0, false);
 
         let db = db::connect_and_migrate(db::SQLiteLocation::Memory)
             .await

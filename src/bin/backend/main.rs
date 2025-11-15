@@ -37,7 +37,7 @@ mod tests;
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry);
+    buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
     match args.command {
         args::Command::Run(run_args) => {
