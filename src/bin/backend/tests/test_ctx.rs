@@ -15,12 +15,14 @@ use crate::{
 pub struct TestCtx {
     pub server: TestServer,
     pub base_url: Url,
+    pub state: ServerState,
+
     /// Not accessed, but stored to keep it from dropping too early
-    #[expect(dead_code)]
-    pub authelia_container: Option<authelia::Container>,
+    pub _authelia_container: Option<authelia::Container>,
+
     /// Not accessed, but stored to keep it from dropping too early
-    #[expect(dead_code)]
-    pub geckodriver: Option<ProcessGuard>,
+    pub _geckodriver: Option<ProcessGuard>,
+
     pub thirtyfour_client: Option<thirtyfour::WebDriver>,
 }
 
@@ -134,17 +136,18 @@ impl TestCtxBuilder {
                     Some(std::net::Ipv4Addr::new(0, 0, 0, 0).into()),
                     Some(8080),
                 )
-                .build(router::new().with_state(state))
+                .build(router::new().with_state(state.clone()))
                 .unwrap()
         } else {
-            TestServer::new(router::new().with_state(state)).unwrap()
+            TestServer::new(router::new().with_state(state.clone())).unwrap()
         };
 
         TestCtx {
             server,
             base_url,
-            authelia_container: maybe_authelia_container,
-            geckodriver,
+            state,
+            _authelia_container: maybe_authelia_container,
+            _geckodriver: geckodriver,
             thirtyfour_client,
         }
     }
