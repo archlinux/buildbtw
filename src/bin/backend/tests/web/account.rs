@@ -262,7 +262,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Check that we are logged out
     let response = ctx
         .server
-        .typed_get(&web::builds::Index {})
+        .typed_get(&web::index::Index {})
         .add_cookies(cookies)
         .await;
     response.assert_status_ok();
@@ -321,7 +321,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     // Check that we are not logged out
     let response = ctx
         .server
-        .typed_get(&web::builds::Index {})
+        .typed_get(&web::index::Index {})
         .add_cookies(cookies)
         .await;
     response.assert_status_ok();

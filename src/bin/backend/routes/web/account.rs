@@ -27,7 +27,7 @@ pub async fn logout(
     tx.commit().await?;
 
     let cookie_jar = from_request::sessions::remove_from_cookie_jar(cookie_jar);
-    Ok((cookie_jar, Redirect::to(&web::builds::Index {}.to_string())))
+    Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))
 }
 
 /// See [web::account::SessionList].

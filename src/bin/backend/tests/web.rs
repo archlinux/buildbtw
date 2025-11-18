@@ -30,7 +30,7 @@ async fn test_404_handling(#[future(awt)] ctx: TestCtx, #[case] path: &str) {
 #[tokio::test]
 #[should_panic]
 async fn test_assert_status_panics(#[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&web::builds::Index {}).await;
+    let response = ctx.server.typed_get(&web::index::Index {}).await;
 
     response.assert_status(StatusCode::IM_A_TEAPOT);
 }

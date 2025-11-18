@@ -73,7 +73,7 @@ pub async fn authorized(
     let cookie_jar =
         from_request::sessions::save_in_cookie_jar(session.last_insert_id.into(), cookie_jar);
 
-    Ok((cookie_jar, Redirect::to(&web::builds::Index {}.to_string())))
+    Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))
 }
 
 /// Convert an optional [LocalizedClaim] into an optional string by taking the

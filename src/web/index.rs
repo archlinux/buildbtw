@@ -1,5 +1,5 @@
 //! Routes and parameters for web pages interacting with
-//! [crate::api::builds::Build]
+//! [crate::web::index::Index]
 
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;

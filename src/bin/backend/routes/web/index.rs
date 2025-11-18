@@ -4,7 +4,7 @@ use buildbtw::web;
 use crate::from_request;
 
 pub async fn index(
-    _: web::builds::Index,
+    _: web::index::Index,
     session: Option<from_request::AuthUser>,
 ) -> impl IntoResponse {
     let text = match session {

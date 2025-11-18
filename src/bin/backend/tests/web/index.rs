@@ -7,7 +7,7 @@ use crate::tests::test_ctx::{TestCtx, ctx};
 #[rstest]
 #[tokio::test]
 async fn test_index_anonymous(#[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&web::builds::Index {}).await;
+    let response = ctx.server.typed_get(&web::index::Index {}).await;
 
     response.assert_status_ok();
     response.assert_text_contains("Bonjour!");
