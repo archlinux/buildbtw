@@ -72,13 +72,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Create an axum service and make it listen on the given interface and
-/// port.
+/// Create an axum service and make it listen on the given socket.
 async fn run_server(
     db: DatabaseConnection,
     args::RunArgs {
-        interface,
-        port,
+        listen,
         oidc,
         base_url,
         cookie_encryption_key,

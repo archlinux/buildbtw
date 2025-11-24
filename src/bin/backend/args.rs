@@ -2,7 +2,14 @@ use std::net::IpAddr;
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Context, Result};
+use tokio::net::{TcpListener, UnixListener};
 use url::Url;
+
+#[derive(Debug)]
+enum TcpSocketOrUnixListener {
+    Tcp(TcpListener),
+    Unix(UnixListener),
+}
 
 #[derive(Debug, clap::Parser)]
 #[command(name = "buildbtw backend", author, about, version)]
@@ -44,20 +51,16 @@ pub enum Command {
 
 #[derive(Debug, clap::Args)]
 pub struct RunArgs {
-    /// Interface to bind to
+    /// TCP socket or UNIX socket to bind to
     #[arg(
         short,
         long,
         env,
-        value_parser(parse_interface),
+        value_parser(parse_listen),
         number_of_values = 1,
-        default_value = "0.0.0.0"
+        default_value = "0.0.0.0:8080"
     )]
-    pub interface: IpAddr,
-
-    /// Port on which to listen
-    #[arg(short, long, env, default_value = "8080")]
-    pub port: u16,
+    pub listen: TcpSocketOrUnixListener,
 
     #[clap(flatten)]
     pub oidc: Option<Oidc>,
@@ -110,7 +113,7 @@ pub struct AutheliaContainer {
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP
 /// address
-fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
+fn parse_listen(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
     src.parse::<IpAddr>()
 }
 
