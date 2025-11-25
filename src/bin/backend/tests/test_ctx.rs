@@ -1,5 +1,9 @@
+use axum::response::IntoResponse;
+use axum_extra::extract::PrivateCookieJar;
 use axum_test::TestServer;
 use buildbtw::authelia;
+use color_eyre::Result;
+use color_eyre::eyre::Context;
 use thirtyfour::CapabilitiesHelper;
 use url::Url;
 
@@ -15,13 +19,79 @@ use crate::{
 pub struct TestCtx {
     pub server: TestServer,
     pub base_url: Url,
+    pub state: ServerState,
+
     /// Not accessed, but stored to keep it from dropping too early
-    #[expect(dead_code)]
-    pub authelia_container: Option<authelia::Container>,
+    pub _authelia_container: Option<authelia::Container>,
+
     /// Not accessed, but stored to keep it from dropping too early
-    #[expect(dead_code)]
-    pub geckodriver: Option<ProcessGuard>,
+    pub _geckodriver: Option<ProcessGuard>,
+
     pub thirtyfour_client: Option<thirtyfour::WebDriver>,
+}
+
+impl TestCtx {
+    /// Create a new [`PrivateCookieJars`] using the current encryption key
+    pub fn private_cookie_jar(&self) -> PrivateCookieJar {
+        PrivateCookieJar::new(self.state.cookie_encryption_key.expose_secret().clone())
+    }
+
+    /// Create a new [`PrivateCookieJar`] from a list of encrypted [`thirtyfour::Cookie`]
+    pub fn private_cookie_jar_from_thirtyfour(
+        &self,
+        cookies: &Vec<thirtyfour::Cookie>,
+    ) -> Result<PrivateCookieJar> {
+        // Create a HeaderMap with the encrypted cookie
+        let mut headers = axum::http::HeaderMap::new();
+        for cookie in cookies {
+            headers.insert(
+                axum::http::header::COOKIE,
+                format!("{}={}", cookie.name, cookie.value)
+                    .parse()
+                    .wrap_err("failed to parse cookie header")?,
+            );
+        }
+
+        // Create a PrivateCookieJar from headers to decrypt the cookie
+        Ok(PrivateCookieJar::from_headers(
+            &headers,
+            self.state.cookie_encryption_key.expose_secret().clone(),
+        ))
+    }
+}
+
+/// Extention trait to create a [`cookie::CookieJar`] with encrypted values.
+///
+/// Useful to be used in axum_test requests.
+pub trait CookieJarExt {
+    fn to_encrypted_cookie_jar(&self) -> Result<cookie::CookieJar>;
+}
+
+/// Extention trait to create a [`cookie::CookieJar`] from a [`PrivateCookieJar`]
+/// with encrypted values.
+///
+/// Useful to be used in axum_test requests.
+impl CookieJarExt for PrivateCookieJar {
+    fn to_encrypted_cookie_jar(&self) -> Result<cookie::CookieJar> {
+        // Extract the encrypted cookie value from the response headers.
+        let response = self.clone().into_response();
+        let cookie_headers = response
+            .headers()
+            .get_all("set-cookie")
+            .iter()
+            .filter_map(|hv| hv.to_str().ok())
+            .filter_map(|s| s.split_once("="));
+
+        // Create a plain cookie jar using the encrypted values.
+        // To be clear: The cookie jar itself is not encrypted! Only its values are.
+        let mut cookies = cookie::CookieJar::new();
+        for cookie_header in cookie_headers {
+            let (cookie_name, cookie_value) = cookie_header;
+            cookies.add((cookie_name.to_string(), cookie_value.to_string()));
+        }
+
+        Ok(cookies)
+    }
 }
 
 /// Builder for configuring TestCtx with various optional components
@@ -62,7 +132,7 @@ impl TestCtxBuilder {
 
     pub async fn build(self) -> TestCtx {
         // Using tracing in tests allows us to see error descriptions when tests fail.
-        buildbtw::tracing::init(0, false);
+        let _ = buildbtw::tracing::init(0, false);
 
         let db = db::connect_and_migrate(db::SQLiteLocation::Memory)
             .await
@@ -134,17 +204,18 @@ impl TestCtxBuilder {
                     Some(std::net::Ipv4Addr::new(0, 0, 0, 0).into()),
                     Some(8080),
                 )
-                .build(router::new().with_state(state))
+                .build(router::new().with_state(state.clone()))
                 .unwrap()
         } else {
-            TestServer::new(router::new().with_state(state)).unwrap()
+            TestServer::new(router::new().with_state(state.clone())).unwrap()
         };
 
         TestCtx {
             server,
             base_url,
-            authelia_container: maybe_authelia_container,
-            geckodriver,
+            state,
+            _authelia_container: maybe_authelia_container,
+            _geckodriver: geckodriver,
             thirtyfour_client,
         }
     }

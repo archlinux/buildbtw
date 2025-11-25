@@ -87,12 +87,13 @@ async fn test_e2e_authelia_login() -> Result<()> {
     .await?;
 
     // Wait for username field to appear
+    let username = "testuser";
     let username_field = c
         .query(By::Id("username-textfield"))
         .wait(Duration::from_secs(5), Duration::from_secs(1))
         .first()
         .await?;
-    username_field.send_keys("testuser").await?;
+    username_field.send_keys(username).await?;
     c.find(By::Id("password-textfield"))
         .await?
         .send_keys("testpassword")
@@ -109,12 +110,21 @@ async fn test_e2e_authelia_login() -> Result<()> {
 
     let url = c.current_url().await?.to_string();
     assert!(
-        url.starts_with("http://buildbtw.localhost:8080/oidc/authorized"),
+        url.starts_with(ctx_with_oidc.base_url.as_str()),
         "expected {url} to start with the URL of buildbtw's authorized page"
     );
 
-    // TODO once the backend can store logged in users in a session, verify that we
-    // are logged in here
+    // Check if we are logged in
+    let content = c
+        .query(By::Id("content"))
+        .wait(Duration::from_secs(5), Duration::from_secs(1))
+        .first()
+        .await?;
+    let text = content.text().await?.to_string();
+    assert!(
+        text.contains(format!("Logged in as {username}").as_str()),
+        "expected to show a logged in user",
+    );
 
     c.quit().await?;
 

@@ -1,0 +1,122 @@
+use axum::{
+    extract::{FromRequestParts, OptionalFromRequestParts},
+    http::request::Parts,
+};
+use axum_extra::extract::{
+    PrivateCookieJar,
+    cookie::{Cookie, SameSite},
+};
+use color_eyre::eyre::{Context, ContextCompat};
+use sea_orm::IntoActiveModel;
+use uuid::Uuid;
+
+use crate::{db, entities, queries, response_error::ResponseError, server_state::ServerState};
+
+pub const SESSION_ID_COOKIE_NAME: &str = "buildbtw_session_id";
+
+/// Holds authentication data for a logged-in user.
+///
+/// This struct bundles the active session and the corresponding user model.
+/// It is passed to request handlers that require authentication, allowing
+/// them to access both the session information and the owning user's data.
+pub struct AuthUser {
+    pub session: entities::sessions::Model,
+    pub user: entities::users::Model,
+}
+
+/// Implements optional extraction of [`AuthUser`].
+///
+/// This allows request handlers to declare an `Option<AuthUser>` parameter
+/// instead of requiring authentication. If the user is authenticated, the
+/// extractor provides their session and user data; otherwise it returns
+/// `None` without causing a rejection. This is useful for endpoints that
+/// work for both authenticated and unauthenticated users.
+///
+/// Internally, this calls the standard [`FromRequestParts<ServerState>`]
+/// implementation for [`AuthUser`] and converts its result into an `Option`
+impl OptionalFromRequestParts<ServerState> for AuthUser {
+    type Rejection = ResponseError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServerState,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        Ok(
+            <AuthUser as FromRequestParts<ServerState>>::from_request_parts(parts, state)
+                .await
+                .ok(),
+        )
+    }
+}
+
+/// Extractor for enforcing authentication on protected endpoints.
+///
+/// This implementation ensures that a valid authenticated user exists
+/// before the request handler is executed. If the user is not authenticated,
+/// the request is rejected with an appropriate error response.
+///
+/// When authentication succeeds, the user's session model is loaded and
+/// its last access time is automatically updated in the database, ensuring
+/// accurate session activity tracking.
+impl FromRequestParts<ServerState> for AuthUser {
+    type Rejection = ResponseError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ServerState,
+    ) -> Result<Self, Self::Rejection> {
+        let cookie_jar: PrivateCookieJar = PrivateCookieJar::from_request_parts(parts, state)
+            .await
+            .wrap_err("Failed to extract cookie jar")?;
+        let db::Tx(tx) = db::Tx::from_request_parts(parts, state).await?;
+        let Some(cookie) = cookie_jar.get(SESSION_ID_COOKIE_NAME) else {
+            // Missing session cookie
+            return Err(ResponseError::Unauthorized);
+        };
+        let id: Uuid = cookie
+            .value()
+            .parse()
+            .wrap_err("Could not parse UUID from cookie")?;
+
+        let Some((session, user)) = queries::sessions::by_id(id)
+            .find_also_related(entities::users::Entity)
+            .one(&tx)
+            .await?
+        else {
+            // Session does not exist in the database
+            return Err(ResponseError::Unauthorized);
+        };
+
+        // Can only happen on severe corruption, as the session has a foreign key on the user
+        let user = user.wrap_err("Session does not have a user")?;
+
+        let session = queries::sessions::update_last_accessed_time(session.into_active_model())
+            .exec(&tx)
+            .await?;
+        tx.commit().await?;
+
+        Ok(AuthUser { session, user })
+    }
+}
+
+pub fn save_in_cookie_jar(session_id: Uuid, cookie_jar: PrivateCookieJar) -> PrivateCookieJar {
+    let mut cookie = Cookie::new(SESSION_ID_COOKIE_NAME, session_id.to_string());
+    cookie.set_same_site(SameSite::Strict);
+    cookie.set_path("/");
+    cookie.set_http_only(true);
+    // TODO: serve the backend using TLS and enable the "Secure" flag
+    // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
+    // cookie.set_secure(true);
+    cookie_jar.add(cookie)
+}
+
+pub fn remove_from_cookie_jar(cookie_jar: PrivateCookieJar) -> PrivateCookieJar {
+    let mut cookie = Cookie::from(SESSION_ID_COOKIE_NAME);
+    cookie.set_same_site(SameSite::Strict);
+    cookie.set_path("/");
+    cookie.set_http_only(true);
+    // TODO: serve the backend using TLS and enable the "Secure" flag
+    // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
+    // cookie.set_secure(true);
+    cookie_jar.remove(cookie)
+}

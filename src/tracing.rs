@@ -1,5 +1,6 @@
 //! Configuration for tracing functionality
 
+use color_eyre::Result;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// - Create a subscriber for tokio-console if the tokio_unstable flag is
@@ -10,7 +11,7 @@ use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::Subscribe
 ///     - 0: info
 ///     - 1: debug
 ///     - 2: trace
-pub fn init(verbose: u8, use_tokio_console: bool) {
+pub fn init(verbose: u8, use_tokio_console: bool) -> Result<()> {
     let tracing_registry = tracing_subscriber::registry();
 
     let console_layer = if cfg!(tokio_unstable) && use_tokio_console {
@@ -30,5 +31,10 @@ pub fn init(verbose: u8, use_tokio_console: bool) {
     });
     let env_layer = tracing_subscriber::fmt::layer().with_filter(env_filter);
 
-    tracing_registry.with(console_layer).with(env_layer).init();
+    tracing_registry
+        .with(console_layer)
+        .with(env_layer)
+        .try_init()?;
+
+    Ok(())
 }

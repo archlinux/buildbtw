@@ -1,21 +1,12 @@
+mod account;
+mod index;
+mod oidc;
+
 use buildbtw::web;
 use reqwest::StatusCode;
 use rstest::rstest;
 
 use crate::tests::test_ctx::{TestCtx, ctx};
-
-/// Test the index endpoint returns expected content
-#[rstest]
-#[tokio::test]
-async fn test_index_ok(#[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&web::builds::Index {}).await;
-
-    response.assert_status_ok();
-    response.assert_text("Bonjour!");
-
-    // Test that it's plain text, not JSON
-    response.assert_header("content-type", "text/plain; charset=utf-8");
-}
 
 /// Test that 404 errors work properly for non-existent routes
 #[rstest]
@@ -39,7 +30,7 @@ async fn test_404_handling(#[future(awt)] ctx: TestCtx, #[case] path: &str) {
 #[tokio::test]
 #[should_panic]
 async fn test_assert_status_panics(#[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&web::builds::Index {}).await;
+    let response = ctx.server.typed_get(&web::index::Index {}).await;
 
     response.assert_status(StatusCode::IM_A_TEAPOT);
 }

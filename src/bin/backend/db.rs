@@ -1,4 +1,3 @@
-use axum::{extract::FromRequestParts, http::request::Parts};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::Result;
 use sea_orm::{
@@ -7,7 +6,7 @@ use sea_orm::{
 };
 use sea_orm_migration::MigratorTrait;
 
-use crate::{migrations::Migrator, response_error::ResponseError, server_state::ServerState};
+use crate::migrations::Migrator;
 
 pub enum SQLiteLocation {
     File(Utf8PathBuf),
@@ -79,16 +78,3 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
 /// it straightforward to determine whether any given request will result in a
 /// committed transaction or in a rollback.
 pub struct Tx(pub DatabaseTransaction);
-
-impl FromRequestParts<ServerState> for Tx {
-    type Rejection = ResponseError;
-
-    async fn from_request_parts(
-        _parts: &mut Parts,
-        state: &ServerState,
-    ) -> Result<Self, Self::Rejection> {
-        let conn = state.db.begin().await?;
-
-        Ok(Self(conn))
-    }
-}

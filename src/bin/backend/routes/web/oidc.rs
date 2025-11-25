@@ -1,12 +1,18 @@
+use std::ops::Deref;
+
 use axum::{
     extract::{Query, State},
     response::Redirect,
 };
 use axum_extra::extract::PrivateCookieJar;
 use buildbtw::web;
+use color_eyre::eyre::ContextCompat;
+use openidconnect::LocalizedClaim;
 
 use crate::{
+    db, from_request, input,
     oidc::{self},
+    queries,
     response_error::ResponseResult,
     server_state::ServerState,
 };
@@ -28,9 +34,10 @@ pub async fn authorized(
     Query(oidc_query): Query<web::oidc::LoginRedirectQuery>,
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
-) -> ResponseResult<()> {
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_config = server_state.oidc.get_config()?;
-    let login_attempt = oidc::LoginAttempt::from_cookie_jar(cookie_jar)?;
+    let login_attempt = oidc::LoginAttempt::from_cookie_jar(&cookie_jar)?;
     let user_info = oidc::convert_authorization_code_to_user_info(
         oidc_config,
         login_attempt,
@@ -40,5 +47,39 @@ pub async fn authorized(
     .await?;
     tracing::debug!(?user_info, "User authorized via OIDC");
 
-    Ok(())
+    let username = claim_to_string(user_info.nickname())
+        .or(user_info.preferred_username().map(|n| n.to_string()))
+        .or(claim_to_string(user_info.name()))
+        .wrap_err("Neither nickname nor name provided")?;
+
+    let create = input::users::ValidatedCreate::try_new(input::users::Create {
+        oidc_id: user_info.subject().to_string(),
+        username,
+    })?;
+
+    // Performs an upsert operation to ensure user consistency.
+    //
+    // This creates a new user record on first login or updates the existing
+    // user with the latest data owned by the SSO provider, keeping user
+    // information in sync across logins.
+    let user = queries::users::upsert(create).exec(&tx).await?;
+
+    let session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(&tx)
+        .await?;
+
+    tx.commit().await?;
+
+    let cookie_jar =
+        from_request::sessions::save_in_cookie_jar(session.last_insert_id.into(), cookie_jar);
+
+    Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))
+}
+
+/// Convert an optional [LocalizedClaim] into an optional string by taking the
+/// value for the first language available.
+fn claim_to_string<T: Deref<Target = String>>(claim: Option<&LocalizedClaim<T>>) -> Option<String> {
+    claim
+        .and_then(|claim| claim.iter().next())
+        .map(|(_, nickname)| nickname.to_string())
 }

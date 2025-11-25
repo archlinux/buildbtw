@@ -71,6 +71,10 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just build-release-container-image` to put the release binary into a container image
 - `just bench` to run performance benchmarks
 - `just clean` to remove build artifacts, caches, and temporary files
+- `just run-client` to run the client
+- `just run-worker` to run the worker
+- `just run-server` to run the server
+- `just run-server --run-authelia-container` to run the server together with a container running Authelia for manually testing OIDC workflows
 
 ## Running end-to-end tests
 

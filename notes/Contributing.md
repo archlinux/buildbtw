@@ -30,3 +30,7 @@ Test locations:
 - Unit tests go into the same file as the code they are testing
 - Integration tests go in the `tests/` dir inside a binary crate (e.g. `src/bin/backend/tests/`)
 - End-to-end tests using a headless browser go in the root-level `tests/` dir
+
+## Writing routes
+
+- Use `#[debug_handler]` only temporarily. Since this macro does not know which `State` generic parameter is set by our router, it can report false errors.

@@ -23,7 +23,7 @@ use openidconnect::core::{
 };
 use openidconnect::{
     AccessTokenHash, AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce,
-    OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, TokenResponse,
+    OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
 };
 use openidconnect::{PkceCodeVerifier, reqwest};
 use serde::{Deserialize, Serialize};
@@ -155,6 +155,8 @@ pub async fn start_login(Config { oidc_client, .. }: Config) -> Result<(Url, Log
             CsrfToken::new_random,
             Nonce::new_random,
         )
+        // See <https://openid.net/specs/openid-connect-core-1_0.html#UserInfo>, "5.4 Requesting Claims using Scope values"
+        .add_scope(Scope::new("profile".to_string()))
         // Set the PKCE code challenge.
         .set_pkce_challenge(pkce_challenge)
         .url();
@@ -179,10 +181,10 @@ pub struct LoginAttempt {
     pub pkce_verifier: PkceCodeVerifier,
 }
 
-pub const LOGIN_ATTEMPT_COOKIE_NAME: &str = "oidc_login_attempt";
+pub const LOGIN_ATTEMPT_COOKIE_NAME: &str = "buildbtw_oidc_login_attempt";
 
 impl LoginAttempt {
-    pub fn from_cookie_jar(jar: PrivateCookieJar) -> Result<Self> {
+    pub fn from_cookie_jar(jar: &PrivateCookieJar) -> Result<Self> {
         let cookie = jar
             .get(LOGIN_ATTEMPT_COOKIE_NAME)
             .wrap_err("Cookie not found")?;
@@ -193,6 +195,7 @@ impl LoginAttempt {
         let mut cookie = Cookie::new(LOGIN_ATTEMPT_COOKIE_NAME, serde_json::to_string(&self)?);
         cookie.set_same_site(SameSite::Strict);
         // TODO: serve the backend using TLS and enable the "Secure" flag
+        // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
         // cookie.set_secure(true);
         cookie.set_http_only(true);
         let jar = jar.add(cookie);

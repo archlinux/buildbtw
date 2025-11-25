@@ -11,6 +11,7 @@ use clap::Parser;
 use color_eyre::{Result, eyre::Context};
 use sea_orm::DatabaseConnection;
 use tokio::{net::TcpListener, signal};
+use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use crate::{args::Args, server_state::ServerState};
@@ -19,6 +20,8 @@ mod args;
 mod db;
 mod db_fields;
 mod entities;
+mod from_request;
+mod input;
 mod migrations;
 mod oidc;
 mod queries;
@@ -26,6 +29,7 @@ mod response_error;
 mod router;
 mod routes;
 mod server_state;
+mod tasks;
 #[cfg(test)]
 mod tests;
 
@@ -33,7 +37,7 @@ mod tests;
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry);
+    buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
     match args.command {
         args::Command::Run(run_args) => {
@@ -81,23 +85,33 @@ async fn run_server(
         ..
     }: args::RunArgs,
 ) -> Result<()> {
+    // Shared cancellation token to signal graceful shutdown across the application
+    let cancellation_token = CancellationToken::new();
     let server_state = ServerState {
         db,
         oidc: oidc::MaybeConfig::initialize(&base_url, oidc).await,
         cookie_encryption_key,
     };
+
+    tasks::initialize(server_state.clone(), cancellation_token.clone()).await?;
+
     let router = router::new().with_state(server_state);
     let listener = TcpListener::bind(format!("{interface}:{port}")).await?;
     info!("Server available at: {}", base_url);
 
     axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
         .await?;
 
     Ok(())
 }
 
-async fn shutdown_signal() {
+/// Handles shutdown signals for a graceful termination of the application.
+///
+/// When a signal is detected the provided [`CancellationToken`] is cancelled.
+/// This allows other parts of the application, like background workers or
+/// long-running tasks, to react on the cancellation and stop gracefully.
+async fn shutdown_signal(token: CancellationToken) {
     let ctrl_c = async {
         signal::ctrl_c()
             .await
@@ -122,4 +136,7 @@ async fn shutdown_signal() {
             tracing::info!("Received SIGTERM, shutting down...")
         },
     }
+
+    // Signal gracefully shutdown to the application stack, like background tasks
+    token.cancel();
 }
