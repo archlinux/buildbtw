@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use axum_extra::routing::TypedPath;
 use buildbtw::web;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
@@ -138,22 +139,14 @@ async fn test_e2e_account_logout() -> Result<()> {
     Ok(())
 }
 
-/// Test logout endpoint needs authorization
+/// Verify that some endpoints need authorization
 #[rstest]
+#[case(web::account::Logout {})]
+#[case(web::account::SessionList {})]
+#[case(web::account::SessionRevoke { session_id: Uuid::new_v4().to_string() })]
 #[tokio::test]
-async fn test_logout_unauthorized(#[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&web::account::Logout {}).await;
-
-    response.assert_status_unauthorized();
-    response.assert_header("content-type", "text/plain; charset=utf-8");
-    response.assert_text_contains("Unauthorized");
-}
-
-/// Test session list endpoint needs authorization
-#[rstest]
-#[tokio::test]
-async fn test_session_list_unauthorized(#[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&web::account::SessionList {}).await;
+async fn test_unauthorized_routes(#[case] path: impl TypedPath, #[future(awt)] ctx: TestCtx) {
+    let response = ctx.server.typed_get(&path).await;
 
     response.assert_status_unauthorized();
     response.assert_header("content-type", "text/plain; charset=utf-8");
@@ -206,23 +199,6 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     response.assert_text_contains(another_session.last_insert_id.0.to_string());
 
     Ok(())
-}
-
-/// Test session revoke endpoint needs authorization
-#[rstest]
-#[tokio::test]
-async fn test_session_revoke_unauthorized(#[future(awt)] ctx: TestCtx) {
-    let session = Uuid::new_v4();
-    let response = ctx
-        .server
-        .typed_get(&web::account::SessionRevoke {
-            session_id: session.to_string(),
-        })
-        .await;
-
-    response.assert_status_unauthorized();
-    response.assert_header("content-type", "text/plain; charset=utf-8");
-    response.assert_text_contains("Unauthorized");
 }
 
 /// Test session revoke endpoint kills the session
