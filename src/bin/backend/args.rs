@@ -1,8 +1,24 @@
-use std::net::IpAddr;
+use std::{net::SocketAddr as TcpSocketAddr, os::unix::net::SocketAddr as UnixSocketAddr};
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Context, Result};
 use url::Url;
+
+#[derive(Debug, Clone)]
+pub enum TcpSocketOrUnixSocket {
+    Tcp(TcpSocketAddr),
+    Unix(UnixSocketAddr),
+}
+
+impl PartialEq for TcpSocketOrUnixSocket {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Tcp(left), Self::Tcp(right)) => left == right,
+            (Self::Unix(left), Self::Unix(right)) => left.as_pathname() == right.as_pathname(),
+            _ => false,
+        }
+    }
+}
 
 #[derive(Debug, clap::Parser)]
 #[command(name = "buildbtw backend", author, about, version)]
@@ -44,20 +60,20 @@ pub enum Command {
 
 #[derive(Debug, clap::Args)]
 pub struct RunArgs {
-    /// Interface to bind to
+    /// TCP socket or Unix socket to bind to
+    ///
+    /// For TCP sockets, use the format: `<interface>:<port>`, e.g. 0.0.0.0:8080
+    ///
+    /// For Unix sockets, use the format: `unix://<path>`, e.g. unix:///run/buildbtw.sock
     #[arg(
         short,
         long,
         env,
-        value_parser(parse_interface),
+        value_parser(parse_listen),
         number_of_values = 1,
-        default_value = "0.0.0.0"
+        default_value = "0.0.0.0:8080"
     )]
-    pub interface: IpAddr,
-
-    /// Port on which to listen
-    #[arg(short, long, env, default_value = "8080")]
-    pub port: u16,
+    pub listen: TcpSocketOrUnixSocket,
 
     #[clap(flatten)]
     pub oidc: Option<Oidc>,
@@ -110,8 +126,15 @@ pub struct AutheliaContainer {
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP
 /// address
-fn parse_interface(src: &str) -> Result<IpAddr, std::net::AddrParseError> {
-    src.parse::<IpAddr>()
+fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
+    // Try to parse unix socket first.
+    if let Some(unix_socket) = src.strip_prefix("unix://") {
+        let unix_socket_addr = UnixSocketAddr::from_pathname(unix_socket)?;
+        Ok(TcpSocketOrUnixSocket::Unix(unix_socket_addr))
+    } else {
+        let socket = src.parse::<TcpSocketAddr>()?;
+        Ok(TcpSocketOrUnixSocket::Tcp(socket))
+    }
 }
 
 /// Create a [axum_extra::extract::cookie::Key] from a string
@@ -127,15 +150,32 @@ fn parse_cookie_encryption_key(
 #[expect(clippy::unwrap_used)]
 #[expect(clippy::expect_used)]
 mod tests {
-    use std::net::IpAddr;
 
     use clap::Parser;
+    use rstest::rstest;
     use url::Url;
 
     use super::*;
 
+    #[rstest]
+    #[case("0.0.0.0:3333", TcpSocketOrUnixSocket::Tcp("0.0.0.0:3333".parse()?))]
+    #[case(
+        "unix:///tmp/lol.sock",
+        TcpSocketOrUnixSocket::Unix(UnixSocketAddr::from_pathname("/tmp/lol.sock")?)
+    )]
+    fn test_parse_listen(
+        #[case] input: &str,
+        #[case] expected: TcpSocketOrUnixSocket,
+    ) -> Result<()> {
+        let parsed = parse_listen(input)?;
+
+        assert_eq!(parsed, expected);
+
+        Ok(())
+    }
+
     #[test]
-    fn test_run_command_with_all_optional_flags() {
+    fn test_run_command_with_all_optional_flags() -> Result<()> {
         let args = vec![
             "buildbtw-backend",
             "-vvv", // verbose: 3 (trace level)
@@ -143,10 +183,8 @@ mod tests {
             "--database-file",
             "/tmp/test.db",
             "run",
-            "--interface",
-            "127.0.0.1",
-            "--port",
-            "3000",
+            "--listen",
+            "127.0.0.1:3000",
             "--base-url",
             "https://example.com",
             "--cookie-encryption-key",
@@ -164,7 +202,7 @@ mod tests {
             "9091",
         ];
 
-        let parsed_args = Args::try_parse_from(args).expect("Failed to parse args");
+        let parsed_args = Args::try_parse_from(args)?;
 
         // Verify top-level args
         assert_eq!(parsed_args.verbose, 3);
@@ -173,8 +211,7 @@ mod tests {
 
         // Verify Run command and its args
         let Command::Run(RunArgs {
-            interface,
-            port,
+            listen,
             oidc,
             base_url,
             cookie_encryption_key: _,
@@ -184,8 +221,10 @@ mod tests {
             panic!("Expected Run command");
         };
 
-        assert_eq!(interface, "127.0.0.1".parse::<IpAddr>().unwrap());
-        assert_eq!(port, 3000);
+        assert_eq!(
+            listen,
+            TcpSocketOrUnixSocket::Tcp("127.0.0.1:3000".parse().unwrap())
+        );
         assert_eq!(base_url, Url::parse("https://example.com").unwrap());
 
         // Verify OIDC config is present and has correct values
@@ -197,10 +236,12 @@ mod tests {
 
         assert!(authelia_container.run_authelia_container);
         assert_eq!(authelia_container.authelia_container_port, 9091);
+
+        Ok(())
     }
 
     #[test]
-    fn test_migrate_database_command() {
+    fn test_migrate_database_command() -> Result<()> {
         let args = vec![
             "buildbtw-backend",
             "--database-file",
@@ -208,7 +249,7 @@ mod tests {
             "migrate-database",
         ];
 
-        let parsed_args = Args::try_parse_from(args).expect("Failed to parse args");
+        let parsed_args = Args::try_parse_from(args)?;
 
         // Verify defaults for optional flags
         assert_eq!(parsed_args.verbose, 0);
@@ -217,5 +258,7 @@ mod tests {
 
         // Verify MigrateDatabase command
         assert!(matches!(parsed_args.command, Command::MigrateDatabase {}));
+
+        Ok(())
     }
 }

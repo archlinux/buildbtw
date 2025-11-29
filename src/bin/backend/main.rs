@@ -8,9 +8,15 @@
 //! builds in VMs.
 
 use clap::Parser;
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, ContextCompat},
+};
 use sea_orm::DatabaseConnection;
-use tokio::{net::TcpListener, signal};
+use tokio::{
+    net::{TcpListener, UnixListener},
+    signal,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -72,13 +78,11 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Create an axum service and make it listen on the given interface and
-/// port.
+/// Create an axum service and make it listen on the given socket.
 async fn run_server(
     db: DatabaseConnection,
     args::RunArgs {
-        interface,
-        port,
+        listen,
         oidc,
         base_url,
         cookie_encryption_key,
@@ -96,12 +100,22 @@ async fn run_server(
     tasks::initialize(server_state.clone(), cancellation_token.clone()).await?;
 
     let router = router::new().with_state(server_state);
-    let listener = TcpListener::bind(format!("{interface}:{port}")).await?;
     info!("Server available at: {}", base_url);
-
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-        .await?;
+    match listen {
+        args::TcpSocketOrUnixSocket::Tcp(socket_addr) => {
+            let listener = TcpListener::bind(socket_addr).await?;
+            axum::serve(listener, router)
+                .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
+                .await?;
+        }
+        args::TcpSocketOrUnixSocket::Unix(socket_addr) => {
+            let listener =
+                UnixListener::bind(socket_addr.as_pathname().wrap_err("Unix socket empty")?)?;
+            axum::serve(listener, router)
+                .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
+                .await?;
+        }
+    };
 
     Ok(())
 }
