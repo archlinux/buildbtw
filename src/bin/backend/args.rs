@@ -64,7 +64,7 @@ pub struct RunArgs {
     ///
     /// For TCP sockets, use the format: `<interface>:<port>`, e.g. 0.0.0.0:8080
     ///
-    /// For Unix sockets, use the format: `unix://<path>`, e.g. unix:///run/buildbtw.sock
+    /// For Unix sockets, use the format: `unix:<path>`, e.g. unix:/run/buildbtw.sock
     #[arg(
         short,
         long,
@@ -128,7 +128,7 @@ pub struct AutheliaContainer {
 /// address
 fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
     // Try to parse unix socket first.
-    if let Some(unix_socket) = src.strip_prefix("unix://") {
+    if let Some(unix_socket) = src.strip_prefix("unix:") {
         let unix_socket_addr = UnixSocketAddr::from_pathname(unix_socket)?;
         Ok(TcpSocketOrUnixSocket::Unix(unix_socket_addr))
     } else {
@@ -160,7 +160,7 @@ mod tests {
     #[rstest]
     #[case("0.0.0.0:3333", TcpSocketOrUnixSocket::Tcp("0.0.0.0:3333".parse()?))]
     #[case(
-        "unix:///tmp/lol.sock",
+        "unix:/tmp/lol.sock",
         TcpSocketOrUnixSocket::Unix(UnixSocketAddr::from_pathname("/tmp/lol.sock")?)
     )]
     fn test_parse_listen(
