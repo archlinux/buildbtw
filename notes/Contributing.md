@@ -34,3 +34,6 @@ Test locations:
 ## Writing routes
 
 - Use `#[debug_handler]` only temporarily. Since this macro does not know which `State` generic parameter is set by our router, it can report false errors.
+- Always create API routes below the "/v1" scope to allow versioning the API in the future. Adding them to `routes::api::router` will do this automatically.
+- Use the plural form for resource names in paths.
+- All resources live at the "top level", e.g. even though builds are "owned" by iterations and namespaces, their resource path is `/v1/builds/{UUID}`.
