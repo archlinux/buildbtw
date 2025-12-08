@@ -13,7 +13,7 @@ run-server *args:
 [doc("Run backend and auto-restart on code changes")]
 [group("run")]
 watch-server *args:
-    cargo watch -- just run-server {{ args }}
+    systemfd --no-pid -s http::8080 -- cargo watch -- just run-server {{ args }}
 
 [doc("Run client")]
 [group("run")]
