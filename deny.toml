@@ -21,9 +21,9 @@ allow = [
     "Apache-2.0",
     "BSD-3-Clause",
     "CDLA-Permissive-2.0",
-    "GPL-3.0",
+    "GPL-3.0-or-later",
     "ISC",
-    "LGPL-2.0",
+    "LGPL-2.0-or-later",
     "MIT",
     "MPL-2.0",
     "Unicode-3.0",
@@ -44,6 +44,3 @@ highlight = "all"
 [sources]
 unknown-registry = "warn"
 unknown-git = "warn"
-allow-git = [
-    "git+https://gitlab.archlinux.org/archlinux/alpm/alpm.git?branch=main",
-]

@@ -112,25 +112,25 @@ pub enum ConcreteArchitecture {
     X86_64V4,
 }
 
-impl AsRef<alpm_types::Architecture> for ConcreteArchitecture {
-    fn as_ref(&self) -> &alpm_types::Architecture {
-        use alpm_types::Architecture;
+impl AsRef<alpm_types::SystemArchitecture> for ConcreteArchitecture {
+    fn as_ref(&self) -> &alpm_types::SystemArchitecture {
+        use alpm_types::SystemArchitecture;
 
         match self {
-            ConcreteArchitecture::Aarch64 => &Architecture::Aarch64,
-            ConcreteArchitecture::Arm => &Architecture::Arm,
-            ConcreteArchitecture::Armv6h => &Architecture::Armv6h,
-            ConcreteArchitecture::Armv7h => &Architecture::Armv7h,
-            ConcreteArchitecture::I386 => &Architecture::I386,
-            ConcreteArchitecture::I486 => &Architecture::I486,
-            ConcreteArchitecture::I686 => &Architecture::I686,
-            ConcreteArchitecture::Pentium4 => &Architecture::Pentium4,
-            ConcreteArchitecture::Riscv32 => &Architecture::Riscv32,
-            ConcreteArchitecture::Riscv64 => &Architecture::Riscv64,
-            ConcreteArchitecture::X86_64 => &Architecture::X86_64,
-            ConcreteArchitecture::X86_64V2 => &Architecture::X86_64V2,
-            ConcreteArchitecture::X86_64V3 => &Architecture::X86_64V3,
-            ConcreteArchitecture::X86_64V4 => &Architecture::X86_64V4,
+            ConcreteArchitecture::Aarch64 => &SystemArchitecture::Aarch64,
+            ConcreteArchitecture::Arm => &SystemArchitecture::Arm,
+            ConcreteArchitecture::Armv6h => &SystemArchitecture::Armv6h,
+            ConcreteArchitecture::Armv7h => &SystemArchitecture::Armv7h,
+            ConcreteArchitecture::I386 => &SystemArchitecture::I386,
+            ConcreteArchitecture::I486 => &SystemArchitecture::I486,
+            ConcreteArchitecture::I686 => &SystemArchitecture::I686,
+            ConcreteArchitecture::Pentium4 => &SystemArchitecture::Pentium4,
+            ConcreteArchitecture::Riscv32 => &SystemArchitecture::Riscv32,
+            ConcreteArchitecture::Riscv64 => &SystemArchitecture::Riscv64,
+            ConcreteArchitecture::X86_64 => &SystemArchitecture::X86_64,
+            ConcreteArchitecture::X86_64V2 => &SystemArchitecture::X86_64V2,
+            ConcreteArchitecture::X86_64V3 => &SystemArchitecture::X86_64V3,
+            ConcreteArchitecture::X86_64V4 => &SystemArchitecture::X86_64V4,
         }
     }
 }
