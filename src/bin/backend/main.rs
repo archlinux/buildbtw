@@ -15,6 +15,7 @@ use color_eyre::{
 use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
 use tokio::{
+    fs::remove_file,
     net::{TcpListener, UnixListener},
     signal,
 };
@@ -125,13 +126,25 @@ async fn run_server(
                     .await?;
             }
             args::TcpSocketOrUnixSocket::Unix(socket_addr) => {
-                let socket_addr_path = socket_addr.as_pathname().wrap_err("Unix socket empty")?;
+                let socket_addr_path = socket_addr
+                    .as_pathname()
+                    .wrap_err("Unix socket path empty")?;
+                // If this path name already exists, we'll have to delete it first as otherwise
+                // we'd get a "Address already in use" error.
+                remove_file(socket_addr_path).await.wrap_err(format!(
+                    "Failed to delete previous socket file at {socket_addr_path:?}"
+                ))?;
                 let listener = UnixListener::bind(socket_addr_path).wrap_err(format!(
                     "Couldn't create unix socket file at {socket_addr_path:?}"
                 ))?;
                 axum::serve(listener, router)
                     .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
                     .await?;
+
+                // After the server has run, try to clean up the socket file.
+                remove_file(socket_addr_path).await.wrap_err(format!(
+                    "Failed to clean up socket file at {socket_addr_path:?}"
+                ))?;
             }
         };
     }
