@@ -3,4 +3,5 @@
 pub mod api;
 pub mod authelia;
 pub mod tracing;
+pub mod utils;
 pub mod web;
