@@ -81,11 +81,17 @@ pub struct RunArgs {
     #[clap(flatten)]
     pub oidc: Option<Oidc>,
 
-    /// URL the backend server is reachable at, including protocol. Port can be omitted if it's the standard port. E.g. <https://buildbtw.archlinux.org>
+    /// URL the backend server is reachable at, including protocol.
+    ///
+    /// Port can be omitted if it's the standard port.
+    /// E.g. <https://buildbtw.archlinux.org>
     #[arg(long, env)]
     pub base_url: Url,
 
-    /// 64 characters
+    /// Secret to encrypt cookies with
+    ///
+    /// Needs to be exactly 64 characters.
+    ///
     /// You can generate this with e.g. `pwgen 64`.
     #[arg(long, env, value_parser(parse_cookie_encryption_key))]
     pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
@@ -103,12 +109,15 @@ pub struct Oidc {
     /// Configure your redirect URL to be `{buildbtw_base_url}/oidc/authorized`.
     #[clap(long, env, required = false)]
     pub oidc_client_id: String,
+
     /// OIDC client secret as configured in your OIDC provider.
     #[clap(hide_env_values = true, long, env, required = false)]
     pub oidc_client_secret: String,
+
     /// Base URL of the OIDC provider.
     #[clap(long, env, required = false)]
     pub oidc_issuer_url: String,
+
     /// This will be displayed on the login page.
     #[clap(long, env, required = false)]
     pub oidc_issuer_name: String,
