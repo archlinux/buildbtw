@@ -118,7 +118,7 @@ migrate-database:
 
 [group("dev")]
 reset-database: && migrate-database
-    rm -f $DATABASE_FILE
+    rm -f $BUILDBTW_DATABASE_FILE
 
 [group("dev")]
 [doc("Install the development certificates in the system's trust store, e.g. for browsers. Requires root.")]
