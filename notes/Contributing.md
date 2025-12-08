@@ -37,3 +37,6 @@ Test locations:
 - Always create API routes below the "/v1" scope to allow versioning the API in the future. Adding them to `routes::api::router` will do this automatically.
 - Use the plural form for resource names in paths.
 - All resources live at the "top level", e.g. even though builds are "owned" by iterations and namespaces, their resource path is `/v1/builds/{UUID}`.
+  
+  As such, we decided against a nested format such like `/v1/iterations/{iteration_uuid}/builds/{build_uuid}`.
+  This can lead to pretty deeply nested paths otherwise.
