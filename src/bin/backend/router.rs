@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use axum::Router;
+use reqwest::StatusCode;
 use tower_http::timeout::TimeoutLayer;
 
 use crate::server_state::ServerState;
@@ -15,6 +16,9 @@ pub fn new() -> Router<ServerState> {
         .layer((
             // Graceful shutdown will wait for outstanding requests to complete. Add a timeout so
             // requests don't hang forever.
-            TimeoutLayer::new(Duration::from_secs(10)),
+            TimeoutLayer::with_status_code(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Duration::from_secs(10),
+            ),
         ))
 }

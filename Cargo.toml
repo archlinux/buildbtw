@@ -43,8 +43,8 @@ print_stdout = "warn"
 print_stderr = "warn"
 
 [dependencies]
-alpm-srcinfo = "0.4.0"
-alpm-types = "0.8.0"
+alpm-srcinfo = "0.6.0"
+alpm-types = "0.10.0"
 clap = { version = "4.5.42", features = [
     "cargo",
     "derive",
@@ -52,9 +52,9 @@ clap = { version = "4.5.42", features = [
     "wrap_help",
 ] }
 color-eyre = "0.6"
-console-subscriber = "0.4.1"
+console-subscriber = "0.5.0"
 directories = "6.0.0"
-gitlab = "0.1804.0"
+gitlab = "0.1806.0"
 redact = "0.1.11"
 reqwest = { version = "0.12.22", features = [
     "json",
@@ -105,7 +105,8 @@ axum = { version = "0.8.4", features = [
 tower-http = { version = "0.6.6", features = [
     "timeout",
 ], default-features = false }
-axum-extra = { version = "0.10.1", features = [
+axum-extra = { version = "0.12.2", features = [
+    "routing",
     "typed-routing",
     "cookie-private",
 ] }
