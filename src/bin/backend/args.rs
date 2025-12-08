@@ -65,6 +65,9 @@ pub struct RunArgs {
     /// For TCP sockets, use the format: `<interface>:<port>`, e.g. 0.0.0.0:8080
     ///
     /// For Unix sockets, use the format: `unix:<path>`, e.g. unix:/run/buildbtw.sock
+    ///
+    /// If a file descriptor is passed externally (e.g. via `systemd-socket-activate` or
+    /// `systemfd` or `watchexec`) then that is used instead and this argument is ignored.
     #[arg(
         short,
         long,

@@ -117,6 +117,7 @@ openidconnect = { version = "4.0.1", features = [
     "timing-resistant-secret-traits",
 ] }
 garde = { version = "0.22.0", features = ["derive"] }
+listenfd = "1.0.2"
 
 [dev-dependencies]
 axum-test = { version = "18.1.0", features = ["typed-routing"] }

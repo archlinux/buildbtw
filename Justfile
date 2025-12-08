@@ -13,7 +13,7 @@ run-server *args:
 [doc("Run backend and auto-restart on code changes")]
 [group("run")]
 watch-server *args:
-    cargo watch -- just run-server {{ args }}
+    watchexec -r --socket tcp::${BUILDBTW_LISTEN} -- just run-server {{ args }}
 
 [doc("Run client")]
 [group("run")]
@@ -23,19 +23,17 @@ run-client *args:
 [doc("Run client and auto-restart on code changes")]
 [group("run")]
 watch-client *args:
-    cargo watch -- just run-client {{ args }}
+    watchexec -r -- just run-client {{ args }}
 
 [doc("Run worker")]
 [group("run")]
 run-worker *args:
     cargo run --bin worker -- run {{ args }}
 
-# TODO `cargo watch` interferes with stdin handling,
-# so the worker can't ask for a password to use sudo :/
 [doc("Run worker and auto-restart on code changes")]
 [group("run")]
 watch-worker *args:
-    cargo watch -- just run-worker {{ args }}
+    watchexec -r -- just run-worker {{ args }}
 
 [doc("Run performance benchmarks")]
 [group("run")]
@@ -102,7 +100,7 @@ test *args: (ensure-command "geckodriver")
 [doc("Run tests and auto-rerun on code changes")]
 [group("test")]
 watch-test *args: (ensure-command "geckodriver")
-    cargo watch -- just test {{ args }}
+    watchexec -r -- just test {{ args }}
 
 [doc("Clean up build artifacts, caches, and temporary files")]
 [group("dev")]

@@ -43,6 +43,7 @@ rustup install stable
 rustup default stable
 ```
 - Install `just` (`pacman -S just` or `cargo install just`)
+- Install `watchexec` (`pacman -S watchexec` or `cargo install watchexec`)
 - Install `sea-orm-cli` (`pacman -S sea-orm-cli`)
 - For license checking: Install `reuse` (`pacman -S reuse`)
 - For security auditing: Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)

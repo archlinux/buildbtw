@@ -12,6 +12,7 @@ use color_eyre::{
     Result,
     eyre::{Context, ContextCompat},
 };
+use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
 use tokio::{
     net::{TcpListener, UnixListener},
@@ -100,24 +101,42 @@ async fn run_server(
     tasks::initialize(server_state.clone(), cancellation_token.clone()).await?;
 
     let router = router::new().with_state(server_state);
+
     info!("Server available at: {}", base_url);
-    match listen {
-        args::TcpSocketOrUnixSocket::Tcp(socket_addr) => {
-            let listener = TcpListener::bind(socket_addr).await?;
-            axum::serve(listener, router)
-                .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-                .await?;
-        }
-        args::TcpSocketOrUnixSocket::Unix(socket_addr) => {
-            let socket_addr_path = socket_addr.as_pathname().wrap_err("Unix socket empty")?;
-            let listener = UnixListener::bind(socket_addr_path).wrap_err(format!(
-                "Couldn't create unix socket file at {socket_addr_path:?}"
-            ))?;
-            axum::serve(listener, router)
-                .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-                .await?;
-        }
-    };
+
+    // If we find an externally passed file descriptor socket, we'll use that as a listener instead
+    // of any other user arguments. This is mostly useful in development or for systemd socket
+    // activation.
+    //
+    // If none is found, we'll listen the "normal" way.
+    let mut listenfd = ListenFd::from_env();
+    if let Some(listener) = listenfd.take_tcp_listener(0)? {
+        info!(
+            "Found externally passed file descriptor to use as listener, ignoring other listener arguments"
+        );
+        listener.set_nonblocking(true)?;
+        axum::serve(TcpListener::from_std(listener)?, router)
+            .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
+            .await?;
+    } else {
+        match listen {
+            args::TcpSocketOrUnixSocket::Tcp(socket_addr) => {
+                let listener = TcpListener::bind(socket_addr).await?;
+                axum::serve(listener, router)
+                    .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
+                    .await?;
+            }
+            args::TcpSocketOrUnixSocket::Unix(socket_addr) => {
+                let socket_addr_path = socket_addr.as_pathname().wrap_err("Unix socket empty")?;
+                let listener = UnixListener::bind(socket_addr_path).wrap_err(format!(
+                    "Couldn't create unix socket file at {socket_addr_path:?}"
+                ))?;
+                axum::serve(listener, router)
+                    .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
+                    .await?;
+            }
+        };
+    }
 
     Ok(())
 }
