@@ -110,7 +110,11 @@ async fn run_server(
         }
         args::TcpSocketOrUnixSocket::Unix(socket_addr) => {
             let listener =
-                UnixListener::bind(socket_addr.as_pathname().wrap_err("Unix socket empty")?)?;
+                UnixListener::bind(socket_addr.as_pathname().wrap_err("Unix socket empty")?)
+                    .wrap_err(format!(
+                        "Couldn't create unix socket file at {:?}",
+                        socket_addr.as_pathname().unwrap()
+                    ))?;
             axum::serve(listener, router)
                 .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
                 .await?;
