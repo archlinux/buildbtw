@@ -30,12 +30,16 @@ pub struct Args {
     pub verbose: u8,
 
     /// Collect telemetry and allow connecting with `tokio-console`
-    #[arg(long, env, default_value = "false")]
+    #[arg(
+        long,
+        env = "BUILDBTW_TOKIO_CONSOLE_TELEMETRY",
+        default_value = "false"
+    )]
     pub tokio_console_telemetry: bool,
 
     /// Path to the SQLite database file, relative to the working directory of
     /// the backend process.
-    #[arg(long, env)]
+    #[arg(long, env = "BUILDBTW_DATABASE_FILE")]
     pub database_file: Utf8PathBuf,
 
     #[command(subcommand)]
@@ -71,7 +75,7 @@ pub struct RunArgs {
     #[arg(
         short,
         long,
-        env,
+        env = "BUILDBTW_LISTEN",
         value_parser(parse_listen),
         number_of_values = 1,
         default_value = "0.0.0.0:8080"
@@ -85,7 +89,7 @@ pub struct RunArgs {
     ///
     /// Port can be omitted if it's the standard port.
     /// E.g. <https://buildbtw.archlinux.org>
-    #[arg(long, env)]
+    #[arg(long, env = "BUILDBTW_BASE_URL")]
     pub base_url: Url,
 
     /// Secret to encrypt cookies with
@@ -93,7 +97,11 @@ pub struct RunArgs {
     /// Needs to be exactly 64 characters.
     ///
     /// You can generate this with e.g. `pwgen 64`.
-    #[arg(long, env, value_parser(parse_cookie_encryption_key))]
+    #[arg(
+        long,
+        env = "BUILDBTW_COOKIE_ENCRYPTION_KEY",
+        value_parser(parse_cookie_encryption_key)
+    )]
     pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
 
     #[cfg(debug_assertions)]
@@ -107,19 +115,24 @@ pub struct Oidc {
     /// To use OIDC, all options beginning with `oidc` must be set.
     /// We support RS*, PS*, or HS* signature algorithms.
     /// Configure your redirect URL to be `{buildbtw_base_url}/oidc/authorized`.
-    #[clap(long, env, required = false)]
+    #[clap(long, env = "BUILDBTW_OIDC_CLIENT_ID", required = false)]
     pub oidc_client_id: String,
 
     /// OIDC client secret as configured in your OIDC provider.
-    #[clap(hide_env_values = true, long, env, required = false)]
+    #[clap(
+        hide_env_values = true,
+        long,
+        env = "BUILDBTW_OIDC_CLIENT_SECRET",
+        required = false
+    )]
     pub oidc_client_secret: String,
 
     /// Base URL of the OIDC provider.
-    #[clap(long, env, required = false)]
+    #[clap(long, env = "BUILDBTW_OIDC_ISSUER_URL", required = false)]
     pub oidc_issuer_url: String,
 
     /// This will be displayed on the login page.
-    #[clap(long, env, required = false)]
+    #[clap(long, env = "BUILDBTW_OIDC_ISSUER_NAME", required = false)]
     pub oidc_issuer_name: String,
 }
 
@@ -128,11 +141,11 @@ pub struct Oidc {
 pub struct AutheliaContainer {
     /// Run a podman container with authelia as an OIDC provider alongside
     /// the buildbtw server for local development.
-    #[arg(long, env)]
+    #[arg(long, env = "BUILDBTW_RUN_AUTHELIA_CONTAINER")]
     pub run_authelia_container: bool,
 
     /// Port the Authelia container should listen on.
-    #[arg(long, env)]
+    #[arg(long, env = "BUILDBTW_AUTHELIA_CONTAINER_PORT")]
     pub authelia_container_port: u32,
 }
 
