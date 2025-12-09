@@ -517,6 +517,7 @@ dependencies = [
  "directories",
  "garde",
  "gitlab",
+ "graphql_client",
  "listenfd",
  "nutype",
  "openidconnect",
