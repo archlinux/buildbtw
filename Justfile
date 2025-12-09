@@ -97,6 +97,11 @@ check-dependencies: (ensure-command "cargo-deny")
 test *args: (ensure-command "geckodriver")
     cargo nextest run {{ args }}
 
+[doc("Run tests that take long to run or might be flaky")]
+[group("test")]
+test-expensive *args:
+    cargo nextest run --run-ignored only {{ args }}
+
 [doc("Run tests and auto-rerun on code changes")]
 [group("test")]
 watch-test *args: (ensure-command "geckodriver")
@@ -124,6 +129,12 @@ reset-database: && migrate-database
 [doc("Install the development certificates in the system's trust store, e.g. for browsers. Requires root.")]
 install-authelia-ca:
     mkcert -install
+
+[doc("Download GitLab GraphQL API schema")]
+[group("dev")]
+update-graphql-schema: (ensure-command "graphql-client")
+    #!/bin/sh
+    graphql-client introspect-schema "$BUILDBTW_GITLAB_DOMAIN/api/graphql" --authorization "$BUILDBTW_GITLAB_TOKEN" --output src/gitlab/graphql_schema.json
 
 [doc("Ensures that one or more required commands are installed")]
 [private]
