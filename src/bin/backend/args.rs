@@ -1,20 +1,26 @@
-use std::{net::SocketAddr as TcpSocketAddr, os::unix::net::SocketAddr as UnixSocketAddr};
+use std::{
+    fs::Permissions,
+    net::SocketAddr as TcpSocketAddr,
+    os::unix::{fs::PermissionsExt, net::SocketAddr as UnixSocketAddr},
+};
 
 use camino::Utf8PathBuf;
-use color_eyre::eyre::{Context, Result};
+use color_eyre::eyre::{Context, Result, bail};
 use url::Url;
 
 #[derive(Debug, Clone)]
 pub enum TcpSocketOrUnixSocket {
     Tcp(TcpSocketAddr),
-    Unix(UnixSocketAddr),
+    Unix((UnixSocketAddr, Option<Permissions>)),
 }
 
 impl PartialEq for TcpSocketOrUnixSocket {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Tcp(left), Self::Tcp(right)) => left == right,
-            (Self::Unix(left), Self::Unix(right)) => left.as_pathname() == right.as_pathname(),
+            (Self::Unix((left, left_permissions)), Self::Unix((right, right_permissions))) => {
+                left.as_pathname() == right.as_pathname() && left_permissions == right_permissions
+            }
             _ => false,
         }
     }
@@ -68,7 +74,10 @@ pub struct RunArgs {
     ///
     /// For TCP sockets, use the format: `<interface>:<port>`, e.g. 0.0.0.0:8080
     ///
-    /// For Unix sockets, use the format: `unix:<path>`, e.g. unix:/run/buildbtw.sock
+    /// For Unix sockets, use the format: `unix:<path>[:permissions]`, e.g. unix:/run/buildbtw.sock
+    /// or unix:/run/buildbtw.sock:777 to make sure the socket is spawned with world-permissions.
+    /// If no permissions mode is provided, the socket is created using OS defaults.
+    ///
     /// To test it, you can use e.g. `curl -L --unix-socket /tmp/buildbtw.sock http:/oidc/`
     ///
     /// If a file descriptor is passed externally (e.g. via `systemd-socket-activate` or
@@ -155,8 +164,26 @@ pub struct AutheliaContainer {
 fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
     // Try to parse unix socket first.
     if let Some(unix_socket) = src.strip_prefix("unix:") {
-        let unix_socket_addr = UnixSocketAddr::from_pathname(unix_socket)?;
-        Ok(TcpSocketOrUnixSocket::Unix(unix_socket_addr))
+        // Figure out whether socket permissions were provided or not.
+        // As such, we might see input with a `:`.
+        let unix_socket_split = unix_socket.split(':').collect::<Vec<&str>>();
+        match unix_socket_split.len() {
+            1 => {
+                // No permissions were provided, use default permissions.
+                let unix_socket_addr = UnixSocketAddr::from_pathname(unix_socket_split[0])?;
+                Ok(TcpSocketOrUnixSocket::Unix((unix_socket_addr, None)))
+            }
+            2 => {
+                // Permissions were provided. Attempt to parse the second part as permissions.
+                let unix_socket_addr = UnixSocketAddr::from_pathname(unix_socket_split[0])?;
+                let permission_parsed = u32::from_str_radix(unix_socket_split[1], 8)?;
+                Ok(TcpSocketOrUnixSocket::Unix((
+                    unix_socket_addr,
+                    Some(Permissions::from_mode(permission_parsed)),
+                )))
+            }
+            _ => bail!("Wrong syntax for unix socket"),
+        }
     } else {
         let socket = src.parse::<TcpSocketAddr>()?;
         Ok(TcpSocketOrUnixSocket::Tcp(socket))
@@ -187,7 +214,11 @@ mod tests {
     #[case("0.0.0.0:3333", TcpSocketOrUnixSocket::Tcp("0.0.0.0:3333".parse()?))]
     #[case(
         "unix:/tmp/lol.sock",
-        TcpSocketOrUnixSocket::Unix(UnixSocketAddr::from_pathname("/tmp/lol.sock")?)
+        TcpSocketOrUnixSocket::Unix((UnixSocketAddr::from_pathname("/tmp/lol.sock")?, None))
+    )]
+    #[case(
+        "unix:/tmp/lol.sock:777",
+        TcpSocketOrUnixSocket::Unix((UnixSocketAddr::from_pathname("/tmp/lol.sock")?, Some(Permissions::from_mode(0o777))))
     )]
     fn test_parse_listen(
         #[case] input: &str,

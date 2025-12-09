@@ -16,6 +16,7 @@ use color_eyre::{
 use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
 use tokio::{
+    fs::set_permissions,
     net::{TcpListener, UnixListener},
     signal,
 };
@@ -127,7 +128,7 @@ async fn run_server(
                     .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
                     .await?;
             }
-            args::TcpSocketOrUnixSocket::Unix(socket_addr) => {
+            args::TcpSocketOrUnixSocket::Unix((socket_addr, permissions)) => {
                 let socket_addr_path = socket_addr
                     .as_pathname()
                     .wrap_err("Unix socket path empty")?;
@@ -141,6 +142,9 @@ async fn run_server(
                 let listener = UnixListener::bind(socket_addr_path).wrap_err(format!(
                     "Couldn't create unix socket file at {socket_addr_path:?}"
                 ))?;
+                if let Some(permissions) = permissions {
+                    set_permissions(socket_addr_path, permissions).await?;
+                }
                 axum::serve(listener, router)
                     .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
                     .await?;
