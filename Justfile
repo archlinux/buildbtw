@@ -135,6 +135,7 @@ install-authelia-ca:
 update-graphql-schema: (ensure-command "graphql-client")
     #!/bin/sh
     graphql-client introspect-schema "$BUILDBTW_GITLAB_DOMAIN/api/graphql" --authorization "$BUILDBTW_GITLAB_TOKEN" --output src/gitlab/graphql_schema.json
+    ./scripts/prune-graphql-schema.sh src/gitlab/graphql_schema.json
 
 [doc("Ensures that one or more required commands are installed")]
 [private]
