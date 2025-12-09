@@ -1,0 +1,5 @@
+{
+    // Some devs have configured VSCode to use unstable nightly formatting options, e.g. for grouping imports.
+    // These would result in lots of changes because others in the team don't use these options, so we explicitly disable them here.
+    "rust-analyzer.rustfmt.extraArgs": []
+}
