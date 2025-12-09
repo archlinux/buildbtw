@@ -93,7 +93,7 @@ impl MaybeConfig {
 
         let args = args.wrap_err("OIDC configuration is absent or incomplete.")?;
         let client_id = ClientId::new(args.oidc_client_id);
-        let client_secret = ClientSecret::new(args.oidc_client_secret);
+        let client_secret = ClientSecret::new(args.oidc_client_secret.expose_secret().clone());
         let issuer_url =
             IssuerUrl::new(args.oidc_issuer_url).wrap_err("failed to parse issuer URL")?;
 

@@ -149,7 +149,7 @@ impl TestCtxBuilder {
             let authelia_port = container.host_port().await.unwrap();
             let oidc_args = args::Oidc {
                 oidc_client_id: "buildbtw-test".to_string(),
-                oidc_client_secret: "insecure_secret".to_string(),
+                oidc_client_secret: redact::Secret::from("insecure_secret"),
                 oidc_issuer_url: format!("https://authelia.buildbtw.localhost:{authelia_port}"),
                 oidc_issuer_name: "Authelia Test".to_string(),
             };
