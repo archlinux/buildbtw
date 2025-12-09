@@ -126,7 +126,7 @@ pub struct Oidc {
         env = "BUILDBTW_OIDC_CLIENT_SECRET",
         required = false
     )]
-    pub oidc_client_secret: String,
+    pub oidc_client_secret: redact::Secret<String>,
 
     /// Base URL of the OIDC provider.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_URL", required = false)]
@@ -256,7 +256,10 @@ mod tests {
         // Verify OIDC config is present and has correct values
         let oidc = oidc.expect("OIDC should be present");
         assert_eq!(oidc.oidc_client_id, "test-client-id");
-        assert_eq!(oidc.oidc_client_secret, "test-client-secret");
+        assert_eq!(
+            oidc.oidc_client_secret,
+            redact::Secret::from("test-client-secret")
+        );
         assert_eq!(oidc.oidc_issuer_url, "https://auth.example.com");
         assert_eq!(oidc.oidc_issuer_name, "Test OIDC Provider");
 
