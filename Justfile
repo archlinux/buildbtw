@@ -35,6 +35,11 @@ run-worker *args:
 watch-worker *args:
     watchexec -r -- just run-worker {{ args }}
 
+[doc("Run repo-updater")]
+[group("run")]
+run-repo-updater *args:
+    cargo run --bin repo-updater -- {{ args }}
+
 [doc("Run performance benchmarks")]
 [group("run")]
 bench:
