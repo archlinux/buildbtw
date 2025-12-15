@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::Context};
 use time::{OffsetDateTime, Time, format_description::well_known::Iso8601};
 use url::Url;
@@ -58,6 +59,13 @@ pub enum Command {
     /// `pngplusplus`. The path can be used to make a git remote URL, e.g.
     /// `git@gitlab.archlinux.org:archlinux/packages/pngplusplus.git`.
     PrintChanged(PrintChangedArgs),
+
+    /// Make sure the package source repos in `target_dir` match the current state
+    /// on the server by cloning all repos that don't exist locally, and fetching
+    /// new commits and branches for existing repos.
+    ///
+    /// Stores last observed activity in `$XDG_STATE_HOME` and only updates newly changed repositories when run again.
+    Update(UpdateArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -70,6 +78,12 @@ pub struct PrintChangedArgs {
     /// When passed as a date, the time will be set to 00:00 UTC.
     #[arg(long, value_parser(parse_iso8601))]
     pub since: Option<OffsetDateTime>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct UpdateArgs {
+    /// Directory to store package source repos in. Git repos will be created as a flat collection of subdirectories inside this directory.
+    pub target_dir: Utf8PathBuf,
 }
 
 fn parse_iso8601(src: &str) -> Result<OffsetDateTime> {
@@ -152,6 +166,9 @@ mod tests {
                 let expected = parse_iso8601("2024-01-01T00:00:00Z")?;
                 assert_eq!(print_args.since, Some(expected));
             }
+            c => {
+                panic!("Did not expect command {c:?}")
+            }
         }
 
         Ok(())
@@ -180,6 +197,9 @@ mod tests {
             Command::PrintChanged(ref print_args) => {
                 let expected = parse_iso8601("2024-01-01T00:00:00Z")?;
                 assert_eq!(print_args.since, Some(expected));
+            }
+            c => {
+                panic!("Did not expect command {c:?}")
             }
         }
 
