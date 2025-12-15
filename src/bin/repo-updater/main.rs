@@ -3,6 +3,7 @@
 
 mod args;
 
+use buildbtw::repo_updater;
 use clap::Parser;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
@@ -22,7 +23,6 @@ async fn main() -> Result<()> {
     match args.command {
         #[expect(clippy::print_stdout)]
         Command::PrintChanged(print_args) => {
-            // Create GitLab client
             let client = gitlab::GitlabBuilder::new(
                 args.gitlab_domain
                     .host_str()
@@ -44,6 +44,28 @@ async fn main() -> Result<()> {
             // Print project names separated by spaces
             let project_names: Vec<_> = projects.iter().map(|p| p.path.to_string()).collect();
             println!("{}", project_names.join(" "));
+
+            Ok(())
+        }
+        Command::Update(update_args) => {
+            let client = gitlab::GitlabBuilder::new(
+                args.gitlab_domain
+                    .host_str()
+                    .ok_or_else(|| color_eyre::eyre::eyre!("GitLab domain URL has no host"))?,
+                args.gitlab_token.clone().expose_secret(),
+            )
+            .build_async()
+            .await
+            .wrap_err("Failed to create GitLab client")?;
+
+            repo_updater::update_all_source_repos(
+                update_args.target_dir,
+                &client,
+                None,
+                args.gitlab_domain,
+                args.gitlab_packages_group,
+            )
+            .await?;
 
             Ok(())
         }
