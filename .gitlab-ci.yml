@@ -14,7 +14,8 @@ image: "archlinux:latest"
 .with-rust:
   before_script:
     - !reference [".default-before-script", "before_script"]
-    - pacman -Syu --needed --noconfirm rust just gcc
+    # pkgconf: for the openssl crate to locate libssl files
+    - pacman -Syu --needed --noconfirm rust just gcc pkgconf
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
     paths:
@@ -99,7 +100,7 @@ deploy_review_app:
   environment:
     name: review/$CI_COMMIT_REF_SLUG
     url: https://$CI_COMMIT_REF_SLUG.buildbtw.dev.archlinux.org
-    on_stop: stop_review_app  # References the stop_review_app job
+    on_stop: stop_review_app # References the stop_review_app job
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
@@ -115,7 +116,7 @@ stop_review_app:
   environment:
     name: review/$CI_COMMIT_REF_SLUG
     action: stop
-  when: manual  # Makes this job manually triggerable
+  when: manual # Makes this job manually triggerable
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 

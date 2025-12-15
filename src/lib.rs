@@ -2,6 +2,7 @@
 //! release.
 pub mod api;
 pub mod authelia;
+pub mod git;
 pub mod gitlab;
 pub mod tracing;
 pub mod utils;
