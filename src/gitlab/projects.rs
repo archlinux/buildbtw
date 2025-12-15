@@ -2,17 +2,42 @@
 
 use color_eyre::eyre::Context;
 use color_eyre::{Result, eyre::eyre};
+use derive_more::{AsRef, Display};
 use gitlab::AsyncGitlab;
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-/// Get all projects that changed since the given timestamp.
+/// Gitlab's `path` value on a project. Basically an URL-safe, slugified variant
+/// of the project name.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, AsRef, Display)]
+#[serde(transparent)]
+pub struct ProjectPath(String);
+
+impl From<String> for ProjectPath {
+    fn from(value: String) -> Self {
+        ProjectPath(value)
+    }
+}
+
+/// Metadata for a project with recent changes, used for updating its
+/// local git repository.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Project {
+    /// URL-safe path of the project.
+    pub path: ProjectPath,
+
+    /// Last time the project has seen some kind of activity.
+    pub last_activity_at: Option<OffsetDateTime>,
+}
+
+/// Get all projects that changed since the given timestamp, ordered by most
+/// recent activity first.
 pub async fn changed_since(
     client: &AsyncGitlab,
     last_fetched: Option<OffsetDateTime>,
     package_group: &str,
-) -> Result<Vec<changed_projects::ChangedProjectsGroupProjectsNodes>> {
+) -> Result<Vec<Project>> {
     tracing::info!("Querying changed projects since {last_fetched:?}");
     let mut end_of_last_query = None;
     let mut results = Vec::new();
@@ -20,7 +45,9 @@ pub async fn changed_since(
     // - there are no more pages, or
     // - we've reached activity older than `last_fetched`
     'keep_querying: loop {
-        let response = projects(client, end_of_last_query, package_group.to_string()).await?;
+        let response =
+            query_changed_projects_page(client, end_of_last_query, package_group.to_string())
+                .await?;
 
         end_of_last_query = response.page_info.end_cursor;
 
@@ -48,7 +75,10 @@ pub async fn changed_since(
                 _ => {}
             };
 
-            results.push(project);
+            results.push(Project {
+                path: ProjectPath::from(project.path),
+                last_activity_at: project.last_activity_at.map(OffsetDateTime::from),
+            });
         }
 
         if !response.page_info.has_next_page {
@@ -77,7 +107,9 @@ impl From<Time> for OffsetDateTime {
     }
 }
 
-async fn projects(
+/// Internal function for sending a query to the GraphQL API, returning a single
+/// page of results.
+async fn query_changed_projects_page(
     client: &AsyncGitlab,
     after: Option<String>,
     group: String,
@@ -141,17 +173,9 @@ mod tests {
 
         // A few hardcoded projects that we know exist in archlinux' gitlab, but which
         // we manually archived in the packaging-buildbtw-dev group
-        let project_names: HashSet<_> = all_projects.iter().map(|p| p.path.clone()).collect();
+        let project_names: HashSet<_> = all_projects.iter().map(|p| p.path.to_string()).collect();
         let archived_projects = ["ack", "abcmidi"];
         for archived_project_name in archived_projects {
-            if project_names.contains(archived_project_name) {
-                debug!(
-                    "{:#?}",
-                    all_projects
-                        .iter()
-                        .find(|p| p.path == archived_project_name)
-                );
-            }
             assert!(
                 !project_names.contains(archived_project_name),
                 "Project {archived_project_name} is archived but was included in the changed projects queried from gitlab"
@@ -165,8 +189,8 @@ mod tests {
             }
             let prev = all_projects.get(index - 1).unwrap();
             assert!(
-                prev.last_activity_at.as_ref().unwrap().0
-                    >= project.last_activity_at.as_ref().unwrap().0,
+                prev.last_activity_at.as_ref().unwrap()
+                    >= project.last_activity_at.as_ref().unwrap(),
                 "Expected projects to be sorted by last activity, but found two projects where that order doesn't match: {prev:?} should come after {project:?}"
             );
         }
@@ -184,8 +208,7 @@ mod tests {
             .next_back()
             .unwrap()
             .last_activity_at
-            .unwrap()
-            .0;
+            .unwrap();
 
         let incrementally_fetched_projects =
             changed_since(&client, Some(earliest_date), group).await?;
