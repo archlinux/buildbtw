@@ -1,0 +1,3 @@
+[submodule "common-style"]
+	path = common-style
+	url = https://gitlab.archlinux.org/archlinux/archlinux-common-style.git

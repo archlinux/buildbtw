@@ -107,6 +107,7 @@ axum = { version = "0.8.4", features = [
 ], default-features = false }
 tower-http = { version = "0.6.6", features = [
     "timeout",
+    "fs",
 ], default-features = false }
 axum-extra = { version = "0.12.2", features = [
     "routing",

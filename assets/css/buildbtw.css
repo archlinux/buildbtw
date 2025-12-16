@@ -1,0 +1,10 @@
+@layer component, common-style, buildbtw;
+
+@import url("https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css") layer(component);
+@import url("common-style/archlinux.css") layer(common-style);
+
+@layer buildbtw {
+    #archnavbar {
+        --archnavbar-logo: url("/assets/img/archlogo.svg");
+    }
+}

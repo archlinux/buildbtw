@@ -4,12 +4,13 @@
 <head>
   <title>buildbtw - {% block title %}{% endblock title %}</title>
   <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@main/bundles/datastar.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css">
+  <link rel="icon" href="/assets/img/favicon.svg">
+  <link rel="stylesheet" href="/assets/css/buildbtw.css">
 </head>
 
 <body>
+  {% include "partials/navbar.html" %}
   <div class="container p-2 is-family-monospace">
-    <h1 class="title">buildbtw</h1>
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div id="navbar-buildbtw" class="navbar-menu" id="navMenu">
         <div class="navbar-start">
