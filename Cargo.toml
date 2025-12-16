@@ -129,3 +129,5 @@ thirtyfour = { version = "0.36.1", features = [
 ], default-features = false }
 rstest = { version = "0.26.1", default-features = false }
 cookie = "0.18.1"
+temp-env = "0.3.6"
+tempfile = "3.23.0"

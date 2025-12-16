@@ -20,16 +20,21 @@ pub struct Args {
     )]
     pub tokio_console_telemetry: bool,
 
-    /// GitLab API token for authentication
+    /// Path to a file containing the GitLab API token for authentication
     ///
-    /// Requires `read_api` scope.
-    #[arg(
-        hide_env_values = true,
-        long,
-        env = "BUILDBTW_GITLAB_TOKEN",
-        required = true
-    )]
-    pub gitlab_token: redact::Secret<String>,
+    /// The token needs the `read_api` scope.
+    ///
+    /// The gitlab token can be passed directly using the `BUILDBTW_GITLAB_TOKEN` environment variable.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_GITLAB_TOKEN` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_GITLAB_TOKEN
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "BUILDBTW_GITLAB_TOKEN_PATH", verbatim_doc_comment)]
+    pub gitlab_token_path: Option<Utf8PathBuf>,
 
     /// GitLab domain URL
     ///
@@ -113,10 +118,10 @@ mod tests {
             "buildbtw-repo-updater",
             "-vvv", // verbose: 3 (trace level)
             "--tokio-console-telemetry",
-            "--gitlab-token",
-            "test-token-12345",
             "--gitlab-domain",
             "https://gitlab.archlinux.org",
+            "--gitlab-token-path",
+            "test/path",
             "--gitlab-packages-group",
             "archlinux/packaging/packages",
             "print-changed",
@@ -127,7 +132,6 @@ mod tests {
         // Verify top-level args
         assert_eq!(parsed_args.verbose, 3);
         assert!(parsed_args.tokio_console_telemetry);
-        assert_eq!(parsed_args.gitlab_token.expose_secret(), "test-token-12345");
         assert_eq!(
             parsed_args.gitlab_domain,
             Url::parse("https://gitlab.archlinux.org")?
@@ -147,8 +151,6 @@ mod tests {
     fn test_print_changed_command_with_since() -> Result<()> {
         let args = vec![
             "buildbtw-repo-updater",
-            "--gitlab-token",
-            "test-token",
             "--gitlab-domain",
             "https://gitlab.archlinux.org",
             "--gitlab-packages-group",
@@ -178,8 +180,6 @@ mod tests {
     fn test_print_changed_command_with_since_date_only() -> Result<()> {
         let args = vec![
             "buildbtw-repo-updater",
-            "--gitlab-token",
-            "test-token",
             "--gitlab-domain",
             "https://gitlab.archlinux.org",
             "--gitlab-packages-group",

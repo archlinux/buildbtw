@@ -7,7 +7,7 @@
 //! It coordinates with the local worker or GitLab runners to process package
 //! builds in VMs.
 
-use buildbtw::utils::remove_file_if_exists;
+use buildbtw::{external_secrets, utils::remove_file_if_exists};
 use clap::Parser;
 use color_eyre::{
     Result,
@@ -94,12 +94,16 @@ async fn run_server(
         listen,
         oidc,
         base_url,
-        cookie_encryption_key,
+        cookie_encryption_key_path,
         ..
     }: args::RunArgs,
 ) -> Result<()> {
     // Shared cancellation token to signal graceful shutdown across the application
     let cancellation_token = CancellationToken::new();
+
+    let cookie_encryption_key =
+        external_secrets::get_cookie_encryption_key(cookie_encryption_key_path.as_deref())?;
+
     let server_state = ServerState {
         db,
         oidc: oidc::MaybeConfig::initialize(&base_url, oidc).await,

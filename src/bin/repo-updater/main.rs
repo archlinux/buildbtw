@@ -3,7 +3,7 @@
 
 mod args;
 
-use buildbtw::repo_updater;
+use buildbtw::{external_secrets, repo_updater};
 use clap::Parser;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
@@ -20,6 +20,9 @@ async fn main() -> Result<()> {
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
     debug!("{args:#?}");
 
+    let gitlab_token =
+        external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", args.gitlab_token_path.as_deref())?;
+
     match args.command {
         #[expect(clippy::print_stdout)]
         Command::PrintChanged(print_args) => {
@@ -27,7 +30,7 @@ async fn main() -> Result<()> {
                 args.gitlab_domain
                     .host_str()
                     .ok_or_else(|| color_eyre::eyre::eyre!("GitLab domain URL has no host"))?,
-                args.gitlab_token.expose_secret(),
+                gitlab_token.expose_secret(),
             )
             .build_async()
             .await
@@ -52,7 +55,7 @@ async fn main() -> Result<()> {
                 args.gitlab_domain
                     .host_str()
                     .ok_or_else(|| color_eyre::eyre::eyre!("GitLab domain URL has no host"))?,
-                args.gitlab_token.clone().expose_secret(),
+                gitlab_token.clone().expose_secret(),
             )
             .build_async()
             .await
