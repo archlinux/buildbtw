@@ -5,10 +5,12 @@
   <title>{% block title %}{% endblock title %} | BuildBTW</title>
   <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@main/bundles/datastar.js"></script>
   <script type="module" src="/assets/js/buildbtw.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css">
+  <link rel="icon" href="/assets/img/favicon.svg">
+  <link rel="stylesheet" href="/assets/css/buildbtw.css">
 </head>
 
 <body>
+  {% include "partials/navbar.html" %}
   <nav class="navbar" id="navbar-buildbtw" role="navigation" aria-label="main navigation">
     <div class="navbar-brand">
       <a class="navbar-item" href="/">

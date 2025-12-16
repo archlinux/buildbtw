@@ -33,6 +33,7 @@ workflow:
       - target/release/build
   variables:
     CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
+    GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
   - check

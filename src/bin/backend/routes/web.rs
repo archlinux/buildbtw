@@ -2,6 +2,7 @@
 
 use axum::Router;
 use axum_extra::routing::RouterExt;
+use tower_http::services::ServeDir;
 
 use crate::server_state::ServerState;
 
@@ -10,7 +11,10 @@ pub mod index;
 mod oidc;
 
 pub fn router() -> Router<ServerState> {
+    let static_files = ServeDir::new("./assets");
+
     Router::new()
+        .nest_service("/assets", static_files)
         .typed_get(index::index)
         .typed_get(oidc::start_login)
         .typed_get(oidc::authorized)

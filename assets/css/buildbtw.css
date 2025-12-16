@@ -1,0 +1,83 @@
+@layer component, common-style, buildbtw;
+
+@import url("https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css") layer(component);
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css") layer(component);
+@import url("common-style/archlinux.css") layer(common-style);
+
+@layer buildbtw {
+    #archnavbar {
+        --archnavbar-logo: url("/assets/img/archlogo.svg");
+    }
+
+    :root {
+        --bulma-link: var(--archlinux-blue);
+        --bulma-link-h: var(--archlinux-blue-h);
+        --bulma-link-s: var(--archlinux-blue-s);
+        --bulma-link-l: var(--archlinux-blue-l);
+    }
+
+    a:hover {
+        text-decoration: none;
+    }
+
+    nav.navbar-burger {
+        --bulma-navbar-burger-color: var(--bulma-text);
+    }
+
+    nav.navbar {
+        --bulma-navbar-background-color: var(--bulma-background);
+    }
+
+    aside {
+        --bulma-menu-item-radius: var(--bulma-radius-medium);
+        --bulma-menu-list-line-height: 1.0;
+        --bulma-menu-list-link-padding: 0.25em 0.5em;
+    }
+
+    aside.menu {
+        --bulma-menu-item-background-l: var(--bulma-background-l);
+
+        --bulma-menu-item-selected-background-l: 40%;
+        --bulma-menu-item-selected-color-l: var(--bulma-link-invert-l);
+        --bulma-menu-item-selected-h: 200;
+        --bulma-menu-item-selected-s: 100%;
+        --bulma-menu-item-selected-l: 40%;
+
+        background-color: var(--bulma-background);
+    }
+
+    .breadcrumb {
+        --bulma-breadcrumb-item-color: var(--bulma-text-weak);
+        --bulma-breadcrumb-item-active-color: var(--bulma-text);
+        --bulma-breadcrumb-item-hover-color: var(--bulma-text-weak);
+        --bulma-breadcrumb-item-separator-color: var(--bulma-breadcrumb-item-color);
+
+        box-shadow: 0 2px 0 var(--bulma-background);
+    }
+
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+
+    @media only screen and not (max-device-width: 768px) {
+        main::before {
+            --corner-size: 16px;
+            --corner-color: var(--bulma-background);
+
+            content: "";
+            position: absolute;
+
+            flex-shrink: 0;
+            margin: 0;
+            padding: 0;
+
+            width: var(--corner-size);
+            height: var(--corner-size);
+            background: radial-gradient(circle at bottom right,
+                    transparent calc(var(--corner-size) - 1px),
+                    var(--corner-color) var(--corner-size));
+
+            transform: translateX(-17px);
+        }
+    }
+}
