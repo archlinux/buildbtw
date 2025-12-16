@@ -200,8 +200,6 @@ fn parse_cookie_encryption_key(
 }
 
 #[cfg(test)]
-#[expect(clippy::unwrap_used)]
-#[expect(clippy::expect_used)]
 mod tests {
 
     use clap::Parser;
