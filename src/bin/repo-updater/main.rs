@@ -2,6 +2,7 @@
 //! up-to-date.
 
 mod args;
+mod state;
 
 use buildbtw::{external_secrets, repo_updater};
 use clap::Parser;
@@ -9,7 +10,10 @@ use color_eyre::Result;
 use color_eyre::eyre::Context;
 use tracing::debug;
 
-use crate::args::{Args, Command};
+use crate::{
+    args::{Args, Command},
+    state::State,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -61,14 +65,23 @@ async fn main() -> Result<()> {
             .await
             .wrap_err("Failed to create GitLab client")?;
 
-            repo_updater::update_all_source_repos(
-                update_args.target_dir,
+            let mut state = State::from_filesystem()?;
+            let last_updated = state.get_path_updated(&update_args.target_dir)?.cloned();
+
+            let last_updated = repo_updater::update_all_source_repos(
+                update_args.target_dir.clone(),
                 &client,
-                None,
+                last_updated,
                 args.gitlab_domain,
                 args.gitlab_packages_group,
             )
             .await?;
+
+            if let Some(updated) = last_updated {
+                state.set_path_updated(&update_args.target_dir, updated)?;
+            }
+
+            state.write_to_filesystem()?;
 
             Ok(())
         }
