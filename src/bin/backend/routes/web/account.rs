@@ -69,8 +69,13 @@ pub async fn session_revoke(
         .exec(&tx)
         .await?;
     tx.commit().await?;
-    Ok((
-        cookie_jar,
-        Redirect::to(&web::account::SessionList {}.to_string()),
-    ))
+
+    // TODO: remove this once https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/196 is implemented
+    let redirect = if session.session.id.0.to_string().eq(&params.session_id) {
+        &web::index::Index {}.to_string()
+    } else {
+        &web::account::SessionList {}.to_string()
+    };
+
+    Ok((cookie_jar, Redirect::to(redirect)))
 }
