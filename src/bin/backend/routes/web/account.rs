@@ -12,6 +12,7 @@ use crate::{
     from_request::{self},
     queries,
     response_error::ResponseResult,
+    templates,
 };
 
 /// See [web::account::Logout].
@@ -40,21 +41,14 @@ pub async fn session_list(
     let sessions: Vec<sessions::Model> = queries::sessions::by_user_id(session.user.id)
         .all(&tx)
         .await?;
-    let result = sessions
-        .iter()
-        .map(|session| {
-            let url = web::account::SessionRevoke {
-                session_id: session.id.0.to_string(),
-            }
-            .to_string();
-            format!(
-                "{:?} last accessed: {:?} <a href=\"{}\">revoke<a>",
-                session.id.0, session.last_accessed, url
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    Ok((cookie_jar, Html(result.to_string())))
+
+    Ok((
+        cookie_jar,
+        Html(templates::account::render_session_list_page(
+            &session.user,
+            sessions,
+        )?),
+    ))
 }
 
 /// See [web::account::SessionRevoke].

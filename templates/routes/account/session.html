@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Account / Sessions{% endblock title %}
+{% block menu %}{% set menu_active = "Account" %}{{ super() }}{% endblock menu %}
+{% block content %}
+<nav class="breadcrumb pb-2" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="{{ account_url }}">Account</a></li>
+    <li class="is-active"><a href="{{ session_list_url }}" aria-current="page">Sessions</a></li>
+  </ul>
+</nav>
+
+<h1 class="title">Sessions</h1>
+
+<table class="table is-striped">
+  <thead>
+    <tr>
+      <th>Session</th>
+      <th>Last Accessed</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for session_tuple in sessions %}
+    {% set session = session_tuple.0 %}
+    {% set session_url = session_tuple.1 %}
+    <tr>
+      <th>
+        {{ session.id }}
+      </th>
+      <td>
+        {{ session.last_accessed | datetime }}
+      </td>
+      <td>
+        <div class="buttons">
+          <a class="button is-danger is-small" href="{{ session_url }}">
+            <strong>Revoke</strong>
+          </a>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock content %}

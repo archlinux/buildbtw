@@ -244,7 +244,7 @@ impl From<alpm_types::FullVersion> for Version {
 ///   impossible to write with `BLOB` values
 ///
 /// Upstream feature request: <https://github.com/SeaQL/sea-orm/issues/2717>
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub struct TextUuid(pub uuid::Uuid);
 
 impl From<TextUuid> for sea_query::Value {

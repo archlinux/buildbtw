@@ -39,6 +39,7 @@ mod router;
 mod routes;
 mod server_state;
 mod tasks;
+mod templates;
 #[cfg(test)]
 mod tests;
 
@@ -111,6 +112,7 @@ async fn run_server(
     };
 
     tasks::initialize(server_state.clone(), cancellation_token.clone()).await?;
+    templates::initialize().await?;
 
     let router = router::new().with_state(server_state);
 

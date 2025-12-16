@@ -12,6 +12,8 @@ path = [
     "**.jinja",
     "**.sql",
     "**.css",
+    "**.js",
+    "**.html",
 ]
 
 [[annotations]]
@@ -31,6 +33,7 @@ path = [
     "**.yml",
     ".env*",
     ".gitignore",
+    ".gitmodules",
     ".gitlab/**",
     "**/Justfile",
 ]

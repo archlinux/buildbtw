@@ -10,6 +10,7 @@ use url::Url;
 use crate::{
     args, db, oidc, router,
     server_state::ServerState,
+    templates,
     tests::geckodriver::{self, ProcessGuard},
 };
 
@@ -196,6 +197,8 @@ impl TestCtxBuilder {
                 b"oeghai5phee4gaeti5eegheev6eefee5yu2muoV8phoChohg7aipeuh2Thahsiup",
             )),
         };
+
+        templates::initialize().await.unwrap();
 
         let server = if self.use_http_transport {
             // TODO try multiple ports to find one that's free
