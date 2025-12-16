@@ -5,5 +5,6 @@ mod db_fields;
 mod geckodriver;
 mod migrations;
 mod tasks;
+mod templates;
 mod test_ctx;
 mod web;

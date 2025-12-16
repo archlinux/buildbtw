@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>buildbtw - {% block title %}{% endblock title %}</title>
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@main/bundles/datastar.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css">
+</head>
+
+<body>
+  <div class="container p-2 is-family-monospace">
+    <h1 class="title">buildbtw</h1>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+      <div id="navbar-buildbtw" class="navbar-menu" id="navMenu">
+        <div class="navbar-start">
+          <a class="navbar-item" href="{{ index_url }}">
+            Home
+          </a>
+
+          {% if user %}
+          <div class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link">
+              Account
+            </a>
+            <div class="navbar-dropdown">
+              <a class="navbar-item" href="{{ session_list_url }}">
+                Sessions
+              </a>
+              <a class="navbar-item" href="{{ logout_url }}">
+                Logout
+              </a>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="navbar-end">
+          <div class="navbar-item">
+            {% if user %}
+            <span class="tag is-dark is-medium">
+              {{ user.username }}
+            </span>
+            {% else %}
+            <div class="buttons">
+              <a class="button is-light" href="{{ login_url }}">
+                <strong>Sign in</strong>
+              </a>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="content">
+      {% block content %}{% endblock content %}
+    </div>
+  </div>
+</body>
+
+</html>

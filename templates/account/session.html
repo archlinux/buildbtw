@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Sessions{% endblock title %}
+{% block content %}
+<h1 class="title">Sessions</h1>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Session</th>
+      <th>Last Accessed</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for session_tuple in sessions %}
+    {% set session = session_tuple.0 %}
+    {% set session_url = session_tuple.1 %}
+    <tr>
+      <th>
+        {{ session.id }}
+      </th>
+      <td>
+        {{ session.last_accessed | datetime }}
+      </td>
+      <td>
+        <div class="buttons">
+          <a class="button is-danger" href="{{ session_url }}">
+            <strong>Revoke</strong>
+          </a>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock content %}

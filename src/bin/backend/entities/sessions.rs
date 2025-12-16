@@ -1,4 +1,5 @@
 use sea_orm::entity::prelude::*;
+use serde::Serialize;
 
 use crate::db_fields::TextUuid;
 use crate::entities::users;
@@ -13,7 +14,7 @@ use crate::entities::users;
 /// The session stores its unique identifier, the associated user's Uuid,
 /// the creation timestamp, and the last time it was used. This information
 /// is used to track user activity and automatically invalidate stale sessions.
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "sessions")]
 pub struct Model {
     /// Uuid used to reference and identify a specific session
