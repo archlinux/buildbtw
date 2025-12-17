@@ -1,3 +1,9 @@
+variables:
+  # Set Gitlab's cache compression to tar+zstd for better performance.
+  CACHE_COMPRESSION_FORMAT: tarzstd
+  # Enable timestamps in Gitlab's job logs.
+  FF_TIMESTAMPS: true
+
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
