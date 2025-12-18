@@ -33,6 +33,7 @@ mod from_request;
 mod input;
 mod migrations;
 mod oidc;
+pub mod permissions;
 mod queries;
 mod response_error;
 mod router;

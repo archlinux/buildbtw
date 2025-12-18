@@ -33,16 +33,20 @@ pub enum ResponseError {
 
     /// Unsupported content type requested by client.
     #[error("Unsupported content type: {0}")]
-    #[expect(dead_code)]
     UnsupportedContentType(String),
 
     /// Unauthorized access.
+    /// TODO: Rename to "Unauthenticated", as this is used for cases where users are not logged in.
     #[error("Unauthorized")]
     Unauthorized,
 
     /// Template error.
     #[error("Template error")]
     Tera(#[from] tera::Error),
+
+    /// User's role has insufficient permissions.
+    #[error("Action not permitted")]
+    NotPermitted,
 }
 
 impl IntoResponse for ResponseError {
@@ -59,6 +63,7 @@ impl IntoResponse for ResponseError {
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             ResponseError::InvalidInput(_) => StatusCode::BAD_REQUEST,
             ResponseError::Unauthorized => StatusCode::UNAUTHORIZED,
+            ResponseError::NotPermitted => StatusCode::FORBIDDEN,
         };
         // Send only the opaque description using the display trait, to avoid leaking
         // information
