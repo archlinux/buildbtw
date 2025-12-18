@@ -22,6 +22,7 @@ async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()>
         created_at: Set(OffsetDateTime::now_utc()),
         oidc_id: Set("test-oidc-id".to_string()),
         username: Set("testuser".to_string()),
+        role: Set(users::Role::None),
     };
     users::Entity::insert(user).exec(&ctx.state.db).await?;
 
@@ -60,6 +61,7 @@ async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCt
         created_at: Set(OffsetDateTime::now_utc()),
         oidc_id: Set("test-oidc-id".to_string()),
         username: Set("testuser".to_string()),
+        role: Set(users::Role::None),
     };
     users::Entity::insert(user).exec(&ctx.state.db).await?;
 

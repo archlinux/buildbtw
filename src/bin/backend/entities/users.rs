@@ -1,5 +1,6 @@
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
+use strum::{Display, EnumString};
 
 use crate::db_fields::TextUuid;
 use crate::entities::sessions;
@@ -27,6 +28,19 @@ pub struct Model {
     /// accepted as user input, e.g. in URL path segments. It is not guaranteed
     /// to be unique and can change at any time.
     pub username: String,
+
+    pub role: Role,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
+#[sea_orm(value_type = "String")]
+pub enum Role {
+    /// Default role, can do nothing real except log in.
+    None,
+    /// Most used role, for dispatching and releasing builds.
+    PackageMaintainer,
+    /// Can do everything.
+    Admin,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]

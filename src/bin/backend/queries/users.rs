@@ -10,6 +10,7 @@ pub fn upsert(create: input::users::ValidatedCreate) -> Insert<users::ActiveMode
         id: Set(Uuid::new_v4().into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
         username: Set(create.username.clone()),
+        role: Set(users::Role::None),
     };
 
     users::Entity::insert(model).on_conflict(
