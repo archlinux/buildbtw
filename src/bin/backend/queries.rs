@@ -4,4 +4,5 @@
 //! stream results, etc.
 pub mod builds;
 pub mod sessions;
+pub mod user_roles;
 pub mod users;

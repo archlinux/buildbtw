@@ -2,6 +2,7 @@ mod api;
 mod db_fields;
 mod geckodriver;
 mod migrations;
+mod queries;
 mod tasks;
 mod templates;
 mod test_ctx;

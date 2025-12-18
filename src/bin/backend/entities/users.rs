@@ -2,7 +2,7 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
 use crate::db_fields::TextUuid;
-use crate::entities::sessions;
+use crate::entities::{sessions, user_roles};
 
 /// A buildbtw user associated to an unique OIDC-ID.
 ///
@@ -33,11 +33,19 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "sessions::Entity")]
     Sessions,
+    #[sea_orm(has_many = "user_roles::Entity")]
+    UserRoles,
 }
 
 impl Related<sessions::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Sessions.def()
+    }
+}
+
+impl Related<user_roles::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserRoles.def()
     }
 }
 

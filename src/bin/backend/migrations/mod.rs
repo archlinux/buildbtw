@@ -9,6 +9,7 @@ use sea_orm_migration::prelude::*;
 mod m20250811_165601_init;
 mod m20250923_000000_add_users;
 mod m20250925_173232_add_sessions;
+mod m20251218_184700_add_user_roles;
 
 pub struct Migrator;
 
@@ -18,6 +19,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250811_165601_init::Migration),
             Box::new(m20250923_000000_add_users::Migration),
             Box::new(m20250925_173232_add_sessions::Migration),
+            Box::new(m20251218_184700_add_user_roles::Migration),
         ]
     }
 }
