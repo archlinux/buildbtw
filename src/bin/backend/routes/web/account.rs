@@ -2,7 +2,6 @@ use axum::response::{Html, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use buildbtw::web;
 use color_eyre::eyre::Context;
-use sea_orm::{ColumnTrait, QueryFilter};
 use uuid::Uuid;
 
 use crate::{
@@ -10,6 +9,7 @@ use crate::{
     db_fields::TextUuid,
     entities::sessions,
     from_request::{self},
+    permissions::{can_revoke_session, permission_ok},
     queries,
     response_error::ResponseResult,
     templates,
@@ -76,8 +76,9 @@ pub async fn session_revoke(
         .parse()
         .wrap_err("Could not parse UUID from cookie")?;
 
+    permission_ok(can_revoke_session(&tx, &session, session_to_revoke).await)?;
+
     let _ = queries::sessions::delete(TextUuid::from(session_to_revoke))
-        .filter(sessions::Column::UserId.eq(session.user.id))
         .exec(&tx)
         .await?;
     tx.commit().await?;
