@@ -69,7 +69,7 @@ test:
     - pacman -Syu --needed --noconfirm cargo-nextest podman jq geckodriver firefox
     - just test
 
-build-release:
+.build-release:
   stage: build
   extends: .with-rust
   artifacts:
@@ -77,6 +77,19 @@ build-release:
       - target/release/backend
   script:
     - just build-release
+
+build-release:
+  extends: .build-release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+build-release:secure:
+  extends: .build-release
+  tags:
+    - secure
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 push-container-image:
   tags:
@@ -89,10 +102,12 @@ push-container-image:
     - pacman -Syu --needed --noconfirm podman
     - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - just build-release-container-image
-    - podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
+    - podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME"
 
 deploy_review_app:
   stage: deploy
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - >-
       curl
@@ -104,11 +119,11 @@ deploy_review_app:
     name: review/$CI_COMMIT_REF_SLUG
     url: https://$CI_COMMIT_REF_SLUG.buildbtw.dev.archlinux.org
     on_stop: stop_review_app  # References the stop_review_app job
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 stop_review_app:
   stage: deploy
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - >-
       curl
@@ -120,11 +135,13 @@ stop_review_app:
     name: review/$CI_COMMIT_REF_SLUG
     action: stop
   when: manual  # Makes this job manually triggerable
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 deploy_staging:
   stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  tags:
+    - secure
   script:
     - >-
       curl
@@ -135,5 +152,3 @@ deploy_staging:
   environment:
     name: review/$CI_COMMIT_REF_SLUG
     url: https://$CI_COMMIT_REF_SLUG.buildbtw.staging.archlinux.org
-  rules:
-    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
