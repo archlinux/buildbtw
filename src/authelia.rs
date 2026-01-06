@@ -104,7 +104,7 @@ impl Container {
         let stderr_reader = BufReader::new(stderr);
         let mut stdout_lines = stdout_reader.lines();
         let mut stderr_lines = stderr_reader.lines();
-        let container = Container {
+        let mut container = Container {
             process: child,
             name: container_name,
         };
@@ -120,6 +120,12 @@ impl Container {
             // Wait for the log message telling us startup has finished
             while let Ok(Some(line)) = stdout_lines.next_line().await {
                 tracing::debug!(target: "authelia", "{line}");
+
+                // Check if process exited
+                if let Ok(Some(status)) = container.process.try_wait() {
+                    bail!("Authelia container exited with status {status}");
+                }
+
                 if line.contains("Listening for TLS connections") {
                     break;
                 }
@@ -127,15 +133,22 @@ impl Container {
 
             // Wait for the container to listen on port 9091
             loop {
+                // Check if process exited with an error
+                if let Ok(Some(status)) = container.process.try_wait() {
+                    bail!("Authelia container exited with status {status}");
+                }
+
                 if container.host_port().await.is_ok() {
                     break;
                 }
 
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
+
+            Ok::<_, eyre::Report>(())
         })
         .await
-        .wrap_err("Timeout waiting for authelia to start listening")?;
+        .wrap_err("Timeout waiting for authelia to start listening")??;
 
         // Forward all future logs to tracing
         tokio::spawn(async move {
