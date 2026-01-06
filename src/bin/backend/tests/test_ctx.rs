@@ -153,6 +153,7 @@ impl TestCtxBuilder {
                 oidc_client_secret: redact::Secret::from("insecure_secret"),
                 oidc_issuer_url: format!("https://authelia.buildbtw.localhost:{authelia_port}"),
                 oidc_issuer_name: "Authelia Test".to_string(),
+                oidc_admin_groups: Vec::new(),
             };
 
             let oidc_config = oidc::MaybeConfig::initialize(&base_url, Some(oidc_args)).await;

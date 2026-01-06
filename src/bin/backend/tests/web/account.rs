@@ -9,8 +9,8 @@ use sea_orm::TransactionTrait;
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
 
-use crate::queries;
 use crate::tests::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
+use crate::{entities, queries};
 
 /// Test the full logout flow really invalidates the session
 #[tokio::test]
@@ -164,6 +164,7 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
+        role: entities::users::Role::Normal,
     })?;
     let user = queries::users::upsert(create).exec(&tx).await?;
 
@@ -211,6 +212,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
+        role: entities::users::Role::Normal,
     })?;
     let user = queries::users::upsert(create).exec(db).await?;
 
@@ -264,6 +266,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
         username: "test_username".to_string(),
+        role: entities::users::Role::Normal,
     })?;
     let user = queries::users::upsert(create).exec(db).await?;
 
@@ -333,6 +336,7 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
         crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
             oidc_id: "OIDC_ID_USER_A".to_string(),
             username: "user_a".to_string(),
+            role: entities::users::Role::Normal,
         })?;
     let user_a = queries::users::upsert(create_user_a).exec(db).await?;
 
@@ -341,6 +345,7 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
         crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
             oidc_id: "OIDC_ID_USER_B".to_string(),
             username: "user_b".to_string(),
+            role: entities::users::Role::Normal,
         })?;
     let user_b = queries::users::upsert(create_user_b).exec(db).await?;
 
@@ -392,6 +397,7 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     let create_user = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
         oidc_id: "OIDC_ID_USER_A".to_string(),
         username: "user_a".to_string(),
+        role: entities::users::Role::Normal,
     })?;
     let user = queries::users::upsert(create_user).exec(db).await?;
 

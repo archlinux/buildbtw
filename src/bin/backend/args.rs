@@ -161,6 +161,17 @@ pub struct Oidc {
     /// This will be displayed on the login page.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_NAME", required = false)]
     pub oidc_issuer_name: String,
+
+    /// Users in one these OIDC groups will be assigned the "admin" role.
+    /// Passed as a list separated by commas.
+    /// Matching is case-sensitive.
+    #[clap(
+        long,
+        env = "BUILDBTW_OIDC_ADMIN_GROUPS",
+        required = false,
+        value_delimiter = ','
+    )]
+    pub oidc_admin_groups: Vec<String>,
 }
 
 #[derive(clap::Args, Debug)]

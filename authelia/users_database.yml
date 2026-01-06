@@ -7,3 +7,12 @@ users:
     password: "$argon2id$v=19$m=65536,t=3,p=4$qW8yWqmxP28a5U+Pvfo/pg$DV3N5oPlCTqJXf0gMFxbHeN+cYbKmfwF8zVqb2cmZ1Q"
     email: "testuser@buildbtw.localhost"
     nickname: "testuser"
+  admin:
+    disabled: false
+    displayname: "OIDC Admin"
+    # the password is "testpassword"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$qW8yWqmxP28a5U+Pvfo/pg$DV3N5oPlCTqJXf0gMFxbHeN+cYbKmfwF8zVqb2cmZ1Q"
+    email: "admin@buildbtw.localhost"
+    nickname: "admin"
+    groups:
+      - Admin Group

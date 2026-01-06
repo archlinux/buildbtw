@@ -19,17 +19,18 @@ use buildbtw::web;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat, OptionExt, bail, eyre};
 use openidconnect::core::{
-    CoreAuthenticationFlow, CoreClient, CoreProviderMetadata, CoreUserInfoClaims,
+    CoreAuthenticationFlow, CoreClient, CoreGenderClaim, CoreProviderMetadata,
 };
 use openidconnect::{
-    AccessTokenHash, AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce,
-    OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
+    AccessTokenHash, AdditionalClaims, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
+    IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
+    UserInfoClaims,
 };
 use openidconnect::{PkceCodeVerifier, reqwest};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::args;
+use crate::{args, entities};
 
 /// State used by the http endpoints to run OIDC functionality.
 /// Stored in [super::ServerState].
@@ -112,6 +113,7 @@ impl MaybeConfig {
             oidc_client: client,
             reqwest_client,
             issuer_name: args.oidc_issuer_name,
+            admin_oidc_groups: args.oidc_admin_groups,
         })
     }
 }
@@ -126,6 +128,8 @@ pub struct Config {
     pub reqwest_client: reqwest::Client,
     /// User-visible name of the OIDC provider ("issuer")
     pub issuer_name: String,
+    /// Users in one these OIDC groups will be assigned the "admin" role.
+    pub admin_oidc_groups: Vec<String>,
 }
 
 /// Used to store a valid and ready-to-use client in [Config].
@@ -157,6 +161,7 @@ pub async fn start_login(Config { oidc_client, .. }: Config) -> Result<(Url, Log
         )
         // See <https://openid.net/specs/openid-connect-core-1_0.html#UserInfo>, "5.4 Requesting Claims using Scope values"
         .add_scope(Scope::new("profile".to_string()))
+        .add_scope(Scope::new("groups".to_string()))
         // Set the PKCE code challenge.
         .set_pkce_challenge(pkce_challenge)
         .url();
@@ -204,6 +209,13 @@ impl LoginAttempt {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GroupClaims {
+    groups: Vec<String>,
+}
+
+impl AdditionalClaims for GroupClaims {}
+
 /// Once the user has authorized the initial request, they are redirected to
 /// [buildbtw::web::oidc::Authorized] with an authorization code in the query
 /// string which allows us to obtain an ID token from the OIDC provider.
@@ -220,7 +232,7 @@ pub async fn convert_authorization_code_to_user_info(
     }: LoginAttempt,
     authorization_code: AuthorizationCode,
     received_csrf_token: CsrfToken,
-) -> Result<CoreUserInfoClaims> {
+) -> Result<UserInfoClaims<GroupClaims, CoreGenderClaim>> {
     if stored_csrf_token != received_csrf_token {
         bail!("CSRF token mismatch");
     }
@@ -254,11 +266,58 @@ pub async fn convert_authorization_code_to_user_info(
     }
 
     // Use the user info endpoint to request additional information.
-    let userinfo: CoreUserInfoClaims = oidc_client
+    let userinfo = oidc_client
         .user_info(token_response.access_token().to_owned(), None)?
         .request_async(&reqwest_client)
         .await
         .wrap_err("Failed requesting user info")?;
 
     Ok(userinfo)
+}
+
+pub fn oidc_group_to_user_role(
+    user_groups: &GroupClaims,
+    admin_group_names: &[String],
+) -> entities::users::Role {
+    let is_admin = admin_group_names
+        .iter()
+        .any(|group_name| user_groups.groups.contains(group_name));
+
+    match is_admin {
+        true => entities::users::Role::Admin,
+        false => entities::users::Role::Normal,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        entities::users::Role,
+        oidc::{GroupClaims, oidc_group_to_user_role},
+    };
+
+    #[test]
+    fn test_oidc_group_to_user_role() {
+        // Test normal admin matching
+        let role = oidc_group_to_user_role(
+            &GroupClaims {
+                groups: vec!["Admin Group".to_string()],
+            },
+            &["Other Group".to_string(), "Admin Group".to_string()],
+        );
+        assert_eq!(role, Role::Admin);
+
+        // Test missing admin matching
+        let role = oidc_group_to_user_role(
+            &GroupClaims {
+                groups: vec!["Normal Group".to_string()],
+            },
+            &["Other Group".to_string(), "Admin Group".to_string()],
+        );
+        assert_eq!(role, Role::Normal);
+
+        // Test empty user & admin groups
+        let role = oidc_group_to_user_role(&GroupClaims { groups: vec![] }, &[]);
+        assert_eq!(role, Role::Normal);
+    }
 }
