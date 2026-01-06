@@ -105,6 +105,12 @@ impl Container {
             name: container_name,
         };
 
+        tokio::spawn(async move {
+            while let Ok(Some(line)) = stderr_lines.next_line().await {
+                tracing::debug!(target: "authelia", "{line}");
+            }
+        });
+
         // Wait for the container to be ready for accepting connections
         tokio::time::timeout(Duration::from_secs(10), async {
             // Wait for the log message telling us startup has finished
@@ -130,12 +136,6 @@ impl Container {
         // Forward all future logs to tracing
         tokio::spawn(async move {
             while let Ok(Some(line)) = stdout_lines.next_line().await {
-                tracing::debug!(target: "authelia", "{line}");
-            }
-        });
-
-        tokio::spawn(async move {
-            while let Ok(Some(line)) = stderr_lines.next_line().await {
                 tracing::debug!(target: "authelia", "{line}");
             }
         });
