@@ -161,6 +161,30 @@ pub struct Oidc {
     /// This will be displayed on the login page.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_NAME", required = false)]
     pub oidc_issuer_name: String,
+
+    /// Users in one these OIDC groups will be assigned the "package maintainer" role.
+    /// Passed as a list separated by commas.
+    /// Matching is case-sensitive.
+    #[clap(
+        long,
+        env = "BUILDBTW_OIDC_PACKAGE_MAINTAINER_GROUPS",
+        required = false,
+        value_delimiter = ','
+    )]
+    pub oidc_package_maintainer_groups: Vec<String>,
+
+    /// Users in one these OIDC groups will be assigned the "admin" role.
+    /// If users are in these groups as well as package maintainer groups, the "admin"
+    /// role will take precedence.
+    /// Passed as a list separated by commas.
+    /// Matching is case-sensitive.
+    #[clap(
+        long,
+        env = "BUILDBTW_OIDC_ADMIN_GROUPS",
+        required = false,
+        value_delimiter = ','
+    )]
+    pub oidc_admin_groups: Vec<String>,
 }
 
 #[derive(clap::Args, Debug)]

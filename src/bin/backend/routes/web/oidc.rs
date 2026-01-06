@@ -11,7 +11,7 @@ use openidconnect::LocalizedClaim;
 
 use crate::{
     db, from_request, input,
-    oidc::{self},
+    oidc::{self, oidc_groups_to_user_roles},
     queries,
     response_error::ResponseResult,
     server_state::ServerState,
@@ -37,9 +37,11 @@ pub async fn authorized(
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_config = server_state.oidc.get_config()?;
+    let admin_oidc_groups = oidc_config.admin_oidc_groups.clone();
+    let package_maintainer_oidc_groups = oidc_config.package_maintainer_oidc_groups.clone();
     let login_attempt = oidc::LoginAttempt::from_cookie_jar(&cookie_jar)?;
     let user_info = oidc::convert_authorization_code_to_user_info(
-        oidc_config,
+        oidc_config.clone(),
         login_attempt,
         oidc_query.code,
         oidc_query.state,
@@ -67,6 +69,14 @@ pub async fn authorized(
         .await?;
 
     let session = queries::sessions::insert(user.id.into()).exec(&tx).await?;
+
+    let roles = oidc_groups_to_user_roles(
+        user_info.additional_claims(),
+        &admin_oidc_groups,
+        &package_maintainer_oidc_groups,
+    );
+
+    queries::user_roles::set(&tx, user.id, roles).await?;
 
     tx.commit().await?;
 

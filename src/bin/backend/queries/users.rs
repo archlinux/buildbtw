@@ -15,7 +15,6 @@ pub fn upsert(create: input::users::ValidatedCreate) -> Insert<users::ActiveMode
     users::Entity::insert(model).on_conflict(
         OnConflict::column(users::Column::OidcId)
             .update_column(users::Column::Username)
-            .value(users::Column::Username, create.username)
             .to_owned(),
     )
 }
