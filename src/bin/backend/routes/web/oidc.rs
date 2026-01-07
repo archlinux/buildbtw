@@ -6,7 +6,7 @@ use axum::{
 };
 use axum_extra::extract::PrivateCookieJar;
 use buildbtw::web;
-use color_eyre::eyre::ContextCompat;
+use color_eyre::eyre::{ContextCompat, OptionExt};
 use openidconnect::LocalizedClaim;
 
 use crate::{
@@ -62,11 +62,16 @@ pub async fn authorized(
     // This creates a new user record on first login or updates the existing
     // user with the latest data owned by the SSO provider, keeping user
     // information in sync across logins.
-    let user = queries::users::upsert(create).exec(&tx).await?;
+    queries::users::upsert(create).exec(&tx).await?;
 
-    let session = queries::sessions::insert(user.last_insert_id.into())
-        .exec(&tx)
-        .await?;
+    // Don't use `last_insert_id` returned by `upsert` because it's wrong in case of an update
+    // https://sqlite.org/forum/info/1ead75e2c45de9a580c998cbe6d4d9216437fcfe237479e940107ed3b011affb
+    let user = queries::users::by_oidc_id(user_info.subject().to_string())
+        .one(&tx)
+        .await?
+        .ok_or_eyre("Missing user that was just inserted")?;
+
+    let session = queries::sessions::insert(user.id.into()).exec(&tx).await?;
 
     tx.commit().await?;
 

@@ -1,4 +1,6 @@
-use sea_orm::{ActiveValue::Set, EntityTrait, Insert, sea_query::OnConflict};
+use sea_orm::{
+    ActiveValue::Set, ColumnTrait, EntityTrait, Insert, QueryFilter, Select, sea_query::OnConflict,
+};
 use uuid::Uuid;
 
 use crate::{entities::users, input};
@@ -19,4 +21,8 @@ pub fn upsert(create: input::users::ValidatedCreate) -> Insert<users::ActiveMode
             .value(users::Column::Username, create.username)
             .to_owned(),
     )
+}
+
+pub fn by_oidc_id(oidc_id: String) -> Select<users::Entity> {
+    users::Entity::find().filter(users::Column::OidcId.eq(oidc_id))
 }
