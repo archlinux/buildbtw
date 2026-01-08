@@ -30,8 +30,8 @@ pub struct Model {
 
     /// OIDC refresh token for background role synchronization.
     /// Stored during login and cleared when user has no active sessions.
-    /// TODO: SeaORM logs cleartext values of this when inserting. How do we disable that?
-    /// https://www.sea-ql.org/SeaORM/docs/install-and-config/debug-log/
+    /// Note: SeaORM debug logging is disabled in production (see Cargo.toml)
+    /// to prevent logging this value in cleartext.
     pub refresh_token: Option<String>,
 }
 
