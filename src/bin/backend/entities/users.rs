@@ -27,6 +27,12 @@ pub struct Model {
     /// accepted as user input, e.g. in URL path segments. It is not guaranteed
     /// to be unique and can change at any time.
     pub username: String,
+
+    /// OIDC refresh token for background role synchronization.
+    /// Stored during login and cleared when user has no active sessions.
+    /// TODO: SeaORM logs cleartext values of this when inserting. How do we disable that?
+    /// https://www.sea-ql.org/SeaORM/docs/install-and-config/debug-log/
+    pub refresh_token: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]

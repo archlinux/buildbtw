@@ -65,8 +65,11 @@ identity_providers:
           - "groups"
           - "email"
           - "profile"
+          # Required to enable refresh tokens
+          - "offline_access"
         grant_types:
           - "authorization_code"
+          - "refresh_token"
         response_types:
           - "code"
         response_modes:

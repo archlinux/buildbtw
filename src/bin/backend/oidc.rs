@@ -23,8 +23,8 @@ use openidconnect::core::{
 };
 use openidconnect::{
     AccessTokenHash, AdditionalClaims, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
-    IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, Scope, TokenResponse,
-    UserInfoClaims,
+    IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, RedirectUrl, RefreshToken, Scope,
+    TokenResponse, UserInfoClaims,
 };
 use openidconnect::{PkceCodeVerifier, reqwest};
 use serde::{Deserialize, Serialize};
@@ -165,6 +165,8 @@ pub async fn start_login(Config { oidc_client, .. }: Config) -> Result<(Url, Log
         // See <https://openid.net/specs/openid-connect-core-1_0.html#UserInfo>, "5.4 Requesting Claims using Scope values"
         .add_scope(Scope::new("profile".to_string()))
         .add_scope(Scope::new("groups".to_string()))
+        // For receiving a refresh token, used to query user's groups in the background
+        .add_scope(Scope::new("offline_access".to_string()))
         // Set the PKCE code challenge.
         .set_pkce_challenge(pkce_challenge)
         .url();
@@ -222,6 +224,8 @@ impl AdditionalClaims for GroupClaims {}
 /// Once the user has authorized the initial request, they are redirected to
 /// [buildbtw::web::oidc::Authorized] with an authorization code in the query
 /// string which allows us to obtain an ID token from the OIDC provider.
+///
+/// Returns the user info claims and an optional refresh token.
 pub async fn convert_authorization_code_to_user_info(
     Config {
         oidc_client,
@@ -235,7 +239,10 @@ pub async fn convert_authorization_code_to_user_info(
     }: LoginAttempt,
     authorization_code: AuthorizationCode,
     received_csrf_token: CsrfToken,
-) -> Result<UserInfoClaims<GroupClaims, CoreGenderClaim>> {
+) -> Result<(
+    UserInfoClaims<GroupClaims, CoreGenderClaim>,
+    Option<RefreshToken>,
+)> {
     if stored_csrf_token != received_csrf_token {
         bail!("CSRF token mismatch");
     }
@@ -275,7 +282,10 @@ pub async fn convert_authorization_code_to_user_info(
         .await
         .wrap_err("Failed requesting user info")?;
 
-    Ok(userinfo)
+    // Extract the refresh token if present
+    let refresh_token = token_response.refresh_token().cloned();
+
+    Ok((userinfo, refresh_token))
 }
 
 pub fn oidc_groups_to_user_roles(
@@ -302,6 +312,41 @@ pub fn oidc_groups_to_user_roles(
     }
 
     roles
+}
+
+/// Fetch fresh user info from OIDC provider using a refresh token.
+///
+/// If the provider uses refresh token rotation, it returns a new
+/// refresh token that should replace the old one.
+pub async fn fetch_user_info_with_refresh_token(
+    Config {
+        oidc_client,
+        reqwest_client,
+        ..
+    }: &Config,
+    refresh_token: String,
+) -> Result<(
+    UserInfoClaims<GroupClaims, CoreGenderClaim>,
+    Option<RefreshToken>,
+)> {
+    // Exchange refresh token for a new access token
+    let token_response = oidc_client
+        .exchange_refresh_token(&RefreshToken::new(refresh_token))?
+        .request_async(reqwest_client)
+        .await
+        .wrap_err("Failed to exchange refresh token")?;
+
+    // Extract the new refresh token if present (for refresh token rotation)
+    let new_refresh_token = token_response.refresh_token().cloned();
+
+    // Use the new access token to fetch user info
+    let user_info = oidc_client
+        .user_info(token_response.access_token().to_owned(), None)?
+        .request_async(reqwest_client)
+        .await
+        .wrap_err("Failed requesting user info with refreshed token")?;
+
+    Ok((user_info, new_refresh_token))
 }
 
 #[cfg(test)]

@@ -40,7 +40,7 @@ pub async fn authorized(
     let admin_oidc_groups = oidc_config.admin_oidc_groups.clone();
     let package_maintainer_oidc_groups = oidc_config.package_maintainer_oidc_groups.clone();
     let login_attempt = oidc::LoginAttempt::from_cookie_jar(&cookie_jar)?;
-    let user_info = oidc::convert_authorization_code_to_user_info(
+    let (user_info, refresh_token) = oidc::convert_authorization_code_to_user_info(
         oidc_config.clone(),
         login_attempt,
         oidc_query.code,
@@ -64,7 +64,7 @@ pub async fn authorized(
     // This creates a new user record on first login or updates the existing
     // user with the latest data owned by the SSO provider, keeping user
     // information in sync across logins.
-    let user = queries::users::upsert(create)
+    let user = queries::users::upsert(create, refresh_token)
         .exec_with_returning(&tx)
         .await?;
 

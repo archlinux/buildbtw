@@ -165,7 +165,7 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
     })?;
-    let user = queries::users::upsert(create).exec(&tx).await?;
+    let user = queries::users::upsert(create, None).exec(&tx).await?;
 
     // Create our session we use for the requests
     let session = queries::sessions::insert(user.last_insert_id.into())
@@ -212,7 +212,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
     })?;
-    let user = queries::users::upsert(create).exec(db).await?;
+    let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
     let session = queries::sessions::insert(user.last_insert_id.into())
@@ -265,7 +265,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
         oidc_id: "OIDC_ID".to_string(),
         username: "test_username".to_string(),
     })?;
-    let user = queries::users::upsert(create).exec(db).await?;
+    let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
     let session = queries::sessions::insert(user.last_insert_id.into())
@@ -334,7 +334,7 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
             oidc_id: "OIDC_ID_USER_A".to_string(),
             username: "user_a".to_string(),
         })?;
-    let user_a = queries::users::upsert(create_user_a).exec(db).await?;
+    let user_a = queries::users::upsert(create_user_a, None).exec(db).await?;
 
     // Create user B
     let create_user_b =
@@ -342,7 +342,7 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
             oidc_id: "OIDC_ID_USER_B".to_string(),
             username: "user_b".to_string(),
         })?;
-    let user_b = queries::users::upsert(create_user_b).exec(db).await?;
+    let user_b = queries::users::upsert(create_user_b, None).exec(db).await?;
 
     // Create session for user A (we'll authenticate as user A)
     let user_a_session = queries::sessions::insert(user_a.last_insert_id.into())
@@ -393,7 +393,7 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
         oidc_id: "OIDC_ID_USER_A".to_string(),
         username: "user_a".to_string(),
     })?;
-    let user = queries::users::upsert(create_user).exec(db).await?;
+    let user = queries::users::upsert(create_user, None).exec(db).await?;
 
     // Create session
     let session = queries::sessions::insert(user.last_insert_id.into())

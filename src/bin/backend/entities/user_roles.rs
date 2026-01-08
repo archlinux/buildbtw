@@ -5,7 +5,7 @@ use strum::{Display, EnumString};
 use crate::db_fields::TextUuid;
 use crate::entities::users;
 
-#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Display, EnumString, DeriveValueType, Serialize)]
 #[sea_orm(value_type = "String")]
 pub enum Role {
     /// Most used role, for dispatching and releasing builds.
