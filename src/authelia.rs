@@ -24,7 +24,14 @@ pub struct Container {
 
 impl Container {
     /// Start a new Authelia container using raw podman commands
-    pub async fn new(port: Option<u32>) -> Result<Self> {
+    ///
+    /// When `persist_between_runs` is true, the container mounts its state directory in
+    /// ./authelia/db, ensuring persistence across container restarts.
+    ///
+    /// # Arguments
+    /// * `port` - Specific host port to expose Authelia on. If `None`, expose on a random port.
+    /// * `persist_between_runs` - Whether to mount the state dir to a location outside the container
+    pub async fn new(port: Option<u32>, persist_between_runs: bool) -> Result<Self> {
         setup_certificates()?;
 
         let test_containers_path =
@@ -50,36 +57,51 @@ impl Container {
         .await??;
 
         // Start the authelia container
-        let mut child = tokio::process::Command::new("podman")
-            .args([
-                "run",
-                "--rm",
-                "--name",
-                &container_name,
-                "-p",
-                &port_arg,
+        let mut command = tokio::process::Command::new("podman");
+        command.args([
+            "run",
+            "--rm",
+            "--name",
+            &container_name,
+            "-p",
+            &port_arg,
+            "-v",
+            &format!(
+                "{}:/config/configuration.yml:ro",
+                test_containers_path.join("configuration.yml")
+            ),
+            "-v",
+            &format!(
+                "{}:/config/users_database.yml:ro",
+                test_containers_path.join("users_database.yml")
+            ),
+            "-v",
+            &format!(
+                "{}:/config/certificate.pem:ro",
+                test_containers_path.join("certificate.pem")
+            ),
+            "-v",
+            &format!(
+                "{}:/config/key.pem:ro",
+                test_containers_path.join("key.pem")
+            ),
+        ]);
+
+        if persist_between_runs {
+            // Persist via local bind mount
+            command.args([
                 "-v",
-                &format!(
-                    "{}:/config/configuration.yml:ro",
-                    test_containers_path.join("configuration.yml")
-                ),
-                "-v",
-                &format!(
-                    "{}:/config/users_database.yml:ro",
-                    test_containers_path.join("users_database.yml")
-                ),
-                "-v",
-                &format!(
-                    "{}:/config/certificate.pem:ro",
-                    test_containers_path.join("certificate.pem")
-                ),
-                "-v",
-                &format!(
-                    "{}:/config/key.pem:ro",
-                    test_containers_path.join("key.pem")
-                ),
-                AUTHELIA_IMAGE_URL,
-            ])
+                &format!("{}:/config/db", test_containers_path.join("db")),
+            ]);
+        } else {
+            // Anonymous, ephemeral volume
+            // This is makes sure that /config/db exists, authelia will fail to start without it
+            command.args(["-v", "/config/db"]);
+        }
+
+        command.arg(AUTHELIA_IMAGE_URL);
+
+        let mut child = command
             // We use listenfd for development which passes a socket via the `LISTEN_FDS` env var.
             // However, this variable is also passed to child processes which breaks podman
             // https://github.com/containers/podman/issues/20968

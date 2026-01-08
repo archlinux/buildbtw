@@ -142,7 +142,7 @@ impl TestCtxBuilder {
         let base_url = Url::parse("http://buildbtw.localhost:8080").unwrap();
 
         let (maybe_authelia_container, oidc_config) = if self.enable_authelia {
-            let container = authelia::Container::new(None)
+            let container = authelia::Container::new(None, false)
                 .await
                 .expect("Failed to start Authelia container");
             // These values are hardcoded in Authelia's `configuration.yml` and

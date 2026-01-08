@@ -60,9 +60,10 @@ async fn main() -> Result<()> {
             // finishes. Dropping the container will stop it.
             #[cfg(debug_assertions)]
             let maybe_authelia_container = if run_args.authelia_container.run_authelia_container {
-                let authelia = buildbtw::authelia::Container::new(Some(
-                    run_args.authelia_container.authelia_container_port,
-                ))
+                let authelia = buildbtw::authelia::Container::new(
+                    Some(run_args.authelia_container.authelia_container_port),
+                    true,
+                )
                 .await;
 
                 if let Err(error) = &authelia {
