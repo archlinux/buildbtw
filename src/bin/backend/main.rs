@@ -21,7 +21,7 @@ use tokio::{
     signal,
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use crate::{args::Args, server_state::ServerState};
 
@@ -61,7 +61,11 @@ async fn main() -> Result<()> {
                 let authelia = buildbtw::authelia::Container::new(Some(
                     run_args.authelia_container.authelia_container_port,
                 ))
-                .await?;
+                .await;
+
+                if let Err(error) = &authelia {
+                    error!(?error, "Failed to start authelia container");
+                }
 
                 Some(authelia)
             } else {
