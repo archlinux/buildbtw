@@ -65,6 +65,9 @@ async fn main() -> Result<()> {
             .await
             .wrap_err("Failed to create GitLab client")?;
 
+            // Make sure the target_dir exists in the first place.
+            tokio::fs::create_dir_all(&update_args.target_dir).await?;
+
             let mut state = State::from_filesystem()?;
             let last_updated = state.get_path_updated(&update_args.target_dir)?.cloned();
 

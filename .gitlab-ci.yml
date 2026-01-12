@@ -14,8 +14,7 @@ image: "archlinux:latest"
 .with-rust:
   before_script:
     - !reference [".default-before-script", "before_script"]
-    # pkgconf: for the openssl crate to locate libssl files
-    - pacman -Syu --needed --noconfirm rust just gcc pkgconf
+    - pacman -Syu --needed --noconfirm rust just gcc
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
     paths:

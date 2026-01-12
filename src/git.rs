@@ -88,8 +88,8 @@ fn clone_or_fetch_repository(
     gitlab_project_path: &crate::gitlab::projects::Path,
     gitlab_domain: &Url,
     gitlab_packages_group: &str,
-) -> Result<git2::Repository> {
-    let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path));
+) -> Result<gix::Repository> {
+    let maybe_repo = gix::open(packaging_repo_path(target_dir, gitlab_project_path));
     let repo = if let Ok(repo) = maybe_repo {
         fetch_packaging_repo(target_dir, gitlab_project_path)?;
         repo
@@ -110,27 +110,27 @@ fn clone_packaging_repo(
     gitlab_project_path: &crate::gitlab::projects::Path,
     gitlab_domain: &Url,
     gitlab_packages_group: &str,
-) -> Result<git2::Repository> {
+) -> Result<gix::Repository> {
     trace!("Cloning {gitlab_project_path}");
-
-    // Set up the callbacks to use SSH credentials
-    let mut callbacks = git2::RemoteCallbacks::new();
-    callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
-
-    // Configure fetch options to use the callbacks
-    let mut fetch_options = git2::FetchOptions::new();
-    fetch_options.remote_callbacks(callbacks);
 
     let gitlab_domain = gitlab_domain
         .host_str()
         .ok_or_eyre("Gitlab domain URL has no host")?;
 
-    let repo = git2::build::RepoBuilder::new()
-        .fetch_options(fetch_options)
-        .clone(
-            &format!("git@{gitlab_domain}:{gitlab_packages_group}/{gitlab_project_path}.git"),
-            packaging_repo_path(target_dir, gitlab_project_path).as_std_path(),
-        )?;
+    let repo_url = gix::url::parse(
+        format!("git@{gitlab_domain}:{gitlab_packages_group}/{gitlab_project_path}.git")
+            .as_bytes()
+            .into(),
+    )?;
+    let mut prepare_clone = gix::prepare_clone(
+        repo_url,
+        packaging_repo_path(target_dir, gitlab_project_path).as_std_path(),
+    )?;
+
+    let (mut prepare_checkout, _) = prepare_clone
+        .fetch_then_checkout(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)?;
+    let (repo, _) =
+        prepare_checkout.main_worktree(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)?;
 
     Ok(repo)
 }
@@ -141,26 +141,24 @@ fn fetch_packaging_repo(
     gitlab_project_path: &crate::gitlab::projects::Path,
 ) -> Result<()> {
     trace!("Fetching repository {:?}", &gitlab_project_path);
-    let repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path))?;
-
-    // Set up the callbacks to use SSH credentials
-    let mut callbacks = git2::RemoteCallbacks::new();
-    callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
-
-    // Configure fetch options to use the callbacks and download tags
-    let mut fetch_options = git2::FetchOptions::new();
-    fetch_options.download_tags(git2::AutotagOption::All);
-    fetch_options.remote_callbacks(callbacks);
+    let repo = gix::open(packaging_repo_path(target_dir, gitlab_project_path))?;
 
     // Find remote to fetch from
-    let mut remote = repo.find_remote("origin")?;
+    let remote = repo
+        .find_fetch_remote(None)?
+        .with_fetch_tags(gix::remote::fetch::Tags::All)
+        .with_refspecs(
+            ["+refs/heads/*:refs/remotes/origin/*"],
+            gix::remote::Direction::Fetch,
+        )?;
+    remote
+        .connect(gix::remote::Direction::Fetch)?
+        .prepare_fetch(
+            gix::progress::Discard,
+            gix::remote::ref_map::Options::default(),
+        )?
+        .receive(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)?;
 
-    // Fetch everything from the remote
-    remote.fetch(
-        &["+refs/heads/*:refs/remotes/origin/*"],
-        Some(&mut fetch_options),
-        None,
-    )?;
     // TODO: cleanup remote branches that are orphan
     Ok(())
 }
