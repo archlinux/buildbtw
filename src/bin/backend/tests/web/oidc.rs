@@ -108,13 +108,7 @@ async fn test_e2e_authelia_login() -> Result<()> {
         .click()
         .await?;
 
-    let url = c.current_url().await?.to_string();
-    assert!(
-        url.starts_with(ctx_with_oidc.base_url.as_str()),
-        "expected {url} to start with the URL of buildbtw's authorized page"
-    );
-
-    // Check if we are logged in
+    // Wait, and check if we are logged in
     let content = c
         .query(By::Id("navbar-buildbtw"))
         .wait(Duration::from_secs(5), Duration::from_secs(1))
@@ -124,6 +118,12 @@ async fn test_e2e_authelia_login() -> Result<()> {
     assert!(
         text.contains(username.to_string().as_str()),
         "expected to show a logged in user",
+    );
+
+    let url = c.current_url().await?.to_string();
+    assert!(
+        url.starts_with(ctx_with_oidc.base_url.as_str()),
+        "expected {url} to start with the URL of buildbtw's authorized page"
     );
 
     c.quit().await?;

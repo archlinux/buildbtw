@@ -1,7 +1,8 @@
 use color_eyre::Result;
 use rstest::rstest;
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, TransactionTrait,
+    ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait, QueryFilter,
+    TransactionTrait,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
