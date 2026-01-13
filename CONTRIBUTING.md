@@ -9,6 +9,34 @@
     - Prefer: `builds::Status` or `builds::list_by_status`
     - Avoid: `builds::BuildStatus` or `builds::list_builds_by_status`
 
+## AI usage
+
+We have found that code written by AI takes longer to review due to the non-holistic nature of its output.
+As such, we have some reservations towards AI tool usage:
+
+- Do not check in code or docs written by AI.
+- You can use AI tools in other capacities so long as their results are not given to reviewers to look at.
+
+## Documentation
+
+- Write as much docs as required but not more than that.
+- If you make an architectural design, document it in `docs/` in its own file (or find a pre-existing file to add it to)
+- Write docstrings and inline comments as required. Focus on _why the code is doing something_ and not on _what the code is doing_.
+
+## Merge requests
+
+- Always provide context and reasoning in your commits and MR.
+- If you made a visual change, post a screenshot.
+- If you made something that requires manual testing, provide instructions on how to do that.
+- Add yourself as an assignee in your own MRs.
+
+## Project Management
+
+- Issues should use only these labels: `effort`, `scope`, `need`.
+- GitLab can't hide global or group labels in projects and so they will pollute our issue assignment overview.
+- The order of issues in our [primary issue board](https://gitlab.archlinux.org/archlinux/buildbtw/-/boards/24162?milestone_title=Started) matters.
+  Take issues from the top.
+
 ## Database Interactions
 
 - Add database indexes only when they are actually used in an existing query.
@@ -37,6 +65,6 @@ Test locations:
 - Always create API routes below the "/v1" scope to allow versioning the API in the future. Adding them to `routes::api::router` will do this automatically.
 - Use the plural form for resource names in paths.
 - All resources live at the "top level", e.g. even though builds are "owned" by iterations and namespaces, their resource path is `/v1/builds/{UUID}`.
-  
+
   As such, we decided against a nested format such like `/v1/iterations/{iteration_uuid}/builds/{build_uuid}`.
   This can lead to pretty deeply nested paths otherwise.
