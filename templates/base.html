@@ -36,10 +36,6 @@
         <span class="icon"><i class="fas fa-user"></i></span>
         <span>Account</span>
       </a>
-      <a class="navbar-item" href="{{ logout_url }}">
-        <span class="icon"><i class="fas fa-sign-out"></i></span>
-        <span>Logout</span>
-      </a>
       {% else %}
       <a class="navbar-item" href="{{ login_url }}">
         <span class="icon"><i class="fas fa-sign-in"></i></span>
@@ -50,11 +46,9 @@
 
     <div class="navbar-end is-hidden-mobile">
       {% if user %}
-      <a class="navbar-item is-tab is-active" href="{{ account_url }}">
-        <span class="icon"><i class="fas fa-user"></i></span>
-      </a>
-      <a class="navbar-item is-tab" href="{{ logout_url }}">
-        <span class="icon"><i class="fas fa-sign-out"></i></span>
+      <a class="navbar-item is-tab" href="{{ account_url }}">
+        <span>{{ user.username }}</span>
+        <span class="icon has-text-link"><i class="fas fa-user"></i></span>
       </a>
       {% else %}
       <span class="navbar-item">
