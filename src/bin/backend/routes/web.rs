@@ -2,6 +2,7 @@
 
 use axum::Router;
 use axum_extra::routing::RouterExt;
+use camino::Utf8PathBuf;
 use tower_http::services::ServeDir;
 
 use crate::server_state::ServerState;
@@ -10,8 +11,8 @@ mod account;
 pub mod index;
 mod oidc;
 
-pub fn router() -> Router<ServerState> {
-    let static_files = ServeDir::new("./assets");
+pub fn router(root: Utf8PathBuf) -> Router<ServerState> {
+    let static_files = ServeDir::new(format!("{root}/assets"));
 
     Router::new()
         .nest_service("/assets", static_files)

@@ -123,6 +123,14 @@ pub struct RunArgs {
     )]
     pub cookie_encryption_key_path: Option<Utf8PathBuf>,
 
+    /// Path to the web root directory
+    ///
+    /// The web root path contains the web assets and template directories.
+    /// Use the `BUILDBTW_DEFAULT_WEB_ROOT` env var to set a compile time default.
+    /// If both `BUILDBTW_WEB_ROOT` and `BUILDBTW_DEFAULT_WEB_ROOT` are not set, uses the current working directory as default.
+    #[arg(long, env = "BUILDBTW_WEB_ROOT", default_value_t = Utf8PathBuf::from(option_env!("BUILDBTW_DEFAULT_WEB_ROOT").unwrap_or("./")))]
+    pub web_root: Utf8PathBuf,
+
     #[cfg(debug_assertions)]
     #[clap(flatten)]
     pub authelia_container: AutheliaContainer,
@@ -271,6 +279,7 @@ mod tests {
             base_url,
             cookie_encryption_key_path: _,
             authelia_container,
+            web_root: _,
         }) = parsed_args.command
         else {
             panic!("Expected Run command");
