@@ -19,6 +19,7 @@ pub fn router(root: Utf8PathBuf) -> Router<ServerState> {
         .typed_get(index::index)
         .typed_get(oidc::start_login)
         .typed_get(oidc::authorized)
+        .typed_get(account::overview)
         .typed_get(account::logout)
         .typed_get(account::session_list)
         .typed_get(account::session_revoke)

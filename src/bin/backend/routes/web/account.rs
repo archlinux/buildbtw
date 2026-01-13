@@ -15,6 +15,18 @@ use crate::{
     templates,
 };
 
+/// See [web::account::Overview].
+pub async fn overview(
+    _: web::account::Overview,
+    session: from_request::AuthUser,
+    cookie_jar: PrivateCookieJar,
+) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
+    Ok((
+        cookie_jar,
+        Html(templates::account::render_account_overview(&session.user)?),
+    ))
+}
+
 /// See [web::account::Logout].
 pub async fn logout(
     _: web::account::Logout,

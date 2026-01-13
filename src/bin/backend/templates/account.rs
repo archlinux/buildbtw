@@ -3,6 +3,12 @@ use color_eyre::Result;
 use crate::{entities, entities::sessions, templates};
 use buildbtw::web;
 
+pub fn render_account_overview(user: &entities::users::Model) -> Result<String> {
+    let mut ctx = tera::Context::default();
+    ctx.insert("user", &user);
+    templates::render("routes/account/overview.html", ctx)
+}
+
 pub fn render_session_list_page(
     user: &entities::users::Model,
     sessions: Vec<sessions::Model>,

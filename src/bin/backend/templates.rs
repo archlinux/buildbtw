@@ -48,6 +48,10 @@ fn render(template_name: &str, mut context: tera::Context) -> Result<String> {
     context.insert("login_url", &buildbtw::web::oidc::StartLogin {}.to_string());
     context.insert("logout_url", &buildbtw::web::account::Logout {}.to_string());
     context.insert(
+        "account_url",
+        &buildbtw::web::account::Overview {}.to_string(),
+    );
+    context.insert(
         "session_list_url",
         &buildbtw::web::account::SessionList {}.to_string(),
     );

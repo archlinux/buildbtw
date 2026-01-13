@@ -32,7 +32,7 @@
         <span>Home</span>
       </a>
       {% if user %}
-      <a class="navbar-item" href="{{ session_list_url }}">
+      <a class="navbar-item" href="{{ account_url }}">
         <span class="icon"><i class="fas fa-user"></i></span>
         <span>Account</span>
       </a>
@@ -50,7 +50,7 @@
 
     <div class="navbar-end is-hidden-mobile">
       {% if user %}
-      <a class="navbar-item is-tab is-active" href="{{ session_list_url }}">
+      <a class="navbar-item is-tab is-active" href="{{ account_url }}">
         <span class="icon"><i class="fas fa-user"></i></span>
       </a>
       <a class="navbar-item is-tab" href="{{ logout_url }}">
