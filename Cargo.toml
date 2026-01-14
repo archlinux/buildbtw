@@ -118,6 +118,9 @@ openidconnect = { version = "4.0.1", features = [
 ] }
 garde = { version = "0.22.0", features = ["derive"] }
 listenfd = "1.0.2"
+graphql_client = "0.14.0"
+derive_more = { version = "2.1.0", features = ["as_ref", "display"] }
+git2 = { version = "0.20.3", default-features = false, features = ["ssh"] }
 
 [dev-dependencies]
 axum-test = { version = "18.1.0", features = ["typed-routing"] }
@@ -126,3 +129,5 @@ thirtyfour = { version = "0.36.1", features = [
 ], default-features = false }
 rstest = { version = "0.26.1", default-features = false }
 cookie = "0.18.1"
+temp-env = "0.3.6"
+tempfile = "3.23.0"

@@ -5,7 +5,7 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use color_eyre::eyre::{Context, Result, bail};
+use color_eyre::eyre::{Result, bail};
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -102,17 +102,26 @@ pub struct RunArgs {
     #[arg(long, env = "BUILDBTW_BASE_URL")]
     pub base_url: Url,
 
-    /// Secret to encrypt cookies with
+    /// Path to a file containing the secret to encrypt cookies with
     ///
     /// Needs to be exactly 64 characters.
     ///
     /// You can generate this with e.g. `pwgen 64`.
+    ///
+    /// Can be passed directly using the `BUILDBTW_COOKIE_ENCRYPTION_KEY` variable.
+    ///
+    /// Precedence:
+    /// 1. `BUILDBTW_COOKIE_ENCRYPTION_KEY` env var
+    /// 2. Contents of file specified by the path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_COOKIE_ENCRYPTION_KEY
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
     #[arg(
         long,
-        env = "BUILDBTW_COOKIE_ENCRYPTION_KEY",
-        value_parser(parse_cookie_encryption_key)
+        env = "BUILDBTW_COOKIE_ENCRYPTION_KEY_PATH",
+        verbatim_doc_comment
     )]
-    pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
+    pub cookie_encryption_key_path: Option<Utf8PathBuf>,
 
     #[cfg(debug_assertions)]
     #[clap(flatten)]
@@ -190,15 +199,6 @@ fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
     }
 }
 
-/// Create a [axum_extra::extract::cookie::Key] from a string
-fn parse_cookie_encryption_key(
-    src: &str,
-) -> Result<redact::Secret<axum_extra::extract::cookie::Key>> {
-    axum_extra::extract::cookie::Key::try_from(src.as_bytes())
-        .wrap_err("Failed to parse encryption key")
-        .map(redact::Secret::new)
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -242,7 +242,7 @@ mod tests {
             "127.0.0.1:3000",
             "--base-url",
             "https://example.com",
-            "--cookie-encryption-key",
+            "--cookie-encryption-key-path",
             "1234567890123456789012345678901234567890123456789012345678901234",
             "--oidc-client-id",
             "test-client-id",
@@ -269,7 +269,7 @@ mod tests {
             listen,
             oidc,
             base_url,
-            cookie_encryption_key: _,
+            cookie_encryption_key_path: _,
             authelia_container,
         }) = parsed_args.command
         else {
