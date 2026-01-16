@@ -36,9 +36,8 @@ pub enum ResponseError {
     UnsupportedContentType(String),
 
     /// Unauthorized access.
-    /// TODO: Rename to "Unauthenticated", as this is used for cases where users are not logged in.
     #[error("Unauthorized")]
-    Unauthorized,
+    NotAuthenticated,
 
     /// Template error.
     #[error("Template error")]
@@ -62,7 +61,7 @@ impl IntoResponse for ResponseError {
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             ResponseError::InvalidInput(_) => StatusCode::BAD_REQUEST,
-            ResponseError::Unauthorized => StatusCode::UNAUTHORIZED,
+            ResponseError::NotAuthenticated => StatusCode::UNAUTHORIZED,
             ResponseError::NotPermitted => StatusCode::FORBIDDEN,
         };
         // Send only the opaque description using the display trait, to avoid leaking

@@ -75,7 +75,7 @@ impl FromRequestParts<ServerState> for AuthUser {
         let db::Tx(tx) = db::Tx::from_request_parts(parts, state).await?;
         let Some(cookie) = cookie_jar.get(SESSION_ID_COOKIE_NAME) else {
             // Missing session cookie
-            return Err(ResponseError::Unauthorized);
+            return Err(ResponseError::NotAuthenticated);
         };
         let id: Uuid = cookie
             .value()
@@ -89,7 +89,7 @@ impl FromRequestParts<ServerState> for AuthUser {
 
         let Some((session, user)) = session_with_user else {
             // Session does not exist in the database
-            return Err(ResponseError::Unauthorized);
+            return Err(ResponseError::NotAuthenticated);
         };
 
         // Can only happen on severe corruption, as the session has a foreign key on the user
