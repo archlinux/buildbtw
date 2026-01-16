@@ -33,9 +33,7 @@ pub async fn initialize(state: ServerState, token: CancellationToken) -> Result<
         loop {
             tokio::select! {
                 _ = hourly_ticker.tick() => {
-                    if let Err(e) = run_hourly_job(&state).await {
-                        tracing::error!(?e, "hourly job failed");
-                    }
+                    run_hourly_job(&state).await;
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
                 _ = token.cancelled() => {
@@ -51,9 +49,11 @@ pub async fn initialize(state: ServerState, token: CancellationToken) -> Result<
 /// Executes the hourly maintenance tasks.
 ///
 /// This function is called once every hour by the background worker.
-async fn run_hourly_job(state: &ServerState) -> Result<()> {
+async fn run_hourly_job(state: &ServerState) {
     tracing::debug!("Running hourly jobs");
-    invalidate_old_sessions(state).await?;
+    if let Err(e) = invalidate_old_sessions(state).await {
+        tracing::error!(?e, "Failed to invalidate old sessions");
+    }
 
     // Run OIDC role sync, if OIDC is configured
     if let crate::oidc::MaybeConfig::Configured(oidc_config) = &state.oidc
@@ -61,8 +61,6 @@ async fn run_hourly_job(state: &ServerState) -> Result<()> {
     {
         tracing::error!(?e, "Failed to sync user roles from OIDC");
     }
-
-    Ok(())
 }
 
 /// Removes inactive user sessions from the database.
