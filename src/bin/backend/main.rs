@@ -21,7 +21,7 @@ use tokio::{
     signal,
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 use crate::{args::Args, server_state::ServerState};
 
@@ -67,7 +67,8 @@ async fn main() -> Result<()> {
                 .await;
 
                 if let Err(error) = &authelia {
-                    error!(?error, "Failed to start authelia container");
+                    // qualified usage because this is only enabled for debug, so importing it makes clippy unhappy
+                    tracing::error!(?error, "Failed to start authelia container");
                 }
 
                 Some(authelia)
