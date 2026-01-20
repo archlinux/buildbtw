@@ -1,10 +1,15 @@
+variables:
+  # Set Gitlab's cache compression to tar+zstd for better performance.
+  CACHE_COMPRESSION_FORMAT: tarzstd
+  # Enable timestamps in Gitlab's job logs.
+  FF_TIMESTAMPS: true
+
+# See https://docs.gitlab.com/ci/yaml/workflow/#git-flow-with-merge-request-pipelines
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-image: "archlinux:latest"
 
 .default-before-script:
   before_script:
@@ -66,7 +71,7 @@ test:
     - pacman -Syu --needed --noconfirm cargo-nextest podman jq geckodriver firefox
     - just test
 
-build-release:
+.build-release:
   stage: build
   extends: .with-rust
   artifacts:
@@ -75,7 +80,23 @@ build-release:
   script:
     - just build-release
 
-push-container-image:
+build-release:
+  extends: .build-release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+build-release:secure:
+  extends: .build-release
+  tags:
+    - secure
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Don't run this in forks - they don't have access to secure runners
+    - if: $CI_PROJECT_PATH != "archlinux/buildbtw"
+      when: never
+
+.push-container-image:
   tags:
     # we build containers so it's easier to do this in a VM
     - vm
@@ -86,51 +107,76 @@ push-container-image:
     - pacman -Syu --needed --noconfirm podman
     - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - just build-release-container-image
-    - podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
+    - podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME"
+
+push-container-image:
+  extends: .push-container-image
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    # Don't run this in forks - there's no point to pushing container images in forks
+    - if: $CI_PROJECT_PATH != "archlinux/buildbtw"
+      when: never
+
+push-container-image:secure:
+  extends: .push-container-image
+  tags:
+    - secure
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Don't run this in forks - they don't have access to secure runners
+    - if: $CI_PROJECT_PATH != "archlinux/buildbtw"
+      when: never
 
 deploy_review_app:
   stage: deploy
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - >-
       curl
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
-      https://buildbtw.dev.archlinux.org/hooks/deploy-branch?image-tag=$CI_COMMIT_REF_SLUG
+      https://buildbtw.dev.archlinux.org/hooks/deploy-branch?image-tag=$CI_COMMIT_REF_NAME
   environment:
-    name: review/$CI_COMMIT_REF_SLUG
-    url: https://$CI_COMMIT_REF_SLUG.buildbtw.dev.archlinux.org
-    on_stop: stop_review_app # References the stop_review_app job
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    name: review/$CI_COMMIT_REF_NAME
+    auto_stop_in: 2 weeks
+    url: https://$CI_COMMIT_REF_NAME.buildbtw.dev.archlinux.org
+    on_stop: stop_review_app
 
 stop_review_app:
   stage: deploy
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - >-
       curl
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
-      https://buildbtw.dev.archlinux.org/hooks/undeploy-branch?image-tag=$CI_COMMIT_REF_SLUG
+      https://buildbtw.dev.archlinux.org/hooks/undeploy-branch?image-tag=$CI_COMMIT_REF_NAME
   environment:
-    name: review/$CI_COMMIT_REF_SLUG
+    name: review/$CI_COMMIT_REF_NAME
     action: stop
-  when: manual # Makes this job manually triggerable
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  when: manual
 
 deploy_staging:
   stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Don't run this in forks - they don't have access to secure runners
+    - if: $CI_PROJECT_PATH != "archlinux/buildbtw"
+      when: never
+  tags:
+    - secure
   script:
     - >-
       curl
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_STAGING_DEPLOY_TOKEN"
-      https://buildbtw.staging.archlinux.org/hooks/deploy-branch?image-tag=$CI_COMMIT_REF_SLUG
+      https://buildbtw.staging.archlinux.org/hooks/deploy-branch?image-tag=$CI_COMMIT_REF_NAME
   environment:
-    name: review/$CI_COMMIT_REF_SLUG
-    url: https://$CI_COMMIT_REF_SLUG.buildbtw.staging.archlinux.org
-  rules:
-    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    name: review/$CI_COMMIT_REF_NAME
+    url: https://buildbtw.staging.archlinux.org
