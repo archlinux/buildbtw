@@ -36,6 +36,7 @@ As such, we have some reservations towards AI tool usage:
 - GitLab can't hide global or group labels in projects and so they will pollute our issue assignment overview.
 - The order of issues in our [primary issue board](https://gitlab.archlinux.org/archlinux/buildbtw/-/boards/24162?milestone_title=Started) matters.
   Take issues from the top.
+- Issues are grouped using milestones. Prioritization happens through user stories which reflect our high-level goals.
 
 ## Database Interactions
 

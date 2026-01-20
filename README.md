@@ -3,37 +3,27 @@
 ## Projects
 
 This repo contains a bunch of software maintained by the buildbtw team.
-Check the respective directories for their READMEs.
-
-- [buildbtw-poc](/buildbtw-poc) - the proof of concept buildbtw implementation
-- [arch-pkg-repo-updater](/arch-pkg-repo-updater) - a tool to sync package repositories
 
 ## Roadmap
 
-1. ✅ [Collect initial user stories](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/?sort=priority&state=all&label_name%5B%5D=buildbtw%3A%3Auser-story&first_page_size=100)
-1. ✅ [Build an exploratory PoC](https://gitlab.archlinux.org/archlinux/buildbtw/-/milestones/11) to discover unknown unknowns and validate the approach we've planned
-1. ✅ [Write RFC, outlining major components & architecture](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/4)
-1. ⚙️ [Build and deploy MVP](https://gitlab.archlinux.org/archlinux/buildbtw/-/milestones/10#tab-issues)
-1. Iterate on the MVP to improve the service, writing new RFCs and requirements as needed
-
-## Project Management
-
-We're using the issue tracker for requirements and user stories. We're planning to use labels to allow filtering the issues:
-
-- by need: "must", "should", "could", "won't"
-- by effort: XL, L, M, S
-- by scope: feature, bug, docs, refactor, ...
-
-Issues are grouped using milestones. Prioritization happens through user stories which reflect our high-level goals.
-
-Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder.
+To follow current project progress, you can check the [milestones](https://gitlab.archlinux.org/archlinux/buildbtw/-/milestones) and the [issue board](https://gitlab.archlinux.org/archlinux/buildbtw/-/boards/24162?milestone_title=Started).
 
 ## Documentation
 
-- [Architecture Overview](notes/Architecture_Overview.md)
-- [PoC User Guide](notes/PoC_User_Guide.md)
-- [PoC Deployment](notes/PoC_Deployment.md)
-- [Contribution Guide](notes/Contributing.md)
+- [Contribution Guide](CONTRIBUTING.md)
+- [Architecture Overview](docs/Architecture_Overview.md)
+- [Frontend](Frontend.md)
+- [Infrastructure Operations](https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/master/docs/buildbtw.md)
+
+Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder.
+
+## Instances
+
+This is covered in great detail in the [infrastructure operations](https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/master/docs/buildbtw.md) but the short of it is:
+
+- `*.buildbtw.dev.archlinux.org` for [review apps](https://docs.gitlab.com/ci/review_apps/) on merge requests (spawned dynamically, one per merge request)
+- `buildbtw.staging.archlinux.org` for staging/pre-production continuous deployment for every passed `main` build (static environment)
+- `buildbtw.archlinux.org` for manual production deployments, controlled by Arch Linux DevOps (static environment)
 
 ## Development
 
