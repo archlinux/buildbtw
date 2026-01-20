@@ -102,7 +102,6 @@ build-release:secure:
     - vm
   stage: build
   extends: .default-before-script
-  needs: ["build-release"]
   script:
     - pacman -Syu --needed --noconfirm podman
     - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
@@ -111,6 +110,7 @@ build-release:secure:
 
 push-container-image:
   extends: .push-container-image
+  needs: ["build-release"]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     # Don't run this in forks - there's no point to pushing container images in forks
@@ -119,6 +119,7 @@ push-container-image:
 
 push-container-image:secure:
   extends: .push-container-image
+  needs: ["build-release:secure"]
   tags:
     - secure
   rules:
