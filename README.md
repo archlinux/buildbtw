@@ -94,3 +94,4 @@ For debugging (or fun), you can watch the firefox window open and interact with 
 1. `cargo release --execute <version>`
 1. Releases will automatically be deployed by GitLab CI.
 1. Manually update Arch packages.
+1. Go to [the infra repo](https://gitlab.archlinux.org/archlinux/infrastructure) and bump the [version of buildbtw](https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/master/host_vars/buildbtw.archlinux.org/misc.yml?ref_type=heads#L6).
