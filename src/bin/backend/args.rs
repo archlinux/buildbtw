@@ -168,6 +168,8 @@ pub struct Oidc {
 pub struct AutheliaContainer {
     /// Run a podman container with authelia as an OIDC provider alongside
     /// the buildbtw server for local development.
+    /// This container assumes a base URL of <http://buildbtw.localhost:8080>. If you change the
+    /// base URL, you'll need to change the authelia config at `authelia/configuration.yml` as well.
     #[arg(long, env = "BUILDBTW_RUN_AUTHELIA_CONTAINER")]
     pub run_authelia_container: bool,
 
