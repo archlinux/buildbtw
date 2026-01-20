@@ -97,9 +97,6 @@ build-release:secure:
       when: never
 
 .push-container-image:
-  tags:
-    # we build containers so it's easier to do this in a VM
-    - vm
   stage: build
   extends: .default-before-script
   script:
@@ -111,6 +108,9 @@ build-release:secure:
 push-container-image:
   extends: .push-container-image
   needs: ["build-release"]
+  tags:
+    # We build containers so it's easier to do this in a VM
+    - vm
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     # Don't run this in forks - there's no point to pushing container images in forks
@@ -121,6 +121,8 @@ push-container-image:secure:
   extends: .push-container-image
   needs: ["build-release:secure"]
   tags:
+    # We build containers so it's easier to do this in a VM
+    - vm
     - secure
   rules:
     - if: $CI_COMMIT_TAG
