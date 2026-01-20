@@ -10,6 +10,7 @@ use url::Url;
 use crate::{
     args, db, oidc, router,
     server_state::ServerState,
+    templates,
     tests::geckodriver::{self, ProcessGuard},
 };
 
@@ -197,6 +198,8 @@ impl TestCtxBuilder {
             )),
         };
 
+        templates::initialize("./".into()).await.unwrap();
+
         let server = if self.use_http_transport {
             // TODO try multiple ports to find one that's free
             TestServer::builder()
@@ -204,10 +207,10 @@ impl TestCtxBuilder {
                     Some(std::net::Ipv4Addr::new(0, 0, 0, 0).into()),
                     Some(8080),
                 )
-                .build(router::new().with_state(state.clone()))
+                .build(router::new("./".into()).with_state(state.clone()))
                 .unwrap()
         } else {
-            TestServer::new(router::new().with_state(state.clone())).unwrap()
+            TestServer::new(router::new("./".into()).with_state(state.clone())).unwrap()
         };
 
         TestCtx {

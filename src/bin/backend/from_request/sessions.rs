@@ -8,6 +8,7 @@ use axum_extra::extract::{
 };
 use color_eyre::eyre::{Context, ContextCompat};
 use sea_orm::IntoActiveModel;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{db, entities, queries, response_error::ResponseError, server_state::ServerState};
@@ -19,6 +20,7 @@ pub const SESSION_ID_COOKIE_NAME: &str = "buildbtw_session_id";
 /// This struct bundles the active session and the corresponding user model.
 /// It is passed to request handlers that require authentication, allowing
 /// them to access both the session information and the owning user's data.
+#[derive(Clone, Debug, Serialize)]
 pub struct AuthUser {
     pub session: entities::sessions::Model,
     pub user: entities::users::Model,

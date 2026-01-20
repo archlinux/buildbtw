@@ -39,6 +39,10 @@ pub enum ResponseError {
     /// Unauthorized access.
     #[error("Unauthorized")]
     Unauthorized,
+
+    /// Template error.
+    #[error("Template error")]
+    Tera(#[from] tera::Error),
 }
 
 impl IntoResponse for ResponseError {
@@ -47,9 +51,10 @@ impl IntoResponse for ResponseError {
         // Log the full error details using the debug trait
         error!("{self:?}");
         let status = match self {
-            ResponseError::Eyre(_) | ResponseError::DbError(_) | ResponseError::IO(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
+            ResponseError::Eyre(_)
+            | ResponseError::DbError(_)
+            | ResponseError::IO(_)
+            | ResponseError::Tera(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             ResponseError::InvalidInput(_) => StatusCode::BAD_REQUEST,

@@ -58,7 +58,7 @@ build-release:
 [doc("Build release container image")]
 [group("build")]
 build-release-container-image:
-    podman build -f Containerfile --tag buildbtw target/release
+    podman build -f Containerfile --tag buildbtw
 
 [doc("Run a sequence of recipes that resemble CI")]
 [group("check")]

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock title %}
+{% block menu %}{% set menu_active = "Home" %}{{ super() }}{% endblock menu %}
+{% block content %}
+<nav class="breadcrumb pb-2" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="/">Home</a></li>
+    <li class="is-active"><a href="/" aria-current="page">Overview</a></li>
+  </ul>
+</nav>
+
+<h1 class="title">Home</h1>
+
+<p>
+  Welcome to buildbtw. Here be dragons.
+</p>
+{% endblock content %}

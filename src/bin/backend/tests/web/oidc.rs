@@ -116,13 +116,13 @@ async fn test_e2e_authelia_login() -> Result<()> {
 
     // Check if we are logged in
     let content = c
-        .query(By::Id("content"))
+        .query(By::Id("navbar-buildbtw"))
         .wait(Duration::from_secs(5), Duration::from_secs(1))
         .first()
         .await?;
     let text = content.text().await?.to_string();
     assert!(
-        text.contains(format!("Logged in as {username}").as_str()),
+        text.contains(username.to_string().as_str()),
         "expected to show a logged in user",
     );
 

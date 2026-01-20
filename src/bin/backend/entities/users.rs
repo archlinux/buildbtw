@@ -1,4 +1,5 @@
 use sea_orm::entity::prelude::*;
+use serde::Serialize;
 
 use crate::db_fields::TextUuid;
 use crate::entities::sessions;
@@ -9,7 +10,7 @@ use crate::entities::sessions;
 /// which is used to reference this user in the local database.
 /// The identity of this local user is tied to an OIDC identity
 /// using the subject identifier from an OIDC ID token.
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]

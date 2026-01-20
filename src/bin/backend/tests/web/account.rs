@@ -64,13 +64,13 @@ async fn test_e2e_account_logout() -> Result<()> {
 
     // Check if we are logged in
     let content = c
-        .query(By::Id("content"))
+        .query(By::Id("navbar-buildbtw"))
         .wait(Duration::from_secs(5), Duration::from_secs(1))
         .first()
         .await?;
     let text = content.text().await?.to_string();
     assert!(
-        text.contains(format!("Logged in as {username}").as_str()),
+        text.contains(username.to_string().as_str()),
         "expected to show a logged in user",
     );
 
@@ -105,7 +105,7 @@ async fn test_e2e_account_logout() -> Result<()> {
 
     // Check if we are logged out
     let content = c
-        .query(By::Id("content"))
+        .query(By::Id("navbar-buildbtw"))
         .wait(Duration::from_secs(5), Duration::from_secs(1))
         .first()
         .await?;
@@ -242,7 +242,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .add_cookies(cookies)
         .await;
     response.assert_status_ok();
-    response.assert_text_contains("Bonjour");
+    response.assert_text_contains("Sign in");
 
     // Check if the session has been removed from the database
     let session_record = queries::sessions::by_id(session_id).one(db).await?;
@@ -263,7 +263,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     // Create a valid user
     let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
-        username: "username".to_string(),
+        username: "test_username".to_string(),
     })?;
     let user = queries::users::upsert(create).exec(db).await?;
 
@@ -301,7 +301,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
         .add_cookies(cookies)
         .await;
     response.assert_status_ok();
-    response.assert_text_contains("Logged in as username");
+    response.assert_text_contains("test_username");
 
     // Check if our session has been removed from the database
     let session_record = queries::sessions::by_id(session_id).one(db).await?;

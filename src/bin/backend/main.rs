@@ -39,6 +39,7 @@ mod router;
 mod routes;
 mod server_state;
 mod tasks;
+mod templates;
 #[cfg(test)]
 mod tests;
 
@@ -95,6 +96,7 @@ async fn run_server(
         oidc,
         base_url,
         cookie_encryption_key_path,
+        web_root,
         ..
     }: args::RunArgs,
 ) -> Result<()> {
@@ -111,8 +113,9 @@ async fn run_server(
     };
 
     tasks::initialize(server_state.clone(), cancellation_token.clone()).await?;
+    templates::initialize(web_root.clone()).await?;
 
-    let router = router::new().with_state(server_state);
+    let router = router::new(web_root).with_state(server_state);
 
     info!("Server available at: {}", base_url);
 

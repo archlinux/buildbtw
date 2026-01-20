@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>{% block title %}{% endblock title %} | BuildBTW</title>
+  <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@main/bundles/datastar.js"></script>
+  <script type="module" src="/assets/js/buildbtw.js"></script>
+  <link rel="icon" href="/assets/img/favicon.svg">
+  <link rel="stylesheet" href="/assets/css/buildbtw.css">
+</head>
+
+<body>
+  {% include "partials/navbar.html" %}
+  <nav class="navbar" id="navbar-buildbtw" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="/">
+        <span class="icon"><i class="fas fa-robot"></i></span>
+        BuildBTW
+      </a>
+      <a role="button" class="navbar-burger is-hidden-tablet" aria-label="menu" aria-expanded="false"
+        data-target="navbar-buildbtw-mobile">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+      </a>
+    </div>
+
+    <div class="navbar-menu is-hidden-tablet" id="navbar-buildbtw-mobile">
+      <a class="navbar-item" href="/">
+        <span class="icon"><i class="fas fa-home"></i></span>
+        <span>Home</span>
+      </a>
+      {% if user %}
+      <a class="navbar-item" href="{{ account_url }}">
+        <span class="icon"><i class="fas fa-user"></i></span>
+        <span>Account</span>
+      </a>
+      {% else %}
+      <a class="navbar-item" href="{{ login_url }}">
+        <span class="icon"><i class="fas fa-sign-in"></i></span>
+        <span>Sign in</span>
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="navbar-end is-hidden-mobile">
+      {% if user %}
+      <a class="navbar-item is-tab" href="{{ account_url }}">
+        <span>{{ user.username }}</span>
+        <span class="icon has-text-link"><i class="fas fa-user"></i></span>
+      </a>
+      {% else %}
+      <span class="navbar-item">
+        <a class="button is-link is-small" href="{{ login_url }}">
+          <span class="icon"><i class="fas fa-sign-in"></i></span>
+          <span>Sign in</span>
+        </a>
+      </span>
+      {% endif %}
+    </div>
+  </nav>
+
+  <section class="section p-0 is-fullheight is-flex is-align-items-stretch is-gap-2">
+
+    {% block menu %}
+    {% set menu_active = menu_active | default(value="") %}
+    <aside class="menu is-flex-shrink-0 is-narrow-mobile is-hidden-mobile p-2">
+      <p class="menu-label">Navigation</p>
+      <ul class="menu-list">
+        <li>
+          <a href="/" class="mb-1 pl-1 {% if menu_active == 'Home' %}is-active{% endif %}">
+            <span class="icon"><i class="fas fa-home"></i></span>
+            <span class="pr-4">Home</span>
+          </a>
+        </li>
+      </ul>
+    </aside>
+    {% endblock %}
+
+    <main class="is-flex-grow-1 is-family-sand-serif">
+      <div class="p-2" id="content">
+        {% block content %}{% endblock content %}
+      </div>
+    </main>
+
+  </section>
+</body>
+
+</html>

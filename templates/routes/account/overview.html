@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Account / Overview{% endblock title %}
+{% block menu %}{% set menu_active = "Account" %}{{ super() }}{% endblock menu %}
+{% block content %}
+<nav class="breadcrumb pb-2" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="{{ account_url }}">Account</a></li>
+    <li class="is-active"><a href="{{ account_url }}" aria-current="page">Overview</a></li>
+  </ul>
+</nav>
+
+<h1 class="title">Account</h1>
+
+<div class="columns is-multiline is-mobile" id="account-overview-columns">
+  <div class="column is-6-mobile is-3-desktop">
+    <a href="{{ logout_url }}" class="box has-text-centered">
+      <span class="icon is-large has-text-danger mb-3">
+        <i class="fas fa-sign-out fa-2x"></i>
+      </span>
+      <h3 class="title is-5 mb-2">Sign out</h3>
+      <p class="subtitle is-6 has-text-grey">
+        Sign out of the current web session
+      </p>
+    </a>
+  </div>
+  <div class="column is-6-mobile is-3-desktop">
+    <a href="{{ session_list_url }}" class="box has-text-centered">
+      <span class="icon is-large has-text-primary mb-3">
+        <i class="fas fa-desktop fa-2x"></i>
+      </span>
+      <h3 class="title is-5 mb-2">Sessions</h3>
+      <p class="subtitle is-6 has-text-grey">
+        Track and revoke active web sessions
+      </p>
+    </a>
+  </div>
+</div>
+{% endblock content %}
