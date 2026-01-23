@@ -46,3 +46,10 @@ path = [
     "notes/**",
 ]
 precedence = "aggregate"
+
+[[annotations]]
+SPDX-FileCopyrightText = "common-style Contributors"
+SPDX-License-Identifier = "MIT"
+path = [
+    "common-style/**",
+]

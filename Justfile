@@ -73,7 +73,7 @@ ci-dev:
 [doc("Check whether all files have a license")]
 [group("check")]
 licenses: (ensure-command "reuse")
-    reuse lint
+    reuse --include-submodules lint
 
 [doc("Check lints and formatting")]
 [group("check")]

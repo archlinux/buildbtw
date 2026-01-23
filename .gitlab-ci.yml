@@ -3,6 +3,8 @@ variables:
   CACHE_COMPRESSION_FORMAT: tarzstd
   # Enable timestamps in Gitlab's job logs.
   FF_TIMESTAMPS: true
+  # We use submodules
+  GIT_SUBMODULE_STRATEGY: recursive
 
 # See https://docs.gitlab.com/ci/yaml/workflow/#git-flow-with-merge-request-pipelines
 workflow:
@@ -33,7 +35,6 @@ workflow:
       - target/release/build
   variables:
     CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
-    GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
   - check
