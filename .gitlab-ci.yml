@@ -105,6 +105,14 @@ build-release:secure:
     - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - just build-release-container-image
     - podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME"
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        # If this is a build on main, additionally add a staging tag
+        podman push buildbtw "$CI_REGISTRY_IMAGE/backend:staging"
+      elif [[ "$CI_COMMIT_TAG" == v* ]]; then
+        # If this is building a version tag, additionally add a release tag
+        podman push buildbtw "$CI_REGISTRY_IMAGE/backend:release"
+      fi
 
 push-container-image:
   extends: .push-container-image
@@ -180,7 +188,7 @@ deploy_staging:
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_STAGING_DEPLOY_TOKEN"
-      https://buildbtw.staging.archlinux.org/hooks/deploy-branch?image-tag=$CI_COMMIT_REF_NAME
+      https://buildbtw.staging.archlinux.org/hooks/deploy-branch?image-tag=staging
   environment:
-    name: review/$CI_COMMIT_REF_NAME
+    name: staging
     url: https://buildbtw.staging.archlinux.org
