@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+- Fix some deployment stuff
+- Add frontend template
+
 ### arch-pkg-repo-updater
 
 - Don't clone archived repositories ([#179](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/179))
