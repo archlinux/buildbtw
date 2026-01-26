@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - ReleaseDate
 
 - Fix some deployment stuff
+- Allow Authelia to work in review apps
 - Add frontend template
 
 ### arch-pkg-repo-updater
