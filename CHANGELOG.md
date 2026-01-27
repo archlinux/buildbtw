@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### buildbtw client
+
+- Added basic client scaffolding (!121)
+
 ## [0.0.3] - 2026-02-03
 
 ### buildbtw backend
