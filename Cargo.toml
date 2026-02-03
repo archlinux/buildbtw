@@ -1,7 +1,7 @@
 [package]
 name = "buildbtw"
 version = "0.0.3"
-description = "A service for assisting Arch Linux staff with building new versions of packages"
+description = "A service for building packages"
 authors = [
     "Levente Polyak <anthraxx@archlinux.org>",
     "Rafael Epplée <raffomania@archlinux.org>",
