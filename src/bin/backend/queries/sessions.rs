@@ -28,6 +28,10 @@ pub fn delete(session_id: TextUuid) -> DeleteMany<sessions::Entity> {
     sessions::Entity::delete_by_id(session_id)
 }
 
+pub fn delete_by_user_id(user_id: TextUuid) -> DeleteMany<sessions::Entity> {
+    sessions::Entity::delete_many().filter(sessions::Column::UserId.eq(user_id))
+}
+
 pub fn delete_old_sessions(delta: time::Duration) -> DeleteMany<sessions::Entity> {
     let before_datetime = time::OffsetDateTime::now_utc() - delta;
     sessions::Entity::delete_many().filter(sessions::Column::LastAccessed.lt(before_datetime))

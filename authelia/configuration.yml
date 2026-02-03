@@ -43,7 +43,7 @@ regulation:
 storage:
   encryption_key: "you_must_generate_a_random_string_of_more_than_twenty_chars_and_configure_this"
   local:
-    path: "/config/db.sqlite3"
+    path: "/config/db/db.sqlite3"
 
 notifier:
   filesystem:
@@ -65,8 +65,11 @@ identity_providers:
           - "groups"
           - "email"
           - "profile"
+          # Required to enable refresh tokens
+          - "offline_access"
         grant_types:
           - "authorization_code"
+          - "refresh_token"
         response_types:
           - "code"
         response_modes:

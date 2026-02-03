@@ -2,8 +2,28 @@
 users:
   testuser:
     disabled: false
-    displayname: "OIDC Test User"
+    displayname: "Standard Test User"
     # the password is "testpassword"
     password: "$argon2id$v=19$m=65536,t=3,p=4$qW8yWqmxP28a5U+Pvfo/pg$DV3N5oPlCTqJXf0gMFxbHeN+cYbKmfwF8zVqb2cmZ1Q"
     email: "testuser@buildbtw.localhost"
     nickname: "testuser"
+    groups:
+      - Package Maintainer Group
+  admin:
+    disabled: false
+    displayname: "Admin"
+    # the password is "testpassword"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$qW8yWqmxP28a5U+Pvfo/pg$DV3N5oPlCTqJXf0gMFxbHeN+cYbKmfwF8zVqb2cmZ1Q"
+    email: "admin@buildbtw.localhost"
+    nickname: "admin"
+    groups:
+      - Admin Group
+      - Package Maintainer Group
+  norole:
+    disabled: false
+    displayname: "User without a role"
+    # the password is "testpassword"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$qW8yWqmxP28a5U+Pvfo/pg$DV3N5oPlCTqJXf0gMFxbHeN+cYbKmfwF8zVqb2cmZ1Q"
+    email: "norole@buildbtw.localhost"
+    nickname: "norole"
+    groups: []

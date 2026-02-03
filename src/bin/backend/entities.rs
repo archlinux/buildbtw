@@ -6,4 +6,5 @@ pub mod builds;
 pub mod iterations;
 pub mod namespaces;
 pub mod sessions;
+pub mod user_roles;
 pub mod users;

@@ -7,7 +7,7 @@ use axum_extra::extract::{
     cookie::{Cookie, SameSite},
 };
 use color_eyre::eyre::{Context, ContextCompat};
-use sea_orm::IntoActiveModel;
+use sea_orm::{IntoActiveModel, ModelTrait};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -17,13 +17,15 @@ pub const SESSION_ID_COOKIE_NAME: &str = "buildbtw_session_id";
 
 /// Holds authentication data for a logged-in user.
 ///
-/// This struct bundles the active session and the corresponding user model.
-/// It is passed to request handlers that require authentication, allowing
-/// them to access both the session information and the owning user's data.
+/// This struct bundles the active session and the corresponding user model
+/// with eagerly loaded roles. It is passed to request handlers that require
+/// authentication, allowing them to access both the session information
+/// and the owning user's data with their roles.
 #[derive(Clone, Debug, Serialize)]
 pub struct AuthUser {
     pub session: entities::sessions::Model,
     pub user: entities::users::Model,
+    pub roles: Vec<entities::user_roles::Role>,
 }
 
 /// Implements optional extraction of [`AuthUser`].
@@ -73,31 +75,44 @@ impl FromRequestParts<ServerState> for AuthUser {
         let db::Tx(tx) = db::Tx::from_request_parts(parts, state).await?;
         let Some(cookie) = cookie_jar.get(SESSION_ID_COOKIE_NAME) else {
             // Missing session cookie
-            return Err(ResponseError::Unauthorized);
+            return Err(ResponseError::NotAuthenticated);
         };
         let id: Uuid = cookie
             .value()
             .parse()
             .wrap_err("Could not parse UUID from cookie")?;
 
-        let Some((session, user)) = queries::sessions::by_id(id)
+        let session_with_user = queries::sessions::by_id(id)
             .find_also_related(entities::users::Entity)
             .one(&tx)
-            .await?
-        else {
+            .await?;
+
+        let Some((session, user)) = session_with_user else {
             // Session does not exist in the database
-            return Err(ResponseError::Unauthorized);
+            return Err(ResponseError::NotAuthenticated);
         };
 
         // Can only happen on severe corruption, as the session has a foreign key on the user
         let user = user.wrap_err("Session does not have a user")?;
+
+        let roles = user
+            .find_related(entities::user_roles::Entity)
+            .all(&tx)
+            .await?
+            .into_iter()
+            .map(|model| model.role)
+            .collect();
 
         let session = queries::sessions::update_last_accessed_time(session.into_active_model())
             .exec(&tx)
             .await?;
         tx.commit().await?;
 
-        Ok(AuthUser { session, user })
+        Ok(AuthUser {
+            session,
+            user,
+            roles,
+        })
     }
 }
 

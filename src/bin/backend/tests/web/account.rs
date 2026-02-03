@@ -56,13 +56,7 @@ async fn test_e2e_account_logout() -> Result<()> {
         .click()
         .await?;
 
-    let url = c.current_url().await?.to_string();
-    assert!(
-        url.starts_with(ctx_with_oidc.base_url.as_str()),
-        "expected {url} to start with the URL of buildbtw's authorized page"
-    );
-
-    // Check if we are logged in
+    // Wait, then check if we are logged in
     let content = c
         .query(By::Id("navbar-buildbtw"))
         .wait(Duration::from_secs(5), Duration::from_secs(1))
@@ -72,6 +66,12 @@ async fn test_e2e_account_logout() -> Result<()> {
     assert!(
         text.contains(username.to_string().as_str()),
         "expected to show a logged in user",
+    );
+
+    let url = c.current_url().await?.to_string();
+    assert!(
+        url.starts_with(ctx_with_oidc.base_url.as_str()),
+        "expected {url} to start with the URL of buildbtw's authorized page"
     );
 
     // Extract the session id
@@ -165,7 +165,7 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
     })?;
-    let user = queries::users::upsert(create).exec(&tx).await?;
+    let user = queries::users::upsert(create, None).exec(&tx).await?;
 
     // Create our session we use for the requests
     let session = queries::sessions::insert(user.last_insert_id.into())
@@ -212,7 +212,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
     })?;
-    let user = queries::users::upsert(create).exec(db).await?;
+    let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
     let session = queries::sessions::insert(user.last_insert_id.into())
@@ -254,7 +254,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     Ok(())
 }
 
-/// Test session revoke endpoint kills another session which isn't our own
+/// Test session revoke endpoint kills another session
 #[rstest]
 #[tokio::test]
 async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Result<()> {
@@ -265,7 +265,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
         oidc_id: "OIDC_ID".to_string(),
         username: "test_username".to_string(),
     })?;
-    let user = queries::users::upsert(create).exec(db).await?;
+    let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
     let session = queries::sessions::insert(user.last_insert_id.into())
@@ -315,6 +315,112 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     assert!(
         session_record.is_none(),
         "expected other session record to not exist",
+    );
+
+    Ok(())
+}
+
+/// Check that users cannot revoke sessions from other users
+#[rstest]
+#[tokio::test]
+async fn test_session_revoke_cannot_revoke_other_user_session(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let db = &ctx.state.db;
+
+    // Create user A
+    let create_user_a =
+        crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+            oidc_id: "OIDC_ID_USER_A".to_string(),
+            username: "user_a".to_string(),
+        })?;
+    let user_a = queries::users::upsert(create_user_a, None).exec(db).await?;
+
+    // Create user B
+    let create_user_b =
+        crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+            oidc_id: "OIDC_ID_USER_B".to_string(),
+            username: "user_b".to_string(),
+        })?;
+    let user_b = queries::users::upsert(create_user_b, None).exec(db).await?;
+
+    // Create session for user A (we'll authenticate as user A)
+    let user_a_session = queries::sessions::insert(user_a.last_insert_id.into())
+        .exec(db)
+        .await?;
+    let user_a_session_id = user_a_session.last_insert_id.0;
+
+    // Create session for user B (we'll try to revoke this)
+    let user_b_session = queries::sessions::insert(user_b.last_insert_id.into())
+        .exec(db)
+        .await?;
+    let user_b_session_id = user_b_session.last_insert_id.0;
+
+    // Create cookie jar with user A's session
+    let private_jar = ctx.private_cookie_jar();
+    let private_jar =
+        crate::from_request::sessions::save_in_cookie_jar(user_a_session_id, private_jar);
+    let cookies = private_jar.to_encrypted_cookie_jar()?;
+
+    // Try to revoke user B's session while authenticated as user A
+    let response = ctx
+        .server
+        .typed_get(&web::account::SessionRevoke {
+            session_id: user_b_session_id.to_string(),
+        })
+        .add_cookies(cookies.clone())
+        .await;
+    response.assert_status_forbidden();
+
+    // Verify user B's session still exists
+    let user_b_session_record = queries::sessions::by_id(user_b_session_id).one(db).await?;
+    assert!(
+        user_b_session_record.is_some(),
+        "expected user B's session to still exist",
+    );
+
+    Ok(())
+}
+
+/// Check that revoking a non-existent session returns 404
+#[rstest]
+#[tokio::test]
+async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let db = &ctx.state.db;
+
+    // Create user
+    let create_user = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+        oidc_id: "OIDC_ID_USER_A".to_string(),
+        username: "user_a".to_string(),
+    })?;
+    let user = queries::users::upsert(create_user, None).exec(db).await?;
+
+    // Create session
+    let session = queries::sessions::insert(user.last_insert_id.into())
+        .exec(db)
+        .await?;
+    let session_id = session.last_insert_id.0;
+
+    // Create cookie jar with user A's session
+    let private_jar = ctx.private_cookie_jar();
+    let private_jar = crate::from_request::sessions::save_in_cookie_jar(session_id, private_jar);
+    let cookies = private_jar.to_encrypted_cookie_jar()?;
+
+    // Try to revoke nonexistent session
+    let response = ctx
+        .server
+        .typed_get(&web::account::SessionRevoke {
+            session_id: Uuid::new_v4().to_string(),
+        })
+        .add_cookies(cookies.clone())
+        .await;
+    response.assert_status_forbidden();
+
+    // Verify session still exists
+    let user_b_session_record = queries::sessions::by_id(session_id).one(db).await?;
+    assert!(
+        user_b_session_record.is_some(),
+        "expected session to still exist",
     );
 
     Ok(())

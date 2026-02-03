@@ -21,7 +21,7 @@ use tokio::{
     signal,
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 use crate::{args::Args, server_state::ServerState};
 
@@ -33,6 +33,7 @@ mod from_request;
 mod input;
 mod migrations;
 mod oidc;
+pub mod permissions;
 mod queries;
 mod response_error;
 mod router;
@@ -59,13 +60,15 @@ async fn main() -> Result<()> {
             // finishes. Dropping the container will stop it.
             #[cfg(debug_assertions)]
             let maybe_authelia_container = if run_args.authelia_container.run_authelia_container {
-                let authelia = buildbtw::authelia::Container::new(Some(
-                    run_args.authelia_container.authelia_container_port,
-                ))
+                let authelia = buildbtw::authelia::Container::new(
+                    Some(run_args.authelia_container.authelia_container_port),
+                    true,
+                )
                 .await;
 
                 if let Err(error) = &authelia {
-                    error!(?error, "Failed to start authelia container");
+                    // qualified usage because this is only enabled for debug, so importing it makes clippy unhappy
+                    tracing::error!(?error, "Failed to start authelia container");
                 }
 
                 Some(authelia)

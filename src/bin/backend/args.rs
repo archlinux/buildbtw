@@ -161,6 +161,30 @@ pub struct Oidc {
     /// This will be displayed on the login page.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_NAME", required = false)]
     pub oidc_issuer_name: String,
+
+    /// Users in one these OIDC groups will be assigned the "package maintainer" role.
+    /// Passed as a list separated by commas.
+    /// Matching is case-sensitive.
+    #[clap(
+        long,
+        env = "BUILDBTW_OIDC_PACKAGE_MAINTAINER_GROUPS",
+        required = false,
+        value_delimiter = ','
+    )]
+    pub oidc_package_maintainer_groups: Vec<String>,
+
+    /// Users in one these OIDC groups will be assigned the "admin" role.
+    /// If users are in these groups as well as package maintainer groups, the "admin"
+    /// role will take precedence.
+    /// Passed as a list separated by commas.
+    /// Matching is case-sensitive.
+    #[clap(
+        long,
+        env = "BUILDBTW_OIDC_ADMIN_GROUPS",
+        required = false,
+        value_delimiter = ','
+    )]
+    pub oidc_admin_groups: Vec<String>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -168,8 +192,15 @@ pub struct Oidc {
 pub struct AutheliaContainer {
     /// Run a podman container with authelia as an OIDC provider alongside
     /// the buildbtw server for local development.
+    ///
     /// This container assumes a base URL of <http://buildbtw.localhost:8080>. If you change the
     /// base URL, you'll need to change the authelia config at `authelia/configuration.yml` as well.
+    ///
+    /// Configuration (yml files, certificates) in ./authelia is mounted as
+    /// read-only into the container.
+    ///
+    /// ./authelia/db is mounted as the container's state directory,
+    /// so OIDC IDs and sessions persist across restarts.
     #[arg(long, env = "BUILDBTW_RUN_AUTHELIA_CONTAINER")]
     pub run_authelia_container: bool,
 

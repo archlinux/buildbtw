@@ -142,7 +142,7 @@ impl TestCtxBuilder {
         let base_url = Url::parse("http://buildbtw.localhost:8080").unwrap();
 
         let (maybe_authelia_container, oidc_config) = if self.enable_authelia {
-            let container = authelia::Container::new(None)
+            let container = authelia::Container::new(None, false)
                 .await
                 .expect("Failed to start Authelia container");
             // These values are hardcoded in Authelia's `configuration.yml` and
@@ -153,6 +153,8 @@ impl TestCtxBuilder {
                 oidc_client_secret: redact::Secret::from("insecure_secret"),
                 oidc_issuer_url: format!("https://authelia.buildbtw.localhost:{authelia_port}"),
                 oidc_issuer_name: "Authelia Test".to_string(),
+                oidc_admin_groups: Vec::new(),
+                oidc_package_maintainer_groups: Vec::new(),
             };
 
             let oidc_config = oidc::MaybeConfig::initialize(&base_url, Some(oidc_args)).await;

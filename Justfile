@@ -8,7 +8,12 @@ default:
 [doc("Run backend server")]
 [group("run")]
 run-server *args:
-    cargo run --bin backend -- run {{ args }}
+    cargo run --features sea-orm-debug-print --bin backend -- run {{ args }}
+
+[doc("Run backend server in release mode")]
+[group("run")]
+run-server-release *args:
+    cargo run --release --bin backend -- run {{ args }}
 
 [doc("Run backend and auto-restart on code changes")]
 [group("run")]

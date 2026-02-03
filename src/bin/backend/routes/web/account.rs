@@ -1,8 +1,7 @@
 use axum::response::{Html, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use buildbtw::web;
-use color_eyre::eyre::Context;
-use sea_orm::{ColumnTrait, QueryFilter};
+use color_eyre::eyre::{Context, eyre};
 use uuid::Uuid;
 
 use crate::{
@@ -10,6 +9,7 @@ use crate::{
     db_fields::TextUuid,
     entities::sessions,
     from_request::{self},
+    permissions::{can_revoke_session, permission_ok},
     queries,
     response_error::ResponseResult,
     templates,
@@ -34,9 +34,17 @@ pub async fn logout(
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
+    let user_id = session.user.id.0;
+
     let _ = queries::sessions::delete(session.session.id)
         .exec(&tx)
         .await?;
+
+    // Clear refresh token if user has no more sessions
+    if let Err(e) = crate::tasks::clear_refresh_token_if_no_sessions(&tx, user_id).await {
+        tracing::warn!(?e, user_id = %user_id, "Failed to clear refresh token on logout");
+    }
+
     tx.commit().await?;
 
     let cookie_jar = from_request::sessions::remove_from_cookie_jar(cookie_jar);
@@ -76,10 +84,24 @@ pub async fn session_revoke(
         .parse()
         .wrap_err("Could not parse UUID from cookie")?;
 
+    permission_ok(can_revoke_session(&tx, &session, session_to_revoke).await)?;
+
+    // Get the user_id before deleting the session
+    let session_model = queries::sessions::by_id(session_to_revoke)
+        .one(&tx)
+        .await?
+        .ok_or_else(|| eyre!("Session not found"))?;
+    let user_id = session_model.user_id.0;
+
     let _ = queries::sessions::delete(TextUuid::from(session_to_revoke))
-        .filter(sessions::Column::UserId.eq(session.user.id))
         .exec(&tx)
         .await?;
+
+    // Clear refresh token if user has no more sessions
+    if let Err(e) = crate::tasks::clear_refresh_token_if_no_sessions(&tx, user_id).await {
+        tracing::warn!(?e, user_id = %user_id, "Failed to clear refresh token on session revoke");
+    }
+
     tx.commit().await?;
 
     // TODO: remove this once https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/196 is implemented
