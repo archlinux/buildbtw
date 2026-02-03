@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.0.3] - 2026-02-03
+
 ### buildbtw backend
 
 #### Highlights
@@ -40,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Just a placeholder for now :)
 
 <!-- next-url -->
-[Unreleased]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.2...HEAD
+[Unreleased]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.3...HEAD
+[0.0.3]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.1...v0.0.2
 [0.0.1]: https://gitlab.archlinux.org/archlinux/buildbtw/-/commits/v0.0.1
