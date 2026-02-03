@@ -8,5 +8,7 @@ use crate::server_state::ServerState;
 mod builds;
 
 pub fn router() -> Router<ServerState> {
-    Router::new().typed_get(builds::list)
+    Router::new()
+        .typed_get(builds::list)
+        .typed_post(builds::upload_package)
 }

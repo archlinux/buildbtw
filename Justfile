@@ -45,6 +45,11 @@ watch-worker *args:
 run-repo-updater *args:
     cargo run --bin repo-updater -- {{ args }}
 
+[doc("Run executor")]
+[group("run")]
+run-executor *args:
+    cargo run --bin buildbtw-executor -- {{ args }}
+
 [doc("Run performance benchmarks")]
 [group("run")]
 bench:
