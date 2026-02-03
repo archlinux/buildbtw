@@ -47,13 +47,13 @@ bench:
 
 [doc("Build in debug mode")]
 [group("build")]
-build:
-    cargo build
+build *args:
+    cargo build {{args}}
 
 [doc("Build in release mode")]
 [group("build")]
-build-release:
-    cargo build --locked --release
+build-release *args:
+    cargo build --locked --release {{args}}
 
 [doc("Build release container image")]
 [group("build")]
@@ -65,10 +65,10 @@ build-release-container-image:
 ci-dev:
     #!/usr/bin/env -S parallel --shebang --ungroup
     just licenses
-    just lint
+    just lint -q
     just check-dependencies
-    just build-release
-    just test
+    just build-release -q
+    just test --hide-progress-bar --cargo-quiet --status-level fail
 
 [doc("Check whether all files have a license")]
 [group("check")]

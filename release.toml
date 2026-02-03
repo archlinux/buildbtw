@@ -1,5 +1,6 @@
 sign-commit = true
 sign-tag = true
+pre-release-hook = [ "just", "ci-dev" ]
 pre-release-replacements = [
   {file="CHANGELOG.md", search="Unreleased", replace="{{version}}"},
   {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},

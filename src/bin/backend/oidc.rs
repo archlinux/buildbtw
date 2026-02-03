@@ -71,8 +71,8 @@ impl MaybeConfig {
     /// Try to initialize an OIDC client for the given command-line arguments.
     async fn try_initialize_state(base_url: &Url, args: Option<args::Oidc>) -> Result<Config> {
         #[allow(unused_mut)]
-        let mut reqwest_client_builder = openidconnect::reqwest::ClientBuilder::new()
-            .redirect(openidconnect::reqwest::redirect::Policy::none());
+        let mut reqwest_client_builder =
+            reqwest::ClientBuilder::new().redirect(reqwest::redirect::Policy::none());
 
         // Since we use self-signed certificates in tests, we need to make the reqwest
         // client accept them.

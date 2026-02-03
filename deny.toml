@@ -23,7 +23,6 @@ allow = [
     "CDLA-Permissive-2.0",
     "GPL-3.0-or-later",
     "ISC",
-    "LGPL-2.0-or-later",
     "MIT",
     "MPL-2.0",
     "Unicode-3.0",
