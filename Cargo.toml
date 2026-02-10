@@ -137,8 +137,10 @@ derive_more = { version = "2.1.1", features = [
     "as_ref",
     "display",
     "into_iterator",
+    "from",
 ] }
 git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
+petgraph = "0.8.3"
 
 [dev-dependencies]
 axum-test = { version = "18.7.0", features = ["typed-routing"] }

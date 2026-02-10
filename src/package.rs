@@ -2,9 +2,12 @@
 
 use std::str::FromStr;
 
-use crate::regex;
+use alpm_types::Architecture;
+use alpm_types::SystemArchitecture;
 use nutype::nutype;
 use sea_orm::sea_query;
+
+use crate::regex;
 
 /// The name of a concrete package (not a `pkgbase`)
 /// This is a newtype because alpm_types only uses type aliases to differentiate between `package_name` and `package_base_name`.
@@ -19,7 +22,8 @@ use sea_orm::sea_query;
     Serialize,
     Deserialize,
     AsRef,
-    Deref
+    Deref,
+    Display
 ))]
 pub struct Name(alpm_types::Name);
 
@@ -190,6 +194,71 @@ fn validate_repository_name(name: &str) -> bool {
         && !regex!("[\\-\\+\\_]{2,}").is_match(name)
         && !lowercase_name.ends_with(".git")
         && !lowercase_name.ends_with(".atom")
+}
+
+/// [`alpm_types::Architecture`], but with only the architectures buildbtw is interested in building.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    sea_orm::DeriveValueType,
+    strum::EnumString,
+    strum::EnumIter,
+    strum::Display,
+)]
+#[non_exhaustive]
+#[sea_orm(value_type = "String")]
+pub enum KnownArchitecture {
+    /// ARMv8 64-bit
+    Aarch64,
+    /// RISC-V 32-bit
+    Riscv32,
+    /// RISC-V 64-bit
+    Riscv64,
+    /// Intel x86_64
+    X86_64,
+    /// Intel x86_64 version 2
+    #[strum(to_string = "x86_64_v2")]
+    X86_64V2,
+    /// Intel x86_64 version 3
+    #[strum(to_string = "x86_64_v3")]
+    X86_64V3,
+    /// Intel x86_64 version 4
+    #[strum(to_string = "x86_64_v4")]
+    X86_64V4,
+}
+
+impl AsRef<Architecture> for KnownArchitecture {
+    fn as_ref(&self) -> &Architecture {
+        match self {
+            KnownArchitecture::Aarch64 => &Architecture::Some(SystemArchitecture::Aarch64),
+            KnownArchitecture::Riscv32 => &Architecture::Some(SystemArchitecture::Riscv32),
+            KnownArchitecture::Riscv64 => &Architecture::Some(SystemArchitecture::Riscv64),
+            KnownArchitecture::X86_64 => &Architecture::Some(SystemArchitecture::X86_64),
+            KnownArchitecture::X86_64V2 => &Architecture::Some(SystemArchitecture::X86_64V2),
+            KnownArchitecture::X86_64V3 => &Architecture::Some(SystemArchitecture::X86_64V3),
+            KnownArchitecture::X86_64V4 => &Architecture::Some(SystemArchitecture::X86_64V4),
+        }
+    }
+}
+
+impl From<KnownArchitecture> for Architecture {
+    fn from(value: KnownArchitecture) -> Self {
+        match value {
+            KnownArchitecture::Aarch64 => Architecture::Some(SystemArchitecture::Aarch64),
+            KnownArchitecture::Riscv32 => Architecture::Some(SystemArchitecture::Riscv32),
+            KnownArchitecture::Riscv64 => Architecture::Some(SystemArchitecture::Riscv64),
+            KnownArchitecture::X86_64 => Architecture::Some(SystemArchitecture::X86_64),
+            KnownArchitecture::X86_64V2 => Architecture::Some(SystemArchitecture::X86_64V2),
+            KnownArchitecture::X86_64V3 => Architecture::Some(SystemArchitecture::X86_64V3),
+            KnownArchitecture::X86_64V4 => Architecture::Some(SystemArchitecture::X86_64V4),
+        }
+    }
 }
 
 #[cfg(test)]
