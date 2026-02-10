@@ -289,6 +289,8 @@ mod tests {
             "--tokio-console-telemetry",
             "--database-file",
             "/tmp/test.db",
+            "--artifact-dir",
+            "/tmp/buildbtw_artifacts",
             "run",
             "--listen",
             "127.0.0.1:3000",
@@ -357,6 +359,8 @@ mod tests {
             "buildbtw-backend",
             "--database-file",
             "/tmp/migrate.db",
+            "--artifact-dir",
+            "/tmp/buildbtw_artifacts",
             "migrate-database",
         ];
 

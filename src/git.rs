@@ -1,13 +1,90 @@
 //! Interactions with git repositories, remote or local.
 //! Implemented using the `git2` library.
 
+use std::{path::Path, str::FromStr};
+
+use alpm_srcinfo::{SourceInfo, SourceInfoV1};
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::{
     Result,
     eyre::{OptionExt, WrapErr, eyre},
 };
+use nutype::nutype;
+use sea_orm::sea_query;
 use tracing::{info, trace};
 use url::Url;
+
+/// An unambiguous git commit hash.
+/// This has no validation, but serves as a type marker to differentiate from other types of Oid (e.g. tree, blob, tag)
+#[nutype(derive(Debug, Clone, PartialEq, Eq, Hash, From, FromStr, Display))]
+pub struct CommitHash(git2::Oid);
+
+impl sea_orm::TryGetable for CommitHash {
+    fn try_get_by<I: sea_orm::ColIdx>(
+        res: &sea_orm::QueryResult,
+        index: I,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let str: String = res.try_get_by(index)?;
+        let parsed = CommitHash::from_str(&str).map_err(|e| {
+            sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
+                from: "String",
+                into: "git::CommitHash",
+                source: Box::new(e),
+            })
+        })?;
+        Ok(parsed)
+    }
+}
+
+impl From<CommitHash> for sea_query::Value {
+    fn from(value: CommitHash) -> Self {
+        sea_query::Value::String(Some(Box::new(value.to_string())))
+    }
+}
+
+impl sea_query::ValueType for CommitHash {
+    fn try_from(v: sea_orm::Value) -> Result<Self, sea_query::ValueTypeErr> {
+        match v {
+            sea_orm::Value::String(Some(s)) => {
+                let parsed = CommitHash::from_str(&s).map_err(|_| sea_query::ValueTypeErr)?;
+                Ok(parsed)
+            }
+            _ => Err(sea_query::ValueTypeErr),
+        }
+    }
+
+    fn type_name() -> String {
+        "git_commit_hash".to_string()
+    }
+
+    fn array_type() -> sea_query::ArrayType {
+        sea_query::ArrayType::String
+    }
+
+    fn column_type() -> sea_orm::ColumnType {
+        sea_orm::ColumnType::String(sea_query::StringLen::None)
+    }
+}
+
+impl sea_orm::TryFromU64 for CommitHash {
+    fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
+        Err(sea_orm::DbErr::ConvertFromU64("git::CommitHash"))
+    }
+}
+
+/// The name of a git branch.
+/// A git branch name used in package source repositories.
+///
+/// Provides type safety when working with references to git branches.
+#[nutype(
+    // TODO: add proper validation (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/216)
+    validate(not_empty),
+    derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, Display, TryFrom),
+    // This is not actually unsafe code - nutype tries to protect us from accidentally
+    // deriving a trait that would sidestep the invariants our newtype upholds
+    derive_unsafe(sea_orm::DeriveValueType)
+)]
+pub struct BranchName(String);
 
 /// For every gitlab project path, make sure its corresponding git repository
 /// exists locally and is up-to-date.
@@ -177,4 +254,31 @@ pub fn packaging_repo_path(
     gitlab_project_path: &crate::gitlab::projects::ProjectPath,
 ) -> Utf8PathBuf {
     target_dir.join(gitlab_project_path.as_ref())
+}
+
+/// From the given branch, read the .SRCINFO file and parse it.
+pub fn read_srcinfo_from_repo(
+    repo: &git2::Repository,
+    branch_name: &BranchName,
+) -> Result<SourceInfoV1> {
+    let branch = repo.find_branch(&format!("origin/{branch_name}"), git2::BranchType::Remote)?;
+    let file_oid = branch
+        .get()
+        .peel_to_tree()?
+        .get_path(Path::new(".SRCINFO"))?
+        .id();
+
+    let file_blob = repo.find_blob(file_oid)?;
+
+    debug_assert!(!file_blob.is_binary());
+
+    let SourceInfo::V1(parsed) =
+        SourceInfo::from_str(&String::from_utf8(file_blob.content().to_vec())?)?;
+    Ok(parsed)
+}
+
+/// Get the commit hash the given branch name points to.
+pub fn branch_commit_sha(repo: &git2::Repository, branch_name: &BranchName) -> Result<CommitHash> {
+    let branch = repo.find_branch(&format!("origin/{branch_name}"), git2::BranchType::Remote)?;
+    Ok(CommitHash::from(branch.get().peel_to_commit()?.id()))
 }

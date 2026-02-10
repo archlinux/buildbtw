@@ -2,28 +2,13 @@
 //! These either make custom types compatible with SeaQuery, or they wrap
 //! primitives to prevent mixups in the rest of the codebase.
 
-use std::sync::LazyLock;
-
+use buildbtw::{git, package};
 use nutype::nutype;
-use regex::Regex;
 use sea_orm::{
     DeriveValueType, TryFromU64, TryGetable,
     sea_query::{self, ValueType, ValueTypeErr},
 };
 use serde::{Deserialize, Serialize};
-
-/// A git branch name used in package source repositories.
-///
-/// Provides type safety when working with references to git branches.
-#[nutype(
-    // TODO: add proper validation (https://git-scm.com/docs/git-check-ref-format)
-    validate(not_empty),
-    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, AsRef, Deref),
-    // This is not actually unsafe code - nutype tries to protect us from accidentally
-    // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(DeriveValueType)
-)]
-pub struct BranchName(String);
 
 use strum::{Display, EnumString};
 
@@ -70,7 +55,7 @@ use sea_orm::FromJsonQueryResult;
 /// Each changeset entry represents a package and its
 /// git branch that contains changes to be built.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult, Default)]
-pub struct Changesets(Vec<(RepositorySlug, BranchName)>);
+pub struct Changesets(Vec<(package::RepositorySlug, git::BranchName)>);
 
 /// [`alpm_types::Architecture`], but without the `Any` variant.
 #[derive(
@@ -189,47 +174,6 @@ pub struct Pkgnames(Vec<Pkgname>);
 
 fn validate_pkgnames(input: &[Pkgname]) -> bool {
     !input.is_empty()
-}
-
-/// A repository name used for package builds.
-///
-/// This newtype wrapper provides type safety when working with repository
-/// references in the build system. Repository names specify which repository
-/// packages should be built for, enabling support for different repositories
-/// like core, extra, community, etc.
-#[nutype(
-    // See https://docs.gitlab.com/user/reserved_names/#rules-for-usernames-project-and-group-names-and-slugs
-    validate(predicate = validate_repository_name),
-    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, AsRef, Deref),
-    // This is not actually unsafe code - nutype tries to protect us from accidentally
-    // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(FromJsonQueryResult)
-)]
-pub struct RepositorySlug(String);
-
-#[allow(clippy::unwrap_used)]
-static REPO_NAME_ALLOWED_CHARS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^[a-zA-Z0-9_\\.\\-\\+]+$").unwrap());
-
-#[allow(clippy::unwrap_used)]
-static REPO_NAME_OUTER_CHARS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^[a-zA-Z0-9].*[a-zA-Z0-9]$").unwrap());
-
-#[allow(clippy::unwrap_used)]
-static REPO_SLUG_REPEATED_SPECIAL_CHARS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("[\\-\\+\\_]{2,}").unwrap());
-
-fn validate_repository_name(name: &str) -> bool {
-    #![expect(
-        clippy::case_sensitive_file_extension_comparisons,
-        reason = "Clippy doesn't recognize we've fixed this."
-    )]
-    let lowercase_name = name.to_ascii_lowercase();
-    REPO_NAME_ALLOWED_CHARS.is_match(name)
-        && REPO_NAME_OUTER_CHARS.is_match(name)
-        && !REPO_SLUG_REPEATED_SPECIAL_CHARS.is_match(name)
-        && !lowercase_name.ends_with(".git")
-        && !lowercase_name.ends_with(".atom")
 }
 
 /// Provides SeaORM compatibility for ALPM package versions.
