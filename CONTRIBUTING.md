@@ -65,7 +65,17 @@ Test locations:
 - Use `#[debug_handler]` only temporarily. Since this macro does not know which `State` generic parameter is set by our router, it can report false errors.
 - Always create API routes below the "/v1" scope to allow versioning the API in the future. Adding them to `routes::api::router` will do this automatically.
 - Use the plural form for resource names in paths.
-- All resources live at the "top level", e.g. even though builds are "owned" by iterations and namespaces, their resource path is `/v1/builds/{UUID}`.
-
-  As such, we decided against a nested format such like `/v1/iterations/{iteration_uuid}/builds/{build_uuid}`.
-  This can lead to pretty deeply nested paths otherwise.
+- All resources live at the "top level", e.g. even though builds are "owned" by iterations and namespaces, their resource path is `/v1/builds/{id}`.
+- Use NanoIDs with base58 for all resources' primary keys. In addition, in some specific cases, we allow alternative identifiers where it makes sense (e.g. scoped sequential iteration ids or slugs). We decided against UUIDs for primary keys since they are long and don't have advantages for us.
+- We decided against a nested format such like `/v1/iterations/{iteration_id}/builds/{build_id}`.
+  This can lead to pretty deeply nested paths otherwise and are hard to keep consistent if you want to query by alternative ids (e.g. by slug). However, we might allow them later on if they provide clear convenience advantages for direct API users.
+- Examples of routes API routes:
+  ```
+  /api/v1/buildspaces/<id>
+  /api/v1/buildspaces?slug=<slug>
+  /api/v1/iterations/<id>
+  /api/v1/iterations?buildspace_slug=<slug>&iteration_number=<number>
+  /api/v1/iterations?buildspace=<buildspace_id>
+  /api/v1/builds/<id>
+  /api/v1/builds?iteration=<iteration_id>
+  ```
