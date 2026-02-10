@@ -54,10 +54,10 @@ unnecessary_debug_formatting = "allow"
 sea-orm-debug-print = ["sea-orm/debug-print"]
 
 [dependencies]
-alpm-srcinfo = "0.6.0"
-alpm-types = "0.11.0"
-asynk-strim = "0.1.4"
-clap = { version = "4.5.42", features = [
+alpm-srcinfo = "0.6.2"
+alpm-types = "0.11.1"
+asynk-strim = "0.1.5"
+clap = { version = "4.5.57", features = [
     "cargo",
     "derive",
     "env",
@@ -69,16 +69,16 @@ datastar = { version = "0.3.1", features = ["axum", "tracing"] }
 directories = "6.0.0"
 gitlab = "0.1808.0"
 redact = "0.1.11"
-reqwest = { version = "0.13.1", features = [
+reqwest = { version = "0.13.2", features = [
     "json",
     "stream",
 ], default-features = false }
-serde = { version = "1.0.219", features = ["serde_derive"] }
-serde_json = { version = "1.0.141", features = ["raw_value"] }
+serde = { version = "1.0.228", features = ["serde_derive"] }
+serde_json = { version = "1.0.149", features = ["raw_value"] }
 strum = { version = "0.27.2", features = ["derive"] }
 tera = "1.20.1"
-thiserror = "2.0.12"
-tokio = { version = "1.47.0", features = [
+thiserror = "2.0.18"
+tokio = { version = "1.49.0", features = [
     "fs",
     "macros",
     "process",
@@ -86,13 +86,13 @@ tokio = { version = "1.47.0", features = [
     "tracing",
     "signal",
 ] }
-tokio-util = "0.7.16"
-toml = "0.9.4"
-time = { version = "0.3.41", features = ["formatting", "parsing", "serde"] }
-tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
-url = "2.5.4"
-sea-orm = { version = "1.1.14", features = [
+tokio-util = "0.7.18"
+toml = "0.9.11"
+time = { version = "0.3.47", features = ["formatting", "parsing", "serde"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.22"
+url = "2.5.8"
+sea-orm = { version = "1.1.19", features = [
     "sqlx-sqlite",
     "runtime-tokio-rustls",
     "macros",
@@ -101,12 +101,12 @@ sea-orm = { version = "1.1.14", features = [
     "with-uuid",
     "sqlite-use-returning-for-3_35",
 ], default-features = false }
-sea-orm-migration = { version = "1.1.14", features = [
+sea-orm-migration = { version = "1.1.19", features = [
     "runtime-tokio-rustls",
     "sqlx-sqlite",
 ], default-features = false }
-camino = "1.1.11"
-axum = { version = "0.8.4", features = [
+camino = "1.2.2"
+axum = { version = "0.8.8", features = [
     "macros",
     "tracing",
     "tokio",
@@ -115,34 +115,33 @@ axum = { version = "0.8.4", features = [
     "http1",
     "http2",
 ], default-features = false }
-tower-http = { version = "0.6.6", features = [
+tower-http = { version = "0.6.8", features = [
     "timeout",
     "fs",
 ], default-features = false }
-axum-extra = { version = "0.12.2", features = [
+axum-extra = { version = "0.12.5", features = [
     "routing",
     "typed-routing",
     "cookie-private",
 ] }
-uuid = { version = "1.18.0", features = ["v4", "serde"] }
+uuid = { version = "1.20.0", features = ["v4", "serde"] }
 nutype = { version = "0.6.2", features = ["derive_unsafe", "serde", "regex"] }
-regex = "1.11.2"
+regex = "1.12.3"
 openidconnect = { version = "4.0.1", features = [
     "timing-resistant-secret-traits",
 ] }
-garde = { version = "0.22.0", features = ["derive"] }
+garde = { version = "0.22.1", features = ["derive"] }
 listenfd = "1.0.2"
 graphql_client = "0.14.0"
-derive_more = { version = "2.1.0", features = ["as_ref", "display"] }
-git2 = { version = "0.20.3", default-features = false, features = ["ssh"] }
+derive_more = { version = "2.1.1", features = ["as_ref", "display"] }
+git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
 
 [dev-dependencies]
-axum-test = { version = "18.1.0", features = ["typed-routing"] }
+axum-test = { version = "18.7.0", features = ["typed-routing"] }
 thirtyfour = { version = "0.36.1", features = [
     "rustls-tls",
 ], default-features = false }
 rstest = { version = "0.26.1", default-features = false }
 cookie = "0.18.1"
 temp-env = "0.3.6"
-tempfile = "3.23.0"
-# Only enable the debug-print feature in development, as it will leak sensitive values.
+tempfile = "3.25.0"
