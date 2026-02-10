@@ -3,6 +3,8 @@
 use std::str::FromStr;
 
 use crate::regex;
+use alpm_types::Architecture;
+use alpm_types::SystemArchitecture;
 use nutype::nutype;
 use sea_orm::sea_query;
 
@@ -190,6 +192,78 @@ fn validate_repository_name(name: &str) -> bool {
         && !regex!("[\\-\\+\\_]{2,}").is_match(name)
         && !lowercase_name.ends_with(".git")
         && !lowercase_name.ends_with(".atom")
+}
+
+/// [`alpm_types::Architecture`], but without the `Any` variant.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    sea_orm::DeriveValueType,
+    strum::EnumString,
+    strum::EnumIter,
+    strum::Display,
+)]
+#[non_exhaustive]
+#[sea_orm(value_type = "String")]
+pub enum KnownArchitecture {
+    /// ARMv8 64-bit
+    Aarch64,
+    /// ARM
+    Arm,
+    /// ARMv6 hard-float
+    Armv6h,
+    /// ARMv7 hard-float
+    Armv7h,
+    /// Intel 386
+    I386,
+    /// Intel 486
+    I486,
+    /// Intel 686
+    I686,
+    /// Intel Pentium 4
+    Pentium4,
+    /// RISC-V 32-bit
+    Riscv32,
+    /// RISC-V 64-bit
+    Riscv64,
+    /// Intel x86_64
+    X86_64,
+    /// Intel x86_64 version 2
+    #[strum(to_string = "x86_64_v2")]
+    X86_64V2,
+    /// Intel x86_64 version 3
+    #[strum(to_string = "x86_64_v3")]
+    X86_64V3,
+    /// Intel x86_64 version 4
+    #[strum(to_string = "x86_64_v4")]
+    X86_64V4,
+}
+
+impl AsRef<Architecture> for KnownArchitecture {
+    fn as_ref(&self) -> &Architecture {
+        match self {
+            KnownArchitecture::Aarch64 => &Architecture::Some(SystemArchitecture::Aarch64),
+            KnownArchitecture::Arm => &Architecture::Some(SystemArchitecture::Arm),
+            KnownArchitecture::Armv6h => &Architecture::Some(SystemArchitecture::Armv6h),
+            KnownArchitecture::Armv7h => &Architecture::Some(SystemArchitecture::Armv7h),
+            KnownArchitecture::I386 => &Architecture::Some(SystemArchitecture::I386),
+            KnownArchitecture::I486 => &Architecture::Some(SystemArchitecture::I486),
+            KnownArchitecture::I686 => &Architecture::Some(SystemArchitecture::I686),
+            KnownArchitecture::Pentium4 => &Architecture::Some(SystemArchitecture::Pentium4),
+            KnownArchitecture::Riscv32 => &Architecture::Some(SystemArchitecture::Riscv32),
+            KnownArchitecture::Riscv64 => &Architecture::Some(SystemArchitecture::Riscv64),
+            KnownArchitecture::X86_64 => &Architecture::Some(SystemArchitecture::X86_64),
+            KnownArchitecture::X86_64V2 => &Architecture::Some(SystemArchitecture::X86_64V2),
+            KnownArchitecture::X86_64V3 => &Architecture::Some(SystemArchitecture::X86_64V3),
+            KnownArchitecture::X86_64V4 => &Architecture::Some(SystemArchitecture::X86_64V4),
+        }
+    }
 }
 
 #[cfg(test)]

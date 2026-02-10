@@ -101,6 +101,7 @@ pub struct BranchName(String);
     sea_orm::FromJsonQueryResult,
     Default,
     IntoIterator,
+    derive_more::From,
 )]
 #[into_iterator(ref)]
 pub struct Changesets(Vec<Changeset>);
