@@ -142,7 +142,7 @@ mod tests {
     // the normal test suite. This is not great but better than testing it manually.
     // The test will only send read requests to the API.
     // It is specifically written for gitlab.archlinux.org, and the packaging-buildbtw-dev/packages
-    // group. Run it with `just test-expensive`.
+    // group. Run it with `just test-flaky`.
     #[ignore]
     async fn test_changed_since_integration() -> Result<()> {
         let _ = crate::tracing::init(0, false);
