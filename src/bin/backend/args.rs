@@ -138,6 +138,10 @@ pub struct RunArgs {
 
 #[derive(clap::Args, Debug)]
 #[group(requires_all = ["oidc_client_id", "oidc_client_secret", "oidc_issuer_url", "oidc_issuer_name"])]
+#[expect(
+    clippy::struct_field_names,
+    reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
+)]
 pub struct Oidc {
     /// To use OIDC, all options beginning with `oidc` must be set.
     /// We support RS*, PS*, or HS* signature algorithms.

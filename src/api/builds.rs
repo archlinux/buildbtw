@@ -36,7 +36,7 @@ pub enum Status {
 pub struct ListByStatus {}
 
 #[derive(Debug, Serialize, Deserialize)]
-/// Query Parameters for the [ListByStatus] endpoint
+/// Query Parameters for the [`ListByStatus`] endpoint
 pub struct ListByStatusQuery {
     /// Only return builds with this status.
     pub status: Option<Status>,

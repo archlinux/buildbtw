@@ -20,15 +20,14 @@ async fn test_404_handling(#[future(awt)] ctx: TestCtx, #[case] path: &str) {
     assert_eq!(
         response.status_code(),
         StatusCode::NOT_FOUND,
-        "Path {} should return 404",
-        path
+        "Path {path} should return 404"
     );
 }
 
 /// Test that status assertions work properly
 #[rstest]
 #[tokio::test]
-#[should_panic]
+#[should_panic = "assertion failed"]
 async fn test_assert_status_panics(#[future(awt)] ctx: TestCtx) {
     let response = ctx.server.typed_get(&web::index::Index {}).await;
 

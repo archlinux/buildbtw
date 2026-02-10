@@ -66,7 +66,7 @@ pub async fn session_list(
         cookie_jar,
         Html(templates::account::render_session_list_page(
             &session.user,
-            sessions,
+            &sessions,
         )?),
     ))
 }

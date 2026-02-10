@@ -41,6 +41,14 @@ unimplemented = "warn"
 dbg_macro = "warn"
 print_stdout = "warn"
 print_stderr = "warn"
+pedantic = { level = "warn", priority = -1 }
+# Sometimes, `to_string` is more expressive than `clone`.
+implicit_clone = "allow"
+# Lots of false positives.
+doc_markdown = "allow"
+# This would be too verbose for application code.
+missing_errors_doc = "allow"
+unnecessary_debug_formatting = "allow"
 
 [features]
 sea-orm-debug-print = ["sea-orm/debug-print"]

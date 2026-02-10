@@ -7,6 +7,8 @@
 //!
 //! The main entry point is [`initialize`] to spawn the background task.
 
+use std::collections::HashSet;
+
 use color_eyre::Result;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, DatabaseTransaction, PaginatorTrait, QueryFilter,
@@ -17,6 +19,7 @@ use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info_span, warn};
 
+use crate::entities::user_roles;
 use crate::{db_fields::TextUuid, queries, server_state::ServerState};
 
 /// Starts the background maintenance worker.
@@ -24,7 +27,7 @@ use crate::{db_fields::TextUuid, queries, server_state::ServerState};
 /// This function launches an asynchronous task that runs periodic jobs
 /// in the background while the server is running. It does not block the
 /// main application thread.
-pub async fn initialize(state: ServerState, token: CancellationToken) -> Result<()> {
+pub fn initialize(state: ServerState, token: CancellationToken) {
     tokio::spawn(async move {
         let span = info_span!("background-task-worker");
         let _enter = span.enter();
@@ -36,14 +39,13 @@ pub async fn initialize(state: ServerState, token: CancellationToken) -> Result<
                     run_hourly_job(&state).await;
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
-                _ = token.cancelled() => {
+                () = token.cancelled() => {
                     tracing::info!("background task worker shutting down");
                     break;
                 }
             }
         }
     });
-    Ok(())
 }
 
 /// Executes the hourly maintenance tasks.
@@ -119,6 +121,7 @@ pub async fn clear_refresh_token_if_no_sessions(
 /// For each user in the database, fetches their current groups from the OIDC
 /// provider using their stored refresh token, and updates their roles accordingly.
 /// Continues on individual user failures to ensure all users are processed.
+#[allow(clippy::too_many_lines)]
 pub async fn sync_user_roles_from_oidc(
     db: &DatabaseConnection,
     oidc_config: &crate::oidc::Config,
@@ -141,16 +144,13 @@ pub async fn sync_user_roles_from_oidc(
 
     for user in users {
         // Skip users without refresh tokens (e.g., created before migration)
-        let refresh_token = match user.refresh_token {
-            Some(token) => token,
-            None => {
-                tracing::debug!(
-                    user_id = %user.id.0,
-                    "Skipping user without refresh token"
-                );
-                skipped_count += 1;
-                continue;
-            }
+        let Some(refresh_token) = user.refresh_token else {
+            tracing::debug!(
+                user_id = %user.id.0,
+                "Skipping user without refresh token"
+            );
+            skipped_count += 1;
+            continue;
         };
 
         // Fetch current user info from OIDC
@@ -168,8 +168,8 @@ pub async fn sync_user_roles_from_oidc(
                     );
 
                     if let Err(e) = revoke_user_sessions_and_roles(&tx, user.id).await {
-                        error!(?e)
-                    };
+                        error!(?e);
+                    }
                     continue;
                 }
             };
@@ -195,10 +195,6 @@ pub async fn sync_user_roles_from_oidc(
         );
 
         // Fetch current roles from database
-        use std::collections::HashSet;
-
-        use crate::entities::user_roles;
-
         let current_roles: Vec<user_roles::Role> = user_roles::Entity::find()
             .filter(user_roles::Column::UserId.eq(user.id.0))
             .all(&tx)

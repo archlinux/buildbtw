@@ -1,14 +1,14 @@
 use std::time::Duration;
 
 use axum::Router;
-use camino::Utf8PathBuf;
+use camino::Utf8Path;
 use reqwest::StatusCode;
 use tower_http::timeout::TimeoutLayer;
 
 use crate::server_state::ServerState;
 
 /// Create and configure a new top-level router for the backend server.
-pub fn new(root: Utf8PathBuf) -> Router<ServerState> {
+pub fn new(root: &Utf8Path) -> Router<ServerState> {
     Router::new()
         // API routes for clients, living under /api/v1
         .merge(crate::routes::api::router())

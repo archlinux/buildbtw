@@ -163,14 +163,11 @@ mod tests {
         let parsed_args = Args::try_parse_from(args)?;
 
         // Verify the command is PrintChanged with since parameter
-        match parsed_args.command {
-            Command::PrintChanged(ref print_args) => {
-                let expected = parse_iso8601("2024-01-01T00:00:00Z")?;
-                assert_eq!(print_args.since, Some(expected));
-            }
-            c => {
-                panic!("Did not expect command {c:?}")
-            }
+        if let Command::PrintChanged(ref print_args) = parsed_args.command {
+            let expected = parse_iso8601("2024-01-01T00:00:00Z")?;
+            assert_eq!(print_args.since, Some(expected));
+        } else {
+            panic!("Unexpected command {:?}", parsed_args.command)
         }
 
         Ok(())
@@ -193,14 +190,11 @@ mod tests {
 
         // Verify the command is PrintChanged with since parameter
         // Date-only format should be parsed as midnight UTC
-        match parsed_args.command {
-            Command::PrintChanged(ref print_args) => {
-                let expected = parse_iso8601("2024-01-01T00:00:00Z")?;
-                assert_eq!(print_args.since, Some(expected));
-            }
-            c => {
-                panic!("Did not expect command {c:?}")
-            }
+        if let Command::PrintChanged(ref print_args) = parsed_args.command {
+            let expected = parse_iso8601("2024-01-01T00:00:00Z")?;
+            assert_eq!(print_args.since, Some(expected));
+        } else {
+            panic!("Unexpected command {:?}", parsed_args.command)
         }
 
         Ok(())

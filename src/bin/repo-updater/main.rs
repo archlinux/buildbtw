@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
             let mut state = State::from_filesystem()?;
             let last_updated = state
                 .target_dir_last_updated(&update_args.target_dir)?
-                .cloned();
+                .copied();
 
             let last_updated = repo_updater::update_all_source_repos(
                 update_args.target_dir.clone(),

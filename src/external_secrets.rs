@@ -27,7 +27,8 @@ pub fn get_required(name: &str, file_path: Option<&Utf8Path>) -> Result<redact::
     let xdg_dir_file_value = crate::xdg_dirs::new().and_then(|dirs| {
         let config_dir = dirs.config_dir();
         let path = config_dir.join(name);
-        std::fs::read_to_string(&path).wrap_err(format!("Could not read secret at {path:?}"))
+        std::fs::read_to_string(&path)
+            .wrap_err(format!("Could not read secret at {}", path.display()))
     });
 
     env_value
@@ -36,7 +37,7 @@ pub fn get_required(name: &str, file_path: Option<&Utf8Path>) -> Result<redact::
         .map(redact::Secret::new)
 }
 
-/// Create a [axum_extra::extract::cookie::Key] from a string
+/// Create a [`axum_extra::extract::cookie::Key`] from a string
 pub fn get_cookie_encryption_key(
     path: Option<&Utf8Path>,
 ) -> Result<redact::Secret<axum_extra::extract::cookie::Key>> {
@@ -73,7 +74,7 @@ mod tests {
 
         // Create temporary file with secret
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "{}", expected_value).unwrap();
+        writeln!(temp_file, "{expected_value}").unwrap();
         temp_file.flush().unwrap();
 
         let file_path = Utf8PathBuf::from_path_buf(temp_file.path().to_path_buf()).unwrap();
@@ -83,7 +84,7 @@ mod tests {
             assert!(result.is_ok());
             // Note: read_to_string includes newline, so we need to trim
             assert_eq!(result.unwrap().expose_secret().trim(), expected_value);
-        })
+        });
     }
 
     #[test]
@@ -94,7 +95,7 @@ mod tests {
 
         // Create temporary file with different secret
         let mut temp_file = NamedTempFile::new().unwrap();
-        writeln!(temp_file, "{}", file_value).unwrap();
+        writeln!(temp_file, "{file_value}").unwrap();
         temp_file.flush().unwrap();
 
         // Set environment variable
@@ -105,7 +106,7 @@ mod tests {
             assert!(result.is_ok());
             // Environment variable should take priority
             assert_eq!(result.unwrap().expose_secret(), env_value);
-        })
+        });
     }
 
     #[test]
