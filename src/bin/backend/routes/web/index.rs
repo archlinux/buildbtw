@@ -9,6 +9,6 @@ pub async fn index(
     session: Option<from_request::AuthUser>,
 ) -> crate::response_error::ResponseResult<impl IntoResponse> {
     Ok(Html(templates::index::render_index_page(
-        &session.map(|session| session.user),
+        session.as_ref().map(|session| &session.user),
     )?))
 }

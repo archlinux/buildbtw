@@ -171,6 +171,7 @@ fn fetch_packaging_repo(
 }
 
 /// Obtain the filesystem path of a package source repo.
+#[must_use]
 pub fn packaging_repo_path(
     target_dir: &Utf8Path,
     gitlab_project_path: &crate::gitlab::projects::ProjectPath,

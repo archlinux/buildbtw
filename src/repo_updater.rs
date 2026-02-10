@@ -35,7 +35,7 @@ pub async fn update_all_source_repos(
             // Work around inaccuracy of the `updated_at` and `last_activity_at` field
             // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/32
             .map(|date| date - Duration::minutes(61));
-    };
+    }
 
     // Run git operations for changed projects
     crate::git::clone_or_fetch_repositories(

@@ -11,7 +11,7 @@ pub fn render_account_overview(user: &entities::users::Model) -> Result<String> 
 
 pub fn render_session_list_page(
     user: &entities::users::Model,
-    sessions: Vec<sessions::Model>,
+    sessions: &[sessions::Model],
 ) -> Result<String> {
     let mut ctx = tera::Context::default();
     ctx.insert("user", &user);

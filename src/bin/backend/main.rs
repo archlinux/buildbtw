@@ -115,10 +115,10 @@ async fn run_server(
         cookie_encryption_key,
     };
 
-    tasks::initialize(server_state.clone(), cancellation_token.clone()).await?;
-    templates::initialize(web_root.clone()).await?;
+    tasks::initialize(server_state.clone(), cancellation_token.clone());
+    templates::initialize(&web_root)?;
 
-    let router = router::new(web_root).with_state(server_state);
+    let router = router::new(&web_root).with_state(server_state);
 
     info!("Server available at: {}", base_url);
 
@@ -172,7 +172,7 @@ async fn run_server(
                         "Failed to clean up socket file at {socket_addr_path:?}"
                     ))?;
             }
-        };
+        }
     }
 
     Ok(())
@@ -202,10 +202,10 @@ async fn shutdown_signal(token: CancellationToken) {
 
     tokio::select! {
         _ = ctrl_c => {
-            tracing::info!("Received SIGINT, shutting down...")
+            tracing::info!("Received SIGINT, shutting down...");
         },
         _ = terminate => {
-            tracing::info!("Received SIGTERM, shutting down...")
+            tracing::info!("Received SIGTERM, shutting down...");
         },
     }
 

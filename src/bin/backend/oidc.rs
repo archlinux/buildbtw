@@ -1,7 +1,7 @@
 //! Single-sign-on functionality using the Open ID Connect (OIDC) standard
 //!
 //! Overview:
-//! When the server starts, [MaybeConfig] is initialized with arguments from
+//! When the server starts, [`MaybeConfig`] is initialized with arguments from
 //! [args::Oidc]. If the OIDC provider is reachable and the configured
 //! credentials are valid, [MaybeConfig::Configured] is stored in
 //! [crate::ServerState].
@@ -151,7 +151,7 @@ pub type ConfiguredClient = CoreClient<
 /// Additionally, return a [LoginAttempt] struct which is the state we need to
 /// store, and subsequently use to verify the authorization code in
 /// [convert_authorization_code_to_user_info].
-pub async fn start_login(Config { oidc_client, .. }: Config) -> Result<(Url, LoginAttempt)> {
+pub fn new_login_attempt(Config { oidc_client, .. }: Config) -> (Url, LoginAttempt) {
     // Generate a PKCE challenge.
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -171,14 +171,14 @@ pub async fn start_login(Config { oidc_client, .. }: Config) -> Result<(Url, Log
         .set_pkce_challenge(pkce_challenge)
         .url();
 
-    Ok((
+    (
         authorize_url,
         LoginAttempt {
             nonce,
             csrf_token,
             pkce_verifier,
         },
-    ))
+    )
 }
 
 #[derive(Serialize, Deserialize)]

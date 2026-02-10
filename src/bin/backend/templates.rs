@@ -1,4 +1,4 @@
-use camino::Utf8PathBuf;
+use camino::Utf8Path;
 use color_eyre::{Result, eyre::OptionExt};
 use tera::Tera;
 use time::{OffsetDateTime, format_description};
@@ -16,11 +16,11 @@ const TEMPLATE_PATH: &str = "templates";
 static TERA: OnceCell<Tera> = OnceCell::const_new();
 
 /// Initialize the template module.
-pub async fn initialize(root: Utf8PathBuf) -> Result<()> {
+pub fn initialize(root: &Utf8Path) -> Result<()> {
     Ok(TERA.set(initialize_tera(root)?)?)
 }
 
-fn initialize_tera(root: Utf8PathBuf) -> Result<Tera> {
+fn initialize_tera(root: &Utf8Path) -> Result<Tera> {
     let mut tera = Tera::new(format!("{root}/{TEMPLATE_PATH}/**/*").as_str())?;
     tera.register_filter("datetime", format_datetime);
     Ok(tera)

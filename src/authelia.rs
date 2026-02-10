@@ -31,6 +31,7 @@ impl Container {
     /// # Arguments
     /// * `port` - Specific host port to expose Authelia on. If `None`, expose on a random port.
     /// * `persist_between_runs` - Whether to mount the state dir to a location outside the container
+    #[allow(clippy::too_many_lines)]
     pub async fn new(port: Option<u32>, persist_between_runs: bool) -> Result<Self> {
         setup_certificates()?;
 

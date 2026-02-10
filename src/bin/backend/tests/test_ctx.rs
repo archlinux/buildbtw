@@ -81,7 +81,7 @@ impl CookieJarExt for PrivateCookieJar {
             .get_all("set-cookie")
             .iter()
             .filter_map(|hv| hv.to_str().ok())
-            .filter_map(|s| s.split_once("="));
+            .filter_map(|s| s.split_once('='));
 
         // Create a plain cookie jar using the encrypted values.
         // To be clear: The cookie jar itself is not encrypted! Only its values are.
@@ -200,13 +200,13 @@ impl TestCtxBuilder {
             )),
         };
 
-        templates::initialize("./".into()).await.unwrap();
+        templates::initialize("./".into()).unwrap();
 
         let server = if self.use_http_transport {
             // TODO try multiple ports to find one that's free
             TestServer::builder()
                 .http_transport_with_ip_port(
-                    Some(std::net::Ipv4Addr::new(0, 0, 0, 0).into()),
+                    Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
                     Some(8080),
                 )
                 .build(router::new("./".into()).with_state(state.clone()))

@@ -62,7 +62,7 @@ async fn test_authelia_configured() {
     assert_eq!(
         redirect_url.domain().unwrap(),
         "authelia.buildbtw.localhost"
-    )
+    );
 }
 
 #[tokio::test]

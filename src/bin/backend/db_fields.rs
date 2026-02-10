@@ -220,11 +220,16 @@ static REPO_SLUG_REPEATED_SPECIAL_CHARS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("[\\-\\+\\_]{2,}").unwrap());
 
 fn validate_repository_name(name: &str) -> bool {
+    #![expect(
+        clippy::case_sensitive_file_extension_comparisons,
+        reason = "Clippy doesn't recognize we've fixed this."
+    )]
+    let lowercase_name = name.to_ascii_lowercase();
     REPO_NAME_ALLOWED_CHARS.is_match(name)
         && REPO_NAME_OUTER_CHARS.is_match(name)
         && !REPO_SLUG_REPEATED_SPECIAL_CHARS.is_match(name)
-        && !name.ends_with(".git")
-        && !name.ends_with(".atom")
+        && !lowercase_name.ends_with(".git")
+        && !lowercase_name.ends_with(".atom")
 }
 
 /// Provides SeaORM compatibility for ALPM package versions.

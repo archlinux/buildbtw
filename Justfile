@@ -109,7 +109,7 @@ test *args: (ensure-command "geckodriver")
 
 [doc("Run tests that take long to run or might be flaky")]
 [group("test")]
-test-expensive *args:
+test-flaky *args:
     cargo nextest run --run-ignored only {{ args }}
 
 [doc("Run tests and auto-rerun on code changes")]

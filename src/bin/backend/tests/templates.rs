@@ -7,5 +7,5 @@ use crate::templates;
 #[rstest]
 #[tokio::test]
 async fn test_templates_initialize() -> Result<()> {
-    templates::initialize("./".into()).await
+    templates::initialize("./".into())
 }
