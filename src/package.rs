@@ -1,8 +1,164 @@
-//! Newtypes for dealing with package-related values.
+//! Types for dealing with package-specific data.
 
-use nutype::nutype;
+use std::str::FromStr;
 
 use crate::regex;
+use nutype::nutype;
+use sea_orm::sea_query;
+
+/// The name of a concrete package (not a `pkgbase`)
+/// This is a newtype because alpm_types only uses type aliases to differentiate between `package_name` and `package_base_name`.
+#[nutype(derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    FromStr,
+    From,
+    Serialize,
+    Deserialize,
+    AsRef,
+    Deref
+))]
+pub struct Name(alpm_types::Name);
+
+impl sea_orm::TryGetable for Name {
+    fn try_get_by<I: sea_orm::ColIdx>(
+        res: &sea_orm::QueryResult,
+        index: I,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let str: String = res.try_get_by(index)?;
+        let parsed = Name::from_str(&str).map_err(|e| {
+            sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
+                from: "String",
+                into: "package::Name",
+                source: Box::new(e),
+            })
+        })?;
+        Ok(parsed)
+    }
+}
+
+impl From<Name> for sea_query::Value {
+    fn from(value: Name) -> Self {
+        sea_query::Value::String(Some(Box::new(value.to_string())))
+    }
+}
+
+impl sea_query::ValueType for Name {
+    fn try_from(v: sea_orm::Value) -> Result<Self, sea_query::ValueTypeErr> {
+        match v {
+            sea_orm::Value::String(Some(s)) => {
+                let parsed = Name::from_str(&s).map_err(|_| sea_query::ValueTypeErr)?;
+                Ok(parsed)
+            }
+            _ => Err(sea_query::ValueTypeErr),
+        }
+    }
+
+    fn type_name() -> String {
+        "package_name".to_string()
+    }
+
+    fn array_type() -> sea_query::ArrayType {
+        sea_query::ArrayType::String
+    }
+
+    fn column_type() -> sea_orm::ColumnType {
+        sea_orm::ColumnType::String(sea_query::StringLen::None)
+    }
+}
+
+impl sea_orm::TryFromU64 for Name {
+    fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
+        Err(sea_orm::DbErr::ConvertFromU64("package::Name"))
+    }
+}
+
+/// A collection of package names in a PKGBUILD.
+#[nutype(
+    validate(predicate = validate_pkgnames),
+    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, AsRef, Deref),
+    // This is not actually unsafe code - nutype tries to protect us from accidentally
+    // deriving a trait that would sidestep the invariants our newtype upholds
+    derive_unsafe(sea_orm::FromJsonQueryResult)
+)]
+pub struct Names(Vec<Name>);
+
+fn validate_pkgnames(input: &[Name]) -> bool {
+    !input.is_empty()
+}
+
+/// The base name of a PKGBUILD (not a `pkgname`)
+/// This is a newtype because alpm_types only uses type aliases to differentiate between `package_name` and `package_base_name`.
+#[nutype(derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    From,
+    FromStr,
+    AsRef,
+    Deref
+))]
+pub struct BaseName(alpm_types::PackageBaseName);
+
+impl sea_orm::TryGetable for BaseName {
+    fn try_get_by<I: sea_orm::ColIdx>(
+        res: &sea_orm::QueryResult,
+        index: I,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let str: String = res.try_get_by(index)?;
+        let parsed = BaseName::from_str(&str).map_err(|e| {
+            sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
+                from: "String",
+                into: "package::BaseName",
+                source: Box::new(e),
+            })
+        })?;
+        Ok(parsed)
+    }
+}
+
+impl From<BaseName> for sea_query::Value {
+    fn from(value: BaseName) -> Self {
+        sea_query::Value::String(Some(Box::new(value.to_string())))
+    }
+}
+
+impl sea_query::ValueType for BaseName {
+    fn try_from(v: sea_orm::Value) -> Result<Self, sea_query::ValueTypeErr> {
+        match v {
+            sea_orm::Value::String(Some(s)) => {
+                let parsed = BaseName::from_str(&s).map_err(|_| sea_query::ValueTypeErr)?;
+                Ok(parsed)
+            }
+            _ => Err(sea_query::ValueTypeErr),
+        }
+    }
+
+    fn type_name() -> String {
+        "package_base_name".to_string()
+    }
+
+    fn array_type() -> sea_query::ArrayType {
+        sea_query::ArrayType::String
+    }
+
+    fn column_type() -> sea_orm::ColumnType {
+        sea_orm::ColumnType::String(sea_query::StringLen::None)
+    }
+}
+
+impl sea_orm::TryFromU64 for BaseName {
+    fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
+        Err(sea_orm::DbErr::ConvertFromU64("PackageBaseName"))
+    }
+}
 
 /// A package source repository name.
 ///
@@ -11,7 +167,7 @@ use crate::regex;
 #[nutype(
     // See https://docs.gitlab.com/user/reserved_names/#rules-for-usernames-project-and-group-names-and-slugs
     validate(predicate = validate_repository_name),
-    derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom),
+    derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom, Display),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
     derive_unsafe(sea_orm::FromJsonQueryResult)

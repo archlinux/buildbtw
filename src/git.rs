@@ -9,10 +9,14 @@ use color_eyre::{
     Result,
     eyre::{OptionExt, WrapErr, eyre},
 };
+use derive_more::IntoIterator;
 use nutype::nutype;
 use sea_orm::sea_query;
+use serde::{Deserialize, Serialize};
 use tracing::{info, trace};
 use url::Url;
+
+use crate::package;
 
 /// An unambiguous git commit hash.
 /// This has no validation, but serves as a type marker to differentiate from other types of Oid (e.g. tree, blob, tag)
@@ -85,6 +89,31 @@ impl sea_orm::TryFromU64 for CommitHash {
     derive_unsafe(sea_orm::DeriveValueType)
 )]
 pub struct BranchName(String);
+
+/// A collection of branches in package source repositories.
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    sea_orm::FromJsonQueryResult,
+    Default,
+    IntoIterator,
+)]
+#[into_iterator(ref)]
+pub struct Changesets(Vec<Changeset>);
+
+/// Represents a source repository and a git branch inside of the repo,
+/// pointing to a specific commit with build instructions.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sea_orm::FromJsonQueryResult)]
+pub struct Changeset {
+    /// Slug of the repository, as in GitLab
+    pub repo_slug: package::RepositorySlug,
+    /// Branch name containing the changes to build
+    pub branch_name: BranchName,
+}
 
 /// For every gitlab project path, make sure its corresponding git repository
 /// exists locally and is up-to-date.

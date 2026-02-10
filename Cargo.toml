@@ -133,7 +133,11 @@ openidconnect = { version = "4.0.1", features = [
 garde = { version = "0.22.1", features = ["derive"] }
 listenfd = "1.0.2"
 graphql_client = "0.14.0"
-derive_more = { version = "2.1.1", features = ["as_ref", "display"] }
+derive_more = { version = "2.1.1", features = [
+    "as_ref",
+    "display",
+    "into_iterator",
+] }
 git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
 
 [dev-dependencies]
