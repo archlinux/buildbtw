@@ -3,6 +3,8 @@
 
 mod args;
 mod state;
+#[cfg(test)]
+mod tests;
 
 use buildbtw::{external_secrets, repo_updater};
 use clap::Parser;
