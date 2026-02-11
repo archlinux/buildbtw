@@ -4,6 +4,5 @@
 //! system, creating repository databases using `repo-add` and organizing
 //! package artifacts in iteration-specific repositories.
 //!
-//! Repositories are stored at
-//! `./data/repos/{namespace}_{iteration}/os/{architecture}/` and served
+//! Repositories are stored in buildbtw's configured artifact directory and served
 //! for dependency resolution during subsequent builds in the same iteration.
