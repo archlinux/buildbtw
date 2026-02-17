@@ -1,2 +1,9 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+
+[[disallowed-methods]]
+path = "color_eyre::eyre::Context::context"
+reason = "Use wrap_err instead"
+[[disallowed-methods]]
+path = "color_eyre::eyre::Context::with_context"
+reason = "Use wrap_err_with instead"
