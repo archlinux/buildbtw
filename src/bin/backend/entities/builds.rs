@@ -1,11 +1,8 @@
-use buildbtw::api;
+use buildbtw::{api, git, package};
 use sea_orm::entity::prelude::*;
 
 use crate::{
-    db_fields::{
-        BranchName, BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, RepositorySlug, TextUuid,
-        Version,
-    },
+    db_fields::{BuildStatus, ConcreteArchitecture, Pkgbase, Pkgnames, TextUuid, Version},
     entities::iterations,
 };
 
@@ -24,9 +21,9 @@ pub struct Model {
 
     pub architecture: ConcreteArchitecture,
     pub pkgbase: Pkgbase,
-    pub branch_name: BranchName,
-    pub repository_name: RepositorySlug,
-    pub commit_hash: String,
+    pub branch_name: git::BranchName,
+    pub repository_name: package::RepositorySlug,
+    pub commit_hash: git::CommitHash,
     pub status: BuildStatus,
     pub version: Version,
     pub pkgnames: Pkgnames,

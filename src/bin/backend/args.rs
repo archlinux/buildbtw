@@ -48,6 +48,13 @@ pub struct Args {
     #[arg(long, env = "BUILDBTW_DATABASE_FILE")]
     pub database_file: Utf8PathBuf,
 
+    /// A location for storing artifacts such as cloned package source repositories or
+    /// built packages. At the time of writing, cloning all package source repositories
+    /// (which is the default for normal operation) will require about 5GB, and
+    /// depending on your number of builds, this can grow a lot larger.
+    #[arg(long, env = "BUILDBTW_ARTIFACT_DIR")]
+    pub artifact_dir: Utf8PathBuf,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -282,6 +289,8 @@ mod tests {
             "--tokio-console-telemetry",
             "--database-file",
             "/tmp/test.db",
+            "--artifact-dir",
+            "/tmp/buildbtw_artifacts",
             "run",
             "--listen",
             "127.0.0.1:3000",
@@ -350,6 +359,8 @@ mod tests {
             "buildbtw-backend",
             "--database-file",
             "/tmp/migrate.db",
+            "--artifact-dir",
+            "/tmp/buildbtw_artifacts",
             "migrate-database",
         ];
 
