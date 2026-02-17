@@ -101,7 +101,7 @@ impl MaybeConfig {
         // Query the provider for metadata
         let provider_metadata = CoreProviderMetadata::discover_async(issuer_url, &reqwest_client)
             .await
-            .context("failed to discover provider")?;
+            .wrap_err("failed to discover provider")?;
 
         // Create the OIDC client.
         let redirect_url = base_url.join(&web::oidc::Authorized {}.to_string())?;
