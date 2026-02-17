@@ -26,8 +26,10 @@ fn validate_repository_name(name: &str) -> bool {
     let lowercase_name = name.to_ascii_lowercase();
     // set of all allowed chars, no matter the position
     regex!("^[a-zA-Z0-9_\\.\\-\\+]+$").is_match(name)
-        // subset of allowed outer chars
-        && regex!("^[a-zA-Z0-9].*[a-zA-Z0-9]$").is_match(name)
+        // starts with non-special char
+        && regex!("^[a-zA-Z0-9].*$").is_match(name)
+        // ends with non-special char
+        && regex!("^.*[a-zA-Z0-9]$").is_match(name)
         // no consecutive special chars
         && !regex!("[\\-\\+\\_]{2,}").is_match(name)
         && !lowercase_name.ends_with(".git")
@@ -41,6 +43,7 @@ mod tests {
 
     #[rstest]
     #[case("a_z.A-Z+09a")]
+    #[case("z")]
     fn repository_slug_valid(#[case] slug: &str) {
         assert!(
             RepositorySlug::try_new(slug).is_ok(),
@@ -55,6 +58,8 @@ mod tests {
     // Needs letter or number at the start and end
     #[case(".sdf-")]
     #[case("+sdf_")]
+    #[case("a+")]
+    #[case("-z")]
     #[case("afl++")]
     // No consecutive special chars
     #[case("libsigc++-3.0")]
