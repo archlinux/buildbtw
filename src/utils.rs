@@ -16,3 +16,15 @@ where
         Err(e) => Err(e),
     }
 }
+
+/// Creates a static regex and returns a reference to it.
+///
+/// See the [crate level documentation][crate] for more information.
+#[macro_export]
+macro_rules! regex {
+    ($re:expr $(,)?) => {{
+        static RE: std::sync::LazyLock<regex::Regex> =
+            std::sync::LazyLock::new(|| regex::Regex::new($re).expect("invalid regex"));
+        &RE
+    }};
+}

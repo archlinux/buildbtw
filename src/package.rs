@@ -1,7 +1,8 @@
 //! Newtypes for dealing with package-related values.
 
 use nutype::nutype;
-use regex::Regex;
+
+use crate::regex;
 
 /// A package source repository name.
 ///
@@ -17,27 +18,18 @@ use regex::Regex;
 )]
 pub struct RepositorySlug(String);
 
-#[allow(clippy::unwrap_used)]
-static REPO_NAME_ALLOWED_CHARS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^[a-zA-Z0-9_\\.\\-\\+]+$").unwrap());
-
-#[allow(clippy::unwrap_used)]
-static REPO_NAME_OUTER_CHARS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("^[a-zA-Z0-9].*[a-zA-Z0-9]$").unwrap());
-
-#[allow(clippy::unwrap_used)]
-static REPO_SLUG_REPEATED_SPECIAL_CHARS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("[\\-\\+\\_]{2,}").unwrap());
-
 fn validate_repository_name(name: &str) -> bool {
     #![expect(
         clippy::case_sensitive_file_extension_comparisons,
         reason = "Clippy doesn't recognize we've fixed this."
     )]
     let lowercase_name = name.to_ascii_lowercase();
-    REPO_NAME_ALLOWED_CHARS.is_match(name)
-        && REPO_NAME_OUTER_CHARS.is_match(name)
-        && !REPO_SLUG_REPEATED_SPECIAL_CHARS.is_match(name)
+    // set of all allowed chars, no matter the position
+    regex!("^[a-zA-Z0-9_\\.\\-\\+]+$").is_match(name)
+        // subset of allowed outer chars
+        && regex!("^[a-zA-Z0-9].*[a-zA-Z0-9]$").is_match(name)
+        // no consecutive special chars
+        && !regex!("[\\-\\+\\_]{2,}").is_match(name)
         && !lowercase_name.ends_with(".git")
         && !lowercase_name.ends_with(".atom")
 }
