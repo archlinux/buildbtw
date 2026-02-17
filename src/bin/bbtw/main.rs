@@ -12,6 +12,7 @@ use clap::Parser;
 use color_eyre::Result;
 
 mod args;
+mod auth;
 
 use crate::args::Args;
 
@@ -27,6 +28,9 @@ async fn main() -> Result<()> {
         args::Command::List { all: _ } => todo!(),
         args::Command::Retry { name: _ } => todo!(),
         args::Command::Show { name: _ } => todo!(),
-        args::Command::Auth(_auth_command) => todo!(),
+        args::Command::Auth(auth_command) => match auth_command {
+            args::AuthCommand::Login => auth::login().await,
+            args::AuthCommand::Status => auth::status().await,
+        },
     }
 }
