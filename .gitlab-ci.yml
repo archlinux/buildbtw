@@ -103,18 +103,20 @@ build-release:secure:
   extends: .default-before-script
   script:
     - pacman -Syu --needed --noconfirm podman
-    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - just build-release-container-image
     - |
       if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        podman login -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD" "$CI_REGISTRY"
         podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
         # If this is a build on main, additionally add a staging tag
         podman push buildbtw "$CI_REGISTRY_IMAGE/backend:staging"
       elif [[ "$CI_COMMIT_TAG" == v* ]]; then
+        podman login -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD" "$CI_REGISTRY"
         podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_TAG"
         # If this is building a version tag, additionally add a release tag
         podman push buildbtw "$CI_REGISTRY_IMAGE/backend:release"
       else
+        podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
         podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
       fi
 
