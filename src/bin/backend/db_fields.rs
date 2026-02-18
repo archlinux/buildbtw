@@ -2,7 +2,6 @@
 //! These either make custom types compatible with SeaQuery, or they wrap
 //! primitives to prevent mixups in the rest of the codebase.
 
-use sea_orm::FromJsonQueryResult;
 use sea_orm::{
     DeriveValueType, TryFromU64, TryGetable,
     sea_query::{self, ValueType, ValueTypeErr},
@@ -17,16 +16,6 @@ use strum::{Display, EnumString};
 pub enum NewIterationReason {
     FirstIteration,
     CreatedByUser,
-}
-
-/// Provides SeaORM compatibility for ALPM package versions.
-#[derive(Clone, Debug, PartialEq, Eq, FromJsonQueryResult, Serialize, Deserialize)]
-pub struct Version(alpm_types::FullVersion);
-
-impl From<alpm_types::FullVersion> for Version {
-    fn from(value: alpm_types::FullVersion) -> Self {
-        Self(value)
-    }
 }
 
 /// Newtype making sure that UUIDs will be stored as SQLite `TEXT` columns,

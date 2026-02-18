@@ -296,6 +296,16 @@ pub enum BuildStatus {
     Failed,
 }
 
+/// Provides SeaORM compatibility for ALPM package versions.
+#[derive(Clone, Debug, PartialEq, Eq, sea_orm::FromJsonQueryResult, Serialize, Deserialize)]
+pub struct Version(alpm_types::FullVersion);
+
+impl From<alpm_types::FullVersion> for Version {
+    fn from(value: alpm_types::FullVersion) -> Self {
+        Self(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::RepositorySlug;

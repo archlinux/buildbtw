@@ -1,10 +1,7 @@
 use buildbtw::{api, git, package};
 use sea_orm::entity::prelude::*;
 
-use crate::{
-    db_fields::{TextUuid, Version},
-    entities::iterations,
-};
+use crate::{db_fields::TextUuid, entities::iterations};
 
 /// A single package build job within an iteration.
 ///
@@ -25,7 +22,7 @@ pub struct Model {
     pub repository_name: package::RepositorySlug,
     pub commit_hash: git::CommitHash,
     pub status: package::BuildStatus,
-    pub version: Version,
+    pub version: package::Version,
     pub pkgnames: package::Names,
 }
 
