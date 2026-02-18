@@ -48,69 +48,6 @@ impl From<buildbtw::api::builds::Status> for BuildStatus {
 
 use sea_orm::FromJsonQueryResult;
 
-/// [`alpm_types::Architecture`], but without the `Any` variant.
-#[derive(
-    Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, DeriveValueType, EnumString, Display,
-)]
-#[non_exhaustive]
-#[sea_orm(value_type = "String")]
-pub enum ConcreteArchitecture {
-    /// ARMv8 64-bit
-    Aarch64,
-    /// ARM
-    Arm,
-    /// ARMv6 hard-float
-    Armv6h,
-    /// ARMv7 hard-float
-    Armv7h,
-    /// Intel 386
-    I386,
-    /// Intel 486
-    I486,
-    /// Intel 686
-    I686,
-    /// Intel Pentium 4
-    Pentium4,
-    /// RISC-V 32-bit
-    Riscv32,
-    /// RISC-V 64-bit
-    Riscv64,
-    /// Intel x86_64
-    X86_64,
-    /// Intel x86_64 version 2
-    #[strum(to_string = "x86_64_v2")]
-    X86_64V2,
-    /// Intel x86_64 version 3
-    #[strum(to_string = "x86_64_v3")]
-    X86_64V3,
-    /// Intel x86_64 version 4
-    #[strum(to_string = "x86_64_v4")]
-    X86_64V4,
-}
-
-impl AsRef<alpm_types::SystemArchitecture> for ConcreteArchitecture {
-    fn as_ref(&self) -> &alpm_types::SystemArchitecture {
-        use alpm_types::SystemArchitecture;
-
-        match self {
-            ConcreteArchitecture::Aarch64 => &SystemArchitecture::Aarch64,
-            ConcreteArchitecture::Arm => &SystemArchitecture::Arm,
-            ConcreteArchitecture::Armv6h => &SystemArchitecture::Armv6h,
-            ConcreteArchitecture::Armv7h => &SystemArchitecture::Armv7h,
-            ConcreteArchitecture::I386 => &SystemArchitecture::I386,
-            ConcreteArchitecture::I486 => &SystemArchitecture::I486,
-            ConcreteArchitecture::I686 => &SystemArchitecture::I686,
-            ConcreteArchitecture::Pentium4 => &SystemArchitecture::Pentium4,
-            ConcreteArchitecture::Riscv32 => &SystemArchitecture::Riscv32,
-            ConcreteArchitecture::Riscv64 => &SystemArchitecture::Riscv64,
-            ConcreteArchitecture::X86_64 => &SystemArchitecture::X86_64,
-            ConcreteArchitecture::X86_64V2 => &SystemArchitecture::X86_64V2,
-            ConcreteArchitecture::X86_64V3 => &SystemArchitecture::X86_64V3,
-            ConcreteArchitecture::X86_64V4 => &SystemArchitecture::X86_64V4,
-        }
-    }
-}
-
 /// The reason why a new build iteration was created.
 #[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
 #[sea_orm(value_type = "String")]

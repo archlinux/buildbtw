@@ -1,6 +1,7 @@
 use crate::{dependency_graph, git};
 use camino::Utf8PathBuf;
 use color_eyre::Result;
+use tracing::debug;
 
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
@@ -48,6 +49,42 @@ async fn test_build_buildspace_source_info_index() -> Result<()> {
         .by_pkgbase(&"zizmor".parse()?)
         .expect("Expected to find zizmor package in index");
     assert_eq!(zizmor.branch_name, "main".try_into()?);
+
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "Test depends on an external resource and is flaky."]
+async fn test_build_global_dependency_graphs() -> Result<()> {
+    // prepare required data
+    let source_repo_dir =
+        Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
+    let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
+    let index = dependency_graph::BuildspaceSourceInfoIndex::build(
+        // TODO: create a permanent branch in e.g. `libfoo` to test that the index will read the .SRCINFO from that branch if we specify the branch here
+        git::Changesets::from(vec![]),
+        &mut source_repos,
+    )
+    .await?;
+
+    // Calculate global dependency graphs for all known architectures
+    let global_dependencies = dependency_graph::build_global_dependency_graphs(&index);
+
+    // Check that each architecture-specific graph contains > 0 nodes and edges
+    assert!(!global_dependencies.is_empty());
+    for (arch, deps) in &global_dependencies {
+        debug!(?arch);
+        assert!(deps.graph.node_count() > 0);
+        assert!(deps.graph.edge_count() > 0);
+    }
+
+    // Check that we can find a node index for an arbitrary package
+    let x86_64_deps = global_dependencies
+        .get(&crate::package::KnownArchitecture::X86_64)
+        .expect("Missing x86_64 in global dependencies graphs");
+    let gcc_node_index = x86_64_deps.node_index_by_package_name(&"gcc".parse()?)?;
+    let gcc_node = &x86_64_deps.graph[gcc_node_index];
+    assert_eq!(gcc_node.package_name, "gcc".parse()?);
 
     Ok(())
 }

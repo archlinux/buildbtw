@@ -2,7 +2,7 @@ use buildbtw::{api, git, package};
 use sea_orm::entity::prelude::*;
 
 use crate::{
-    db_fields::{BuildStatus, ConcreteArchitecture, TextUuid, Version},
+    db_fields::{BuildStatus, TextUuid, Version},
     entities::iterations,
 };
 
@@ -19,7 +19,7 @@ pub struct Model {
     pub created_at: time::OffsetDateTime,
     pub iteration_id: TextUuid,
 
-    pub architecture: ConcreteArchitecture,
+    pub architecture: package::KnownArchitecture,
     pub pkgbase: package::BaseName,
     pub branch_name: git::BranchName,
     pub repository_name: package::RepositorySlug,
