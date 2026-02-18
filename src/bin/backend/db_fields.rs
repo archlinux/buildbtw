@@ -2,8 +2,6 @@
 //! These either make custom types compatible with SeaQuery, or they wrap
 //! primitives to prevent mixups in the rest of the codebase.
 
-use buildbtw::{git, package};
-use nutype::nutype;
 use sea_orm::{
     DeriveValueType, TryFromU64, TryGetable,
     sea_query::{self, ValueType, ValueTypeErr},
@@ -49,13 +47,6 @@ impl From<buildbtw::api::builds::Status> for BuildStatus {
 }
 
 use sea_orm::FromJsonQueryResult;
-
-/// A collection of branches in package source repositories.
-///
-/// Each changeset entry represents a package and its
-/// git branch that contains changes to be built.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult, Default)]
-pub struct Changesets(Vec<(package::RepositorySlug, git::BranchName)>);
 
 /// [`alpm_types::Architecture`], but without the `Any` variant.
 #[derive(
@@ -126,54 +117,6 @@ impl AsRef<alpm_types::SystemArchitecture> for ConcreteArchitecture {
 pub enum NewIterationReason {
     FirstIteration,
     CreatedByUser,
-}
-
-/// Newtype to prevent accidental mixups with pkgnames.
-#[nutype(
-    validate(predicate = validate_alpm_name),
-    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, AsRef, Deref),
-    // This is not actually unsafe code - nutype tries to protect us from accidentally
-    // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(DeriveValueType)
-)]
-pub struct Pkgbase(String);
-
-impl TryFrom<alpm_types::PackageBaseName> for Pkgbase {
-    type Error = PkgbaseError;
-
-    fn try_from(value: alpm_types::PackageBaseName) -> Result<Self, Self::Error> {
-        Self::try_new(value.to_string())
-    }
-}
-
-/// Newtype to prevent accidental mixups with pkgbases.
-#[nutype(
-    validate(predicate = validate_alpm_name),
-    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, AsRef, Deref),
-    // This is not actually unsafe code - nutype tries to protect us from accidentally
-    // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(DeriveValueType)
-)]
-pub struct Pkgname(String);
-
-fn validate_alpm_name(value: &str) -> bool {
-    // Unfortunately, the clone here can't be avoided with the current [alpm_types]
-    // API
-    alpm_types::Name::new(value).is_ok()
-}
-
-/// A collection of package names in a PKGBUILD.
-#[nutype(
-    validate(predicate = validate_pkgnames),
-    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, AsRef, Deref),
-    // This is not actually unsafe code - nutype tries to protect us from accidentally
-    // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(FromJsonQueryResult)
-)]
-pub struct Pkgnames(Vec<Pkgname>);
-
-fn validate_pkgnames(input: &[Pkgname]) -> bool {
-    !input.is_empty()
 }
 
 /// Provides SeaORM compatibility for ALPM package versions.
