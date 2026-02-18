@@ -32,6 +32,15 @@ pub struct Model {
 
     #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
     pub iteration: HasOne<iterations::Entity>,
+    #[sea_orm(
+        self_ref,
+        via = "build_dependencies",
+        from = "DependedOnByBuild",
+        to = "DependsOnBuild"
+    )]
+    pub depends_on: HasMany<Entity>,
+    #[sea_orm(self_ref, via = "build_dependencies", reverse)]
+    pub depended_on_by: HasMany<Entity>,
 }
 
 impl From<Model> for api::builds::Build {
