@@ -193,14 +193,11 @@ pub enum BuildStatus {
 }
 
 /// Provides SeaORM compatibility for ALPM package versions.
-#[derive(Clone, Debug, PartialEq, Eq, sea_orm::FromJsonQueryResult, Serialize, Deserialize)]
+#[nutype(
+    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromStr, From),
+    derive_unsafe(sea_orm::FromJsonQueryResult)
+)]
 pub struct Version(alpm_types::FullVersion);
-
-impl From<alpm_types::FullVersion> for Version {
-    fn from(value: alpm_types::FullVersion) -> Self {
-        Self(value)
-    }
-}
 
 /// Take a split package for a specific architecture and predict the
 /// name of the package file `makepkg` will generate.
@@ -246,8 +243,9 @@ pub fn file_name(
 
 #[cfg(test)]
 mod tests {
-    use super::RepositorySlug;
     use rstest::rstest;
+
+    use super::RepositorySlug;
 
     #[rstest]
     #[case("a_z.A-Z+09a")]

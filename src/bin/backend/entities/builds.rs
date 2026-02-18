@@ -24,6 +24,7 @@ pub struct Model {
     #[sea_orm(unique_key = "unique_builds")]
     pub iteration_id: TxtUuid,
 
+    // TODO this should be a hashmap of pkgname -> package file name
     pub pkgnames: package::Names,
     pub branch_name: git::BranchName,
     pub commit_hash: git::CommitHash,

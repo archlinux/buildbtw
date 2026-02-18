@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::entities::namespaces;
 
+#[allow(dead_code)]
 pub fn insert(name: String) -> Insert<namespaces::ActiveModel> {
     let model = namespaces::ActiveModel {
         id: Set(Uuid::new_v4().into()),

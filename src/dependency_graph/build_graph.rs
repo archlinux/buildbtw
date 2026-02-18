@@ -26,10 +26,16 @@ use crate::{
 /// Used for running and tracking builds in a namespace.
 #[derive(Debug, Clone)]
 pub struct BuildNode {
+    /// pkgbase read from .SRCINFO. Used for locating the packages gitlab project as well.
     pub pkgbase: package::BaseName,
+    /// Hash of the commit we're building in this specific namespace.
     pub commit_hash: git::CommitHash,
+    /// Branch name of the branch the commit is on.
     pub branch_name: git::BranchName,
+    /// Files we expect to fall out of the build process.
     pub package_file_names: HashMap<package::Name, Utf8PathBuf>,
+    /// Version of the package we're building, as read from .SRCINFO.
+    /// To release the package, the pkgrel of this version still needs to be bumped.
     pub version: package::Version,
 }
 
@@ -66,7 +72,10 @@ impl BuildNode {
 /// A graph of packages to be built for a specific architecture in a buildspace.
 pub type BuildGraph = Graph<BuildNode, BuildDependency, Directed>;
 
-#[derive(Debug)]
+/// Edge type for the build graph.
+///
+/// Currently has no information, but in the future we'll want to differentiate between make dependencies, runtime dependencies and optional dependencies.
+#[derive(Debug, Clone)]
 pub struct BuildDependency {}
 
 /// Calculate build graphs for the given changesets, returning a graph for each architecture that's
