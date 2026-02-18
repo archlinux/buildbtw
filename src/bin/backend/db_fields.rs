@@ -2,6 +2,7 @@
 //! These either make custom types compatible with SeaQuery, or they wrap
 //! primitives to prevent mixups in the rest of the codebase.
 
+use sea_orm::FromJsonQueryResult;
 use sea_orm::{
     DeriveValueType, TryFromU64, TryGetable,
     sea_query::{self, ValueType, ValueTypeErr},
@@ -9,44 +10,6 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 
 use strum::{Display, EnumString};
-
-/// States a build can be in.
-#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
-#[sea_orm(value_type = "String")]
-pub enum BuildStatus {
-    /// Other failed builds are blocking this build from running
-    Blocked,
-
-    /// This is waiting to be scheduled
-    Pending,
-
-    /// Sent to the worker to build
-    Scheduled,
-
-    /// Worker has started building
-    Building,
-
-    /// Build has succeeded
-    Built,
-
-    /// Build as failed
-    Failed,
-}
-
-impl From<buildbtw::api::builds::Status> for BuildStatus {
-    fn from(value: buildbtw::api::builds::Status) -> Self {
-        match value {
-            buildbtw::api::builds::Status::Blocked => BuildStatus::Blocked,
-            buildbtw::api::builds::Status::Pending => BuildStatus::Pending,
-            buildbtw::api::builds::Status::Scheduled => BuildStatus::Scheduled,
-            buildbtw::api::builds::Status::Building => BuildStatus::Building,
-            buildbtw::api::builds::Status::Built => BuildStatus::Built,
-            buildbtw::api::builds::Status::Failed => BuildStatus::Failed,
-        }
-    }
-}
-
-use sea_orm::FromJsonQueryResult;
 
 /// The reason why a new build iteration was created.
 #[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]

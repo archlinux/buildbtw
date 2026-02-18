@@ -6,6 +6,8 @@ use alpm_types::Architecture;
 use alpm_types::SystemArchitecture;
 use nutype::nutype;
 use sea_orm::sea_query;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::regex;
 
@@ -259,6 +261,39 @@ impl From<KnownArchitecture> for Architecture {
             KnownArchitecture::X86_64V4 => Architecture::Some(SystemArchitecture::X86_64V4),
         }
     }
+}
+
+/// States a build can be in.
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    derive_more::Display,
+    derive_more::FromStr,
+    sea_orm::DeriveValueType,
+    Serialize,
+    Deserialize,
+)]
+#[sea_orm(value_type = "String")]
+pub enum BuildStatus {
+    /// Other failed builds are blocking this build from running
+    Blocked,
+
+    /// This is waiting to be scheduled
+    Pending,
+
+    /// Sent to the worker to build
+    Scheduled,
+
+    /// Worker has started building
+    Building,
+
+    /// Build has succeeded
+    Built,
+
+    /// Build as failed
+    Failed,
 }
 
 #[cfg(test)]
