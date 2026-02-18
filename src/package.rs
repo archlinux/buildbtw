@@ -4,6 +4,8 @@ use std::str::FromStr;
 
 use alpm_types::Architecture;
 use alpm_types::SystemArchitecture;
+use camino::Utf8PathBuf;
+use color_eyre::Result;
 use nutype::nutype;
 use sea_orm::sea_query;
 use serde::Deserialize;
@@ -304,6 +306,48 @@ impl From<alpm_types::FullVersion> for Version {
     fn from(value: alpm_types::FullVersion) -> Self {
         Self(value)
     }
+}
+
+/// Take a split package for a specific architecture and predict the
+/// name of the package file `makepkg` will generate.
+/// Additionally takes a [`alpm_srcinfo::SourceInfoV1`] struct to find out if the package
+/// is for the `any` architecture.
+pub fn file_name(
+    alpm_srcinfo::MergedPackage {
+        name,
+        version,
+        architecture,
+        ..
+    }: &alpm_srcinfo::MergedPackage,
+    srcinfo: &alpm_srcinfo::SourceInfoV1,
+) -> Result<Utf8PathBuf> {
+    // Find the architectures of this split package by checking the split package
+    // overrides and taking the base architectures as a fallback.
+    let package_architectures = srcinfo
+        .packages
+        .iter()
+        .find(|p| &p.name == name)
+        .and_then(|package| package.architectures.as_ref())
+        .unwrap_or(&srcinfo.base.architectures);
+    // The architecture from MergedPackage reflects the architecture of the whole
+    // build graph. But for "any" packages, the filename will instead contain
+    // "any", even though the build graph will be for a [`KnownArchictecture`].
+    let actual_architecture = if package_architectures == &alpm_types::Architectures::Any {
+        &Architecture::Any
+    } else {
+        architecture
+    };
+    // Note: Don't use `KnownArchitecture` to determine the architecture in the
+    // filename as the filename will contain `any` instead of the known
+    // architecture
+    Ok(alpm_types::PackageFileName::new(
+        name.clone(),
+        version.clone(),
+        actual_architecture.clone(),
+        Some(alpm_types::CompressionAlgorithmFileExtension::Zstd),
+    )
+    .to_string()
+    .into())
 }
 
 #[cfg(test)]
