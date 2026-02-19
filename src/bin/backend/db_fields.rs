@@ -10,60 +10,12 @@ use serde::{Deserialize, Serialize};
 
 use strum::{Display, EnumString};
 
-/// States a build can be in.
-#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
-#[sea_orm(value_type = "String")]
-pub enum BuildStatus {
-    /// Other failed builds are blocking this build from running
-    Blocked,
-
-    /// This is waiting to be scheduled
-    Pending,
-
-    /// Sent to the worker to build
-    Scheduled,
-
-    /// Worker has started building
-    Building,
-
-    /// Build has succeeded
-    Built,
-
-    /// Build as failed
-    Failed,
-}
-
-impl From<buildbtw::api::builds::Status> for BuildStatus {
-    fn from(value: buildbtw::api::builds::Status) -> Self {
-        match value {
-            buildbtw::api::builds::Status::Blocked => BuildStatus::Blocked,
-            buildbtw::api::builds::Status::Pending => BuildStatus::Pending,
-            buildbtw::api::builds::Status::Scheduled => BuildStatus::Scheduled,
-            buildbtw::api::builds::Status::Building => BuildStatus::Building,
-            buildbtw::api::builds::Status::Built => BuildStatus::Built,
-            buildbtw::api::builds::Status::Failed => BuildStatus::Failed,
-        }
-    }
-}
-
-use sea_orm::FromJsonQueryResult;
-
 /// The reason why a new build iteration was created.
 #[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
 #[sea_orm(value_type = "String")]
 pub enum NewIterationReason {
     FirstIteration,
     CreatedByUser,
-}
-
-/// Provides SeaORM compatibility for ALPM package versions.
-#[derive(Clone, Debug, PartialEq, Eq, FromJsonQueryResult, Serialize, Deserialize)]
-pub struct Version(alpm_types::FullVersion);
-
-impl From<alpm_types::FullVersion> for Version {
-    fn from(value: alpm_types::FullVersion) -> Self {
-        Self(value)
-    }
 }
 
 /// Newtype making sure that UUIDs will be stored as SQLite `TEXT` columns,

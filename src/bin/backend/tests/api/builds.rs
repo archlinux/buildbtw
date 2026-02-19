@@ -1,4 +1,5 @@
 use buildbtw::api;
+use buildbtw::package;
 use reqwest::StatusCode;
 use rstest::rstest;
 
@@ -6,16 +7,16 @@ use crate::tests::test_ctx::{TestCtx, ctx};
 
 /// List builds with various status filters
 #[rstest]
-#[case(Some(api::builds::Status::Building))]
-#[case(Some(api::builds::Status::Pending))]
-#[case(Some(api::builds::Status::Built))]
-#[case(Some(api::builds::Status::Failed))]
-#[case(Some(api::builds::Status::Blocked))]
-#[case(Some(api::builds::Status::Scheduled))]
+#[case(Some(package::BuildStatus::Building))]
+#[case(Some(package::BuildStatus::Pending))]
+#[case(Some(package::BuildStatus::Built))]
+#[case(Some(package::BuildStatus::Failed))]
+#[case(Some(package::BuildStatus::Blocked))]
+#[case(Some(package::BuildStatus::Scheduled))]
 #[case(None)]
 #[tokio::test]
 async fn test_list_builds_by_status(
-    #[case] status: Option<api::builds::Status>,
+    #[case] status: Option<package::BuildStatus>,
     #[future(awt)] ctx: TestCtx,
 ) {
     let response = ctx

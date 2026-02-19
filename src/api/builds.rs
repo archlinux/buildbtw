@@ -4,30 +4,9 @@
 
 use axum_extra::routing::TypedPath;
 use serde::{Deserialize, Serialize};
-use strum::Display;
 use uuid::Uuid;
 
-/// States a build can be in.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Display)]
-pub enum Status {
-    /// Other failed builds are blocking this build from running
-    Blocked,
-
-    /// This is waiting to be scheduled
-    Pending,
-
-    /// Sent to the worker to build
-    Scheduled,
-
-    /// Worker has started building
-    Building,
-
-    /// Build has succeeded
-    Built,
-
-    /// Build has failed
-    Failed,
-}
+use crate::package;
 
 /// List builds, optionally filtered by the status given in the query
 /// parameters.
@@ -39,7 +18,7 @@ pub struct ListByStatus {}
 /// Query Parameters for the [`ListByStatus`] endpoint
 pub struct ListByStatusQuery {
     /// Only return builds with this status.
-    pub status: Option<Status>,
+    pub status: Option<package::BuildStatus>,
 }
 
 /// A single package build job within an iteration.

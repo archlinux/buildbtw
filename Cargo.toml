@@ -138,6 +138,7 @@ derive_more = { version = "2.1.1", features = [
     "display",
     "into_iterator",
     "from",
+    "from_str",
 ] }
 git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
