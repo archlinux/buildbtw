@@ -50,7 +50,7 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
     ]
     .join("");
     // Configure for strictness, durability, ...
-    db.execute(Statement::from_string(DbBackend::Sqlite, settings))
+    db.execute_raw(Statement::from_string(DbBackend::Sqlite, settings))
         .await?;
 
     // Migrate

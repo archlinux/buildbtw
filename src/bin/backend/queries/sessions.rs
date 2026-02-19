@@ -1,5 +1,5 @@
-use sea_orm::QueryFilter;
 use sea_orm::{ActiveValue::Set, ColumnTrait, DeleteMany, EntityTrait, Insert, Select, UpdateOne};
+use sea_orm::{QueryFilter, ValidatedDeleteOne};
 use uuid::Uuid;
 
 use crate::db_fields::TextUuid;
@@ -24,7 +24,7 @@ pub fn by_user_id(user_id: TextUuid) -> Select<sessions::Entity> {
     sessions::Entity::find().filter(sessions::Column::UserId.eq(user_id))
 }
 
-pub fn delete(session_id: TextUuid) -> DeleteMany<sessions::Entity> {
+pub fn delete(session_id: TextUuid) -> ValidatedDeleteOne<sessions::Entity> {
     sessions::Entity::delete_by_id(session_id)
 }
 

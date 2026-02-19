@@ -1,7 +1,7 @@
 //! Interactions with git repositories, remote or local.
 //! Implemented using the `git2` library.
 
-use std::{path::Path, str::FromStr};
+use std::{path::Path, str::FromStr, sync::Arc};
 
 use alpm_srcinfo::{SourceInfo, SourceInfoV1};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -33,7 +33,7 @@ impl sea_orm::TryGetable for CommitHash {
             sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
                 from: "String",
                 into: "git::CommitHash",
-                source: Box::new(e),
+                source: Arc::new(e),
             })
         })?;
         Ok(parsed)
@@ -42,7 +42,7 @@ impl sea_orm::TryGetable for CommitHash {
 
 impl From<CommitHash> for sea_query::Value {
     fn from(value: CommitHash) -> Self {
-        sea_query::Value::String(Some(Box::new(value.to_string())))
+        sea_query::Value::String(Some(value.to_string()))
     }
 }
 

@@ -1,6 +1,7 @@
 //! Types for dealing with package-specific data.
 
 use std::str::FromStr;
+use std::sync::Arc;
 
 use alpm_types::Architecture;
 use alpm_types::SystemArchitecture;
@@ -41,7 +42,7 @@ impl sea_orm::TryGetable for Name {
             sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
                 from: "String",
                 into: "package::Name",
-                source: Box::new(e),
+                source: Arc::new(e),
             })
         })?;
         Ok(parsed)
@@ -50,7 +51,7 @@ impl sea_orm::TryGetable for Name {
 
 impl From<Name> for sea_query::Value {
     fn from(value: Name) -> Self {
-        sea_query::Value::String(Some(Box::new(value.to_string())))
+        sea_query::Value::String(Some(value.to_string()))
     }
 }
 
@@ -125,7 +126,7 @@ impl sea_orm::TryGetable for BaseName {
             sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
                 from: "String",
                 into: "package::BaseName",
-                source: Box::new(e),
+                source: Arc::new(e),
             })
         })?;
         Ok(parsed)
@@ -134,7 +135,7 @@ impl sea_orm::TryGetable for BaseName {
 
 impl From<BaseName> for sea_query::Value {
     fn from(value: BaseName) -> Self {
-        sea_query::Value::String(Some(Box::new(value.to_string())))
+        sea_query::Value::String(Some(value.to_string()))
     }
 }
 

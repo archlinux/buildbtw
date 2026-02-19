@@ -2,6 +2,8 @@
 //! These either make custom types compatible with SeaQuery, or they wrap
 //! primitives to prevent mixups in the rest of the codebase.
 
+use std::sync::Arc;
+
 use sea_orm::{
     DeriveValueType, TryFromU64, TryGetable,
     sea_query::{self, ValueType, ValueTypeErr},
@@ -30,7 +32,7 @@ pub struct TextUuid(pub uuid::Uuid);
 
 impl From<TextUuid> for sea_query::Value {
     fn from(value: TextUuid) -> Self {
-        sea_query::Value::String(Some(Box::new(value.0.to_string())))
+        sea_query::Value::String(Some(value.0.to_string()))
     }
 }
 
@@ -50,7 +52,7 @@ impl TryGetable for TextUuid {
             sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
                 from: "String",
                 into: "uuid::Uuid",
-                source: Box::new(e),
+                source: Arc::new(e),
             })
         })?;
         Ok(TextUuid(uuid))
