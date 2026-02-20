@@ -8,6 +8,7 @@ use crate::{db_fields::TextUuid, entities::iterations};
 /// for different package sets to be built independently. Each namespace
 /// contains its own iterations and associated builds, providing isolation
 /// between different build contexts.
+#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "namespaces")]
 pub struct Model {
@@ -17,18 +18,9 @@ pub struct Model {
 
     #[sea_orm(unique)]
     pub name: String,
-}
 
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(has_many = "iterations::Entity")]
-    Iterations,
-}
-
-impl Related<iterations::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Iterations.def()
-    }
+    #[sea_orm(has_many)]
+    pub iterations: HasMany<iterations::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

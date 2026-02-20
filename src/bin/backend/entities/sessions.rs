@@ -14,6 +14,7 @@ use crate::entities::users;
 /// The session stores its unique identifier, the associated user's Uuid,
 /// the creation timestamp, and the last time it was used. This information
 /// is used to track user activity and automatically invalidate stale sessions.
+#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "sessions")]
 pub struct Model {
@@ -29,22 +30,9 @@ pub struct Model {
 
     /// Date-time of the most recent access using this session
     pub last_accessed: time::OffsetDateTime,
-}
 
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(
-        belongs_to = "users::Entity",
-        from = "Column::UserId",
-        to = "users::Column::Id"
-    )]
-    Iteration,
-}
-
-impl Related<users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Iteration.def()
-    }
+    #[sea_orm(belongs_to, from = "user_id", to = "id")]
+    pub user: HasOne<users::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

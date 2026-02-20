@@ -8,6 +8,7 @@ use crate::{db_fields::TextUuid, entities::iterations};
 /// Each build targets a specific architecture and contains all the metadata
 /// needed to execute the build. Builds are the atomic units of work that get
 /// scheduled and executed either in gitlab pipelines or by the local worker.
+#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "builds")]
 pub struct Model {
@@ -24,6 +25,9 @@ pub struct Model {
     pub status: package::BuildStatus,
     pub version: package::Version,
     pub pkgnames: package::Names,
+
+    #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
+    pub iteration: HasOne<iterations::Entity>,
 }
 
 impl From<Model> for api::builds::Build {
@@ -31,22 +35,6 @@ impl From<Model> for api::builds::Build {
         api::builds::Build {
             id: value.id.into(),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(
-        belongs_to = "iterations::Entity",
-        from = "Column::IterationId",
-        to = "iterations::Column::Id"
-    )]
-    Iteration,
-}
-
-impl Related<iterations::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Iteration.def()
     }
 }
 

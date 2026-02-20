@@ -12,6 +12,7 @@ use crate::{
 /// triggered the build cycle.
 /// An iteration groups together all builds that need to be executed for the
 /// given changesets.
+#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "iterations")]
 pub struct Model {
@@ -22,30 +23,12 @@ pub struct Model {
 
     pub changesets: git::Changesets,
     pub reason: NewIterationReason,
-}
 
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(has_many = "builds::Entity")]
-    Builds,
-    #[sea_orm(
-        belongs_to = "namespaces::Entity",
-        from = "Column::NamespaceId",
-        to = "namespaces::Column::Id"
-    )]
-    Namespace,
-}
+    #[sea_orm(has_many)]
+    pub builds: HasMany<builds::Entity>,
 
-impl Related<builds::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Builds.def()
-    }
-}
-
-impl Related<namespaces::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Namespace.def()
-    }
+    #[sea_orm(belongs_to, from = "namespace_id", to = "id")]
+    pub namespace: HasOne<namespaces::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
