@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
-use crate::db_fields::TextUuid;
+use crate::db_fields::TxtUuid;
 use crate::entities::users;
 
 /// Represents an active authenticated session in the application.
@@ -20,13 +20,13 @@ use crate::entities::users;
 pub struct Model {
     /// Uuid used to reference and identify a specific session
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: TextUuid,
+    pub id: TxtUuid,
 
     /// Creation time of the session, right after authentication
     pub created_at: time::OffsetDateTime,
 
     /// The Uuid of the user to whom this session belongs
-    pub user_id: TextUuid,
+    pub user_id: TxtUuid,
 
     /// Date-time of the most recent access using this session
     pub last_accessed: time::OffsetDateTime,

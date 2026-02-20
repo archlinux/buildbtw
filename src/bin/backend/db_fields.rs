@@ -28,28 +28,28 @@ pub enum NewIterationReason {
 /// SeaORM models into templates (which in turn needs Serialize).
 #[derive(Clone, Debug, PartialEq, Eq, Copy, FromStr, Serialize, Deserialize, DeriveValueType)]
 #[sea_orm(value_type = "String")]
-pub struct TextUuid(pub uuid::Uuid);
+pub struct TxtUuid(pub uuid::Uuid);
 
-impl std::fmt::Display for TextUuid {
+impl std::fmt::Display for TxtUuid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl TryFromU64 for TextUuid {
+impl TryFromU64 for TxtUuid {
     fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
-        Err(sea_orm::DbErr::ConvertFromU64("TextUuid"))
+        Err(sea_orm::DbErr::ConvertFromU64("TxtUuid"))
     }
 }
 
-impl From<uuid::Uuid> for TextUuid {
+impl From<uuid::Uuid> for TxtUuid {
     fn from(value: uuid::Uuid) -> Self {
-        TextUuid(value)
+        TxtUuid(value)
     }
 }
 
-impl From<TextUuid> for uuid::Uuid {
-    fn from(value: TextUuid) -> Self {
+impl From<TxtUuid> for uuid::Uuid {
+    fn from(value: TxtUuid) -> Self {
         value.0
     }
 }

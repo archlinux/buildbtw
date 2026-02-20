@@ -2,7 +2,7 @@ use buildbtw::git;
 use sea_orm::entity::prelude::*;
 
 use crate::{
-    db_fields::{NewIterationReason, TextUuid},
+    db_fields::{NewIterationReason, TxtUuid},
     entities::{builds, namespaces},
 };
 
@@ -17,9 +17,9 @@ use crate::{
 #[sea_orm(table_name = "iterations")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: TextUuid,
+    pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
-    pub namespace_id: TextUuid,
+    pub namespace_id: TxtUuid,
 
     pub changesets: git::Changesets,
     pub reason: NewIterationReason,

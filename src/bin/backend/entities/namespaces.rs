@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::{db_fields::TextUuid, entities::iterations};
+use crate::{db_fields::TxtUuid, entities::iterations};
 
 /// A logical grouping of package repositories and build configurations.
 ///
@@ -13,7 +13,7 @@ use crate::{db_fields::TextUuid, entities::iterations};
 #[sea_orm(table_name = "namespaces")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: TextUuid,
+    pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
 
     #[sea_orm(unique)]

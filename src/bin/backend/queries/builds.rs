@@ -8,7 +8,7 @@ pub fn list(status: Option<package::BuildStatus>) -> sea_orm::Select<builds::Ent
     let mut query = builds::Entity::find();
 
     if let Some(status_filter) = status {
-        query = query.filter(builds::Column::Status.eq(status_filter));
+        query = query.filter(builds::COLUMN.status.eq(status_filter));
     }
 
     query

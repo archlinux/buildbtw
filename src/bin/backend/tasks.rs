@@ -20,7 +20,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, info_span, warn};
 
 use crate::entities::user_roles;
-use crate::{db_fields::TextUuid, queries, server_state::ServerState};
+use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
 
 /// Starts the background maintenance worker.
 ///
@@ -196,7 +196,7 @@ pub async fn sync_user_roles_from_oidc(
 
         // Fetch current roles from database
         let current_roles: Vec<user_roles::Role> = user_roles::Entity::find()
-            .filter(user_roles::Column::UserId.eq(user.id.0))
+            .filter(user_roles::COLUMN.user_id.eq(user.id.0))
             .all(&tx)
             .await?
             .into_iter()
@@ -249,7 +249,7 @@ pub async fn sync_user_roles_from_oidc(
     Ok(())
 }
 
-async fn revoke_user_sessions_and_roles(tx: &DatabaseTransaction, user_id: TextUuid) -> Result<()> {
+async fn revoke_user_sessions_and_roles(tx: &DatabaseTransaction, user_id: TxtUuid) -> Result<()> {
     queries::user_roles::set(tx, user_id, Vec::new()).await?;
 
     queries::sessions::delete_by_user_id(user_id)

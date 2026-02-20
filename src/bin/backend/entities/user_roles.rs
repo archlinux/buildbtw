@@ -2,7 +2,7 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 use strum::{Display, EnumString};
 
-use crate::db_fields::TextUuid;
+use crate::db_fields::TxtUuid;
 use crate::entities::users;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Display, EnumString, DeriveValueType, Serialize)]
@@ -23,10 +23,10 @@ pub enum Role {
 #[sea_orm(table_name = "user_roles")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: TextUuid,
+    pub id: TxtUuid,
 
     #[sea_orm(unique_key = "user_role")]
-    pub user_id: TextUuid,
+    pub user_id: TxtUuid,
 
     #[sea_orm(unique_key = "user_role")]
     pub role: Role,

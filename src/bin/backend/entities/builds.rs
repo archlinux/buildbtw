@@ -1,7 +1,7 @@
 use buildbtw::{api, git, package};
 use sea_orm::entity::prelude::*;
 
-use crate::{db_fields::TextUuid, entities::iterations};
+use crate::{db_fields::TxtUuid, entities::iterations};
 
 /// A single package build job within an iteration.
 ///
@@ -13,9 +13,9 @@ use crate::{db_fields::TextUuid, entities::iterations};
 #[sea_orm(table_name = "builds")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: TextUuid,
+    pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
-    pub iteration_id: TextUuid,
+    pub iteration_id: TxtUuid,
 
     pub architecture: package::KnownArchitecture,
     pub pkgbase: package::BaseName,

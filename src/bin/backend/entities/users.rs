@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
-use crate::db_fields::TextUuid;
+use crate::db_fields::TxtUuid;
 use crate::entities::{sessions, user_roles};
 
 /// A buildbtw user associated to an unique OIDC-ID.
@@ -15,7 +15,7 @@ use crate::entities::{sessions, user_roles};
 #[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: TextUuid,
+    pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
 
     /// The subject identifier (`sub`) from the OIDC id token.

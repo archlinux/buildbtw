@@ -5,7 +5,7 @@ use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::{
-    db_fields::TextUuid,
+    db_fields::TxtUuid,
     entities::{sessions, users},
     queries,
     tasks::invalidate_old_sessions,
@@ -16,7 +16,7 @@ use crate::{
 #[tokio::test]
 async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TextUuid = Uuid::new_v4().into();
+    let user_id: TxtUuid = Uuid::new_v4().into();
     let user = users::ActiveModel {
         id: Set(user_id),
         created_at: Set(OffsetDateTime::now_utc()),
@@ -27,7 +27,7 @@ async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()>
     users::Entity::insert(user).exec(&ctx.state.db).await?;
 
     // Create old session
-    let session_id: TextUuid = Uuid::new_v4().into();
+    let session_id: TxtUuid = Uuid::new_v4().into();
     let session = sessions::ActiveModel {
         id: Set(session_id),
         created_at: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
@@ -55,7 +55,7 @@ async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()>
 #[tokio::test]
 async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TextUuid = Uuid::new_v4().into();
+    let user_id: TxtUuid = Uuid::new_v4().into();
     let user = users::ActiveModel {
         id: Set(user_id),
         created_at: Set(OffsetDateTime::now_utc()),
@@ -66,7 +66,7 @@ async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCt
     users::Entity::insert(user).exec(&ctx.state.db).await?;
 
     // Create recent session
-    let session_id: TextUuid = Uuid::new_v4().into();
+    let session_id: TxtUuid = Uuid::new_v4().into();
     let session = sessions::ActiveModel {
         id: Set(session_id),
         created_at: Set(OffsetDateTime::now_utc()),
