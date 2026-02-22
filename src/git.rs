@@ -1,7 +1,7 @@
 //! Interactions with git repositories, remote or local.
 //! Implemented using the `git2` library.
 
-use std::{path::Path, str::FromStr, sync::Arc};
+use std::{path::Path, str::FromStr};
 
 use alpm_srcinfo::{SourceInfo, SourceInfoV1};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -9,9 +9,9 @@ use color_eyre::{
     Result,
     eyre::{OptionExt, WrapErr, eyre},
 };
-use derive_more::IntoIterator;
+use derive_more::{Display, From, FromStr, IntoIterator};
 use nutype::nutype;
-use sea_orm::sea_query;
+use sea_orm::DeriveValueType;
 use serde::{Deserialize, Serialize};
 use tracing::{info, trace};
 use url::Url;
@@ -20,61 +20,9 @@ use crate::package;
 
 /// An unambiguous git commit hash.
 /// This has no validation, but serves as a type marker to differentiate from other types of Oid (e.g. tree, blob, tag)
-#[nutype(derive(Debug, Clone, PartialEq, Eq, Hash, From, FromStr, Display))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, From, FromStr, Display, DeriveValueType)]
+#[sea_orm(value_type = "String", try_from_u64)]
 pub struct CommitHash(git2::Oid);
-
-impl sea_orm::TryGetable for CommitHash {
-    fn try_get_by<I: sea_orm::ColIdx>(
-        res: &sea_orm::QueryResult,
-        index: I,
-    ) -> Result<Self, sea_orm::TryGetError> {
-        let str: String = res.try_get_by(index)?;
-        let parsed = CommitHash::from_str(&str).map_err(|e| {
-            sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
-                from: "String",
-                into: "git::CommitHash",
-                source: Arc::new(e),
-            })
-        })?;
-        Ok(parsed)
-    }
-}
-
-impl From<CommitHash> for sea_query::Value {
-    fn from(value: CommitHash) -> Self {
-        sea_query::Value::String(Some(value.to_string()))
-    }
-}
-
-impl sea_query::ValueType for CommitHash {
-    fn try_from(v: sea_orm::Value) -> Result<Self, sea_query::ValueTypeErr> {
-        match v {
-            sea_orm::Value::String(Some(s)) => {
-                let parsed = CommitHash::from_str(&s).map_err(|_| sea_query::ValueTypeErr)?;
-                Ok(parsed)
-            }
-            _ => Err(sea_query::ValueTypeErr),
-        }
-    }
-
-    fn type_name() -> String {
-        "git_commit_hash".to_string()
-    }
-
-    fn array_type() -> sea_query::ArrayType {
-        sea_query::ArrayType::String
-    }
-
-    fn column_type() -> sea_orm::ColumnType {
-        sea_orm::ColumnType::String(sea_query::StringLen::None)
-    }
-}
-
-impl sea_orm::TryFromU64 for CommitHash {
-    fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
-        Err(sea_orm::DbErr::ConvertFromU64("git::CommitHash"))
-    }
-}
 
 /// The name of a git branch.
 /// A git branch name used in package source repositories.
