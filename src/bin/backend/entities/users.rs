@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
-use crate::db_fields::TextUuid;
+use crate::db_fields::TxtUuid;
 use crate::entities::{sessions, user_roles};
 
 /// A buildbtw user associated to an unique OIDC-ID.
@@ -10,11 +10,12 @@ use crate::entities::{sessions, user_roles};
 /// which is used to reference this user in the local database.
 /// The identity of this local user is tied to an OIDC identity
 /// using the subject identifier from an OIDC ID token.
+#[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]
 #[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: TextUuid,
+    pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
 
     /// The subject identifier (`sub`) from the OIDC id token.
@@ -33,26 +34,12 @@ pub struct Model {
     /// Note: SeaORM debug logging is disabled in production (see Cargo.toml)
     /// to prevent logging this value in cleartext.
     pub refresh_token: Option<String>,
-}
 
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(has_many = "sessions::Entity")]
-    Sessions,
-    #[sea_orm(has_many = "user_roles::Entity")]
-    UserRoles,
-}
+    #[sea_orm(has_many)]
+    pub sessions: HasMany<sessions::Entity>,
 
-impl Related<sessions::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Sessions.def()
-    }
-}
-
-impl Related<user_roles::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UserRoles.def()
-    }
+    #[sea_orm(has_many)]
+    pub user_roles: HasMany<user_roles::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

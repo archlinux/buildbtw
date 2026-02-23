@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
-    db_fields::TextUuid,
+    db_fields::TxtUuid,
     entities::{sessions, user_roles, users},
     queries,
     tests::test_ctx::{TestCtx, ctx},
@@ -18,7 +18,7 @@ use crate::{
 #[tokio::test]
 async fn test_set_user_roles(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TextUuid = Uuid::new_v4().into();
+    let user_id: TxtUuid = Uuid::new_v4().into();
     let user = users::ActiveModel {
         id: Set(user_id),
         created_at: Set(OffsetDateTime::now_utc()),
@@ -29,7 +29,7 @@ async fn test_set_user_roles(#[future(awt)] ctx: TestCtx) -> Result<()> {
     users::Entity::insert(user).exec(&ctx.state.db).await?;
 
     let user_model = users::Entity::find()
-        .filter(users::Column::Id.eq(user_id))
+        .filter(users::COLUMN.id.eq(user_id))
         .one(&ctx.state.db)
         .await?
         .expect("User not found");
@@ -77,7 +77,7 @@ async fn test_set_user_roles(#[future(awt)] ctx: TestCtx) -> Result<()> {
 #[tokio::test]
 async fn test_count_by_user_id_no_sessions(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TextUuid = Uuid::new_v4().into();
+    let user_id: TxtUuid = Uuid::new_v4().into();
     let user = users::ActiveModel {
         id: Set(user_id),
         created_at: Set(OffsetDateTime::now_utc()),
@@ -101,7 +101,7 @@ async fn test_count_by_user_id_no_sessions(#[future(awt)] ctx: TestCtx) -> Resul
 #[tokio::test]
 async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TextUuid = Uuid::new_v4().into();
+    let user_id: TxtUuid = Uuid::new_v4().into();
     let user = users::ActiveModel {
         id: Set(user_id),
         created_at: Set(OffsetDateTime::now_utc()),
@@ -113,7 +113,7 @@ async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) ->
 
     // Create multiple sessions for the user
     for _ in 0..3 {
-        let session_id: TextUuid = Uuid::new_v4().into();
+        let session_id: TxtUuid = Uuid::new_v4().into();
         let session = sessions::ActiveModel {
             id: Set(session_id),
             created_at: Set(OffsetDateTime::now_utc()),
@@ -139,7 +139,7 @@ async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) ->
 #[tokio::test]
 async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create two test users
-    let user1_id: TextUuid = Uuid::new_v4().into();
+    let user1_id: TxtUuid = Uuid::new_v4().into();
     let user1 = users::ActiveModel {
         id: Set(user1_id),
         created_at: Set(OffsetDateTime::now_utc()),
@@ -149,7 +149,7 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
     };
     users::Entity::insert(user1).exec(&ctx.state.db).await?;
 
-    let user2_id: TextUuid = Uuid::new_v4().into();
+    let user2_id: TxtUuid = Uuid::new_v4().into();
     let user2 = users::ActiveModel {
         id: Set(user2_id),
         created_at: Set(OffsetDateTime::now_utc()),
@@ -161,7 +161,7 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
 
     // Create sessions for user1
     for _ in 0..2 {
-        let session_id: TextUuid = Uuid::new_v4().into();
+        let session_id: TxtUuid = Uuid::new_v4().into();
         let session = sessions::ActiveModel {
             id: Set(session_id),
             created_at: Set(OffsetDateTime::now_utc()),
@@ -175,7 +175,7 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
 
     // Create sessions for user2
     for _ in 0..5 {
-        let session_id: TextUuid = Uuid::new_v4().into();
+        let session_id: TxtUuid = Uuid::new_v4().into();
         let session = sessions::ActiveModel {
             id: Set(session_id),
             created_at: Set(OffsetDateTime::now_utc()),

@@ -1,8 +1,8 @@
-use sea_orm::QueryFilter;
-use sea_orm::{ActiveValue::Set, ColumnTrait, DeleteMany, EntityTrait, Insert, Select, UpdateOne};
+use sea_orm::{ActiveValue::Set, DeleteMany, EntityTrait, Insert, Select, UpdateOne};
+use sea_orm::{ColumnTrait, QueryFilter, ValidatedDeleteOne};
 use uuid::Uuid;
 
-use crate::db_fields::TextUuid;
+use crate::db_fields::TxtUuid;
 use crate::entities::sessions;
 
 pub fn insert(user_id: Uuid) -> Insert<sessions::ActiveModel> {
@@ -20,21 +20,21 @@ pub fn by_id(id: Uuid) -> Select<sessions::Entity> {
     sessions::Entity::find_by_id(id)
 }
 
-pub fn by_user_id(user_id: TextUuid) -> Select<sessions::Entity> {
-    sessions::Entity::find().filter(sessions::Column::UserId.eq(user_id))
+pub fn by_user_id(user_id: TxtUuid) -> Select<sessions::Entity> {
+    sessions::Entity::find().filter(sessions::COLUMN.user_id.eq(user_id))
 }
 
-pub fn delete(session_id: TextUuid) -> DeleteMany<sessions::Entity> {
+pub fn delete(session_id: TxtUuid) -> ValidatedDeleteOne<sessions::Entity> {
     sessions::Entity::delete_by_id(session_id)
 }
 
-pub fn delete_by_user_id(user_id: TextUuid) -> DeleteMany<sessions::Entity> {
-    sessions::Entity::delete_many().filter(sessions::Column::UserId.eq(user_id))
+pub fn delete_by_user_id(user_id: TxtUuid) -> DeleteMany<sessions::Entity> {
+    sessions::Entity::delete_many().filter(sessions::COLUMN.user_id.eq(user_id))
 }
 
 pub fn delete_old_sessions(delta: time::Duration) -> DeleteMany<sessions::Entity> {
     let before_datetime = time::OffsetDateTime::now_utc() - delta;
-    sessions::Entity::delete_many().filter(sessions::Column::LastAccessed.lt(before_datetime))
+    sessions::Entity::delete_many().filter(sessions::COLUMN.last_accessed.lt(before_datetime))
 }
 
 pub fn update_last_accessed_time(

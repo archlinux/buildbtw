@@ -1,21 +1,18 @@
 //! Types for dealing with package-specific data.
 
-use std::str::FromStr;
-
-use alpm_types::Architecture;
-use alpm_types::SystemArchitecture;
+use alpm_types::{Architecture, SystemArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::Result;
+use derive_more::{AsRef, Display, From, FromStr};
 use nutype::nutype;
-use sea_orm::sea_query;
-use serde::Deserialize;
-use serde::Serialize;
+use sea_orm::DeriveValueType;
+use serde::{Deserialize, Serialize};
 
 use crate::regex;
 
 /// The name of a concrete package (not a `pkgbase`)
 /// This is a newtype because alpm_types only uses type aliases to differentiate between `package_name` and `package_base_name`.
-#[nutype(derive(
+#[derive(
     Clone,
     Debug,
     PartialEq,
@@ -26,63 +23,11 @@ use crate::regex;
     Serialize,
     Deserialize,
     AsRef,
-    Deref,
-    Display
-))]
+    Display,
+    DeriveValueType,
+)]
+#[sea_orm(value_type = "String", try_from_u64)]
 pub struct Name(alpm_types::Name);
-
-impl sea_orm::TryGetable for Name {
-    fn try_get_by<I: sea_orm::ColIdx>(
-        res: &sea_orm::QueryResult,
-        index: I,
-    ) -> Result<Self, sea_orm::TryGetError> {
-        let str: String = res.try_get_by(index)?;
-        let parsed = Name::from_str(&str).map_err(|e| {
-            sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
-                from: "String",
-                into: "package::Name",
-                source: Box::new(e),
-            })
-        })?;
-        Ok(parsed)
-    }
-}
-
-impl From<Name> for sea_query::Value {
-    fn from(value: Name) -> Self {
-        sea_query::Value::String(Some(Box::new(value.to_string())))
-    }
-}
-
-impl sea_query::ValueType for Name {
-    fn try_from(v: sea_orm::Value) -> Result<Self, sea_query::ValueTypeErr> {
-        match v {
-            sea_orm::Value::String(Some(s)) => {
-                let parsed = Name::from_str(&s).map_err(|_| sea_query::ValueTypeErr)?;
-                Ok(parsed)
-            }
-            _ => Err(sea_query::ValueTypeErr),
-        }
-    }
-
-    fn type_name() -> String {
-        "package_name".to_string()
-    }
-
-    fn array_type() -> sea_query::ArrayType {
-        sea_query::ArrayType::String
-    }
-
-    fn column_type() -> sea_orm::ColumnType {
-        sea_orm::ColumnType::String(sea_query::StringLen::None)
-    }
-}
-
-impl sea_orm::TryFromU64 for Name {
-    fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
-        Err(sea_orm::DbErr::ConvertFromU64("package::Name"))
-    }
-}
 
 /// A collection of package names in a PKGBUILD.
 #[nutype(
@@ -100,7 +45,7 @@ fn validate_pkgnames(input: &[Name]) -> bool {
 
 /// The base name of a PKGBUILD (not a `pkgname`)
 /// This is a newtype because alpm_types only uses type aliases to differentiate between `package_name` and `package_base_name`.
-#[nutype(derive(
+#[derive(
     Clone,
     Debug,
     PartialEq,
@@ -111,62 +56,11 @@ fn validate_pkgnames(input: &[Name]) -> bool {
     From,
     FromStr,
     AsRef,
-    Deref
-))]
+    Display,
+    DeriveValueType,
+)]
+#[sea_orm(value_type = "String", try_from_u64)]
 pub struct BaseName(alpm_types::PackageBaseName);
-
-impl sea_orm::TryGetable for BaseName {
-    fn try_get_by<I: sea_orm::ColIdx>(
-        res: &sea_orm::QueryResult,
-        index: I,
-    ) -> Result<Self, sea_orm::TryGetError> {
-        let str: String = res.try_get_by(index)?;
-        let parsed = BaseName::from_str(&str).map_err(|e| {
-            sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
-                from: "String",
-                into: "package::BaseName",
-                source: Box::new(e),
-            })
-        })?;
-        Ok(parsed)
-    }
-}
-
-impl From<BaseName> for sea_query::Value {
-    fn from(value: BaseName) -> Self {
-        sea_query::Value::String(Some(Box::new(value.to_string())))
-    }
-}
-
-impl sea_query::ValueType for BaseName {
-    fn try_from(v: sea_orm::Value) -> Result<Self, sea_query::ValueTypeErr> {
-        match v {
-            sea_orm::Value::String(Some(s)) => {
-                let parsed = BaseName::from_str(&s).map_err(|_| sea_query::ValueTypeErr)?;
-                Ok(parsed)
-            }
-            _ => Err(sea_query::ValueTypeErr),
-        }
-    }
-
-    fn type_name() -> String {
-        "package_base_name".to_string()
-    }
-
-    fn array_type() -> sea_query::ArrayType {
-        sea_query::ArrayType::String
-    }
-
-    fn column_type() -> sea_orm::ColumnType {
-        sea_orm::ColumnType::String(sea_query::StringLen::None)
-    }
-}
-
-impl sea_orm::TryFromU64 for BaseName {
-    fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
-        Err(sea_orm::DbErr::ConvertFromU64("PackageBaseName"))
-    }
-}
 
 /// A package source repository name.
 ///

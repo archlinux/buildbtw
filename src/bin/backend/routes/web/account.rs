@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     db,
-    db_fields::TextUuid,
+    db_fields::TxtUuid,
     entities::sessions,
     from_request::{self},
     permissions::{can_revoke_session, permission_ok},
@@ -93,7 +93,7 @@ pub async fn session_revoke(
         .ok_or_else(|| eyre!("Session not found"))?;
     let user_id = session_model.user_id.0;
 
-    let _ = queries::sessions::delete(TextUuid::from(session_to_revoke))
+    let _ = queries::sessions::delete(TxtUuid::from(session_to_revoke))
         .exec(&tx)
         .await?;
 

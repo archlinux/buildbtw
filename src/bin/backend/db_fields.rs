@@ -2,12 +2,9 @@
 //! These either make custom types compatible with SeaQuery, or they wrap
 //! primitives to prevent mixups in the rest of the codebase.
 
-use sea_orm::{
-    DeriveValueType, TryFromU64, TryGetable,
-    sea_query::{self, ValueType, ValueTypeErr},
-};
+use derive_more::FromStr;
+use sea_orm::{DeriveValueType, TryFromU64};
 use serde::{Deserialize, Serialize};
-
 use strum::{Display, EnumString};
 
 /// The reason why a new build iteration was created.
@@ -25,82 +22,34 @@ pub enum NewIterationReason {
 ///   impossible to write with `BLOB` values
 ///
 /// Upstream feature request: <https://github.com/SeaQL/sea-orm/issues/2717>
-#[derive(Clone, Debug, PartialEq, Eq, Copy, Serialize, Deserialize)]
-pub struct TextUuid(pub uuid::Uuid);
+///
+/// Note: Even though the upstream feature request has been merged, we can't
+/// make use of it because se need Serialize/Deserialize because we put the
+/// SeaORM models into templates (which in turn needs Serialize).
+#[derive(Clone, Debug, PartialEq, Eq, Copy, FromStr, Serialize, Deserialize, DeriveValueType)]
+#[sea_orm(value_type = "String")]
+pub struct TxtUuid(pub uuid::Uuid);
 
-impl From<TextUuid> for sea_query::Value {
-    fn from(value: TextUuid) -> Self {
-        sea_query::Value::String(Some(Box::new(value.0.to_string())))
-    }
-}
-
-impl std::fmt::Display for TextUuid {
+impl std::fmt::Display for TxtUuid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl TryGetable for TextUuid {
-    fn try_get_by<I: sea_orm::ColIdx>(
-        res: &sea_orm::QueryResult,
-        index: I,
-    ) -> Result<Self, sea_orm::TryGetError> {
-        let uuid_str: String = res.try_get_by(index)?;
-        let uuid = uuid::Uuid::parse_str(&uuid_str).map_err(|e| {
-            sea_orm::TryGetError::DbErr(sea_orm::DbErr::TryIntoErr {
-                from: "String",
-                into: "uuid::Uuid",
-                source: Box::new(e),
-            })
-        })?;
-        Ok(TextUuid(uuid))
-    }
-}
-
-impl ValueType for TextUuid {
-    fn try_from(v: sea_orm::Value) -> Result<Self, ValueTypeErr> {
-        match v {
-            sea_orm::Value::String(Some(s)) => {
-                let uuid = uuid::Uuid::parse_str(&s).map_err(|_| ValueTypeErr)?;
-                Ok(TextUuid(uuid))
-            }
-            _ => Err(ValueTypeErr),
-        }
-    }
-
-    fn type_name() -> String {
-        "text_uuid".to_string()
-    }
-
-    fn array_type() -> sea_query::ArrayType {
-        sea_query::ArrayType::String
-    }
-
-    fn column_type() -> sea_orm::ColumnType {
-        sea_orm::ColumnType::String(sea_query::StringLen::None)
-    }
-}
-
-impl TryFromU64 for TextUuid {
+impl TryFromU64 for TxtUuid {
     fn try_from_u64(_n: u64) -> Result<Self, sea_orm::DbErr> {
-        Err(sea_orm::DbErr::ConvertFromU64("TextUuid"))
+        Err(sea_orm::DbErr::ConvertFromU64("TxtUuid"))
     }
 }
 
-impl AsRef<uuid::Uuid> for TextUuid {
-    fn as_ref(&self) -> &uuid::Uuid {
-        &self.0
-    }
-}
-
-impl From<uuid::Uuid> for TextUuid {
+impl From<uuid::Uuid> for TxtUuid {
     fn from(value: uuid::Uuid) -> Self {
-        TextUuid(value)
+        TxtUuid(value)
     }
 }
 
-impl From<TextUuid> for uuid::Uuid {
-    fn from(value: TextUuid) -> Self {
+impl From<TxtUuid> for uuid::Uuid {
+    fn from(value: TxtUuid) -> Self {
         value.0
     }
 }
