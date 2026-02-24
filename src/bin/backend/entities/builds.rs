@@ -15,16 +15,21 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
+
+    // For each architecture in an iteration, build a pkgbase at most once.
+    #[sea_orm(unique_key = "unique_builds")]
+    pub architecture: package::KnownArchitecture,
+    #[sea_orm(unique_key = "unique_builds")]
+    pub pkgbase: package::BaseName,
+    #[sea_orm(unique_key = "unique_builds")]
     pub iteration_id: TxtUuid,
 
-    pub architecture: package::KnownArchitecture,
-    pub pkgbase: package::BaseName,
+    pub pkgnames: package::Names,
     pub branch_name: git::BranchName,
     pub repository_name: package::RepositorySlug,
     pub commit_hash: git::CommitHash,
     pub status: package::BuildStatus,
     pub version: package::Version,
-    pub pkgnames: package::Names,
 
     #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
     pub iteration: HasOne<iterations::Entity>,
