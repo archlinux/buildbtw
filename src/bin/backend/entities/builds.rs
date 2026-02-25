@@ -26,7 +26,6 @@ pub struct Model {
 
     pub pkgnames: package::Names,
     pub branch_name: git::BranchName,
-    pub repository_name: package::RepositorySlug,
     pub commit_hash: git::CommitHash,
     pub status: package::BuildStatus,
     pub version: package::Version,
