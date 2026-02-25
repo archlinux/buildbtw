@@ -30,7 +30,7 @@ pub struct BuildNode {
     pub commit_hash: git::CommitHash,
     pub branch_name: git::BranchName,
     pub status: package::BuildStatus,
-    pub package_file_names: HashMap<alpm_types::Name, Utf8PathBuf>,
+    pub package_file_names: HashMap<package::Name, Utf8PathBuf>,
     pub version: package::Version,
 }
 
@@ -48,7 +48,7 @@ impl BuildNode {
             .packages_for_architecture(architecture)
             .map(|package| {
                 Ok((
-                    package.name.clone(),
+                    package.name.clone().into(),
                     package::file_name(&package, source_info)?,
                 ))
             })
