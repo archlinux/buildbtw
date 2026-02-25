@@ -29,7 +29,6 @@ pub struct BuildNode {
     pub pkgbase: package::BaseName,
     pub commit_hash: git::CommitHash,
     pub branch_name: git::BranchName,
-    pub status: package::BuildStatus,
     pub package_file_names: HashMap<package::Name, Utf8PathBuf>,
     pub version: package::Version,
 }
@@ -58,7 +57,6 @@ impl BuildNode {
             pkgbase: source_info.base.name.clone().into(),
             commit_hash: branch_info.commit_hash.clone(),
             branch_name: branch_name.clone(),
-            status: package::BuildStatus::Blocked,
             package_file_names,
             version: source_info.base.version.clone().into(),
         })
