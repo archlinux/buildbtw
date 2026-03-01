@@ -30,7 +30,7 @@ use openidconnect::{PkceCodeVerifier, reqwest};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{args, entities};
+use crate::{args, db_fields::RedactedString, entities};
 
 /// State used by the http endpoints to run OIDC functionality.
 /// Stored in [super::ServerState].
@@ -324,14 +324,16 @@ pub async fn fetch_user_info_with_refresh_token(
         reqwest_client,
         ..
     }: &Config,
-    refresh_token: String,
+    refresh_token: RedactedString,
 ) -> Result<(
     UserInfoClaims<GroupClaims, CoreGenderClaim>,
     Option<RefreshToken>,
 )> {
     // Exchange refresh token for a new access token
     let token_response = oidc_client
-        .exchange_refresh_token(&RefreshToken::new(refresh_token))?
+        .exchange_refresh_token(&RefreshToken::new(
+            refresh_token.expose_secret().to_string(),
+        ))?
         .request_async(reqwest_client)
         .await
         .wrap_err("Failed to exchange refresh token")?;
