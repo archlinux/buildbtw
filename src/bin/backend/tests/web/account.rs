@@ -9,6 +9,7 @@ use sea_orm::TransactionTrait;
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
 
+use crate::entities::sessions::ClientType;
 use crate::queries;
 use crate::tests::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
 
@@ -167,12 +168,12 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let user = queries::users::upsert(create, None).exec(&tx).await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(&tx)
         .await?;
 
     // Create another session for our user and see if it will be listed
-    let another_session = queries::sessions::insert(user.last_insert_id.into())
+    let another_session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec(&tx)
         .await?;
 
@@ -214,7 +215,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
@@ -267,12 +268,12 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create another session we want to kill
-    let other_session = queries::sessions::insert(user.last_insert_id.into())
+    let other_session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec(db)
         .await?;
     let other_session_id = other_session.last_insert_id.0;
@@ -344,12 +345,12 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
     let user_b = queries::users::upsert(create_user_b, None).exec(db).await?;
 
     // Create session for user A (we'll authenticate as user A)
-    let user_a_session = queries::sessions::insert(user_a.last_insert_id.into())
+    let user_a_session = queries::sessions::insert(user_a.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create session for user B (we'll try to revoke this)
-    let user_b_session = queries::sessions::insert(user_b.last_insert_id.into())
+    let user_b_session = queries::sessions::insert(user_b.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
@@ -397,7 +398,7 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     let user = queries::users::upsert(create_user, None).exec(db).await?;
 
     // Create session
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 

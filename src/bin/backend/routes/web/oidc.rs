@@ -10,7 +10,9 @@ use color_eyre::eyre::ContextCompat;
 use openidconnect::LocalizedClaim;
 
 use crate::{
-    db, from_request, input,
+    db,
+    entities::sessions::ClientType,
+    from_request, input,
     oidc::{self, oidc_groups_to_user_roles},
     queries,
     response_error::ResponseResult,
@@ -68,7 +70,7 @@ pub async fn authorized(
         .exec_with_returning(&tx)
         .await?;
 
-    let session = queries::sessions::insert(user.id.into())
+    let session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec_with_returning(&tx)
         .await?;
 

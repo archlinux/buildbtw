@@ -8,7 +8,10 @@ use rstest::rstest;
 use thirtyfour::{By, prelude::ElementQueryable};
 use url::Url;
 
-use crate::tests::test_ctx::{TestCtx, TestCtxBuilder, ctx};
+use crate::{
+    entities::sessions::ClientType,
+    tests::test_ctx::{TestCtx, TestCtxBuilder, ctx},
+};
 
 #[rstest]
 #[tokio::test]
@@ -77,7 +80,7 @@ async fn test_e2e_authelia_login() -> Result<()> {
 
     let c = ctx_with_oidc.thirtyfour_client.unwrap();
 
-    // Step 1: Start the login process
+    // Start the login process
     c.goto(
         ctx_with_oidc
             .base_url
@@ -124,6 +127,23 @@ async fn test_e2e_authelia_login() -> Result<()> {
     assert!(
         url.starts_with(ctx_with_oidc.base_url.as_str()),
         "expected {url} to start with the URL of buildbtw's authorized page"
+    );
+
+    // Check the session list has an entry with "Web" as we have created a new session via browser
+    // OIDC login.
+    c.goto(
+        ctx_with_oidc
+            .base_url
+            .join(&web::account::SessionList {}.to_string())?
+            .to_string(),
+    )
+    .await?;
+    assert!(
+        c.query(By::Tag("td"))
+            .with_text(ClientType::Web.to_string())
+            .exists()
+            .await?,
+        "expected a session created from Web"
     );
 
     c.quit().await?;
