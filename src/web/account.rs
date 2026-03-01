@@ -24,3 +24,13 @@ pub struct SessionRevoke {
     /// Session id to revoke
     pub session_id: String,
 }
+
+/// View the CLI session landing page.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/account/cli-session")]
+pub struct CliSessionLanding {}
+
+/// Create a new CLI session.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/account/cli-session")]
+pub struct CliSessionCreate {}

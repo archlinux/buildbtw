@@ -55,5 +55,9 @@ fn render(template_name: &str, mut context: tera::Context) -> Result<String> {
         "session_list_url",
         &buildbtw::web::account::SessionList {}.to_string(),
     );
+    context.insert(
+        "cli_session_url",
+        &buildbtw::web::account::CliSessionLanding {}.to_string(),
+    );
     Ok(tera.render(template_name, &context)?)
 }

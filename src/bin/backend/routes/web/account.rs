@@ -113,3 +113,42 @@ pub async fn session_revoke(
 
     Ok((cookie_jar, Redirect::to(redirect)))
 }
+
+/// See [web::account::CliSessionLanding].
+pub async fn cli_session_landing(
+    _: web::account::CliSessionLanding,
+    session: from_request::AuthUser,
+    cookie_jar: PrivateCookieJar,
+) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
+    Ok((
+        cookie_jar,
+        Html(templates::account::render_create_cli_session_page(
+            &session.user,
+            None,
+        )?),
+    ))
+}
+
+/// See [web::account::CliSessionCreate].
+pub async fn cli_session_create(
+    _: web::account::CliSessionCreate,
+    session: from_request::AuthUser,
+    cookie_jar: PrivateCookieJar,
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
+    let session_model = queries::sessions::insert(session.user.id.0, sessions::ClientType::Cli)
+        .exec_with_returning(&tx)
+        .await?;
+
+    tx.commit().await?;
+
+    let secret_token = session_model.secret_token.expose_secret().to_string();
+
+    Ok((
+        cookie_jar,
+        Html(templates::account::render_create_cli_session_page(
+            &session.user,
+            Some(&secret_token),
+        )?),
+    ))
+}

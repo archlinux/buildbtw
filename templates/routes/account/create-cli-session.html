@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Account / CLI Session{% endblock title %}
+{% block menu %}{% set menu_active = "Account" %}{{ super() }}{% endblock menu %}
+{% block content %}
+<nav class="breadcrumb pb-2" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="{{ account_url }}">Account</a></li>
+    <li><a href="{{ session_list_url }}">Sessions</a></li>
+    <li class="is-active"><a href="{{ cli_session_url }}" aria-current="page">CLI Session</a></li>
+  </ul>
+</nav>
+
+<h1 class="title">Create CLI Session</h1>
+
+{% if not secret_token %}
+<div class="notification is-info">
+  <p>This will create a new session with a secret token that can be used with the bbtw CLI.</p>
+</div>
+
+<form action="{{ cli_session_url }}" method="post" class="has-text-centered">
+  <button type="submit" class="button is-primary is-large">
+    <i class="fas fa-terminal"></i> Create CLI Session
+  </button>
+</form>
+
+{% else %}
+<div class="box">
+  <p class="is-size-7 is-uppercase has-text-grey-light has-text-weight-semibold mb-2">
+    <span class="icon is-small"><i class="fas fa-lock"></i></span>
+    Secret Token
+  </p>
+  <code class="is-size-5">{{ secret_token }}</code>
+</div>
+<div class="notification is-warning">
+  <p class="has-text-weight-bold">
+    <i class="fas fa-exclamation-triangle"></i> This is the only time the secret token will be shown.
+  </p>
+  <p>Please copy it now, and paste it the bbtw CLI.</p>
+</div>
+
+<div class="buttons">
+  <a class="button is-primary" href="{{ session_list_url }}">
+    <i class="fas fa-list"></i> Back to Sessions
+  </a>
+</div>
+{% endif %}
+{% endblock content %}
