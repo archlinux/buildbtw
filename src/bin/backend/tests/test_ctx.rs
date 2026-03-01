@@ -210,9 +210,8 @@ impl TestCtxBuilder {
                     Some(8080),
                 )
                 .build(router::new("./".into()).with_state(state.clone()))
-                .unwrap()
         } else {
-            TestServer::new(router::new("./".into()).with_state(state.clone())).unwrap()
+            TestServer::new(router::new("./".into()).with_state(state.clone()))
         };
 
         TestCtx {
