@@ -87,7 +87,7 @@ tokio = { version = "1.49.0", features = [
     "signal",
 ] }
 tokio-util = "0.7.18"
-toml = "0.9.11"
+toml = "1.0.3"
 time = { version = "0.3.47", features = ["formatting", "parsing", "serde"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.22"
@@ -144,7 +144,7 @@ git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
 
 [dev-dependencies]
-axum-test = { version = "18.7.0", features = ["typed-routing"] }
+axum-test = { version = "19.0.0", features = ["typed-routing"] }
 thirtyfour = { version = "0.36.1", features = [
     "rustls-tls",
 ], default-features = false }
