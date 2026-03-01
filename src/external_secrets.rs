@@ -5,6 +5,7 @@
 use camino::Utf8Path;
 use color_eyre::eyre::Context;
 use color_eyre::{Result, eyre::ContextCompat};
+use redact::Secret;
 
 /// Read a secret
 ///
@@ -14,7 +15,7 @@ use color_eyre::{Result, eyre::ContextCompat};
 /// 3. `$XDG_CONFIG_HOME`/buildbtw/{name}
 ///
 /// If all fail, return an error.
-pub fn get_required(name: &str, file_path: Option<&Utf8Path>) -> Result<redact::Secret<String>> {
+pub fn get_required(name: &str, file_path: Option<&Utf8Path>) -> Result<Secret<String>> {
     let env_value = std::env::var(name).wrap_err(format!("Could not read env var {name}"));
 
     let explicit_file_value = file_path
@@ -34,18 +35,18 @@ pub fn get_required(name: &str, file_path: Option<&Utf8Path>) -> Result<redact::
     env_value
         .or(explicit_file_value)
         .or(xdg_dir_file_value)
-        .map(redact::Secret::new)
+        .map(Secret::new)
 }
 
 /// Create a [`axum_extra::extract::cookie::Key`] from a string
 pub fn get_cookie_encryption_key(
     path: Option<&Utf8Path>,
-) -> Result<redact::Secret<axum_extra::extract::cookie::Key>> {
+) -> Result<Secret<axum_extra::extract::cookie::Key>> {
     let secret = get_required("BUILDBTW_COOKIE_ENCRYPTION_KEY", path)?;
     let key_string = secret.expose_secret();
     axum_extra::extract::cookie::Key::try_from(key_string.as_bytes())
         .wrap_err("Failed to parse encryption key")
-        .map(redact::Secret::new)
+        .map(Secret::new)
 }
 
 #[cfg(test)]

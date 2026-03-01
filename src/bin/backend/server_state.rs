@@ -1,3 +1,4 @@
+use redact::Secret;
 use sea_orm::DatabaseConnection;
 
 use crate::oidc;
@@ -11,7 +12,7 @@ pub struct ServerState {
     /// provider
     pub oidc: oidc::MaybeConfig,
     /// Used to encrypt values stored as cookies in user's browsers
-    pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
+    pub cookie_encryption_key: Secret<axum_extra::extract::cookie::Key>,
 }
 
 /// Allows us to use the [axum_extra::extract::cookie::PrivateCookieJar]

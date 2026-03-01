@@ -4,6 +4,7 @@ use axum_test::TestServer;
 use buildbtw::authelia;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
+use redact::Secret;
 use thirtyfour::CapabilitiesHelper;
 use url::Url;
 
@@ -151,7 +152,7 @@ impl TestCtxBuilder {
             let authelia_port = container.host_port().await.unwrap();
             let oidc_args = args::Oidc {
                 oidc_client_id: "buildbtw-test".to_string(),
-                oidc_client_secret: redact::Secret::from("insecure_secret"),
+                oidc_client_secret: Secret::from("insecure_secret"),
                 oidc_issuer_url: format!("https://authelia.buildbtw.localhost:{authelia_port}"),
                 oidc_issuer_name: "Authelia Test".to_string(),
                 oidc_admin_groups: Vec::new(),
@@ -196,7 +197,7 @@ impl TestCtxBuilder {
             db: db.clone(),
             oidc: oidc_config,
             // Don't use a random value here to speed up tests
-            cookie_encryption_key: redact::Secret::new(axum_extra::extract::cookie::Key::from(
+            cookie_encryption_key: Secret::new(axum_extra::extract::cookie::Key::from(
                 b"oeghai5phee4gaeti5eegheev6eefee5yu2muoV8phoChohg7aipeuh2Thahsiup",
             )),
         };
