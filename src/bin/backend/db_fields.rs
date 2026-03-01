@@ -3,6 +3,7 @@
 //! primitives to prevent mixups in the rest of the codebase.
 
 use derive_more::FromStr;
+use redact::Secret;
 use sea_orm::{DeriveValueType, TryFromU64};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
@@ -51,5 +52,27 @@ impl From<uuid::Uuid> for TxtUuid {
 impl From<TxtUuid> for uuid::Uuid {
     fn from(value: TxtUuid) -> Self {
         value.0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, FromStr, DeriveValueType)]
+#[sea_orm(value_type = "String", to_str = "RedactedString::expose_secret")]
+pub struct RedactedString(pub Secret<String>);
+
+impl RedactedString {
+    pub fn expose_secret(&self) -> &str {
+        self.0.expose_secret()
+    }
+}
+
+impl From<&str> for RedactedString {
+    fn from(value: &str) -> Self {
+        RedactedString(Secret::new(value.to_owned()))
+    }
+}
+
+impl From<String> for RedactedString {
+    fn from(value: String) -> Self {
+        RedactedString(Secret::new(value))
     }
 }

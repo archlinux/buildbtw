@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
-use crate::db_fields::TxtUuid;
+use crate::db_fields::{RedactedString, TxtUuid};
 use crate::entities::users;
 
 /// Represents an active authenticated session in the application.
@@ -33,6 +33,14 @@ pub struct Model {
 
     #[sea_orm(belongs_to, from = "user_id", to = "id")]
     pub user: HasOne<users::Entity>,
+
+    /// Secret token used for session authentication
+    //
+    // This is the value that's either put into the cookie or is used as a bearer token to
+    // authenticate.
+    #[serde(skip_serializing)]
+    #[sea_orm(unique_key = "secret_token")]
+    pub secret_token: RedactedString,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

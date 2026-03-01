@@ -1,8 +1,9 @@
+use redact::Secret;
 use sea_orm::{ActiveValue::Set, DeleteMany, EntityTrait, Insert, Select, UpdateOne};
 use sea_orm::{ColumnTrait, QueryFilter, ValidatedDeleteOne};
 use uuid::Uuid;
 
-use crate::db_fields::TxtUuid;
+use crate::db_fields::{RedactedString, TxtUuid};
 use crate::entities::sessions;
 
 pub fn insert(user_id: Uuid) -> Insert<sessions::ActiveModel> {
@@ -11,6 +12,7 @@ pub fn insert(user_id: Uuid) -> Insert<sessions::ActiveModel> {
         created_at: Set(time::OffsetDateTime::now_utc()),
         user_id: Set(user_id.into()),
         last_accessed: Set(time::OffsetDateTime::now_utc()),
+        secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
     };
 
     sessions::Entity::insert(model)
@@ -18,6 +20,10 @@ pub fn insert(user_id: Uuid) -> Insert<sessions::ActiveModel> {
 
 pub fn by_id(id: Uuid) -> Select<sessions::Entity> {
     sessions::Entity::find_by_id(id)
+}
+
+pub fn by_secret_token(secret_token: RedactedString) -> Select<sessions::Entity> {
+    sessions::Entity::find_by_secret_token(secret_token)
 }
 
 pub fn by_user_id(user_id: TxtUuid) -> Select<sessions::Entity> {
