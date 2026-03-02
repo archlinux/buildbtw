@@ -17,7 +17,8 @@ use sea_orm::{
 use time::Duration;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info_span, warn};
+use tracing::Instrument;
+use tracing::{error, info_span, instrument, warn};
 
 use crate::entities::user_roles;
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
@@ -28,29 +29,30 @@ use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
 /// in the background while the server is running. It does not block the
 /// main application thread.
 pub fn initialize(state: ServerState, token: CancellationToken) {
-    tokio::spawn(async move {
-        let span = info_span!("background-task-worker");
-        let _enter = span.enter();
-
-        let mut hourly_ticker = interval(std::time::Duration::from_hours(1));
-        loop {
-            tokio::select! {
-                _ = hourly_ticker.tick() => {
-                    run_hourly_job(&state).await;
-                }
-                // Stop gracefully when the provided [`CancellationToken`] is cancelled
-                () = token.cancelled() => {
-                    tracing::info!("background task worker shutting down");
-                    break;
+    tokio::spawn(
+        async move {
+            let mut hourly_ticker = interval(std::time::Duration::from_hours(1));
+            loop {
+                tokio::select! {
+                    _ = hourly_ticker.tick() => {
+                        run_hourly_job(&state).await;
+                    }
+                    // Stop gracefully when the provided [`CancellationToken`] is cancelled
+                    () = token.cancelled() => {
+                        tracing::info!("background task worker shutting down");
+                        break;
+                    }
                 }
             }
         }
-    });
+        .instrument(info_span!("background-task-worker")),
+    );
 }
 
 /// Executes the hourly maintenance tasks.
 ///
 /// This function is called once every hour by the background worker.
+#[instrument(skip_all)]
 async fn run_hourly_job(state: &ServerState) {
     tracing::debug!("Running hourly jobs");
     if let Err(e) = invalidate_old_sessions(state).await {
@@ -70,6 +72,7 @@ async fn run_hourly_job(state: &ServerState) {
 /// Deletes all sessions that have not been accessed for more than
 /// four weeks, helping to keep the sessions table clean and invalidate
 /// old lingering sessions.
+#[instrument(skip_all)]
 pub async fn invalidate_old_sessions(state: &ServerState) -> Result<()> {
     tracing::debug!("Invalidating old sessions");
     let tx = state.db.begin().await?;
@@ -96,6 +99,7 @@ pub async fn invalidate_old_sessions(state: &ServerState) -> Result<()> {
 /// Clear a user's refresh token if they have no remaining sessions.
 /// This is a security measure to ensure logged-out users don't have
 /// valid refresh tokens lingering in the database.
+#[instrument(skip_all)]
 pub async fn clear_refresh_token_if_no_sessions(
     tx: &DatabaseTransaction,
     user_id: uuid::Uuid,
@@ -122,6 +126,7 @@ pub async fn clear_refresh_token_if_no_sessions(
 /// provider using their stored refresh token, and updates their roles accordingly.
 /// Continues on individual user failures to ensure all users are processed.
 #[allow(clippy::too_many_lines)]
+#[instrument(skip_all)]
 pub async fn sync_user_roles_from_oidc(
     db: &DatabaseConnection,
     oidc_config: &crate::oidc::Config,
