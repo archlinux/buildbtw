@@ -139,7 +139,8 @@ impl TestCtxBuilder {
             .await
             .unwrap();
 
-        let base_url = Url::parse("http://buildbtw.localhost:8080").unwrap();
+        let testserver_port = 8081;
+        let base_url = Url::parse(&format!("http://buildbtw.localhost:{testserver_port}")).unwrap();
 
         let (maybe_authelia_container, oidc_config) = if self.enable_authelia {
             let container = authelia::Container::new(None, false)
@@ -207,7 +208,7 @@ impl TestCtxBuilder {
             TestServer::builder()
                 .http_transport_with_ip_port(
                     Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
-                    Some(8080),
+                    Some(testserver_port),
                 )
                 .build(router::new("./".into()).with_state(state.clone()))
         } else {
