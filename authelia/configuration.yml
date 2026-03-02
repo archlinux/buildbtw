@@ -59,7 +59,8 @@ identity_providers:
         authorization_policy: "one_factor"
         redirect_uris:
           # Unfortunately, authelia does not support globs or regexes for redirect_uris, so we need to rely on a hardcoded global domain for the buildbtw server. For this reason, we configure tests relying on this to run one after another in `.config/nextest.toml`.
-          - "http://buildbtw.localhost:8080/oidc/authorized"
+          - "http://buildbtw.localhost:8080/oidc/authorized" # for dev
+          - "http://buildbtw.localhost:8081/oidc/authorized" # for tests
         scopes:
           - "openid"
           - "groups"
