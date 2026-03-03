@@ -68,7 +68,9 @@ pub async fn authorized(
         .exec_with_returning(&tx)
         .await?;
 
-    let session = queries::sessions::insert(user.id.into()).exec(&tx).await?;
+    let session = queries::sessions::insert(user.id.into())
+        .exec_with_returning(&tx)
+        .await?;
 
     let roles = oidc_groups_to_user_roles(
         user_info.additional_claims(),
@@ -80,8 +82,7 @@ pub async fn authorized(
 
     tx.commit().await?;
 
-    let cookie_jar =
-        from_request::sessions::save_in_cookie_jar(session.last_insert_id.into(), cookie_jar);
+    let cookie_jar = from_request::sessions::save_in_cookie_jar(&session.secret_token, cookie_jar);
 
     Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))
 }

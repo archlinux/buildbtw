@@ -9,11 +9,13 @@ use axum_extra::extract::{
 use color_eyre::eyre::{Context, ContextCompat};
 use sea_orm::{IntoActiveModel, ModelTrait};
 use serde::Serialize;
-use uuid::Uuid;
 
-use crate::{db, entities, queries, response_error::ResponseError, server_state::ServerState};
+use crate::{
+    db, db_fields::RedactedString, entities, queries, response_error::ResponseError,
+    server_state::ServerState,
+};
 
-pub const SESSION_ID_COOKIE_NAME: &str = "buildbtw_session_id";
+pub const SESSION_SECRET_TOKEN_COOKIE_NAME: &str = "buildbtw_session_secret_token";
 
 /// Holds authentication data for a logged-in user.
 ///
@@ -73,16 +75,13 @@ impl FromRequestParts<ServerState> for AuthUser {
             .await
             .wrap_err("Failed to extract cookie jar")?;
         let db::Tx(tx) = db::Tx::from_request_parts(parts, state).await?;
-        let Some(cookie) = cookie_jar.get(SESSION_ID_COOKIE_NAME) else {
+        let Some(cookie) = cookie_jar.get(SESSION_SECRET_TOKEN_COOKIE_NAME) else {
             // Missing session cookie
             return Err(ResponseError::NotAuthenticated);
         };
-        let id: Uuid = cookie
-            .value()
-            .parse()
-            .wrap_err("Could not parse UUID from cookie")?;
+        let secret_token = RedactedString::from(cookie.value().to_string());
 
-        let session_with_user = queries::sessions::by_id(id)
+        let session_with_user = queries::sessions::by_secret_token(secret_token)
             .find_also_related(entities::users::Entity)
             .one(&tx)
             .await?;
@@ -116,8 +115,14 @@ impl FromRequestParts<ServerState> for AuthUser {
     }
 }
 
-pub fn save_in_cookie_jar(session_id: Uuid, cookie_jar: PrivateCookieJar) -> PrivateCookieJar {
-    let mut cookie = Cookie::new(SESSION_ID_COOKIE_NAME, session_id.to_string());
+pub fn save_in_cookie_jar(
+    session_secret_token: &RedactedString,
+    cookie_jar: PrivateCookieJar,
+) -> PrivateCookieJar {
+    let mut cookie = Cookie::new(
+        SESSION_SECRET_TOKEN_COOKIE_NAME,
+        session_secret_token.expose_secret().to_owned(),
+    );
     cookie.set_same_site(SameSite::Strict);
     cookie.set_path("/");
     cookie.set_http_only(true);
@@ -128,7 +133,7 @@ pub fn save_in_cookie_jar(session_id: Uuid, cookie_jar: PrivateCookieJar) -> Pri
 }
 
 pub fn remove_from_cookie_jar(cookie_jar: PrivateCookieJar) -> PrivateCookieJar {
-    let mut cookie = Cookie::from(SESSION_ID_COOKIE_NAME);
+    let mut cookie = Cookie::from(SESSION_SECRET_TOKEN_COOKIE_NAME);
     cookie.set_same_site(SameSite::Strict);
     cookie.set_path("/");
     cookie.set_http_only(true);

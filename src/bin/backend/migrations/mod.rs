@@ -12,6 +12,7 @@ mod m20250925_173232_add_sessions;
 mod m20251218_184700_add_user_roles;
 mod m20260108_000000_add_user_refresh_tokens;
 mod m20260224_131450_unique_builds;
+mod m20260301_032351_secret_session_token;
 
 pub struct Migrator;
 
@@ -24,6 +25,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251218_184700_add_user_roles::Migration),
             Box::new(m20260108_000000_add_user_refresh_tokens::Migration),
             Box::new(m20260224_131450_unique_builds::Migration),
+            Box::new(m20260301_032351_secret_session_token::Migration),
         ]
     }
 }

@@ -1,11 +1,12 @@
 use color_eyre::Result;
+use redact::Secret;
 use rstest::rstest;
 use sea_orm::{ActiveValue::Set, EntityTrait};
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::{
-    db_fields::TxtUuid,
+    db_fields::{RedactedString, TxtUuid},
     entities::{sessions, users},
     queries,
     tasks::invalidate_old_sessions,
@@ -33,6 +34,7 @@ async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()>
         created_at: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
         user_id: Set(user_id),
         last_accessed: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
+        secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
     };
     sessions::Entity::insert(session)
         .exec(&ctx.state.db)
@@ -72,6 +74,7 @@ async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCt
         created_at: Set(OffsetDateTime::now_utc()),
         user_id: Set(user_id),
         last_accessed: Set(OffsetDateTime::now_utc() - Duration::weeks(2)),
+        secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
     };
     sessions::Entity::insert(session)
         .exec(&ctx.state.db)
