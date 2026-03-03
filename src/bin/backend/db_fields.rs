@@ -65,14 +65,11 @@ impl RedactedString {
     }
 }
 
-impl From<&str> for RedactedString {
-    fn from(value: &str) -> Self {
-        RedactedString(Secret::new(value.to_owned()))
-    }
-}
-
-impl From<String> for RedactedString {
-    fn from(value: String) -> Self {
-        RedactedString(Secret::new(value))
+impl<T> From<T> for RedactedString
+where
+    T: AsRef<str>,
+{
+    fn from(value: T) -> Self {
+        RedactedString(Secret::new(value.as_ref().to_owned()))
     }
 }

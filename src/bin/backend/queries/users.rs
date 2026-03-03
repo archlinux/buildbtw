@@ -3,7 +3,11 @@ use openidconnect::RefreshToken;
 use sea_orm::{ActiveValue::Set, ConnectionTrait, EntityTrait, Insert, sea_query::OnConflict};
 use uuid::Uuid;
 
-use crate::{db_fields::TxtUuid, entities::users, input};
+use crate::{
+    db_fields::{RedactedString, TxtUuid},
+    entities::users,
+    input,
+};
 
 pub fn upsert(
     create: input::users::ValidatedCreate,
@@ -15,7 +19,7 @@ pub fn upsert(
         id: Set(Uuid::new_v4().into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
         username: Set(create.username.clone()),
-        refresh_token: Set(refresh_token.map(|rt| rt.secret().to_string())),
+        refresh_token: Set(refresh_token.map(|rt| RedactedString::from(rt.secret()))),
     };
 
     users::Entity::insert(model).on_conflict(
@@ -38,7 +42,7 @@ pub async fn update_refresh_token(
         .ok_or_else(|| eyre!("User not found"))?
         .into();
 
-    user.refresh_token = Set(new_refresh_token.map(|rt| rt.secret().to_string()));
+    user.refresh_token = Set(new_refresh_token.map(|rt| RedactedString::from(rt.secret())));
     users::Entity::update(user).exec(db).await?;
 
     Ok(())

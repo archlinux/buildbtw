@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
-use crate::db_fields::TxtUuid;
+use crate::db_fields::{RedactedString, TxtUuid};
 use crate::entities::{sessions, user_roles};
 
 /// A buildbtw user associated to an unique OIDC-ID.
@@ -33,7 +33,8 @@ pub struct Model {
     /// Stored during login and cleared when user has no active sessions.
     /// Note: SeaORM debug logging is disabled in production (see Cargo.toml)
     /// to prevent logging this value in cleartext.
-    pub refresh_token: Option<String>,
+    #[serde(skip_serializing)]
+    pub refresh_token: Option<RedactedString>,
 
     #[sea_orm(has_many)]
     pub sessions: HasMany<sessions::Entity>,
