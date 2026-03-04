@@ -33,7 +33,7 @@ fn build_node(pkgbase: &str) -> Result<BuildNode> {
 async fn create_namespace_with_iteration(
     tx: &DatabaseTransaction,
 ) -> Result<(entities::namespaces::Model, entities::iterations::Model)> {
-    let namespace = queries::namespaces::insert("test namespace".to_string())
+    let namespace = queries::namespaces::insert("test".to_string())
         .exec_with_returning(tx)
         .await?;
     let iteration = queries::iterations::insert(

@@ -4,42 +4,42 @@ use url::Url;
 #[derive(Debug, Clone, Subcommand)]
 #[allow(clippy::enum_variant_names)]
 pub enum Command {
-    /// Create a new build namespace
+    /// Create a new buildspace
     New {
-        /// Name of the new namespace. Default: Name of the first repository
+        /// Name of the new buildspace. Default: Name of the first repository
         /// specified in origin changesets
         #[arg(short, long)]
         name: Option<String>,
     },
 
-    /// Cancel a build namespace. No new iterations or builds will be created.
+    /// Cancel a buildspace. No new iterations or builds will be created.
     /// Existing builds will not be interrupted
     Cancel {
         #[arg()]
         name: String,
     },
 
-    /// Resume building a cancelled build namespace
+    /// Resume building a cancelled buildspace
     Resume {
         #[arg()]
         name: String,
     },
 
-    /// List all build namespaces
+    /// List all buildspaces
     List {
-        /// Show all namespaces, including canceled ones. Default: false
+        /// Show all buildspaces, including canceled ones. Default: false
         #[arg(short, long, action, default_value = "false")]
         all: bool,
     },
 
-    /// Manually create a new iteration for a namespace, recalculating the build
+    /// Manually create a new iteration for a buildspace, recalculating the build
     /// graph and starting to build from the beginning
     Retry {
         #[arg()]
         name: String,
     },
 
-    /// Show status and builds for a namespace
+    /// Show status and builds for a buildspace
     Show {
         #[arg()]
         name: String,

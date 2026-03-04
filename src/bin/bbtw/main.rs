@@ -2,7 +2,7 @@
 //!
 //! - Dispatch build requests for sets of changes
 //! - Monitor build progress and results
-//! - Manage build namespaces and iterations
+//! - Manage buildspaces and iterations
 //! - Query package dependency information and build graphs
 //!
 //! The client communicates with the backend server via JSON API defined in the
