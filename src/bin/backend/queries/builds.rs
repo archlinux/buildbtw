@@ -5,7 +5,10 @@ use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, InsertMany, QueryFilter};
 use uuid::Uuid;
 
-use crate::entities::{build_dependencies, builds};
+use crate::entities::{
+    build_dependencies,
+    builds::{self, PkgnamesFilenames},
+};
 
 /// Return a query returning all builds, optionally filtered by status.
 pub fn list(status: Option<package::BuildStatus>) -> sea_orm::Select<builds::Entity> {
@@ -40,7 +43,6 @@ pub fn insert_builds_with_dependencies(
     let mut build_models = Vec::new();
     for node_index in build_graph.node_indices() {
         let build = build_graph[node_index].clone();
-        let pkgnames = package::Names::try_new(build.package_file_names.into_keys().collect())?;
         let id = Uuid::new_v4();
         build_models.push(builds::ActiveModel {
             id: Set(id.into()),
@@ -48,7 +50,7 @@ pub fn insert_builds_with_dependencies(
             architecture: Set(architecture),
             pkgbase: Set(build.pkgbase),
             iteration_id: Set(iteration_id.into()),
-            pkgnames: Set(pkgnames),
+            pkgnames: Set(PkgnamesFilenames::from(build.package_file_names)),
             branch_name: Set(build.branch_name),
             commit_hash: Set(build.commit_hash),
             status: Set(package::BuildStatus::Blocked),

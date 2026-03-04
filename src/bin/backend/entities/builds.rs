@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use buildbtw::{api, git, package};
+use camino::Utf8PathBuf;
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{db_fields::TxtUuid, entities::iterations};
 
@@ -25,7 +29,7 @@ pub struct Model {
     pub iteration_id: TxtUuid,
 
     // TODO this should be a hashmap of pkgname -> package file name
-    pub pkgnames: package::Names,
+    pub pkgnames: PkgnamesFilenames,
     pub branch_name: git::BranchName,
     pub commit_hash: git::CommitHash,
     pub status: package::BuildStatus,
@@ -53,3 +57,18 @@ impl From<Model> for api::builds::Build {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+/// Custom type to allow storing a hashmap of pkgnames and package file names using SeaORM
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct PkgnamesFilenames(pub HashMap<package::Name, String>);
+
+impl From<HashMap<package::Name, Utf8PathBuf>> for PkgnamesFilenames {
+    fn from(value: HashMap<package::Name, Utf8PathBuf>) -> Self {
+        Self(
+            value
+                .into_iter()
+                .map(|(pkgname, filename)| (pkgname, filename.to_string()))
+                .collect::<HashMap<_, _>>(),
+        )
+    }
+}
