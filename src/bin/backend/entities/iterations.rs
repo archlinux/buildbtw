@@ -19,7 +19,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
-    pub namespace_id: TxtUuid,
+    pub buildspace_id: TxtUuid,
 
     pub changesets: git::Changesets,
     pub reason: NewIterationReason,
@@ -27,8 +27,8 @@ pub struct Model {
     #[sea_orm(has_many)]
     pub builds: HasMany<builds::Entity>,
 
-    #[sea_orm(belongs_to, from = "namespace_id", to = "id")]
-    pub namespace: HasOne<namespaces::Entity>,
+    #[sea_orm(belongs_to, from = "buildspace_id", to = "id")]
+    pub buildspace: HasOne<namespaces::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

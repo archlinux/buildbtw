@@ -10,7 +10,7 @@ use crate::{db_fields::TxtUuid, entities::iterations};
 /// between different build contexts.
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "namespaces")]
+#[sea_orm(table_name = "buildspaces")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: TxtUuid,
