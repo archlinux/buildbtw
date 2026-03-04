@@ -14,7 +14,7 @@ pub fn insert(
     let model = iterations::ActiveModel {
         id: Set(Uuid::new_v4().into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
-        namespace_id: Set(namespace_id.into()),
+        buildspace_id: Set(namespace_id.into()),
         changesets: Set(changesets),
         reason: Set(reason),
     };
