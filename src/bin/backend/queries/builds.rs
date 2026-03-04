@@ -50,7 +50,7 @@ pub fn insert_builds_with_dependencies(
             architecture: Set(architecture),
             pkgbase: Set(build.pkgbase),
             iteration_id: Set(iteration_id.into()),
-            pkgnames: Set(PkgnamesFilenames::from(build.package_file_names)),
+            pkgnames_filenames: Set(PkgnamesFilenames::from(build.package_file_names)),
             branch_name: Set(build.branch_name),
             commit_hash: Set(build.commit_hash),
             status: Set(package::BuildStatus::Blocked),
