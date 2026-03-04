@@ -6,10 +6,10 @@ use crate::{
     entities::{builds, namespaces},
 };
 
-/// A build cycle within a namespace.
+/// A build attempt within a buildspace.
 ///
 /// Each iteration contains a set of source code changes (changesets) that
-/// triggered the build cycle.
+/// triggered the iteration.
 /// An iteration groups together all builds that need to be executed for the
 /// given changesets.
 #[sea_orm::model]

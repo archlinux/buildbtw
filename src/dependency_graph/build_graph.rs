@@ -23,12 +23,12 @@ use crate::{
 
 /// Like PackageNode, but for a single PKGBUILD,
 /// identified by its pkgbase instead of the pkgname.
-/// Used for running and tracking builds in a namespace.
+/// Used for running and tracking builds in a buildspace.
 #[derive(Debug, Clone)]
 pub struct BuildNode {
     /// pkgbase read from .SRCINFO. Used for locating the packages gitlab project as well.
     pub pkgbase: package::BaseName,
-    /// Hash of the commit we're building in this specific namespace.
+    /// Hash of the commit we're building in this specific buildspace.
     pub commit_hash: git::CommitHash,
     /// Branch name of the branch the commit is on.
     pub branch_name: git::BranchName,
@@ -144,7 +144,7 @@ fn calculate_build_graph_for_architecture(
     // Keep track of visited pkgname node edges during depth first search
     let mut visited: HashSet<NodeIndex> = HashSet::new();
 
-    // add root nodes from our build namespace so we can start walking the graph
+    // add root nodes from our buildspace so we can start walking the graph
     for changeset in changesets {
         let repo_slug_as_pkgbase: package::BaseName = changeset.repo_slug.to_string().parse()?;
         let PackageMetadata { branch_info, .. } = packages_metadata

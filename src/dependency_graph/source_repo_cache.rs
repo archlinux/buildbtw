@@ -5,7 +5,7 @@
 //!
 //! However, opening >10k git repos and reading files from specific
 //! branches is relatively slow, and it needs to happen every few seconds
-//! for every build namespace. To speed this up, we cache the contents
+//! for every build buildspace. To speed this up, we cache the contents
 //! of .SRCINFO files in this module.
 
 use std::{collections::HashMap, time::Instant};
