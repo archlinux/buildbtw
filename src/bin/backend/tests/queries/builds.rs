@@ -47,7 +47,6 @@ async fn create_buildspace_with_iteration(
     Ok((buildspace, iteration))
 }
 
-/// Check that the happy-path of inserting a build graph works.
 #[rstest]
 #[tokio::test]
 async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {

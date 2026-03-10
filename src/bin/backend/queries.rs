@@ -4,6 +4,7 @@
 //! stream results, etc.
 pub mod builds;
 pub mod buildspaces;
+pub mod global_state;
 pub mod iterations;
 pub mod sessions;
 pub mod user_roles;
