@@ -13,3 +13,7 @@ pub fn insert(name: String) -> Insert<buildspaces::ActiveModel> {
 
     buildspaces::Entity::insert(model)
 }
+
+pub fn list() -> buildspaces::EntityLoader {
+    buildspaces::Entity::load()
+}

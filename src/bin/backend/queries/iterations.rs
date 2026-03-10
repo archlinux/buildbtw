@@ -1,9 +1,10 @@
 use buildbtw::git;
 use sea_orm::ActiveValue::Unchanged;
-use sea_orm::UpdateOne;
 use sea_orm::{ActiveValue::Set, EntityTrait, Insert};
+use sea_orm::{ColumnTrait, QueryFilter, QueryOrder, QuerySelect, Select, UpdateOne};
 use uuid::Uuid;
 
+use crate::db_fields::TxtUuid;
 use crate::entities::iterations::{self, NewIterationReason};
 
 #[allow(dead_code)]
@@ -33,4 +34,19 @@ pub fn set_status_calculated(iteration_id: Uuid) -> UpdateOne<iterations::Active
         ..Default::default()
     };
     iterations::Entity::update(model)
+}
+
+pub fn newest_for_buildspace(buildspace_id: TxtUuid) -> Select<iterations::Entity> {
+    iterations::Entity::find()
+        .order_by_desc(iterations::COLUMN.created_at)
+        .filter(iterations::COLUMN.buildspace_id.eq(buildspace_id))
+        .limit(1)
+}
+
+pub fn pending_calculation() -> Select<iterations::Entity> {
+    iterations::Entity::find().filter(
+        iterations::COLUMN
+            .status
+            .eq(iterations::Status::PendingCalculation),
+    )
 }

@@ -98,7 +98,7 @@ pub struct RunArgs {
     pub oidc: Option<Oidc>,
 
     #[clap(flatten)]
-    raw_gitlab: Option<RawGitlab>,
+    pub raw_gitlab: Option<RawGitlab>,
 
     /// URL the backend server is reachable at, including protocol.
     ///
@@ -146,6 +146,28 @@ pub struct RunArgs {
     #[cfg(debug_assertions)]
     #[clap(flatten)]
     pub authelia_container: AutheliaContainer,
+
+    /// Update package source repositories in the background.
+    ///
+    /// Mostly, this is used for debugging and making the system less noisy in development.
+    #[arg(
+        long,
+        env = "BUILDBTW_UPDATE_SOURCE_REPOS",
+        required = false,
+        default_value = "true"
+    )]
+    pub update_source_repos: bool,
+
+    /// Automatically create new iterations for buildspaces when new commits cause their build graph to change.
+    ///
+    /// Mostly, this is used for debugging and making the system less noisy in development.
+    #[arg(
+        long,
+        env = "BUILDBTW_AUTO_CREATE_ITERATIONS",
+        required = false,
+        default_value = "true"
+    )]
+    pub auto_create_iterations: bool,
 }
 
 #[derive(clap::Args, Debug)]
@@ -209,7 +231,7 @@ pub struct Oidc {
     clippy::struct_field_names,
     reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
 )]
-struct RawGitlab {
+pub struct RawGitlab {
     /// Path to a file containing the GitLab API token for authentication
     ///
     /// The token needs the `read_api` scope.
@@ -426,6 +448,8 @@ mod tests {
             web_root: _,
             tls,
             raw_gitlab,
+            update_source_repos,
+            auto_create_iterations,
         }) = parsed_args.command
         else {
             panic!("Expected Run command");
@@ -436,6 +460,8 @@ mod tests {
             TcpSocketOrUnixSocket::Tcp("127.0.0.1:3000".parse().unwrap())
         );
         assert_eq!(server_url, Url::parse("https://example.com").unwrap());
+        assert!(update_source_repos);
+        assert!(auto_create_iterations);
 
         // Verify OIDC config is present and has correct values
         let oidc = oidc.expect("OIDC should be present");
@@ -449,9 +475,12 @@ mod tests {
         assert_eq!(tls.tls_cert.as_str(), "cert/buildbtw.cert");
         assert_eq!(tls.tls_key.as_str(), "cert/buildbtw.key");
 
-        let gitlab = Gitlab::try_from(raw_gitlab.expect("Expected to find gitlab args"))?;
-        assert_eq!(gitlab.domain.as_str(), "https://gitlab.archlinux.org");
-        assert_eq!(gitlab.packages_group, "package/group");
+        let gitlab = raw_gitlab.expect("Expected gitlab args");
+        assert_eq!(
+            gitlab.gitlab_domain.as_str(),
+            "https://gitlab.archlinux.org/"
+        );
+        assert_eq!(gitlab.gitlab_packages_group, "package/group");
 
         assert!(authelia_container.run_authelia_container);
         assert_eq!(authelia_container.authelia_container_port, 9091);

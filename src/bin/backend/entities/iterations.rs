@@ -41,8 +41,9 @@ impl ActiveModelBehavior for ActiveModel {}
 #[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
 #[sea_orm(value_type = "String")]
 pub enum Status {
-    /// Does not have a build graph yet.
+    /// Does not have a build graph yet. Will be calculated by [crate::iteration_creator].
     PendingCalculation,
+
     /// Build graph has been calculated.
     Calculated,
 }
@@ -51,6 +52,12 @@ pub enum Status {
 #[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
 #[sea_orm(value_type = "String")]
 pub enum NewIterationReason {
+    /// Created along with a new buildspace
     FirstIteration,
+
+    /// Manually created
     CreatedByUser,
+
+    /// New commits caused a change in the builds that need to be executed
+    BuildGraphChanged,
 }

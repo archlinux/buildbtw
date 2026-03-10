@@ -9,6 +9,7 @@
 
 use std::collections::HashSet;
 
+use buildbtw::storage;
 use color_eyre::Result;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, DatabaseTransaction, PaginatorTrait, QueryFilter,
@@ -21,14 +22,51 @@ use tracing::Instrument;
 use tracing::{error, info_span, instrument, warn};
 
 use crate::entities::user_roles;
+use crate::{args, iteration_creator};
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
 
-/// Starts the background maintenance worker.
+/// Starts background tasks.
 ///
-/// This function launches an asynchronous task that runs periodic jobs
-/// in the background while the server is running. It does not block the
-/// main application thread.
-pub fn initialize(state: ServerState, token: CancellationToken) {
+/// Launches asynchronous tasks that run in the background while the server is running.
+/// It does not block the main application thread.
+/// Will cancel its tasks when the given cancellation token is cancelled.
+///
+/// Tasks:
+///
+/// - Iteration creator for updating source repos, creating iterations and calculating build graphs
+/// - Regularly sync OIDC roles from OIDC provider
+/// - Regularly delete expired sessions
+pub fn initialize(
+    state: ServerState,
+    token: CancellationToken,
+    gitlab: Option<args::Gitlab>,
+    update_source_repos: bool,
+    auto_create_iterations: bool,
+    db: DatabaseConnection,
+) -> Result<()> {
+    // If the flag is enabled, and a gitlab config is present, tell the iteration creator to update source repos
+    let repo_update_config = if update_source_repos && let Some(gitlab) = gitlab {
+        iteration_creator::RepoUpdateConfig::DoUpdate(gitlab)
+    } else {
+        iteration_creator::RepoUpdateConfig::DontUpdate
+    };
+
+    iteration_creator::IterationCreator::spawn(
+        iteration_creator::Config {
+            repo_update: repo_update_config,
+            source_repo_dir: storage::package_source_repos_dir()?,
+            auto_create_iterations,
+        },
+        db,
+        token.clone(),
+    );
+
+    spawn_hourly_jobs(state, token);
+
+    Ok(())
+}
+
+fn spawn_hourly_jobs(state: ServerState, token: CancellationToken) {
     tokio::spawn(
         async move {
             let mut hourly_ticker = interval(std::time::Duration::from_hours(1));

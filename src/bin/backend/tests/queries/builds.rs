@@ -331,7 +331,7 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Insert into DB
     let (_, insert_builds, _) = queries::builds::insert_builds_with_dependencies(
         iteration.id.0,
-        buildbtw::package::KnownArchitecture::X86_64,
+        package::KnownArchitecture::X86_64,
         &graph,
     )?;
 
