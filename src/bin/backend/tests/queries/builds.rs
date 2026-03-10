@@ -150,6 +150,7 @@ async fn test_unique_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
         &graph,
     )?;
 
+    // Inserting the builds fails because both nodes have the same name, architecture and iteration.
     let failure = insert_builds.exec(&tx).await;
 
     let err = failure
@@ -178,8 +179,10 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     // Create build graph with two builds, without edges
     let mut graph = BuildGraph::new();
 
-    graph.add_node(build_node("foo")?);
-    graph.add_node(build_node("bar")?);
+    let foo_index = graph.add_node(build_node("foo")?);
+    let bar_index = graph.add_node(build_node("bar")?);
+
+    graph.add_edge(foo_index, bar_index, BuildDependency {});
 
     // Insert into DB
     let (insert_builds, insert_deps) = queries::builds::insert_builds_with_dependencies(
@@ -209,12 +212,8 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
         depended_on_by_build_id: Set(foo_build.id),
         depends_on_build_id: Set(bar_build.id),
     };
-    build_dependencies::Entity::insert(build_dep.clone())
-        .exec(&tx)
-        .await
-        .expect("Failed to insert build dependency");
 
-    // Inserting the same dependency fails
+    // Inserting a dependency that's already in the graph fails
     let failure = build_dependencies::Entity::insert(build_dep)
         .exec(&tx)
         .await;
