@@ -3,13 +3,13 @@ use sea_orm::entity::prelude::*;
 
 use crate::{
     db_fields::{NewIterationReason, TxtUuid},
-    entities::{builds, namespaces},
+    entities::{builds, buildspaces},
 };
 
-/// A build cycle within a namespace.
+/// A build attempt within a buildspace.
 ///
 /// Each iteration contains a set of source code changes (changesets) that
-/// triggered the build cycle.
+/// triggered the iteration.
 /// An iteration groups together all builds that need to be executed for the
 /// given changesets.
 #[sea_orm::model]
@@ -19,7 +19,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
-    pub namespace_id: TxtUuid,
+    pub buildspace_id: TxtUuid,
 
     pub changesets: git::Changesets,
     pub reason: NewIterationReason,
@@ -27,8 +27,8 @@ pub struct Model {
     #[sea_orm(has_many)]
     pub builds: HasMany<builds::Entity>,
 
-    #[sea_orm(belongs_to, from = "namespace_id", to = "id")]
-    pub namespace: HasOne<namespaces::Entity>,
+    #[sea_orm(belongs_to, from = "buildspace_id", to = "id")]
+    pub buildspace: HasOne<buildspaces::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

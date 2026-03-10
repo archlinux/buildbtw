@@ -3,8 +3,8 @@
 //! [sea_orm::Select]) from functions here, so callers can add pagination,
 //! stream results, etc.
 pub mod builds;
+pub mod buildspaces;
 pub mod iterations;
-pub mod namespaces;
 pub mod sessions;
 pub mod user_roles;
 pub mod users;

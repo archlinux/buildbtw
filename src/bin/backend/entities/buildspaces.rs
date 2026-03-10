@@ -4,13 +4,13 @@ use crate::{db_fields::TxtUuid, entities::iterations};
 
 /// A logical grouping of package repositories and build configurations.
 ///
-/// Namespaces organize the build system into separate environments, allowing
-/// for different package sets to be built independently. Each namespace
+/// Buildspaces organize the build system into separate environments, allowing
+/// for different package sets to be built independently. Each buildspace
 /// contains its own iterations and associated builds, providing isolation
 /// between different build contexts.
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
-#[sea_orm(table_name = "namespaces")]
+#[sea_orm(table_name = "buildspaces")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: TxtUuid,
