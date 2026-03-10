@@ -7,14 +7,14 @@ use crate::entities::iterations;
 
 #[allow(dead_code)]
 pub fn insert(
-    namespace_id: Uuid,
+    buildspace_id: Uuid,
     changesets: git::Changesets,
     reason: NewIterationReason,
 ) -> Insert<iterations::ActiveModel> {
     let model = iterations::ActiveModel {
         id: Set(Uuid::new_v4().into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
-        buildspace_id: Set(namespace_id.into()),
+        buildspace_id: Set(buildspace_id.into()),
         changesets: Set(changesets),
         reason: Set(reason),
     };

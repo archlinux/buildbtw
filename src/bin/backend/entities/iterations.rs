@@ -3,7 +3,7 @@ use sea_orm::entity::prelude::*;
 
 use crate::{
     db_fields::{NewIterationReason, TxtUuid},
-    entities::{builds, namespaces},
+    entities::{builds, buildspaces},
 };
 
 /// A build attempt within a buildspace.
@@ -28,7 +28,7 @@ pub struct Model {
     pub builds: HasMany<builds::Entity>,
 
     #[sea_orm(belongs_to, from = "buildspace_id", to = "id")]
-    pub buildspace: HasOne<namespaces::Entity>,
+    pub buildspace: HasOne<buildspaces::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
