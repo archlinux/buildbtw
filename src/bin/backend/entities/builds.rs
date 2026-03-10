@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use buildbtw::{api, git, package};
+use camino::Utf8PathBuf;
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{db_fields::TxtUuid, entities::iterations};
 
@@ -24,15 +28,23 @@ pub struct Model {
     #[sea_orm(unique_key = "unique_builds")]
     pub iteration_id: TxtUuid,
 
-    pub pkgnames: package::Names,
+    pub pkgnames_filenames: PkgnamesFilenames,
     pub branch_name: git::BranchName,
-    pub repository_name: package::RepositorySlug,
     pub commit_hash: git::CommitHash,
     pub status: package::BuildStatus,
     pub version: package::Version,
 
     #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
     pub iteration: HasOne<iterations::Entity>,
+    #[sea_orm(
+        self_ref,
+        via = "build_dependencies",
+        from = "DependedOnByBuild",
+        to = "DependsOnBuild"
+    )]
+    pub depends_on: HasMany<Entity>,
+    #[sea_orm(self_ref, via = "build_dependencies", reverse)]
+    pub depended_on_by: HasMany<Entity>,
 }
 
 impl From<Model> for api::builds::Build {
@@ -44,3 +56,18 @@ impl From<Model> for api::builds::Build {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+/// Custom type to allow storing a hashmap of pkgnames and package file names using SeaORM
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct PkgnamesFilenames(pub HashMap<package::Name, String>);
+
+impl From<HashMap<package::Name, Utf8PathBuf>> for PkgnamesFilenames {
+    fn from(value: HashMap<package::Name, Utf8PathBuf>) -> Self {
+        Self(
+            value
+                .into_iter()
+                .map(|(pkgname, filename)| (pkgname, filename.to_string()))
+                .collect::<HashMap<_, _>>(),
+        )
+    }
+}

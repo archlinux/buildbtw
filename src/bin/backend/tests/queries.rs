@@ -1,3 +1,5 @@
+mod builds;
+
 use color_eyre::Result;
 use redact::Secret;
 use rstest::rstest;

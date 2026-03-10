@@ -2,6 +2,7 @@
 // so we'll allow this lint in this module to make life easier
 #![allow(unused_qualifications)]
 
+pub mod build_dependencies;
 pub mod builds;
 pub mod iterations;
 pub mod namespaces;
