@@ -35,7 +35,7 @@ async fn test_update_source_repos() -> Result<()> {
         source_repo_dir.clone(),
         &client,
         last_updated,
-        gitlab_domain,
+        &gitlab_domain,
         gitlab_packages_group,
     )
     .await?;
