@@ -31,20 +31,22 @@ async fn test_build_buildspace_source_info_index() -> Result<()> {
         Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
-        // TODO: create a permanent branch in e.g. `libfoo` to test that the index will read the .SRCINFO from that branch if we specify the branch here (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/217)
-        git::Changesets::default(),
+        git::Changesets::from(vec![git::Changeset {
+            repo_slug: "libfoo".try_into()?,
+            branch_name: "testbranch".try_into()?,
+        }]),
         &mut source_repos,
     )
     .await?;
 
-    // Check our dedicated testing package which has no .SRCINFO yet
-    let libfoo = index.by_pkgbase(&"libfoo".parse()?);
-    assert!(
-        libfoo.is_none(),
-        "Expected libfoo to not be present in index because it has no .SRCINFO file"
-    );
+    // Check our testing package which should be included using the branch name
+    // from the changesets specified above
+    let libfoo = index
+        .by_pkgbase(&"libfoo".parse()?)
+        .expect("Expected to find libfoo package in index");
+    assert_eq!(libfoo.branch_name, "testbranch".try_into()?);
 
-    // Sample an arbitrary package to check that it works
+    // Sample arbitrary packages to check that they are present
     let zizmor = index
         .by_pkgbase(&"zizmor".parse()?)
         .expect("Expected to find zizmor package in index");
@@ -61,8 +63,10 @@ async fn test_build_global_dependency_graphs() -> Result<()> {
         Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
-        // TODO: create a permanent branch in e.g. `libfoo` to test that the index will read the .SRCINFO from that branch if we specify the branch here
-        git::Changesets::from(vec![]),
+        git::Changesets::from(vec![git::Changeset {
+            repo_slug: "libfoo".try_into()?,
+            branch_name: "testbranch".try_into()?,
+        }]),
         &mut source_repos,
     )
     .await?;
@@ -78,10 +82,16 @@ async fn test_build_global_dependency_graphs() -> Result<()> {
         assert!(deps.graph.edge_count() > 0);
     }
 
-    // Check that we can find a node index for an arbitrary package
     let x86_64_deps = global_dependencies
         .get(&crate::package::KnownArchitecture::X86_64)
         .expect("Missing x86_64 in global dependencies graphs");
+
+    // Check our testing package from the changesets specified above
+    let libfoo_node_index = x86_64_deps.node_index_by_package_name(&"libfoo".parse()?)?;
+    let libfoo_node = &x86_64_deps.graph[libfoo_node_index];
+    assert_eq!(libfoo_node.package_name, "libfoo".parse()?);
+
+    // Check that we can find a node index for an arbitrary package
     let gcc_node_index = x86_64_deps.node_index_by_package_name(&"gcc".parse()?)?;
     let gcc_node = &x86_64_deps.graph[gcc_node_index];
     assert_eq!(gcc_node.package_name, "gcc".parse()?);
