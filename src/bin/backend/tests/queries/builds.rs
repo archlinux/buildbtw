@@ -30,21 +30,21 @@ fn build_node(pkgbase: &str) -> Result<BuildNode> {
     })
 }
 
-async fn create_namespace_with_iteration(
+async fn create_buildspace_with_iteration(
     tx: &DatabaseTransaction,
-) -> Result<(entities::namespaces::Model, entities::iterations::Model)> {
-    let namespace = queries::namespaces::insert("test".to_string())
+) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
+    let buildspace = queries::buildspaces::insert("test".to_string())
         .exec_with_returning(tx)
         .await?;
     let iteration = queries::iterations::insert(
-        namespace.id.0,
+        buildspace.id.0,
         Vec::new().into(),
         crate::db_fields::NewIterationReason::FirstIteration,
     )
     .exec_with_returning(tx)
     .await?;
 
-    Ok((namespace, iteration))
+    Ok((buildspace, iteration))
 }
 
 /// Check that the happy-path of inserting a build graph works.
@@ -54,7 +54,7 @@ async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_namespace_with_iteration(&tx).await?;
+    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
 
     // Create build graph
     let mut graph = BuildGraph::new();
@@ -132,7 +132,7 @@ async fn test_unique_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_namespace_with_iteration(&tx).await?;
+    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
 
     // Create build graph
     let mut graph = BuildGraph::new();
@@ -174,7 +174,7 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_namespace_with_iteration(&tx).await?;
+    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
 
     // Create build graph with two builds, without edges
     let mut graph = BuildGraph::new();

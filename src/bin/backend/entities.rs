@@ -4,8 +4,8 @@
 
 pub mod build_dependencies;
 pub mod builds;
+pub mod buildspaces;
 pub mod iterations;
-pub mod namespaces;
 pub mod sessions;
 pub mod user_roles;
 pub mod users;
