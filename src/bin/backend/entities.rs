@@ -5,6 +5,7 @@
 pub mod build_dependencies;
 pub mod builds;
 pub mod buildspaces;
+pub mod global_state;
 pub mod iterations;
 pub mod sessions;
 pub mod user_roles;
