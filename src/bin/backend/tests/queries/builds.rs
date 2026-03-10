@@ -68,12 +68,14 @@ async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
     graph.add_edge(bar, baz, BuildDependency {});
 
     // Insert into DB
-    let (insert_builds, insert_deps) = queries::builds::insert_builds_with_dependencies(
-        iteration.id.0,
-        buildbtw::package::KnownArchitecture::X86_64,
-        &graph,
-    )?;
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            buildbtw::package::KnownArchitecture::X86_64,
+            &graph,
+        )?;
 
+    update_iteration.exec(&tx).await?;
     insert_builds.exec(&tx).await?;
     insert_deps.exec(&tx).await?;
 
@@ -144,7 +146,7 @@ async fn test_unique_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
     graph.add_node(conflicting_node);
 
     // Insert into DB
-    let (insert_builds, _) = queries::builds::insert_builds_with_dependencies(
+    let (_, insert_builds, _) = queries::builds::insert_builds_with_dependencies(
         iteration.id.0,
         buildbtw::package::KnownArchitecture::X86_64,
         &graph,
@@ -185,12 +187,14 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     graph.add_edge(foo_index, bar_index, BuildDependency {});
 
     // Insert into DB
-    let (insert_builds, insert_deps) = queries::builds::insert_builds_with_dependencies(
-        iteration.id.0,
-        buildbtw::package::KnownArchitecture::X86_64,
-        &graph,
-    )?;
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            buildbtw::package::KnownArchitecture::X86_64,
+            &graph,
+        )?;
 
+    update_iteration.exec(&tx).await?;
     insert_builds.exec(&tx).await?;
     insert_deps.exec(&tx).await?;
 

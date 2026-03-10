@@ -2,12 +2,16 @@ use std::collections::HashMap;
 
 use buildbtw::{dependency_graph::BuildGraph, package};
 use color_eyre::{Result, eyre::OptionExt};
-use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, InsertMany, QueryFilter};
+use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, InsertMany, QueryFilter, UpdateOne};
 use uuid::Uuid;
 
-use crate::entities::{
-    build_dependencies,
-    builds::{self, PkgnamesFilenames},
+use crate::{
+    entities::{
+        build_dependencies,
+        builds::{self, PkgnamesFilenames},
+        iterations,
+    },
+    queries,
 };
 
 /// Return a query returning all builds, optionally filtered by status.
@@ -29,6 +33,7 @@ pub fn insert_builds_with_dependencies(
     architecture: package::KnownArchitecture,
     build_graph: &BuildGraph,
 ) -> Result<(
+    UpdateOne<iterations::ActiveModel>,
     InsertMany<builds::ActiveModel>,
     InsertMany<build_dependencies::ActiveModel>,
 )> {
@@ -77,6 +82,7 @@ pub fn insert_builds_with_dependencies(
     }
 
     Ok((
+        queries::iterations::set_status_calculated(iteration_id),
         builds::Entity::insert_many(build_models),
         build_dependencies::Entity::insert_many(build_dependency_models),
     ))

@@ -23,6 +23,7 @@ pub struct Model {
 
     pub changesets: git::Changesets,
     pub reason: NewIterationReason,
+    pub status: Status,
 
     #[sea_orm(has_many)]
     pub builds: HasMany<builds::Entity>,
@@ -32,3 +33,14 @@ pub struct Model {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+/// Used to distinguish iterations that contain an empty build graph
+/// from iterations that don't have a build graph yet.
+#[derive(Clone, Debug, PartialEq, Eq, strum::Display, strum::EnumString, DeriveValueType)]
+#[sea_orm(value_type = "String")]
+pub enum Status {
+    /// Does not have a build graph yet.
+    PendingCalculation,
+    /// Build graph has been calculated.
+    Calculated,
+}
