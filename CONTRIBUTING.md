@@ -45,6 +45,7 @@ As such, we have some reservations towards AI tool usage:
     - Generated entities have "String" as every column type which is not precise enough.
     - Generated migrations need a copy-pasted definition of the entity inside the migration, which removes most of the benefit of auto-generation.
 - Do not use `CASCADE`. Handle deletion of related rows explicitly in request handlers instead. For some deletions, it makes sense to return a descriptive error when related rows shouldn't be deleted. Make sure to assert the deletion of all related entities in deletion tests.
+- Use plain strings to specify the table and column names. We used to use ad-hoc enums specifying the types but we considered this to be window dressing since we can't use the real entity types here currently and would have to re-define them every time.
 
 ## Writing Tests
 
