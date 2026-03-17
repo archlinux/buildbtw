@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use buildbtw::{dependency_graph::BuildGraph, package};
 use color_eyre::{Result, eyre::OptionExt};
-use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, InsertMany, QueryFilter, UpdateOne};
+use sea_orm::{
+    ActiveValue::Set, ColumnTrait, EntityTrait, InsertMany, QueryFilter, Select, UpdateOne,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -15,7 +17,7 @@ use crate::{
 };
 
 /// Return a query returning all builds, optionally filtered by status.
-pub fn list(status: Option<package::BuildStatus>) -> sea_orm::Select<builds::Entity> {
+pub fn list(status: Option<package::BuildStatus>) -> Select<builds::Entity> {
     let mut query = builds::Entity::find();
 
     if let Some(status_filter) = status {
@@ -86,4 +88,9 @@ pub fn insert_builds_with_dependencies(
         builds::Entity::insert_many(build_models),
         build_dependencies::Entity::insert_many(build_dependency_models),
     ))
+}
+
+/// Return a query returning a specific build by its unique uuid.
+pub fn by_id(id: Uuid) -> Select<builds::Entity> {
+    builds::Entity::find_by_id(id)
 }

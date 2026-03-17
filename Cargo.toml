@@ -15,10 +15,13 @@ license = "GPL-3.0-or-later"
 repository = "https://gitlab.archlinux.org/archlinux/buildbtw"
 publish = false
 
+[[bin]]
+name = "buildbtw-executor"
+path = "src/bin/executor/main.rs"
+
 [profile.release]
 codegen-units = 1
 lto = true
-debug = true
 
 # Lints that are "warn" will be fine in development,
 # but the CI will reject them.
@@ -127,6 +130,7 @@ axum-extra = { version = "0.12.5", features = [
 uuid = { version = "1.20.0", features = ["v4", "serde"] }
 nutype = { version = "0.6.2", features = ["derive_unsafe", "serde", "regex"] }
 regex = "1.12.3"
+rust-embed = { version = "8.11.0", features = [ "deterministic-timestamps", "include-exclude" ]}
 openidconnect = { version = "4.0.1", features = [
     "timing-resistant-secret-traits",
 ] }
@@ -142,6 +146,7 @@ derive_more = { version = "2.1.1", features = [
 ] }
 git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
+tempfile = "3.25.0"
 
 [dev-dependencies]
 axum-test = { version = "19.0.0", features = ["typed-routing"] }
@@ -151,4 +156,3 @@ thirtyfour = { version = "0.36.1", features = [
 rstest = { version = "0.26.1", default-features = false }
 cookie = "0.18.1"
 temp-env = "0.3.6"
-tempfile = "3.25.0"

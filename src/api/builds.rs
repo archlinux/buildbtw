@@ -31,3 +31,22 @@ pub struct Build {
     /// Used to reference this build, e.g. in API endpoint paths.
     pub id: Uuid,
 }
+
+/// Upload a built package identitifed by its build-id.
+///
+/// All relevant metadata like architecture, pkgbase, filename etc are pre-derived
+/// and will be looked up by the endpoint using the unique build-id which identifies
+/// a single build job.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/upload_package")]
+pub struct UploadPackage {}
+
+#[derive(Debug, Serialize, Deserialize)]
+/// Query Parameters for the [`UploadPackage`] endpoint
+pub struct UploadPackageQuery {
+    /// Unique build id for which to upload a package artifact.
+    pub build_id: Uuid,
+
+    /// Pkgname of the package artifact from the build job.
+    pub pkgname: package::Name,
+}
