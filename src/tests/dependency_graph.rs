@@ -1,7 +1,10 @@
-use crate::{dependency_graph, git};
+mod diff;
+
 use camino::Utf8PathBuf;
 use color_eyre::Result;
 use tracing::debug;
+
+use crate::{dependency_graph, git};
 
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
