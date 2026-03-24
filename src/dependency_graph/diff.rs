@@ -66,34 +66,34 @@ impl Diff {
             .map(|weight| (weight.pkgbase.clone(), weight.commit_hash.clone()))
             .collect();
 
-        // Find package names in the new graph that are not in the old one.
-        let packages_added = new_commits
+        // Find package names in the old graph that are not in the new one.
+        let packages_removed = old_commits
             .clone()
             .into_iter()
-            .filter(|(key, _)| !old_commits.contains_key(key))
+            .filter(|(key, _)| !new_commits.contains_key(key))
             .map(DiffPackage::from)
             .collect();
 
-        // Find packages that are in both graphs, but with differing commits.
+        // Split new commits into the ones that are only present in the new graph,
+        // and the ones that exist in both graphs.
+        let (packages_added, commits_in_both): (HashSet<DiffPackage>, HashSet<DiffPackage>) =
+            new_commits
+                .into_iter()
+                .map(DiffPackage::from)
+                .partition(|diff_package| !old_commits.contains_key(&diff_package.pkgbase));
+
+        // For commits in both graphs, find ones with differing commits.
         // Use the new commit hashes for the diff.
-        let packages_modified = new_commits
-            .clone()
+        let packages_modified = commits_in_both
             .into_iter()
-            .filter(|(key, new_commit_hash)| {
-                match old_commits.get(key) {
-                    Some(old_commit_hash) => old_commit_hash != new_commit_hash,
+            .filter(|diff_package| {
+                match old_commits.get(&diff_package.pkgbase) {
+                    // Include this package if it has a different commit hash
+                    Some(old_commit_hash) => old_commit_hash != &diff_package.commit_hash,
                     // Package is new, don't include it in the modified packages
                     None => false,
                 }
             })
-            .map(DiffPackage::from)
-            .collect();
-
-        // Find package names in the old graph that are not in the new one.
-        let packages_removed = old_commits
-            .into_iter()
-            .filter(|(key, _)| !new_commits.contains_key(key))
-            .map(DiffPackage::from)
             .collect();
 
         Diff {
