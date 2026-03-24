@@ -6,15 +6,6 @@ use derive_more::FromStr;
 use redact::Secret;
 use sea_orm::{DeriveValueType, TryFromU64};
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString};
-
-/// The reason why a new build iteration was created.
-#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
-#[sea_orm(value_type = "String")]
-pub enum NewIterationReason {
-    FirstIteration,
-    CreatedByUser,
-}
 
 /// Newtype making sure that UUIDs will be stored as SQLite `TEXT` columns,
 /// instead of `BLOB` (which is SeaORM's only implementation).
