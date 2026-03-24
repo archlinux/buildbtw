@@ -4,8 +4,7 @@ use sea_orm::UpdateOne;
 use sea_orm::{ActiveValue::Set, EntityTrait, Insert};
 use uuid::Uuid;
 
-use crate::db_fields::NewIterationReason;
-use crate::entities::iterations;
+use crate::entities::iterations::{self, NewIterationReason};
 
 #[allow(dead_code)]
 pub fn insert(

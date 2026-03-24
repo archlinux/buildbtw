@@ -39,7 +39,7 @@ async fn create_buildspace_with_iteration(
     let iteration = queries::iterations::insert(
         buildspace.id.0,
         Vec::new().into(),
-        crate::db_fields::NewIterationReason::FirstIteration,
+        entities::iterations::NewIterationReason::FirstIteration,
     )
     .exec_with_returning(tx)
     .await?;
