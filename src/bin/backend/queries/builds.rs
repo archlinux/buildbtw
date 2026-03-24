@@ -95,3 +95,8 @@ pub fn insert_builds_with_dependencies(
 pub fn by_id(id: TxtUuid) -> Select<builds::Entity> {
     builds::Entity::find_by_id(id)
 }
+
+/// Return all builds for a given iteration
+pub fn by_iteration_id(iteration_id: TxtUuid) -> Select<builds::Entity> {
+    builds::Entity::find().filter(builds::COLUMN.iteration_id.eq(iteration_id))
+}

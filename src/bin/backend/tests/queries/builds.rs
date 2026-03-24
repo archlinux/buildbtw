@@ -1,7 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use buildbtw::dependency_graph::BuildNode;
 use buildbtw::dependency_graph::{BuildDependency, BuildGraph};
+use buildbtw::dependency_graph::{BuildGraphs, BuildNode};
+use buildbtw::package;
 use color_eyre::Result;
 use rstest::rstest;
 use sea_orm::ActiveValue::Set;
@@ -70,7 +71,7 @@ async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let (update_iteration, insert_builds, insert_deps) =
         queries::builds::insert_builds_with_dependencies(
             iteration.id.0,
-            buildbtw::package::KnownArchitecture::X86_64,
+            package::KnownArchitecture::X86_64,
             &graph,
         )?;
 
@@ -147,7 +148,7 @@ async fn test_unique_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Insert into DB
     let (_, insert_builds, _) = queries::builds::insert_builds_with_dependencies(
         iteration.id.0,
-        buildbtw::package::KnownArchitecture::X86_64,
+        package::KnownArchitecture::X86_64,
         &graph,
     )?;
 
@@ -189,7 +190,7 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     let (update_iteration, insert_builds, insert_deps) =
         queries::builds::insert_builds_with_dependencies(
             iteration.id.0,
-            buildbtw::package::KnownArchitecture::X86_64,
+            package::KnownArchitecture::X86_64,
             &graph,
         )?;
 
@@ -229,6 +230,87 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
         err,
         SqlErr::UniqueConstraintViolation("UNIQUE constraint failed: build_dependencies.depended_on_by_build_id, build_dependencies.depends_on_build_id".to_string())
     );
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_read_diff_graph_from_db(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    // Setup necessary stuff for satisfying foreign keys
+    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
+
+    // Create build graph
+    let mut old_graph = BuildGraph::new();
+
+    old_graph.add_node(build_node("foo")?);
+    old_graph.add_node(build_node("bar")?);
+
+    // Insert into DB
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            package::KnownArchitecture::X86_64,
+            &old_graph,
+        )?;
+
+    update_iteration.exec(&tx).await?;
+    insert_builds.exec(&tx).await?;
+    insert_deps.exec(&tx).await?;
+
+    // Insert into DB with a second architecture
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            package::KnownArchitecture::Aarch64,
+            &old_graph,
+        )?;
+
+    update_iteration.exec(&tx).await?;
+    insert_builds.exec(&tx).await?;
+    insert_deps.exec(&tx).await?;
+
+    // Create a second graph that has a new package for X86_64
+    let mut new_graph = old_graph.clone();
+    new_graph.add_node(build_node("baz")?);
+
+    let new_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        new_graph,
+    )]));
+
+    // Read old build graphs from DB
+    let old_builds = queries::builds::by_iteration_id(iteration.id)
+        .all(&tx)
+        .await?;
+
+    let mut old_builds_by_architecture: HashMap<package::KnownArchitecture, Vec<BuildNode>> =
+        HashMap::new();
+
+    for build in old_builds {
+        old_builds_by_architecture
+            .entry(build.architecture)
+            .or_default()
+            .push(build.into());
+    }
+
+    // Diff old and new graphs
+    let diffs = new_graphs.diff(old_builds_by_architecture);
+
+    // Check that Aarch64 is marked as removed because we didn't add it to the new graphs
+    let aarch64 = diffs.get(&package::KnownArchitecture::Aarch64).unwrap();
+    assert!(aarch64.packages_added.is_empty());
+    assert!(aarch64.packages_modified.is_empty());
+    assert_eq!(aarch64.packages_removed.len(), 2);
+
+    // Check that X86_64 has an added package and no other changes
+    let x86_64 = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+
+    assert_eq!(x86_64.packages_added.len(), 1);
+    assert!(x86_64.packages_modified.is_empty());
+    assert!(x86_64.packages_removed.is_empty());
 
     Ok(())
 }
