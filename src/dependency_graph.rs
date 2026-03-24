@@ -20,6 +20,6 @@ mod source_repo_cache;
 
 pub use build_graph::{BuildDependency, BuildGraph, BuildNode, calculate_build_graphs};
 pub use buildspace_source_info_index::{BuildspaceSourceInfoIndex, PackageMetadata};
-pub use diff::Diff;
+pub use diff::{Diff, diff_architectures};
 pub use global_dependencies::{GlobalDependencies, build_global_dependency_graphs};
 pub use source_repo_cache::{BranchInfo, SourceRepo, SourceRepoCache};
