@@ -1,8 +1,10 @@
 use buildbtw::git;
+use derive_more::Display;
 use sea_orm::entity::prelude::*;
+use strum::EnumString;
 
 use crate::{
-    db_fields::{NewIterationReason, TxtUuid},
+    db_fields::TxtUuid,
     entities::{builds, buildspaces},
 };
 
@@ -36,11 +38,19 @@ impl ActiveModelBehavior for ActiveModel {}
 
 /// Used to distinguish iterations that contain an empty build graph
 /// from iterations that don't have a build graph yet.
-#[derive(Clone, Debug, PartialEq, Eq, strum::Display, strum::EnumString, DeriveValueType)]
+#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
 #[sea_orm(value_type = "String")]
 pub enum Status {
     /// Does not have a build graph yet.
     PendingCalculation,
     /// Build graph has been calculated.
     Calculated,
+}
+
+/// The reason why a new build iteration was created.
+#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
+#[sea_orm(value_type = "String")]
+pub enum NewIterationReason {
+    FirstIteration,
+    CreatedByUser,
 }
