@@ -5,6 +5,8 @@ variables:
   FF_TIMESTAMPS: true
   # We use submodules
   GIT_SUBMODULE_STRATEGY: recursive
+  # Force cargo colors
+  CARGO_TERM_COLOR: always
 
 # See https://docs.gitlab.com/ci/yaml/workflow/#git-flow-with-merge-request-pipelines
 workflow:
