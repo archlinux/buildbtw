@@ -57,10 +57,10 @@ unnecessary_debug_formatting = "allow"
 sea-orm-debug-print = ["sea-orm/debug-print"]
 
 [dependencies]
-alpm-srcinfo = "0.6.2"
-alpm-types = "0.11.1"
+alpm-srcinfo = "0.6.3"
+alpm-types = "0.11.2"
 asynk-strim = "0.1.5"
-clap = { version = "4.5.57", features = [
+clap = { version = "4.6.0", features = [
     "cargo",
     "derive",
     "env",
@@ -81,7 +81,7 @@ serde_json = { version = "1.0.149", features = ["raw_value"] }
 strum = { version = "0.27.2", features = ["derive"] }
 tera = "1.20.1"
 thiserror = "2.0.18"
-tokio = { version = "1.49.0", features = [
+tokio = { version = "1.50.0", features = [
     "fs",
     "macros",
     "process",
@@ -90,12 +90,12 @@ tokio = { version = "1.49.0", features = [
     "signal",
 ] }
 tokio-util = "0.7.18"
-toml = "1.0.3"
+toml = "1.1.0"
 time = { version = "0.3.47", features = ["formatting", "parsing", "serde"] }
 tracing = "0.1.44"
-tracing-subscriber = "0.3.22"
+tracing-subscriber = "0.3.23"
 url = "2.5.8"
-sea-orm = { version = "2.0.0-rc.32", features = [
+sea-orm = { version = "2.0.0-rc.37", features = [
     "sqlx-sqlite",
     "runtime-tokio-rustls",
     "macros",
@@ -104,7 +104,7 @@ sea-orm = { version = "2.0.0-rc.32", features = [
     "with-uuid",
     "sqlite-use-returning-for-3_35",
 ], default-features = false }
-sea-orm-migration = { version = "2.0.0-rc.32", features = [
+sea-orm-migration = { version = "2.0.0-rc.37", features = [
     "runtime-tokio-rustls",
     "sqlx-sqlite",
 ], default-features = false }
@@ -127,7 +127,7 @@ axum-extra = { version = "0.12.5", features = [
     "typed-routing",
     "cookie-private",
 ] }
-uuid = { version = "1.20.0", features = ["v4", "serde"] }
+uuid = { version = "1.22.0", features = ["v4", "serde"] }
 nutype = { version = "0.6.2", features = ["derive_unsafe", "serde", "regex"] }
 regex = "1.12.3"
 rust-embed = { version = "8.11.0", features = [ "deterministic-timestamps", "include-exclude" ]}
@@ -146,10 +146,10 @@ derive_more = { version = "2.1.1", features = [
 ] }
 git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
-tempfile = "3.25.0"
+tempfile = "3.27.0"
 
 [dev-dependencies]
-axum-test = { version = "19.0.0", features = ["typed-routing"] }
+axum-test = { version = "19.1.1", features = ["typed-routing"] }
 thirtyfour = { version = "0.36.1", features = [
     "rustls-tls",
 ], default-features = false }
