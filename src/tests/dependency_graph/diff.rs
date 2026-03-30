@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use color_eyre::Result;
 
 use crate::{
-    dependency_graph::{self, BuildGraph, BuildNode},
+    dependency_graph::{BuildGraph, BuildGraphs, BuildNode},
     package,
 };
 
@@ -18,15 +18,6 @@ fn build_node(pkgbase: &str, hash: &str) -> Result<BuildNode> {
             .collect(),
         version: "2.1-0".parse()?,
     })
-}
-
-fn graph_nodes(graph: BuildGraph) -> Vec<BuildNode> {
-    graph
-        .into_nodes_edges()
-        .0
-        .into_iter()
-        .map(|node| node.weight)
-        .collect()
 }
 
 #[test]
@@ -44,10 +35,15 @@ fn test_diff_added_node() -> Result<()> {
     new_graph.add_node(new_node.clone());
 
     // diff
-    let diffs = dependency_graph::diff_architectures(
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(old_graph))]),
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(new_graph))]),
-    );
+    let old_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        old_graph,
+    )]));
+    let new_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        new_graph,
+    )]));
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
     assert_eq!(diffs.len(), 1);
     let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
 
@@ -75,10 +71,15 @@ fn test_diff_removed_node() -> Result<()> {
     new_graph.add_node(unchanged_node);
 
     // diff
-    let diffs = dependency_graph::diff_architectures(
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(old_graph))]),
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(new_graph))]),
-    );
+    let old_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        old_graph,
+    )]));
+    let new_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        new_graph,
+    )]));
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
     let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
@@ -105,10 +106,15 @@ fn test_diff_modified_node() -> Result<()> {
     new_graph.add_node(modified_node_new.clone());
 
     // diff
-    let diffs = dependency_graph::diff_architectures(
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(old_graph))]),
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(new_graph))]),
-    );
+    let old_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        old_graph,
+    )]));
+    let new_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        new_graph,
+    )]));
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
     let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
@@ -137,10 +143,15 @@ fn test_diff_same_graphs() -> Result<()> {
     let new_graph = old_graph.clone();
 
     // diff
-    let diffs = dependency_graph::diff_architectures(
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(old_graph))]),
-        HashMap::from([(package::KnownArchitecture::X86_64, graph_nodes(new_graph))]),
-    );
+    let old_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        old_graph,
+    )]));
+    let new_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::X86_64,
+        new_graph,
+    )]));
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
     let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
@@ -153,7 +164,9 @@ fn test_diff_same_graphs() -> Result<()> {
 
 #[test]
 fn test_diff_no_architectures() {
-    let diffs = dependency_graph::diff_architectures(HashMap::new(), HashMap::new());
+    let old_build_graphs = BuildGraphs::new(HashMap::new());
+    let new_build_graphs = BuildGraphs::new(HashMap::new());
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert!(diffs.is_empty());
 }
@@ -165,10 +178,12 @@ fn test_diff_added_architecture() -> Result<()> {
     let build_node = build_node("foo", "a")?;
     graph.add_node(build_node.clone());
 
-    let diffs = dependency_graph::diff_architectures(
-        HashMap::new(),
-        HashMap::from([(package::KnownArchitecture::Aarch64, graph_nodes(graph))]),
-    );
+    let old_build_graphs = BuildGraphs::new(HashMap::new());
+    let new_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::Aarch64,
+        graph,
+    )]));
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
 
@@ -188,10 +203,12 @@ fn test_diff_removed_architecture() -> Result<()> {
     let build_node = build_node("foo", "a")?;
     graph.add_node(build_node.clone());
 
-    let diffs = dependency_graph::diff_architectures(
-        HashMap::from([(package::KnownArchitecture::Aarch64, graph_nodes(graph))]),
-        HashMap::new(),
-    );
+    let old_build_graphs = BuildGraphs::new(HashMap::from([(
+        package::KnownArchitecture::Aarch64,
+        graph,
+    )]));
+    let new_build_graphs = BuildGraphs::new(HashMap::new());
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
 
@@ -230,24 +247,17 @@ fn test_diff_multiple_architectures() -> Result<()> {
     new_graph.add_node(added_node.clone());
 
     // Run the diff
-    let diffs = dependency_graph::diff_architectures(
-        HashMap::from([
-            (
-                package::KnownArchitecture::Aarch64,
-                graph_nodes(old_graph.clone()),
-            ),
-            (
-                package::KnownArchitecture::X86_64,
-                graph_nodes(old_graph.clone()),
-            ),
-        ]),
-        HashMap::from([
-            // Aarch64 is unchanged
-            (package::KnownArchitecture::Aarch64, graph_nodes(old_graph)),
-            // X86_64 has the changed graph
-            (package::KnownArchitecture::X86_64, graph_nodes(new_graph)),
-        ]),
-    );
+    let old_build_graphs = BuildGraphs::new(HashMap::from([
+        (package::KnownArchitecture::Aarch64, old_graph.clone()),
+        (package::KnownArchitecture::X86_64, old_graph.clone()),
+    ]));
+    let new_build_graphs = BuildGraphs::new(HashMap::from([
+        // Aarch64 is unchanged
+        (package::KnownArchitecture::Aarch64, old_graph),
+        // X86_64 has the changed graph
+        (package::KnownArchitecture::X86_64, new_graph.clone()),
+    ]));
+    let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 2);
 

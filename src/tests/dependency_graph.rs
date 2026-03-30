@@ -4,7 +4,10 @@ use camino::Utf8PathBuf;
 use color_eyre::Result;
 use tracing::debug;
 
-use crate::{dependency_graph, git};
+use crate::{
+    dependency_graph::{self, BuildGraphs},
+    git,
+};
 
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
@@ -111,7 +114,7 @@ async fn test_calculate_build_graphs() -> Result<()> {
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
 
     // Test creating a build graph for an arbitrary changeset
-    let graphs = dependency_graph::calculate_build_graphs(
+    let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
             repo_slug: "gdu".try_into()?,
             branch_name: "main".try_into()?,
@@ -128,7 +131,7 @@ async fn test_calculate_build_graphs() -> Result<()> {
     assert!(x86_64_graph.node_count() > 0);
 
     // Test calculating some huge graphs
-    let graphs = dependency_graph::calculate_build_graphs(
+    let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
             repo_slug: "firefox".try_into()?,
             branch_name: "main".try_into()?,

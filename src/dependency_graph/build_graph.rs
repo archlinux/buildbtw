@@ -10,12 +10,14 @@ use color_eyre::{
     Result,
     eyre::{Context, bail, eyre},
 };
+use nutype::nutype;
 use petgraph::{Directed, Graph, graph::NodeIndex, visit::EdgeRef};
 
 use crate::{
     dependency_graph::{
         SourceRepoCache,
         buildspace_source_info_index::{BuildspaceSourceInfoIndex, PackageMetadata},
+        diff::diff_architectures,
         global_dependencies::{GlobalDependencies, build_global_dependency_graphs},
     },
     git, package,
@@ -78,49 +80,82 @@ pub type BuildGraph = Graph<BuildNode, BuildDependency, Directed>;
 #[derive(Debug, Clone)]
 pub struct BuildDependency {}
 
-/// Calculate build graphs for the given changesets, returning a graph for each architecture that's
-/// used in at least one of the involved source infos.
-pub async fn calculate_build_graphs(
-    changesets: &git::Changesets,
-    source_repos: &mut SourceRepoCache,
-) -> Result<HashMap<package::KnownArchitecture, BuildGraph>> {
-    tracing::debug!("Calculating packages to be built");
-    let start_time = Instant::now();
+/// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
+#[nutype(derive(Debug, AsRef, Deref))]
+pub struct BuildGraphs(HashMap<package::KnownArchitecture, BuildGraph>);
 
-    let packages_metadata = BuildspaceSourceInfoIndex::build(changesets.clone(), source_repos)
-        .await
-        .wrap_err("Error mapping package names to srcinfo")?;
-    let global_graphs = build_global_dependency_graphs(&packages_metadata);
+impl BuildGraphs {
+    /// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
+    pub async fn calculate(
+        changesets: &git::Changesets,
+        source_repos: &mut SourceRepoCache,
+    ) -> Result<Self> {
+        tracing::debug!("Calculating packages to be built");
+        let start_time = Instant::now();
 
-    tracing::debug!("Calculating build set graph");
+        let packages_metadata = BuildspaceSourceInfoIndex::build(changesets.clone(), source_repos)
+            .await
+            .wrap_err("Error mapping package names to srcinfo")?;
+        let global_graphs = build_global_dependency_graphs(&packages_metadata);
 
-    let mut packages = HashMap::new();
-    for (architecture, graph) in global_graphs {
-        let packages_to_build = calculate_build_graph_for_architecture(
-            changesets,
-            &graph,
-            architecture,
-            &packages_metadata,
-        )?;
+        tracing::debug!("Calculating build set graph");
 
-        // Skip architectures with empty build graphs
-        if packages_to_build.node_count() > 0 {
-            tracing::debug!(
-                "{architecture:?}: {} build jobs",
-                packages_to_build.node_count()
-            );
+        let mut graphs = HashMap::new();
+        for (architecture, graph) in global_graphs {
+            let packages_to_build = calculate_build_graph_for_architecture(
+                changesets,
+                &graph,
+                architecture,
+                &packages_metadata,
+            )?;
 
-            packages.insert(architecture, packages_to_build);
+            // Skip architectures with empty build graphs
+            if packages_to_build.node_count() > 0 {
+                tracing::debug!(
+                    "{architecture:?}: {} build jobs",
+                    packages_to_build.node_count()
+                );
+
+                graphs.insert(architecture, packages_to_build);
+            }
         }
+
+        let elapsed_time = start_time.elapsed();
+        tracing::debug!(?elapsed_time, "Build set graph calculated");
+
+        Ok(BuildGraphs::new(graphs))
     }
 
-    let elapsed_time = start_time.elapsed();
-    tracing::debug!(?elapsed_time, "Build set graph calculated");
+    /// Return a diff for each architecture, with the graphs in `self` as the new graphs, and the graphs in `old` as the old graphs.
+    #[must_use]
+    pub fn diff(
+        self,
+        old: HashMap<package::KnownArchitecture, Vec<BuildNode>>,
+    ) -> HashMap<package::KnownArchitecture, super::Diff> {
+        diff_architectures(old, self.into_build_nodes())
+    }
 
-    Ok(packages)
+    /// Discard edges and return a vector of only graph node weights for each architecture.
+    /// Used as input to [`Self::diff`].
+    #[must_use]
+    pub fn into_build_nodes(self) -> HashMap<package::KnownArchitecture, Vec<BuildNode>> {
+        self.into_inner()
+            .into_iter()
+            .map(|(arch, graph)| {
+                let only_nodes = graph
+                    .into_nodes_edges()
+                    .0
+                    .into_iter()
+                    .map(|node| node.weight)
+                    .collect();
+
+                (arch, only_nodes)
+            })
+            .collect()
+    }
 }
 
-// Check which dependents are reachable from the given changesets in the given architecture and global dependency graph.
+/// Check which dependents are reachable from the given changesets in the given architecture and global dependency graph.
 fn calculate_build_graph_for_architecture(
     changesets: &git::Changesets,
     global_graph: &GlobalDependencies,
