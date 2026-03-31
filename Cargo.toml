@@ -52,6 +52,7 @@ doc_markdown = "allow"
 # This would be too verbose for application code.
 missing_errors_doc = "allow"
 unnecessary_debug_formatting = "allow"
+implicit_hasher = "allow"
 
 [features]
 sea-orm-debug-print = ["sea-orm/debug-print"]
@@ -60,12 +61,7 @@ sea-orm-debug-print = ["sea-orm/debug-print"]
 alpm-srcinfo = "0.6.3"
 alpm-types = "0.11.2"
 asynk-strim = "0.1.5"
-clap = { version = "4.6.0", features = [
-    "cargo",
-    "derive",
-    "env",
-    "wrap_help",
-] }
+clap = { version = "4.6.0", features = ["cargo", "derive", "env", "wrap_help"] }
 color-eyre = "0.6"
 console-subscriber = "0.5.0"
 datastar = { version = "0.3.1", features = ["axum", "tracing"] }
@@ -130,7 +126,10 @@ axum-extra = { version = "0.12.5", features = [
 uuid = { version = "1.22.0", features = ["v4", "serde"] }
 nutype = { version = "0.6.2", features = ["derive_unsafe", "serde", "regex"] }
 regex = "1.12.3"
-rust-embed = { version = "8.11.0", features = [ "deterministic-timestamps", "include-exclude" ]}
+rust-embed = { version = "8.11.0", features = [
+    "deterministic-timestamps",
+    "include-exclude",
+] }
 openidconnect = { version = "4.0.1", features = [
     "timing-resistant-secret-traits",
 ] }
