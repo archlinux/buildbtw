@@ -59,4 +59,24 @@ pub struct Model {
     pub secret_token: RedactedString,
 }
 
+impl From<ClientType> for api::sessions::ClientType {
+    fn from(value: ClientType) -> Self {
+        match value {
+            ClientType::Web => api::sessions::ClientType::Web,
+            ClientType::Cli => api::sessions::ClientType::Cli,
+        }
+    }
+}
+
+impl From<Model> for api::sessions::Session {
+    fn from(value: Model) -> Self {
+        api::sessions::Session {
+            id: value.id.into(),
+            created_at: value.created_at,
+            last_accessed: value.last_accessed,
+            client_type: value.client_type.into(),
+        }
+    }
+}
+
 impl ActiveModelBehavior for ActiveModel {}

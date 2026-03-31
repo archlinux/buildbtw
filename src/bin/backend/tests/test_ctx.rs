@@ -5,11 +5,17 @@ use buildbtw::authelia;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 use redact::Secret;
+use sea_orm::DatabaseConnection;
 use thirtyfour::CapabilitiesHelper;
 use url::Url;
 
 use crate::{
-    args, db, oidc, router,
+    args, db,
+    entities::{
+        sessions::{self, ClientType},
+        user_roles,
+    },
+    oidc, queries, router,
     server_state::ServerState,
     templates,
     tests::geckodriver::{self, ProcessGuard},
@@ -22,6 +28,7 @@ pub struct TestCtx {
     pub server: TestServer,
     pub base_url: Url,
     pub state: ServerState,
+    pub admin_session: sessions::Model,
 
     /// Not accessed, but stored to keep it from dropping too early
     pub _authelia_container: Option<authelia::Container>,
@@ -94,6 +101,23 @@ impl CookieJarExt for PrivateCookieJar {
 
         Ok(cookies)
     }
+}
+
+/// Create a new user, directly accessing the database, removing the need for an existing login
+/// token.
+pub async fn make_admin_session(db: DatabaseConnection) -> Result<sessions::Model> {
+    let create_user = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+        oidc_id: "OIDC_ID".to_string(),
+        username: "admin".to_string(),
+    })?;
+    let user = queries::users::upsert(create_user, None)
+        .exec_with_returning(&db)
+        .await?;
+    queries::user_roles::set(&db, user.id, vec![user_roles::Role::Admin]).await?;
+    let session = queries::sessions::insert(user.id.into(), ClientType::Cli)
+        .exec_with_returning(&db)
+        .await?;
+    Ok(session)
 }
 
 /// Builder for configuring TestCtx with various optional components
@@ -216,10 +240,13 @@ impl TestCtxBuilder {
             TestServer::new(router::new("./".into()).with_state(state.clone()))
         };
 
+        let admin_session = make_admin_session(db).await.unwrap();
+
         TestCtx {
             server,
             base_url,
             state,
+            admin_session,
             _authelia_container: maybe_authelia_container,
             _geckodriver: geckodriver,
             thirtyfour_client,

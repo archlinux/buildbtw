@@ -6,9 +6,11 @@ use axum_extra::routing::RouterExt;
 use crate::server_state::ServerState;
 
 mod builds;
+mod users;
 
 pub fn router() -> Router<ServerState> {
     Router::new()
         .typed_get(builds::list)
         .typed_post(builds::upload_package)
+        .typed_get(users::user)
 }

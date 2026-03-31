@@ -1,10 +1,15 @@
 use axum::{
+    RequestPartsExt,
     extract::{FromRequestParts, OptionalFromRequestParts},
     http::request::Parts,
 };
-use axum_extra::extract::{
-    PrivateCookieJar,
-    cookie::{Cookie, SameSite},
+use axum_extra::{
+    TypedHeader,
+    extract::{
+        PrivateCookieJar,
+        cookie::{Cookie, SameSite},
+    },
+    headers::{Authorization, authorization::Bearer},
 };
 use color_eyre::eyre::{Context, ContextCompat};
 use sea_orm::{IntoActiveModel, ModelTrait};
@@ -71,15 +76,32 @@ impl FromRequestParts<ServerState> for AuthUser {
         parts: &mut Parts,
         state: &ServerState,
     ) -> Result<Self, Self::Rejection> {
+        let db::Tx(tx) = db::Tx::from_request_parts(parts, state).await?;
+
+        // First, we'll try to get a session secret token from the cookie.
+        // This is the expected case for an interactive browser session.
         let cookie_jar: PrivateCookieJar = PrivateCookieJar::from_request_parts(parts, state)
             .await
             .wrap_err("Failed to extract cookie jar")?;
-        let db::Tx(tx) = db::Tx::from_request_parts(parts, state).await?;
-        let Some(cookie) = cookie_jar.get(SESSION_SECRET_TOKEN_COOKIE_NAME) else {
-            // Missing session cookie
+        let secret_token_from_cookie = cookie_jar.get(SESSION_SECRET_TOKEN_COOKIE_NAME);
+
+        // Next, we'll attempt to get it from the authorization header as a bearer token.
+        // This would be the case if the user is a CLI.
+        let secret_token_from_header = if let Ok(TypedHeader(Authorization(bearer))) =
+            parts.extract::<TypedHeader<Authorization<Bearer>>>().await
+        {
+            Some(bearer)
+        } else {
+            None
+        };
+
+        let secret_token = if let Some(secret_token_from_cookie) = secret_token_from_cookie {
+            RedactedString::from(secret_token_from_cookie.value().to_string())
+        } else if let Some(secret_token_from_header) = secret_token_from_header {
+            RedactedString::from(secret_token_from_header.token().to_string())
+        } else {
             return Err(ResponseError::NotAuthenticated);
         };
-        let secret_token = RedactedString::from(cookie.value().to_string());
 
         let session_with_user = queries::sessions::by_secret_token(secret_token)
             .find_also_related(entities::users::Entity)
