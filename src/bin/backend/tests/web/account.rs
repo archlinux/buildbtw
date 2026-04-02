@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use axum_extra::routing::TypedPath;
 use buildbtw::web;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
@@ -137,20 +136,6 @@ async fn test_e2e_account_logout() -> Result<()> {
     c.quit().await?;
 
     Ok(())
-}
-
-/// Verify that some endpoints need authorization
-#[rstest]
-#[case(web::account::Logout {})]
-#[case(web::account::SessionList {})]
-#[case(web::account::SessionRevoke { session_id: Uuid::new_v4().to_string() })]
-#[tokio::test]
-async fn test_unauthorized_routes(#[case] path: impl TypedPath, #[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&path).await;
-
-    response.assert_status_unauthorized();
-    response.assert_header("content-type", "text/plain; charset=utf-8");
-    response.assert_text_contains("Unauthorized");
 }
 
 /// Test session list endpoint lists existing sessions

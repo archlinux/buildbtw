@@ -62,6 +62,9 @@ impl OptionalFromRequestParts<ServerState> for AuthUser {
 
 /// Extractor for enforcing authentication on protected endpoints.
 ///
+/// It first checks a session cookie and then the authorization header.
+/// If neither can be found, returns [`NotAuthenticated`].
+///
 /// This implementation ensures that a valid authenticated user exists
 /// before the request handler is executed. If the user is not authenticated,
 /// the request is rejected with an appropriate error response.
