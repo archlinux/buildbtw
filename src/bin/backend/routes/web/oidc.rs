@@ -84,7 +84,7 @@ pub async fn authorized(
 
     tx.commit().await?;
 
-    let cookie_jar = from_request::sessions::save_in_cookie_jar(&session.secret_token, cookie_jar);
+    let cookie_jar = from_request::auth_user::save_in_cookie_jar(&session.secret_token, cookie_jar);
 
     Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))
 }

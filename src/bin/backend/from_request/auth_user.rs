@@ -86,7 +86,7 @@ impl FromRequestParts<ServerState> for AuthUser {
         let secret_token_from_cookie = cookie_jar.get(SESSION_SECRET_TOKEN_COOKIE_NAME);
 
         // Next, we'll attempt to get it from the authorization header as a bearer token.
-        // This would be the case if the user is a CLI.
+        // This would be the case if the client is a CLI.
         let secret_token_from_header = if let Ok(TypedHeader(Authorization(bearer))) =
             parts.extract::<TypedHeader<Authorization<Bearer>>>().await
         {
