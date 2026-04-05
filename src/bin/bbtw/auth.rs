@@ -86,7 +86,6 @@ async fn get_user_from_auth_token(
 }
 
 #[instrument]
-#[expect(clippy::print_stdout)]
 pub async fn login(server_url: &Url) -> Result<()> {
     if let Some(auth_token) = auth_token().await? {
         eprintln!(
@@ -153,7 +152,6 @@ pub async fn login(server_url: &Url) -> Result<()> {
 }
 
 #[instrument]
-#[expect(clippy::print_stdout)]
 pub async fn status(server_url: &Url) -> Result<()> {
     if let Some(auth_token) = auth_token().await? {
         // We'll verify that we're actually logged in properly and that the session is valid.

@@ -25,7 +25,6 @@ use crate::args::{Args, Command};
 async fn main() -> ExitCode {
     let args = Args::parse();
 
-    #[allow(clippy::print_stderr)]
     if let Err(error) = execute(args.clone()).await {
         eprintln!("{error:?}");
         // Always fail with GitLab runner provided exit code

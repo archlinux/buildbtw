@@ -35,7 +35,6 @@ impl BuildConfig {
 /// The Config stage which defines configuration for the build environment in JSON.
 ///
 /// <https://docs.gitlab.com/runner/executors/custom/#config>
-#[expect(clippy::print_stdout)]
 pub fn config(args: &ConfigArgs) -> Result<()> {
     let build_config = BuildConfig::from_args(args);
     let json =

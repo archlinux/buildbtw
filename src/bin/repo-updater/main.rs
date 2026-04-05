@@ -30,7 +30,6 @@ async fn main() -> Result<()> {
         external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", args.gitlab_token_path.as_deref())?;
 
     match args.command {
-        #[expect(clippy::print_stdout)]
         Command::PrintChanged(print_args) => {
             let client = gitlab::GitlabBuilder::new(
                 args.gitlab_domain
