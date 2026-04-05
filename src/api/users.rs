@@ -19,6 +19,7 @@ pub struct AuthenticatedUser {}
 pub enum Role {
     /// Most used role, for dispatching and releasing builds.
     PackageMaintainer,
+
     /// Can do everything.
     Admin,
 }
@@ -26,18 +27,9 @@ pub enum Role {
 /// A buildbtw user
 #[derive(Serialize, Deserialize, Debug)]
 pub struct User {
-    /// Unique user id
     pub id: Uuid,
-
-    /// User creation date
     pub created_at: time::OffsetDateTime,
-
-    /// Username
     pub username: String,
-
-    /// List of active sessions
     pub sessions: Vec<Session>,
-
-    /// List of effective user roles
     pub user_roles: Vec<Role>,
 }

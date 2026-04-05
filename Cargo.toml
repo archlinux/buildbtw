@@ -28,7 +28,6 @@ lto = true
 # "forbid" cannot be overridden, e.g. with an inline comment.
 [lints.rust]
 unsafe_code = "forbid"
-missing_docs = "warn"
 missing_debug_implementations = "warn"
 single_use_lifetimes = "warn"
 trivial_casts = "warn"

@@ -10,6 +10,7 @@ use uuid::Uuid;
 pub enum ClientType {
     /// Session created via browser with OIDC login
     Web,
+
     /// Session created via CLI
     Cli,
 }
@@ -17,15 +18,8 @@ pub enum ClientType {
 /// A user session
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Session {
-    /// Unique session id
     pub id: Uuid,
-
-    /// Session creation date
     pub created_at: time::OffsetDateTime,
-
-    /// When the session was last used
     pub last_accessed: time::OffsetDateTime,
-
-    /// Type of session
     pub client_type: ClientType,
 }
