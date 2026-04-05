@@ -14,11 +14,17 @@ use color_eyre::Result;
 mod args;
 mod auth;
 
+#[cfg(test)]
+mod tests;
+
 use crate::args::Args;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+
+    color_eyre::install()?;
+    buildbtw::tracing::init(args.verbose, false)?;
 
     #[allow(clippy::todo)]
     match args.command {

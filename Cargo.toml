@@ -144,6 +144,7 @@ derive_more = { version = "2.1.1", features = [
 git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
 tempfile = "3.27.0"
+colored = "3.1.1"
 
 [dev-dependencies]
 axum-test = { version = "19.1.1", features = ["typed-routing"] }
