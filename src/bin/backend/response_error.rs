@@ -3,7 +3,7 @@
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
 use thiserror::Error;
-use tracing::error;
+use tracing::debug;
 
 /// Result type for HTTP responses that can return a `ResponseError`.
 pub type ResponseResult<T> = Result<T, ResponseError>;
@@ -51,8 +51,7 @@ pub enum ResponseError {
 impl IntoResponse for ResponseError {
     /// Converts the error into an HTTP response with appropriate status code.
     fn into_response(self) -> Response {
-        // Log the full error details using the debug trait
-        error!("{self:?}");
+        debug!("{self:?}");
         let status = match self {
             ResponseError::Eyre(_)
             | ResponseError::DbError(_)
