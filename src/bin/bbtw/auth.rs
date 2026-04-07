@@ -4,10 +4,7 @@ use std::path::PathBuf;
 use buildbtw::api::users::User;
 use buildbtw::xdg_dirs;
 use color_eyre::eyre::Context;
-use color_eyre::{
-    Result,
-    eyre::{ContextCompat, eyre},
-};
+use color_eyre::{Result, eyre::ContextCompat};
 use colored::Colorize;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -102,8 +99,10 @@ pub async fn login(server_url: &Url) -> Result<()> {
     let cli_session_url =
         server_url.join(&buildbtw::web::account::CliSessionLanding {}.to_string())?;
 
-    println!("In order to login, open this URL in your browser:");
+    let _ = webbrowser::open(cli_session_url.as_str());
+    println!("Continue the login in your browser. Opening your browser to");
     println!("{}", cli_session_url.to_string().bold());
+    println!("If your browser didn't open automatically, manually navigate to the URL above.");
     println!("\nYou'll need to log in first via OIDC if you haven't already.");
     println!("Then click 'Create CLI Session' and copy the generated token.\n");
 
