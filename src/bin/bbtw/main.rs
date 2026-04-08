@@ -12,12 +12,19 @@ use clap::Parser;
 use color_eyre::Result;
 
 mod args;
+mod auth;
+
+#[cfg(test)]
+mod tests;
 
 use crate::args::Args;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+
+    buildbtw::error_handler::init(args.verbose)?;
+    buildbtw::tracing::init(args.verbose, false)?;
 
     #[allow(clippy::todo)]
     match args.command {
@@ -27,6 +34,6 @@ async fn main() -> Result<()> {
         args::Command::List { all: _ } => todo!(),
         args::Command::Retry { name: _ } => todo!(),
         args::Command::Show { name: _ } => todo!(),
-        args::Command::Auth(_auth_command) => todo!(),
+        args::Command::Auth(auth_command) => auth::auth(auth_command, &args.server_url).await,
     }
 }

@@ -21,7 +21,7 @@ use tokio::{
     signal,
 };
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::{args::Args, server_state::ServerState};
 
@@ -48,9 +48,8 @@ mod tests;
 async fn main() -> Result<()> {
     let args = Args::parse();
 
+    buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
-
-    debug!("Configuration: {args:#?}");
 
     match args.command {
         args::Command::Run(run_args) => {

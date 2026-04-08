@@ -4,14 +4,15 @@ use sea_orm::{ColumnTrait, QueryFilter, ValidatedDeleteOne};
 use uuid::Uuid;
 
 use crate::db_fields::{RedactedString, TxtUuid};
-use crate::entities::sessions;
+use crate::entities::sessions::{self, ClientType};
 
-pub fn insert(user_id: Uuid) -> Insert<sessions::ActiveModel> {
+pub fn insert(user_id: Uuid, client_type: ClientType) -> Insert<sessions::ActiveModel> {
     let model = sessions::ActiveModel {
         id: Set(Uuid::new_v4().into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
         user_id: Set(user_id.into()),
         last_accessed: Set(time::OffsetDateTime::now_utc()),
+        client_type: Set(client_type),
         secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
     };
 

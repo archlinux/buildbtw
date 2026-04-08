@@ -1,8 +1,21 @@
+use buildbtw::api;
+use derive_more::Display;
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
+use strum::EnumString;
 
 use crate::db_fields::{RedactedString, TxtUuid};
 use crate::entities::users;
+
+/// What client the session was created from, either browser or CLI
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Display, EnumString, DeriveValueType, Serialize)]
+#[sea_orm(value_type = "String")]
+pub enum ClientType {
+    /// Session created via browser with OIDC login
+    Web,
+    /// Session created via CLI
+    Cli,
+}
 
 /// Represents an active authenticated session in the application.
 ///
@@ -31,6 +44,9 @@ pub struct Model {
     /// Date-time of the most recent access using this session
     pub last_accessed: time::OffsetDateTime,
 
+    /// The client type that created this session
+    pub client_type: ClientType,
+
     #[sea_orm(belongs_to, from = "user_id", to = "id")]
     pub user: HasOne<users::Entity>,
 
@@ -41,6 +57,26 @@ pub struct Model {
     #[serde(skip_serializing)]
     #[sea_orm(unique_key = "secret_token")]
     pub secret_token: RedactedString,
+}
+
+impl From<ClientType> for api::sessions::ClientType {
+    fn from(value: ClientType) -> Self {
+        match value {
+            ClientType::Web => api::sessions::ClientType::Web,
+            ClientType::Cli => api::sessions::ClientType::Cli,
+        }
+    }
+}
+
+impl From<Model> for api::sessions::Session {
+    fn from(value: Model) -> Self {
+        api::sessions::Session {
+            id: value.id.into(),
+            created_at: value.created_at,
+            last_accessed: value.last_accessed,
+            client_type: value.client_type.into(),
+        }
+    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

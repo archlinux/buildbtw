@@ -3,6 +3,7 @@
 pub mod api;
 pub mod authelia;
 pub mod dependency_graph;
+pub mod error_handler;
 pub mod external_secrets;
 pub mod git;
 pub mod gitlab;

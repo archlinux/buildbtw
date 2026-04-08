@@ -1,3 +1,4 @@
+use buildbtw::api;
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 use strum::{Display, EnumString};
@@ -5,6 +6,9 @@ use strum::{Display, EnumString};
 use crate::db_fields::TxtUuid;
 use crate::entities::users;
 
+/// The specific role a user has.
+///
+/// It gives the user different permissions.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Display, EnumString, DeriveValueType, Serialize)]
 #[sea_orm(value_type = "String")]
 pub enum Role {
@@ -12,6 +16,15 @@ pub enum Role {
     PackageMaintainer,
     /// Can do everything.
     Admin,
+}
+
+impl From<Role> for api::users::Role {
+    fn from(value: Role) -> Self {
+        match value {
+            Role::PackageMaintainer => api::users::Role::PackageMaintainer,
+            Role::Admin => api::users::Role::Admin,
+        }
+    }
 }
 
 /// User roles join table.

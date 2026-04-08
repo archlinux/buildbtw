@@ -59,6 +59,7 @@ async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) ->
             created_at: Set(OffsetDateTime::now_utc()),
             user_id: Set(user_id),
             last_accessed: Set(OffsetDateTime::now_utc()),
+            client_type: Set(sessions::ClientType::Web),
             secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
         };
         sessions::Entity::insert(session)
@@ -108,6 +109,7 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
             created_at: Set(OffsetDateTime::now_utc()),
             user_id: Set(user1_id),
             last_accessed: Set(OffsetDateTime::now_utc()),
+            client_type: Set(sessions::ClientType::Web),
             secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
         };
         sessions::Entity::insert(session)
@@ -123,6 +125,7 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
             created_at: Set(OffsetDateTime::now_utc()),
             user_id: Set(user2_id),
             last_accessed: Set(OffsetDateTime::now_utc()),
+            client_type: Set(sessions::ClientType::Web),
             secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
         };
         sessions::Entity::insert(session)

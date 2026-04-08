@@ -9,12 +9,19 @@
   </ul>
 </nav>
 
-<h1 class="title">Sessions</h1>
+<div class="is-flex is-justify-content-space-between is-align-items-center mr-4">
+  <h1 class="title">Sessions</h1>
+
+  <a href="{{ cli_session_url }}" class="button is-primary">
+    <i class="fas fa-terminal"></i> Create new bbtw session
+  </a>
+</div>
 
 <table class="table is-striped">
   <thead>
     <tr>
       <th>Session</th>
+      <th>Created From</th>
       <th>Last Accessed</th>
       <th>Action</th>
     </tr>
@@ -27,6 +34,9 @@
       <th>
         {{ session.id }}
       </th>
+      <td>
+        {{ session.client_type }}
+      </td>
       <td>
         {{ session.last_accessed | datetime }}
       </td>

@@ -7,7 +7,10 @@ use uuid::Uuid;
 
 use crate::{
     db_fields::{RedactedString, TxtUuid},
-    entities::{sessions, users},
+    entities::{
+        sessions::{self, ClientType},
+        users,
+    },
     queries,
     tasks::invalidate_old_sessions,
     tests::test_ctx::{TestCtx, ctx},
@@ -34,6 +37,7 @@ async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()>
         created_at: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
         user_id: Set(user_id),
         last_accessed: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
+        client_type: Set(ClientType::Web),
         secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
     };
     sessions::Entity::insert(session)
@@ -74,6 +78,7 @@ async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCt
         created_at: Set(OffsetDateTime::now_utc()),
         user_id: Set(user_id),
         last_accessed: Set(OffsetDateTime::now_utc() - Duration::weeks(2)),
+        client_type: Set(ClientType::Web),
         secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
     };
     sessions::Entity::insert(session)

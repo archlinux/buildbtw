@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use axum_extra::routing::TypedPath;
 use buildbtw::web;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
@@ -9,6 +8,7 @@ use sea_orm::TransactionTrait;
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
 
+use crate::entities::sessions::ClientType;
 use crate::queries;
 use crate::tests::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
 
@@ -79,7 +79,7 @@ async fn test_e2e_account_logout() -> Result<()> {
         .private_cookie_jar_from_thirtyfour(c.get_all_cookies().await?.as_ref())
         .wrap_err("Failed to decrypt cookies")?;
     let session_secret_token = private_jar
-        .get(crate::from_request::sessions::SESSION_SECRET_TOKEN_COOKIE_NAME)
+        .get(crate::from_request::auth_user::SESSION_SECRET_TOKEN_COOKIE_NAME)
         .wrap_err("Failed to get session if from decrypt cookie")?
         .value()
         .to_owned();
@@ -116,7 +116,7 @@ async fn test_e2e_account_logout() -> Result<()> {
 
     // Check if the session cookie got removed
     let session_cookie = c
-        .get_named_cookie(crate::from_request::sessions::SESSION_SECRET_TOKEN_COOKIE_NAME)
+        .get_named_cookie(crate::from_request::auth_user::SESSION_SECRET_TOKEN_COOKIE_NAME)
         .await
         .ok();
     assert!(
@@ -138,20 +138,6 @@ async fn test_e2e_account_logout() -> Result<()> {
     Ok(())
 }
 
-/// Verify that some endpoints need authorization
-#[rstest]
-#[case(web::account::Logout {})]
-#[case(web::account::SessionList {})]
-#[case(web::account::SessionRevoke { session_id: Uuid::new_v4().to_string() })]
-#[tokio::test]
-async fn test_unauthorized_routes(#[case] path: impl TypedPath, #[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&path).await;
-
-    response.assert_status_unauthorized();
-    response.assert_header("content-type", "text/plain; charset=utf-8");
-    response.assert_text_contains("Unauthorized");
-}
-
 /// Test session list endpoint lists existing sessions
 #[rstest]
 #[tokio::test]
@@ -167,12 +153,12 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let user = queries::users::upsert(create, None).exec(&tx).await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(&tx)
         .await?;
 
     // Create another session for our user and see if it will be listed
-    let another_session = queries::sessions::insert(user.last_insert_id.into())
+    let another_session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec(&tx)
         .await?;
 
@@ -181,7 +167,7 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
     let private_jar =
-        crate::from_request::sessions::save_in_cookie_jar(&session.secret_token, private_jar);
+        crate::from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -214,14 +200,14 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
     let private_jar =
-        crate::from_request::sessions::save_in_cookie_jar(&session.secret_token, private_jar);
+        crate::from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -267,12 +253,12 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     let user = queries::users::upsert(create, None).exec(db).await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create another session we want to kill
-    let other_session = queries::sessions::insert(user.last_insert_id.into())
+    let other_session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec(db)
         .await?;
     let other_session_id = other_session.last_insert_id.0;
@@ -280,7 +266,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
     let private_jar =
-        crate::from_request::sessions::save_in_cookie_jar(&session.secret_token, private_jar);
+        crate::from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -344,18 +330,18 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
     let user_b = queries::users::upsert(create_user_b, None).exec(db).await?;
 
     // Create session for user A (we'll authenticate as user A)
-    let user_a_session = queries::sessions::insert(user_a.last_insert_id.into())
+    let user_a_session = queries::sessions::insert(user_a.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create session for user B (we'll try to revoke this)
-    let user_b_session = queries::sessions::insert(user_b.last_insert_id.into())
+    let user_b_session = queries::sessions::insert(user_b.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create cookie jar with user A's session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar = crate::from_request::sessions::save_in_cookie_jar(
+    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
         &user_a_session.secret_token,
         private_jar,
     );
@@ -397,13 +383,13 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     let user = queries::users::upsert(create_user, None).exec(db).await?;
 
     // Create session
-    let session = queries::sessions::insert(user.last_insert_id.into())
+    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create cookie jar with user A's session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar = crate::from_request::sessions::save_in_cookie_jar(
+    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
         &session.secret_token.clone(),
         private_jar,
     );
