@@ -15,7 +15,6 @@ mod tests;
 
 use clap::Parser;
 use color_eyre::Result;
-use tracing::debug;
 
 use std::process::ExitCode;
 
@@ -39,9 +38,8 @@ async fn main() -> ExitCode {
 /// The execution dispatcher also takes care of setting up the execution environment
 /// like telemetry, error report handler etc.
 async fn execute(args: Args) -> Result<()> {
-    color_eyre::install()?;
+    buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
-    debug!("{args:#?}");
 
     match args.command.clone() {
         Command::Config(config_args) => config::config(&config_args)?,

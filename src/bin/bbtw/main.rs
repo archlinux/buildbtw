@@ -23,7 +23,7 @@ use crate::args::Args;
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    color_eyre::install()?;
+    buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, false)?;
 
     #[allow(clippy::todo)]

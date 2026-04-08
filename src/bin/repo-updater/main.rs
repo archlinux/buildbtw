@@ -10,7 +10,6 @@ use buildbtw::{external_secrets, repo_updater};
 use clap::Parser;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
-use tracing::debug;
 
 use crate::{
     args::{Args, Command},
@@ -23,8 +22,8 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
+    buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
-    debug!("{args:#?}");
 
     let gitlab_token =
         external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", args.gitlab_token_path.as_deref())?;

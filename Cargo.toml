@@ -27,7 +27,7 @@ lto = true
 # but the CI will reject them.
 # "forbid" cannot be overridden, e.g. with an inline comment.
 [lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 missing_debug_implementations = "warn"
 single_use_lifetimes = "warn"
 trivial_casts = "warn"
