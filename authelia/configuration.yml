@@ -3,7 +3,7 @@
 # It's highly insecure and should not be used as a reference for any production usage.
 # Adapted from https://github.com/authelia/authelia/blob/master/examples/compose/local/authelia/configuration.yml
 server:
-  address: "tcp://:9091"
+  address: tcp://:{{ expandenv "${CONTAINER_PORT}" }}
   tls:
     key: "/config/key.pem"
     certificate: "/config/certificate.pem"
@@ -31,7 +31,7 @@ session:
   cookies:
     - name: "authelia_session"
       domain: "buildbtw.localhost" # Should match whatever your root protected domain is
-      authelia_url: "https://authelia.buildbtw.localhost"
+      authelia_url: https://authelia.buildbtw.localhost:{{ expandenv "${CONTAINER_PORT}" }}
       expiration: "1 hour" # 1 hour
       inactivity: "5 minutes" # 5 minutes
 
