@@ -1,7 +1,7 @@
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use axum_test::TestServer;
-use buildbtw::authelia;
+use buildbtw::authelia::{self, AUTHELIA_CONTAINER_PORT};
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 use redact::Secret;
@@ -173,11 +173,16 @@ impl TestCtxBuilder {
                 .expect("Failed to start Authelia container");
             // These values are hardcoded in Authelia's `configuration.yml` and
             // `users_database.yml`.
-            let authelia_port = container.host_port().await.unwrap();
+            let authelia_host_port = container.host_port().await.unwrap();
             let oidc_args = args::Oidc {
                 oidc_client_id: "buildbtw-test".to_string(),
                 oidc_client_secret: Secret::from("insecure_secret"),
-                oidc_issuer_url: format!("https://authelia.buildbtw.localhost:{authelia_port}"),
+                oidc_issuer_url: format!(
+                    "https://authelia.buildbtw.localhost:{AUTHELIA_CONTAINER_PORT}"
+                ),
+                oidc_external_host: Some(format!(
+                    "https://authelia.buildbtw.localhost:{authelia_host_port}",
+                )),
                 oidc_issuer_name: "Authelia Test".to_string(),
                 oidc_admin_groups: Vec::new(),
                 oidc_package_maintainer_groups: Vec::new(),

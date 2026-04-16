@@ -13,6 +13,7 @@
 //! code. If everything is valid, the user is marked as logged in via their
 //! session.
 
+use ::reqwest::header;
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use buildbtw::web;
@@ -75,10 +76,19 @@ impl MaybeConfig {
         let mut reqwest_client_builder =
             reqwest::ClientBuilder::new().redirect(reqwest::redirect::Policy::none());
 
+        let args = args.wrap_err("OIDC configuration is absent or incomplete.")?;
+        let client_id = ClientId::new(args.oidc_client_id);
+        let client_secret = ClientSecret::new(args.oidc_client_secret.expose_secret().clone());
+        dbg!(&args.oidc_external_host);
+        let issuer_url = IssuerUrl::new(args.oidc_issuer_url.to_string())?;
+        dbg!(&issuer_url);
+
         // Since we use self-signed certificates in tests, we need to make the reqwest
         // client accept them.
         #[cfg(any(test, debug_assertions))]
         {
+            use std::str::FromStr;
+
             tracing::info!("Danger: Allowing invalid TLS certs");
             reqwest_client_builder = reqwest_client_builder
                 // .add_root_certificate(todo!())
@@ -87,16 +97,21 @@ impl MaybeConfig {
                 // https://github.com/seanmonstar/reqwest/issues/1260
                 // ಠ╭╮ಠ
                 .danger_accept_invalid_certs(true);
+
+            reqwest_client_builder =
+                reqwest_client_builder.proxy(reqwest::Proxy::all(args.oidc_external_host.unwrap())?)
+
+            // let mut default_host = header::HeaderMap::new();
+            // let host_url = Url::from_str(&args.oidc_issuer_url)?;
+            // let host_value = header::HeaderValue::from_str(host_url.authority())?;
+            // default_host.insert(header::HOST, host_value);
+            // dbg!(&default_host);
+            // reqwest_client_builder = reqwest_client_builder.default_headers(default_host);
         }
+
         let reqwest_client = reqwest_client_builder
             .build()
             .wrap_err("Failed to build reqwest client")?;
-
-        let args = args.wrap_err("OIDC configuration is absent or incomplete.")?;
-        let client_id = ClientId::new(args.oidc_client_id);
-        let client_secret = ClientSecret::new(args.oidc_client_secret.expose_secret().clone());
-        let issuer_url =
-            IssuerUrl::new(args.oidc_issuer_url).wrap_err("failed to parse issuer URL")?;
 
         // Query the provider for metadata
         let provider_metadata = CoreProviderMetadata::discover_async(issuer_url, &reqwest_client)

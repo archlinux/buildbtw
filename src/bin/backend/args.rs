@@ -170,6 +170,12 @@ pub struct Oidc {
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_URL", required = false)]
     pub oidc_issuer_url: String,
 
+    /// Externally reachable host for the OIDC provider.
+    ///
+    /// This is usally the same as `oidc_issuer_url` but might differ in case of reverse proxy
+    /// setups and such.
+    pub oidc_external_host: Option<String>,
+
     /// This will be displayed on the login page.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_NAME", required = false)]
     pub oidc_issuer_name: String,
@@ -216,9 +222,9 @@ pub struct AutheliaContainer {
     #[arg(long, env = "BUILDBTW_RUN_AUTHELIA_CONTAINER")]
     pub run_authelia_container: bool,
 
-    /// Port the Authelia container should listen on.
-    #[arg(long, env = "BUILDBTW_AUTHELIA_CONTAINER_PORT")]
-    pub authelia_container_port: u32,
+    /// Port on the host the Authelia container should listen on.
+    #[arg(long, env = "BUILDBTW_AUTHELIA_CONTAINER_HOST_PORT")]
+    pub authelia_container_host_port: u16,
 }
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP
@@ -308,7 +314,7 @@ mod tests {
             "--oidc-issuer-name",
             "Test OIDC Provider",
             "--run-authelia-container",
-            "--authelia-container-port",
+            "--authelia-container-host-port",
             "9091",
         ];
 
@@ -346,7 +352,7 @@ mod tests {
         assert_eq!(oidc.oidc_issuer_name, "Test OIDC Provider");
 
         assert!(authelia_container.run_authelia_container);
-        assert_eq!(authelia_container.authelia_container_port, 9091);
+        assert_eq!(authelia_container.authelia_container_host_port, 9091);
 
         Ok(())
     }

@@ -12,13 +12,15 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 
 const AUTHELIA_IMAGE_URL: &str = "ghcr.io/authelia/authelia:4";
+pub const AUTHELIA_CONTAINER_PORT: u16 = 9091;
 
 /// Container wrapper for Authelia
 #[derive(Debug)]
 pub struct Container {
     /// Container process handle for cleanup
     process: Child,
-    /// Container name for port querying
+
+    /// Container name for host port querying
     name: String,
 }
 
@@ -29,10 +31,10 @@ impl Container {
     /// ./authelia/db, ensuring persistence across container restarts.
     ///
     /// # Arguments
-    /// * `port` - Specific host port to expose Authelia on. If `None`, expose on a random port.
+    /// * `host_port` - Specific host port to expose Authelia on. If `None`, expose on a random port.
     /// * `persist_between_runs` - Whether to mount the state dir to a location outside the container
     #[allow(clippy::too_many_lines)]
-    pub async fn new(port: Option<u32>, persist_between_runs: bool) -> Result<Self> {
+    pub async fn new(host_port: Option<u16>, persist_between_runs: bool) -> Result<Self> {
         setup_certificates()?;
 
         let test_containers_path =
@@ -41,8 +43,8 @@ impl Container {
         // Generate a unique container name for referencing it later on
         let container_name = format!("authelia-test-{}", uuid::Uuid::new_v4().simple());
 
-        let port_arg = match port {
-            Some(host_port) => format!("9091:{host_port}"),
+        let port_arg = match host_port {
+            Some(host_port) => format!("{host_port}:9091"),
             None => "9091".to_string(),
         };
 
@@ -66,6 +68,10 @@ impl Container {
             &container_name,
             "-p",
             &port_arg,
+            "-e",
+            "X_AUTHELIA_CONFIG_FILTERS=template",
+            "-e",
+            &format!("CONTAINER_PORT={AUTHELIA_CONTAINER_PORT}"),
             "-v",
             &format!(
                 "{}:/config/configuration.yml:ro",

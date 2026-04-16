@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
             #[cfg(debug_assertions)]
             let maybe_authelia_container = if run_args.authelia_container.run_authelia_container {
                 let authelia = buildbtw::authelia::Container::new(
-                    Some(run_args.authelia_container.authelia_container_port),
+                    Some(run_args.authelia_container.authelia_container_host_port),
                     true,
                 )
                 .await;
