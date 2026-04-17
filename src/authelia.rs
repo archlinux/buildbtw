@@ -8,6 +8,7 @@ use std::time::Duration;
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{self, Context, OptionExt, bail};
 use color_eyre::{Result, eyre::eyre};
+use port_check::is_local_ipv4_port_free;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 
@@ -47,8 +48,6 @@ impl Container {
         // Generate a unique container name for referencing it later on
         let container_name = format!("authelia-test-{}", uuid::Uuid::new_v4().simple());
 
-        let actual_port = port.unwrap_or(9091);
-
         // Pull the container before starting it so we can use a shorter timeout for the
         // `podman run` command below
         tokio::time::timeout(Duration::from_mins(1), async {
@@ -59,6 +58,28 @@ impl Container {
             Result::<(), eyre::Report>::Ok(())
         })
         .await??;
+
+        // This whole block makes sure we don't double-allocate ports from multiple tests at the
+        // same time.
+        let (actual_port, _startup_lock) = if let Some(p) = port {
+            (p, None)
+        } else {
+            let mut port_candidate = 32000;
+            loop {
+                if is_local_ipv4_port_free(port_candidate) {
+                    // We'll make the port part of the lock so that we can quickly find an unused port.
+                    let lock_name = format!("buildbtw-authelia-startup-{port_candidate}");
+                    if let Ok(guard) = tokio::task::spawn_blocking(move || {
+                        named_lock::NamedLock::create(&lock_name)?.try_lock()
+                    })
+                    .await?
+                    {
+                        break (port_candidate, Some(guard));
+                    }
+                }
+                port_candidate += 1;
+            }
+        };
 
         // Start the authelia container
         let mut command = tokio::process::Command::new("podman");
