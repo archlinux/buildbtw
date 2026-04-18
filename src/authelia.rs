@@ -3,11 +3,12 @@
 //! This module provides utilities for managing Authelia containers in tests
 //! and other applications that need to spin up Authelia instances.
 
-use std::{net::SocketAddr, time::Duration};
+use std::time::Duration;
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{self, Context, OptionExt, bail};
 use color_eyre::{Result, eyre::eyre};
+use port_check::is_local_ipv4_port_free;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 
@@ -18,8 +19,14 @@ const AUTHELIA_IMAGE_URL: &str = "ghcr.io/authelia/authelia:4";
 pub struct Container {
     /// Container process handle for cleanup
     process: Child,
-    /// Container name for port querying
+
+    /// Container name
     name: String,
+
+    /// Shared container and host port
+    ///
+    /// The host port and container port have to match due to authelia security constraints.
+    pub port: u16,
 }
 
 impl Container {
@@ -32,7 +39,7 @@ impl Container {
     /// * `port` - Specific host port to expose Authelia on. If `None`, expose on a random port.
     /// * `persist_between_runs` - Whether to mount the state dir to a location outside the container
     #[allow(clippy::too_many_lines)]
-    pub async fn new(port: Option<u32>, persist_between_runs: bool) -> Result<Self> {
+    pub async fn new(port: Option<u16>, persist_between_runs: bool) -> Result<Self> {
         setup_certificates()?;
 
         let test_containers_path =
@@ -40,11 +47,6 @@ impl Container {
 
         // Generate a unique container name for referencing it later on
         let container_name = format!("authelia-test-{}", uuid::Uuid::new_v4().simple());
-
-        let port_arg = match port {
-            Some(host_port) => format!("9091:{host_port}"),
-            None => "9091".to_string(),
-        };
 
         // Pull the container before starting it so we can use a shorter timeout for the
         // `podman run` command below
@@ -57,6 +59,28 @@ impl Container {
         })
         .await??;
 
+        // This whole block makes sure we don't double-allocate ports from multiple tests at the
+        // same time.
+        let (actual_port, _startup_lock) = if let Some(p) = port {
+            (p, None)
+        } else {
+            let mut port_candidate = 32000;
+            loop {
+                if is_local_ipv4_port_free(port_candidate) {
+                    // We'll make the port part of the lock so that we can quickly find an unused port.
+                    let lock_name = format!("buildbtw-authelia-startup-{port_candidate}");
+                    if let Ok(guard) = tokio::task::spawn_blocking(move || {
+                        named_lock::NamedLock::create(&lock_name)?.try_lock()
+                    })
+                    .await?
+                    {
+                        break (port_candidate, Some(guard));
+                    }
+                }
+                port_candidate += 1;
+            }
+        };
+
         // Start the authelia container
         let mut command = tokio::process::Command::new("podman");
         command.args([
@@ -65,7 +89,11 @@ impl Container {
             "--name",
             &container_name,
             "-p",
-            &port_arg,
+            &format!("{actual_port}:{actual_port}"),
+            "-e",
+            "X_AUTHELIA_CONFIG_FILTERS=template",
+            "-e",
+            &format!("CONTAINER_PORT={actual_port}"),
             "-v",
             &format!(
                 "{}:/config/configuration.yml:ro",
@@ -130,6 +158,7 @@ impl Container {
         let mut container = Container {
             process: child,
             name: container_name,
+            port: actual_port,
         };
 
         tokio::spawn(async move {
@@ -154,18 +183,9 @@ impl Container {
                 }
             }
 
-            // Wait for the container to listen on port 9091
-            loop {
-                // Check if process exited with an error
-                if let Ok(Some(status)) = container.process.try_wait() {
-                    bail!("Authelia container exited with status {status}");
-                }
-
-                if container.host_port().await.is_ok() {
-                    break;
-                }
-
-                tokio::time::sleep(Duration::from_millis(500)).await;
+            // Check if process exited with an error
+            if let Ok(Some(status)) = container.process.try_wait() {
+                bail!("Authelia container exited with status {status}");
             }
 
             Ok::<_, eyre::Report>(())
@@ -186,35 +206,6 @@ impl Container {
         );
 
         Ok(container)
-    }
-
-    /// Get the host port that Authelia is exposed on - queries podman for
-    /// actual host port
-    pub async fn host_port(&self) -> Result<u16> {
-        let output = tokio::process::Command::new("podman")
-            .args(["port", &self.name, "9091/tcp"])
-            .output()
-            .await
-            .map_err(|e| eyre!("Failed to run podman port: {e}"))?;
-
-        if !output.status.success() {
-            bail!(
-                "podman port failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-
-        let port_output = String::from_utf8_lossy(&output.stdout);
-        let port_str = port_output.trim();
-
-        // Parse output like "0.0.0.0:58473" or "127.0.0.1:58473"
-        let socket_addr = port_str
-            .parse::<SocketAddr>()
-            .map_err(|e| eyre!("Failed to parse socket address '{}': {}", port_str, e))?;
-
-        let host_port = socket_addr.port();
-
-        Ok(host_port)
     }
 }
 

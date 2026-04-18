@@ -173,7 +173,7 @@ impl TestCtxBuilder {
                 .expect("Failed to start Authelia container");
             // These values are hardcoded in Authelia's `configuration.yml` and
             // `users_database.yml`.
-            let authelia_port = container.host_port().await.unwrap();
+            let authelia_port = container.port;
             let oidc_args = args::Oidc {
                 oidc_client_id: "buildbtw-test".to_string(),
                 oidc_client_secret: Secret::from("insecure_secret"),

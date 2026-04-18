@@ -218,7 +218,7 @@ pub struct AutheliaContainer {
 
     /// Port the Authelia container should listen on.
     #[arg(long, env = "BUILDBTW_AUTHELIA_CONTAINER_PORT")]
-    pub authelia_container_port: u32,
+    pub authelia_container_port: u16,
 }
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP
