@@ -1,19 +1,17 @@
 mod diff;
 
-use camino::Utf8PathBuf;
 use color_eyre::Result;
 use tracing::debug;
 
 use crate::{
     dependency_graph::{self, BuildGraphs},
-    git,
+    git, storage,
 };
 
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
 async fn test_create_source_repo_cache() -> Result<()> {
-    let source_repo_dir =
-        Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
+    let source_repo_dir = storage::package_source_repos_dir()?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let mut count = 0;
     for (_dir, repo) in source_repos.all_repos_mut() {
@@ -33,8 +31,7 @@ async fn test_create_source_repo_cache() -> Result<()> {
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
 async fn test_build_buildspace_source_info_index() -> Result<()> {
-    let source_repo_dir =
-        Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
+    let source_repo_dir = storage::package_source_repos_dir()?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
         git::Changesets::from(vec![git::Changeset {
@@ -65,8 +62,7 @@ async fn test_build_buildspace_source_info_index() -> Result<()> {
 #[ignore = "Test depends on an external resource and is flaky."]
 async fn test_build_global_dependency_graphs() -> Result<()> {
     // prepare required data
-    let source_repo_dir =
-        Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
+    let source_repo_dir = storage::package_source_repos_dir()?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
         git::Changesets::from(vec![git::Changeset {
@@ -108,9 +104,7 @@ async fn test_build_global_dependency_graphs() -> Result<()> {
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
 async fn test_calculate_build_graphs() -> Result<()> {
-    let source_repo_dir =
-        Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
-
+    let source_repo_dir = storage::package_source_repos_dir()?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
 
     // Test creating a build graph for an arbitrary changeset

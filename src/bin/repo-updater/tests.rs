@@ -1,7 +1,6 @@
-use camino::Utf8PathBuf;
 use color_eyre::Result;
 
-use buildbtw::{external_secrets, repo_updater};
+use buildbtw::{external_secrets, repo_updater, storage};
 use color_eyre::eyre::Context;
 
 use crate::state::State;
@@ -9,8 +8,7 @@ use crate::state::State;
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
 async fn test_update_source_repos() -> Result<()> {
-    let source_repo_dir =
-        Utf8PathBuf::from(std::env::var("BUILDBTW_ARTIFACT_DIR")?).join("source_repos");
+    let source_repo_dir = storage::package_source_repos_dir()?;
 
     let gitlab_domain = url::Url::parse(&std::env::var("BUILDBTW_GITLAB_DOMAIN")?)?;
     let gitlab_packages_group = std::env::var("BUILDBTW_GITLAB_PACKAGES_GROUP")?;

@@ -9,6 +9,7 @@ pub mod git;
 pub mod gitlab;
 pub mod package;
 pub mod repo_updater;
+pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod tracing;
