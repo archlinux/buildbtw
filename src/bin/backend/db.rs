@@ -24,7 +24,14 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
         #[cfg(test)]
         SQLiteLocation::Memory => "sqlite::memory:",
     };
-    let db = Database::connect(db_url).await?;
+
+    let mut connect_opts = sea_orm::ConnectOptions::new(db_url);
+    if cfg!(feature = "sea-orm-debug-print") {
+        // When SeaORM logs SQL statements, disable sqlx logging.
+        connect_opts.sqlx_logging(false);
+    }
+
+    let db = Database::connect(connect_opts).await?;
 
     // See https://www.sqlite.org/pragma.html for more details
     let settings = [
