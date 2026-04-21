@@ -146,3 +146,40 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
 
     Ok(())
 }
+
+/// Test that the `count_by_user_id` function returns the correct value when there are multiple sessions.
+#[rstest]
+#[tokio::test]
+async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create test user
+    let user_id: TxtUuid = Uuid::new_v4().into();
+    let user = users::ActiveModel {
+        id: Set(user_id),
+        created_at: Set(OffsetDateTime::now_utc()),
+        oidc_id: Set("test-oidc-id".to_string()),
+        username: Set("testuser".to_string()),
+        refresh_token: Set(None),
+    };
+    users::Entity::insert(user).exec(&ctx.state.db).await?;
+
+    // Create multiple sessions for the user
+    let session_id: TxtUuid = Uuid::new_v4().into();
+    let session = sessions::ActiveModel {
+        id: Set(session_id),
+        created_at: Set(OffsetDateTime::now_utc()),
+        user_id: Set(user_id),
+        last_accessed: Set(OffsetDateTime::now_utc()),
+        client_type: Set(sessions::ClientType::Web),
+        secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
+    };
+    sessions::Entity::insert(session)
+        .exec(&ctx.state.db)
+        .await?;
+
+    queries::sessions::by_id(session_id.into())
+        .one(&ctx.state.db)
+        .await?
+        .expect("Expected to find a session but found none");
+
+    Ok(())
+}
