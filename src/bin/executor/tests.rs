@@ -95,7 +95,7 @@ arch=(any)
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is heavyweight."]
 #[rstest]
-#[timeout(Duration::from_secs(120))]
+#[timeout(Duration::from_mins(2))]
 async fn test_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Result<()> {
     let test_project_dir = tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
