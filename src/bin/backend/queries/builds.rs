@@ -8,6 +8,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
+    db_fields::TxtUuid,
     entities::{
         build_dependencies,
         builds::{self, PkgnamesFilenames},
@@ -91,6 +92,6 @@ pub fn insert_builds_with_dependencies(
 }
 
 /// Return a query returning a specific build by its unique uuid.
-pub fn by_id(id: Uuid) -> Select<builds::Entity> {
+pub fn by_id(id: TxtUuid) -> Select<builds::Entity> {
     builds::Entity::find_by_id(id)
 }
