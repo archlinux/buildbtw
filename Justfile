@@ -110,12 +110,12 @@ check-dependencies: (ensure-command "cargo-deny")
 [doc("Run tests")]
 [group("test")]
 test *args: (ensure-command "geckodriver")
-    cargo nextest run {{ args }}
+    cargo nextest run --features sea-orm-debug-print {{ args }}
 
 [doc("Run tests that take long to run or might be flaky")]
 [group("test")]
 test-flaky *args:
-    cargo nextest run --run-ignored only {{ args }}
+    cargo nextest run --features sea-orm-debug-print --run-ignored only {{ args }}
 
 [doc("Run tests and auto-rerun on code changes")]
 [group("test")]
