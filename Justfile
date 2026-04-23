@@ -69,6 +69,8 @@ build-release *args:
 [group("build")]
 build-release-container-image:
     podman build -f Containerfile --tag buildbtw
+    # Sanity check to see whether the binary will even launch
+    podman run --rm localhost/buildbtw --version
 
 [doc("Run a sequence of recipes that resemble CI")]
 [group("check")]
