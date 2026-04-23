@@ -3,6 +3,7 @@
 ## Code Style
 
 - Do not use `mod.rs` for naming module names, e.g. instead of `db/mod.rs` name the file `db.rs`.
+- Do not use `uuid::Uuid` directly. We have a wrapper type called `TxtUuid` that we need to use for the time being.
 - Use cargo's "unit" tests only. As long as we don't publish a public library, cargo's "integration" tests don't make sense for our use case.
     - Note that cargo's "unit" tests are **not** unit tests in the sense of classic test methodology. It only means that our tests are included in our application crates, and we can call private functions in our tests. See [this post](https://matklad.github.io/2021/02/27/delete-cargo-integration-tests.html) for more information.
 - "Don't stutter": Prefer names that take the context of the containing modules into account. This reduces import statements and prevents name collisions at the usage site. Don't take this rule as gospel though: sometimes it's more readable to `use` a struct directly, e.g. if it's used all over the place.
