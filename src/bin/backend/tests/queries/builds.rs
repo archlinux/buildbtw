@@ -232,3 +232,39 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
 
     Ok(())
 }
+
+#[rstest]
+#[tokio::test]
+async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    // Setup necessary stuff for satisfying foreign keys
+    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
+
+    // Create build graph with two builds, without edges
+    let mut graph = BuildGraph::new();
+
+    graph.add_node(build_node("foo")?);
+
+    // Insert into DB
+    let (_, insert_builds, _) = queries::builds::insert_builds_with_dependencies(
+        iteration.id.0,
+        buildbtw::package::KnownArchitecture::X86_64,
+        &graph,
+    )?;
+
+    insert_builds.exec(&tx).await?;
+
+    let foo_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("foo"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'foo' in the database");
+
+    queries::builds::by_id(foo_build.id)
+        .one(&tx)
+        .await?
+        .expect("Expected to find build by id but found none");
+
+    Ok(())
+}

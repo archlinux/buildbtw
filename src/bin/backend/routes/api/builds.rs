@@ -24,7 +24,7 @@ pub async fn upload_package(
     db::Tx(tx): db::Tx,
     body: Bytes,
 ) -> ResponseResult<()> {
-    let build = queries::builds::by_id(build_id)
+    let build = queries::builds::by_id(build_id.into())
         .one(&tx)
         .await?
         .ok_or_eyre("Build job not found")?;
