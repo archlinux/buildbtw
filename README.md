@@ -21,8 +21,8 @@ Information on prior art, technical background, feedback from user interviews an
 
 This is covered in great detail in the [infrastructure operations](https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/master/docs/buildbtw.md) but the short of it is:
 
-- `*.buildbtw.dev.archlinux.org` for [review apps](https://docs.gitlab.com/ci/review_apps/) on merge requests (spawned dynamically, one per merge request)
-- `buildbtw.staging.archlinux.org` for staging/pre-production continuous deployment for every passed `main` build (static environment)
+- `*.buildbtw.archlinux.review` for [review apps](https://docs.gitlab.com/ci/review_apps/) on merge requests (spawned dynamically, one per merge request)
+- `buildbtw.archlinux.builders` for staging/pre-production continuous deployment for every passed `main` build (static environment)
 - `buildbtw.archlinux.org` for manual production deployments, controlled by Arch Linux DevOps (static environment)
 
 ## Development

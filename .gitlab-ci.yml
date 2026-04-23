@@ -158,11 +158,11 @@ deploy_review_app:
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
-      https://buildbtw.dev.archlinux.org/hooks/deploy-branch?image-tag=$CI_COMMIT_REF_SLUG
+      https://buildbtw.archlinux.review/hooks/deploy-branch?image-tag=$CI_COMMIT_REF_SLUG
   environment:
     name: review/$CI_COMMIT_REF_SLUG
     auto_stop_in: 2 weeks
-    url: https://$CI_COMMIT_REF_SLUG.buildbtw.dev.archlinux.org
+    url: https://$CI_COMMIT_REF_SLUG.buildbtw.archlinux.review
     on_stop: stop_review_app
 
 stop_review_app:
@@ -175,7 +175,7 @@ stop_review_app:
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
-      https://buildbtw.dev.archlinux.org/hooks/undeploy-branch?image-tag=$CI_COMMIT_REF_SLUG
+      https://buildbtw.archlinux.review/hooks/undeploy-branch?image-tag=$CI_COMMIT_REF_SLUG
   environment:
     name: review/$CI_COMMIT_REF_SLUG
     action: stop
@@ -196,7 +196,7 @@ deploy_staging:
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_STAGING_DEPLOY_TOKEN"
-      https://buildbtw.staging.archlinux.org/hooks/deploy-branch?image-tag=staging
+      https://buildbtw.archlinux.builders/hooks/deploy-branch?image-tag=staging
   environment:
     name: staging
-    url: https://buildbtw.staging.archlinux.org
+    url: https://buildbtw.archlinux.builders
