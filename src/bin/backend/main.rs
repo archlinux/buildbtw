@@ -16,11 +16,7 @@ use color_eyre::{
 };
 use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
-use tokio::{
-    fs::set_permissions,
-    net::{TcpListener, UnixListener},
-    signal,
-};
+use tokio::{fs::set_permissions, net::UnixListener, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -100,8 +96,7 @@ async fn run_server(
         base_url,
         cookie_encryption_key_path,
         web_root,
-        tls_cert,
-        tls_key,
+        tls,
         ..
     }: args::RunArgs,
 ) -> Result<()> {
@@ -124,27 +119,16 @@ async fn run_server(
 
     info!("Server available at: {}", base_url);
 
-    // Load TLS configuration if both cert and key are provided
-    // clap's `requires` ensures both are always set together, so the mixed cases are unreachable
-    let rustls_config = match (tls_cert, tls_key) {
-        (Some(cert_path), Some(key_path)) => {
-            info!(
-                cert = %cert_path,
-                key = %key_path,
-                "Loading TLS configuration"
-            );
-            Some(
-                RustlsConfig::from_pem_file(cert_path, key_path)
-                    .await
-                    .wrap_err("Failed to load TLS certificate and key")?,
-            )
-        }
-        (None, None) => None,
-        _ => unreachable!("clap's `requires` ensures tls_cert and tls_key are always set together"),
+    // Load TLS configuration if both cert and key are provided.
+    let rustls_config = if let Some(args::Tls { tls_cert, tls_key }) = tls {
+        Some(
+            RustlsConfig::from_pem_file(tls_cert, tls_key)
+                .await
+                .wrap_err("Failed to load TLS certificate and key")?,
+        )
+    } else {
+        None
     };
-
-    // axum-server handle for graceful shutdown
-    let axum_handle = Handle::new();
 
     // If we find an externally passed file descriptor socket, we'll use that as a listener instead
     // of any other user arguments. This is mostly useful in development or for systemd socket
@@ -157,15 +141,36 @@ async fn run_server(
             "Found externally passed file descriptor to use as listener, ignoring other listener arguments"
         );
         listener.set_nonblocking(true)?;
-        // When using ListenFd, TLS is already terminated by the reverse proxy,
-        // so we don't need to apply TLS here.
-        axum::serve(TcpListener::from_std(listener)?, router)
-            .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-            .await?;
+        if let Some(rustls_config) = rustls_config {
+            let axum_handle = Handle::new();
+            let shutdown_handle = axum_handle.clone();
+            tokio::spawn(shutdown_gracefully(
+                cancellation_token.clone(),
+                shutdown_handle,
+            ));
+            axum_server::from_tcp_rustls(listener, rustls_config)
+                .wrap_err("Failed to create TLS server from passed listener")?
+                .handle(axum_handle)
+                .serve(router.into_make_service())
+                .await?;
+        } else {
+            let axum_handle = Handle::new();
+            let shutdown_handle = axum_handle.clone();
+            tokio::spawn(shutdown_gracefully(
+                cancellation_token.clone(),
+                shutdown_handle,
+            ));
+            axum_server::from_tcp(listener)
+                .wrap_err("Failed to create server from passed listener")?
+                .handle(axum_handle)
+                .serve(router.into_make_service())
+                .await?;
+        }
     } else {
         match listen {
             args::TcpSocketOrUnixSocket::Tcp(socket_addr) => {
                 if let Some(rustls_config) = rustls_config {
+                    let axum_handle = Handle::new();
                     let shutdown_handle = axum_handle.clone();
                     tokio::spawn(shutdown_gracefully(
                         cancellation_token.clone(),
@@ -176,9 +181,15 @@ async fn run_server(
                         .serve(router.into_make_service())
                         .await?;
                 } else {
-                    let listener = TcpListener::bind(socket_addr).await?;
-                    axum::serve(listener, router)
-                        .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
+                    let axum_handle = Handle::new();
+                    let shutdown_handle = axum_handle.clone();
+                    tokio::spawn(shutdown_gracefully(
+                        cancellation_token.clone(),
+                        shutdown_handle,
+                    ));
+                    axum_server::bind(socket_addr)
+                        .handle(axum_handle)
+                        .serve(router.into_make_service())
                         .await?;
                 }
             }
@@ -199,9 +210,30 @@ async fn run_server(
                 if let Some(permissions) = permissions {
                     set_permissions(socket_addr_path, permissions).await?;
                 }
-                axum::serve(listener, router)
-                    .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-                    .await?;
+                if let Some(rustls_config) = rustls_config {
+                    let axum_handle: Handle<std::os::unix::net::SocketAddr> = Handle::new();
+                    let shutdown_handle = axum_handle.clone();
+                    tokio::spawn(shutdown_gracefully(
+                        cancellation_token.clone(),
+                        shutdown_handle,
+                    ));
+                    axum_server::from_unix_rustls(listener.into_std()?, rustls_config)
+                        .wrap_err("Failed to create TLS server from unix listener")?
+                        .handle(axum_handle)
+                        .serve(router.into_make_service())
+                        .await?;
+                } else {
+                    let axum_handle: Handle<std::os::unix::net::SocketAddr> = Handle::new();
+                    let shutdown_handle = axum_handle.clone();
+                    tokio::spawn(shutdown_gracefully(
+                        cancellation_token.clone(),
+                        shutdown_handle,
+                    ));
+                    axum_server::Server::from_listener(listener)
+                        .handle(axum_handle)
+                        .serve(router.into_make_service())
+                        .await?;
+                }
 
                 // After the server has run, try to clean up the socket file.
                 remove_file_if_exists(socket_addr_path)
@@ -217,7 +249,7 @@ async fn run_server(
 }
 
 /// Wait for the cancellation signal and then trigger graceful shutdown on the axum-server handle.
-async fn shutdown_gracefully(token: CancellationToken, handle: Handle<std::net::SocketAddr>) {
+async fn shutdown_gracefully<A: axum_server::Address>(token: CancellationToken, handle: Handle<A>) {
     shutdown_signal(token).await;
     handle.graceful_shutdown(None);
 }

@@ -69,7 +69,7 @@ pub struct Args {
     pub verbose: u8,
 
     /// The URL to contact the server at.
-    #[arg(long, env, default_value = "http://buildbtw.localhost:8080")]
+    #[arg(long, env, default_value = "https://buildbtw.localhost:8080")]
     pub server_url: Url,
 
     #[command(subcommand)]

@@ -201,7 +201,7 @@ pub struct BuildScriptArgs {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
-    /// In development, by default the buildbtw backend is available at <http://buildbtw.localhost:8080/>
+    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
     #[arg(long, env = "CUSTOM_ENV_API_BASE_URL", requires_all = ["build_id"])]
     pub api_base_url: Option<Url>,
 }
