@@ -201,9 +201,34 @@ impl LoginAttempt {
         Ok(serde_json::from_str(cookie.value())?)
     }
 
-    pub fn save_in_cookie_jar(&self, jar: PrivateCookieJar) -> Result<PrivateCookieJar> {
+    pub fn save_in_cookie_jar(
+        &self,
+        jar: PrivateCookieJar,
+        oidc_config: &Config,
+        oidc_url: &Url,
+    ) -> Result<PrivateCookieJar> {
+        let redirect_domain = second_level_domain(
+            oidc_config
+                .oidc_client
+                .redirect_uri()
+                .ok_or_eyre("no redirect url configured")?
+                .url(),
+        )
+        .ok_or_eyre("redirect url has no second-level domain configured")?;
+        let oidc_domain = second_level_domain(oidc_url)
+            .ok_or_eyre("oidc url has no second-level domain configured")?;
+
+        // Use strict same-site cookies for matching second-level domain sharing a parent.
+        // It is required to set lax in case of diverging domains, otherwise the OIDC cookie
+        // cannot be accessed in a cross-origin redirect flow.
+        let same_site = if redirect_domain == oidc_domain {
+            SameSite::Strict
+        } else {
+            SameSite::Lax
+        };
+
         let mut cookie = Cookie::new(LOGIN_ATTEMPT_COOKIE_NAME, serde_json::to_string(&self)?);
-        cookie.set_same_site(SameSite::Strict);
+        cookie.set_same_site(same_site);
         // TODO: serve the backend using TLS and enable the "Secure" flag
         // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
         // cookie.set_secure(true);
@@ -212,6 +237,15 @@ impl LoginAttempt {
 
         Ok(jar)
     }
+}
+
+/// Extracts up til the second-level domain and discards any subdomains.
+fn second_level_domain(url: &Url) -> Option<String> {
+    let host = url.host_str()?;
+    let mut it = host.rsplitn(3, '.');
+    let tld = it.next()?;
+    let sld = it.next()?;
+    Some(format!("{sld}.{tld}"))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -353,9 +387,12 @@ pub async fn fetch_user_info_with_refresh_token(
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+    use url::Url;
+
     use crate::{
         entities::user_roles::Role,
-        oidc::{GroupClaims, oidc_groups_to_user_roles},
+        oidc::{GroupClaims, oidc_groups_to_user_roles, second_level_domain},
     };
 
     #[test]
@@ -406,5 +443,20 @@ mod tests {
         // Test empty user & admin groups
         let roles = oidc_groups_to_user_roles(&GroupClaims { groups: vec![] }, &[], &[]);
         assert_eq!(roles, Vec::<Role>::new());
+    }
+
+    #[rstest]
+    #[case("https://archlinux.org", Some("archlinux.org"))]
+    #[should_panic(expected = "assertion")]
+    #[case("https://archlinux.co.uk", Some("archlinux.co.uk"))]
+    #[case("https://foo.archlinux.org", Some("archlinux.org"))]
+    #[case("https://foo.bar.archlinux.org", Some("archlinux.org"))]
+    #[case("https://archlinux.org/foo?bar=42", Some("archlinux.org"))]
+    #[case("https://localhost", None)]
+    fn test_second_level_domain(#[case] input: &str, #[case] expected: Option<&str>) {
+        assert_eq!(
+            second_level_domain(&Url::parse(input).unwrap()),
+            expected.map(String::from)
+        );
     }
 }

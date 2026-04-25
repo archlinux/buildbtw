@@ -25,8 +25,9 @@ pub async fn start_login(
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
-    let (url, login_attempt) = oidc::new_login_attempt(server_state.oidc.get_config()?);
-    let cookie_jar = login_attempt.save_in_cookie_jar(cookie_jar)?;
+    let oidc_config = server_state.oidc.get_config()?;
+    let (url, login_attempt) = oidc::new_login_attempt(oidc_config.clone());
+    let cookie_jar = login_attempt.save_in_cookie_jar(cookie_jar, &oidc_config, &url)?;
     Ok((cookie_jar, Redirect::to(url.as_str())))
 }
 
