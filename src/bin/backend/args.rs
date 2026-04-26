@@ -132,6 +132,22 @@ pub struct RunArgs {
     #[arg(long, env = "BUILDBTW_WEB_ROOT", default_value_t = Utf8PathBuf::from(option_env!("BUILDBTW_DEFAULT_WEB_ROOT").unwrap_or("./")))]
     pub web_root: Utf8PathBuf,
 
+    /// Path to the TLS certificate file
+    ///
+    /// Must be provided together with `tls_key`.
+    /// If both are set, the server will use TLS.
+    /// If neither is provided, the server will run without TLS.
+    #[arg(long, env = "BUILDBTW_TLS_CERT", requires = "tls_key")]
+    pub tls_cert: Option<Utf8PathBuf>,
+
+    /// Path to the TLS private key file
+    ///
+    /// Must be provided together with `tls_cert`.
+    /// If both are set, the server will use TLS.
+    /// If neither is provided, the server will run without TLS.
+    #[arg(long, env = "BUILDBTW_TLS_KEY", requires = "tls_cert")]
+    pub tls_key: Option<Utf8PathBuf>,
+
     #[cfg(debug_assertions)]
     #[clap(flatten)]
     pub authelia_container: AutheliaContainer,
@@ -318,6 +334,8 @@ mod tests {
             cookie_encryption_key_path: _,
             authelia_container,
             web_root: _,
+            tls_cert: _,
+            tls_key: _,
         }) = parsed_args.command
         else {
             panic!("Expected Run command");

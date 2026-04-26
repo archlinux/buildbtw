@@ -5,7 +5,6 @@
 
 use std::time::Duration;
 
-use camino::Utf8PathBuf;
 use color_eyre::eyre::{self, Context, OptionExt, bail};
 use color_eyre::{Result, eyre::eyre};
 use port_check::is_local_ipv4_port_free;
@@ -40,11 +39,6 @@ impl Container {
     /// * `persist_between_runs` - Whether to mount the state dir to a location outside the container
     #[allow(clippy::too_many_lines)]
     pub async fn new(port: Option<u16>, persist_between_runs: bool) -> Result<Self> {
-        setup_certificates()?;
-
-        let test_containers_path =
-            Utf8PathBuf::try_from(std::env::current_dir()?.join("authelia"))?;
-
         // Generate a unique container name for referencing it later on
         let container_name = format!("authelia-test-{}", uuid::Uuid::new_v4().simple());
 
@@ -95,33 +89,18 @@ impl Container {
             "-e",
             &format!("CONTAINER_PORT={actual_port}"),
             "-v",
-            &format!(
-                "{}:/config/configuration.yml:ro",
-                test_containers_path.join("configuration.yml")
-            ),
+            "./authelia/configuration.yml:/config/configuration.yml:ro",
             "-v",
-            &format!(
-                "{}:/config/users_database.yml:ro",
-                test_containers_path.join("users_database.yml")
-            ),
+            "./authelia/users_database.yml:/config/users_database.yml:ro",
             "-v",
-            &format!(
-                "{}:/config/certificate.pem:ro",
-                test_containers_path.join("certificate.pem")
-            ),
+            "./cert/buildbtw.cert:/config/buildbtw.cert:ro",
             "-v",
-            &format!(
-                "{}:/config/key.pem:ro",
-                test_containers_path.join("key.pem")
-            ),
+            "./cert/buildbtw.key:/config/buildbtw.key:ro",
         ]);
 
         if persist_between_runs {
             // Persist via local bind mount
-            command.args([
-                "-v",
-                &format!("{}:/config/db", test_containers_path.join("db")),
-            ]);
+            command.args(["-v", "./authelia/db:/config/db"]);
         } else {
             // Anonymous, ephemeral volume
             // This is makes sure that /config/db exists, authelia will fail to start without it
@@ -232,36 +211,4 @@ impl Drop for Container {
             .args(["rm", "-f", &self.name])
             .output();
     }
-}
-
-/// Setup authelia certificates if they don't exist.
-/// This uses `mkcert` under the hood
-fn setup_certificates() -> Result<()> {
-    let test_containers_path = std::env::current_dir()?.join("authelia");
-    let cert_path = test_containers_path.join("certificate.pem");
-    let key_path = test_containers_path.join("key.pem");
-
-    // Check if certificates already exist
-    if cert_path.exists() && key_path.exists() {
-        return Ok(());
-    }
-
-    // Generate certificates using mkcert
-    let output = std::process::Command::new("mkcert")
-        .args([
-            "-cert-file",
-            &cert_path.to_string_lossy(),
-            "-key-file",
-            &key_path.to_string_lossy(),
-            "*.buildbtw.localhost",
-        ])
-        .current_dir(&test_containers_path)
-        .output()
-        .map_err(|e| eyre!("Failed to run mkcert: {e}"))?;
-
-    if !output.status.success() {
-        bail!("mkcert failed: {}", String::from_utf8_lossy(&output.stderr));
-    }
-
-    Ok(())
 }

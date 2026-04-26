@@ -5,8 +5,8 @@
 server:
   address: tcp://:{{ expandenv "${CONTAINER_PORT}" }}
   tls:
-    key: "/config/key.pem"
-    certificate: "/config/certificate.pem"
+    key: "/config/buildbtw.key"
+    certificate: "/config/buildbtw.cert"
 
 log:
   level: "debug"
