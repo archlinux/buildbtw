@@ -155,6 +155,7 @@ deploy_review_app:
   script:
     - >-
       curl
+      --no-progress-meter
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
@@ -172,6 +173,7 @@ stop_review_app:
   script:
     - >-
       curl
+      --no-progress-meter
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
@@ -193,6 +195,7 @@ deploy_staging:
   script:
     - >-
       curl
+      --no-progress-meter
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_STAGING_DEPLOY_TOKEN"
