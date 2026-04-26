@@ -12,7 +12,7 @@ use buildbtw::{external_secrets, utils::remove_file_if_exists};
 use clap::Parser;
 use color_eyre::{
     Result,
-    eyre::{Context, ContextCompat},
+    eyre::{Context, ContextCompat, eyre},
 };
 use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
@@ -47,6 +47,9 @@ async fn main() -> Result<()> {
 
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .map_err(|_| eyre!("Failed to install rustls crypto provider"))?;
 
     match args.command {
         args::Command::Run(run_args) => {
