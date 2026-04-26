@@ -34,7 +34,7 @@ pub struct CommitHash(git2::Oid);
     derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, Display, TryFrom),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(sea_orm::DeriveValueType)
+    derive_unchecked(sea_orm::DeriveValueType)
 )]
 pub struct BranchName(String);
 
