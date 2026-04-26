@@ -35,7 +35,7 @@ pub struct Name(alpm_types::Name);
     derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, AsRef, Deref),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(sea_orm::FromJsonQueryResult)
+    derive_unchecked(sea_orm::FromJsonQueryResult)
 )]
 pub struct Names(Vec<Name>);
 
@@ -72,7 +72,7 @@ pub struct BaseName(alpm_types::PackageBaseName);
     derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom, Display),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unsafe(sea_orm::FromJsonQueryResult)
+    derive_unchecked(sea_orm::FromJsonQueryResult)
 )]
 pub struct RepositorySlug(String);
 
@@ -196,7 +196,7 @@ pub enum BuildStatus {
 /// Provides SeaORM compatibility for ALPM package versions.
 #[nutype(
     derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromStr, From),
-    derive_unsafe(sea_orm::FromJsonQueryResult)
+    derive_unchecked(sea_orm::FromJsonQueryResult)
 )]
 pub struct Version(alpm_types::FullVersion);
 
