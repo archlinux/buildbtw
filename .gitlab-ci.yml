@@ -57,7 +57,7 @@ check-dependencies:
     - pacman -Syu --needed --noconfirm cargo-deny
     - just check-dependencies
 
-format:
+lint:
   stage: check
   extends: .with-rust
   script:
