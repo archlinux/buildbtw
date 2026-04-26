@@ -87,6 +87,114 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// Serve the application
+///
+/// This function mostly performs some logic to check what sockets were provided and whether or not
+/// we should use TLS.
+async fn serve(
+    cancellation_token: CancellationToken,
+    listen: args::TcpSocketOrUnixSocket,
+    rustls_config: Option<RustlsConfig>,
+    router: axum::Router,
+) -> Result<()> {
+    // I'm sorry for this code but type-wise this these kinds of conditions are really awkward to
+    // handle with axum. The apparent complexity comes from the fact that we have to handle these
+    // three top-level cases:
+    // - Passed ListenFd listener
+    // - TCP listener
+    // - UDP listener
+    // and each of them has to decide whether or not to use TLS. In total, that means we'll have to
+    // handle six cases. All of them output incompatible types so it's hard to do this generally
+    // without macros or a lot of generics-heavy code and I don't want to introduce either complexity
+    // here just to handle the listeners.
+
+    // If we find an externally passed file descriptor socket, we'll use that as a listener instead
+    // of any other user arguments. This is mostly useful in development or for systemd socket
+    // activation.
+    //
+    // If none is found, we'll listen the "normal" way.
+    let mut listenfd = ListenFd::from_env();
+    if let Some(listener) = listenfd.take_tcp_listener(0)? {
+        info!(
+            "Found externally passed file descriptor to use as listener, ignoring other listener arguments"
+        );
+        listener.set_nonblocking(true)?;
+        if let Some(rustls_config) = rustls_config {
+            // Handle TLS.
+            axum_server::from_tcp_rustls(listener, rustls_config)
+                .wrap_err("Failed to create TLS server from passed listener")?
+                .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                .serve(router.into_make_service())
+                .await?;
+        } else {
+            // Handle non-TLS.
+            axum_server::from_tcp(listener)
+                .wrap_err("Failed to create server from passed listener")?
+                .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                .serve(router.into_make_service())
+                .await?;
+        }
+    } else {
+        match listen {
+            args::TcpSocketOrUnixSocket::Tcp(socket_addr) => {
+                if let Some(rustls_config) = rustls_config {
+                    // Handle TLS.
+                    axum_server::bind_rustls(socket_addr, rustls_config)
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                } else {
+                    // Handle non-TLS.
+                    axum_server::bind(socket_addr)
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                }
+            }
+            args::TcpSocketOrUnixSocket::Unix((socket_addr, permissions)) => {
+                let socket_addr_path = socket_addr
+                    .as_pathname()
+                    .wrap_err("Unix socket path empty")?;
+                // If this path name already exists, we'll have to delete it first as otherwise
+                // we'd get a "Address already in use" error.
+                remove_file_if_exists(socket_addr_path)
+                    .await
+                    .wrap_err(format!(
+                        "Failed to delete previous socket file at {socket_addr_path:?}"
+                    ))?;
+                let listener = UnixListener::bind(socket_addr_path).wrap_err(format!(
+                    "Couldn't create unix socket file at {socket_addr_path:?}"
+                ))?;
+                if let Some(permissions) = permissions {
+                    set_permissions(socket_addr_path, permissions).await?;
+                }
+                if let Some(rustls_config) = rustls_config {
+                    // Handle TLS.
+                    axum_server::from_unix_rustls(listener.into_std()?, rustls_config)
+                        .wrap_err("Failed to create TLS server from unix listener")?
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                } else {
+                    // Handle non-TLS.
+                    axum_server::from_unix(listener.into_std()?)?
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                }
+
+                // After the server has run, try to clean up the socket file.
+                remove_file_if_exists(socket_addr_path)
+                    .await
+                    .wrap_err(format!(
+                        "Failed to clean up socket file at {socket_addr_path:?}"
+                    ))?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Create an axum service and make it listen on the given socket.
 async fn run_server(
     db: DatabaseConnection,
@@ -100,7 +208,7 @@ async fn run_server(
         ..
     }: args::RunArgs,
 ) -> Result<()> {
-    // Shared cancellation token to signal graceful shutdown across the application
+    // Shared cancellation token to signal graceful shutdown across the application.
     let cancellation_token = CancellationToken::new();
 
     let cookie_encryption_key =
@@ -130,122 +238,17 @@ async fn run_server(
         None
     };
 
-    // If we find an externally passed file descriptor socket, we'll use that as a listener instead
-    // of any other user arguments. This is mostly useful in development or for systemd socket
-    // activation.
-    //
-    // If none is found, we'll listen the "normal" way.
-    let mut listenfd = ListenFd::from_env();
-    if let Some(listener) = listenfd.take_tcp_listener(0)? {
-        info!(
-            "Found externally passed file descriptor to use as listener, ignoring other listener arguments"
-        );
-        listener.set_nonblocking(true)?;
-        if let Some(rustls_config) = rustls_config {
-            let axum_handle = Handle::new();
-            let shutdown_handle = axum_handle.clone();
-            tokio::spawn(shutdown_gracefully(
-                cancellation_token.clone(),
-                shutdown_handle,
-            ));
-            axum_server::from_tcp_rustls(listener, rustls_config)
-                .wrap_err("Failed to create TLS server from passed listener")?
-                .handle(axum_handle)
-                .serve(router.into_make_service())
-                .await?;
-        } else {
-            let axum_handle = Handle::new();
-            let shutdown_handle = axum_handle.clone();
-            tokio::spawn(shutdown_gracefully(
-                cancellation_token.clone(),
-                shutdown_handle,
-            ));
-            axum_server::from_tcp(listener)
-                .wrap_err("Failed to create server from passed listener")?
-                .handle(axum_handle)
-                .serve(router.into_make_service())
-                .await?;
-        }
-    } else {
-        match listen {
-            args::TcpSocketOrUnixSocket::Tcp(socket_addr) => {
-                if let Some(rustls_config) = rustls_config {
-                    let axum_handle = Handle::new();
-                    let shutdown_handle = axum_handle.clone();
-                    tokio::spawn(shutdown_gracefully(
-                        cancellation_token.clone(),
-                        shutdown_handle,
-                    ));
-                    axum_server::bind_rustls(socket_addr, rustls_config)
-                        .handle(axum_handle)
-                        .serve(router.into_make_service())
-                        .await?;
-                } else {
-                    let axum_handle = Handle::new();
-                    let shutdown_handle = axum_handle.clone();
-                    tokio::spawn(shutdown_gracefully(
-                        cancellation_token.clone(),
-                        shutdown_handle,
-                    ));
-                    axum_server::bind(socket_addr)
-                        .handle(axum_handle)
-                        .serve(router.into_make_service())
-                        .await?;
-                }
-            }
-            args::TcpSocketOrUnixSocket::Unix((socket_addr, permissions)) => {
-                let socket_addr_path = socket_addr
-                    .as_pathname()
-                    .wrap_err("Unix socket path empty")?;
-                // If this path name already exists, we'll have to delete it first as otherwise
-                // we'd get a "Address already in use" error.
-                remove_file_if_exists(socket_addr_path)
-                    .await
-                    .wrap_err(format!(
-                        "Failed to delete previous socket file at {socket_addr_path:?}"
-                    ))?;
-                let listener = UnixListener::bind(socket_addr_path).wrap_err(format!(
-                    "Couldn't create unix socket file at {socket_addr_path:?}"
-                ))?;
-                if let Some(permissions) = permissions {
-                    set_permissions(socket_addr_path, permissions).await?;
-                }
-                if let Some(rustls_config) = rustls_config {
-                    let axum_handle: Handle<std::os::unix::net::SocketAddr> = Handle::new();
-                    let shutdown_handle = axum_handle.clone();
-                    tokio::spawn(shutdown_gracefully(
-                        cancellation_token.clone(),
-                        shutdown_handle,
-                    ));
-                    axum_server::from_unix_rustls(listener.into_std()?, rustls_config)
-                        .wrap_err("Failed to create TLS server from unix listener")?
-                        .handle(axum_handle)
-                        .serve(router.into_make_service())
-                        .await?;
-                } else {
-                    let axum_handle: Handle<std::os::unix::net::SocketAddr> = Handle::new();
-                    let shutdown_handle = axum_handle.clone();
-                    tokio::spawn(shutdown_gracefully(
-                        cancellation_token.clone(),
-                        shutdown_handle,
-                    ));
-                    axum_server::Server::from_listener(listener)
-                        .handle(axum_handle)
-                        .serve(router.into_make_service())
-                        .await?;
-                }
+    // Start serving.
+    serve(cancellation_token, listen, rustls_config, router).await
+}
 
-                // After the server has run, try to clean up the socket file.
-                remove_file_if_exists(socket_addr_path)
-                    .await
-                    .wrap_err(format!(
-                        "Failed to clean up socket file at {socket_addr_path:?}"
-                    ))?;
-            }
-        }
-    }
-
-    Ok(())
+/// Create a new axum handle, spawn the graceful shutdown task, and return the handle.
+fn spawn_shutdown_handle<A: axum_server::Address + Send + 'static>(
+    cancellation_token: CancellationToken,
+) -> Handle<A> {
+    let handle = Handle::new();
+    tokio::spawn(shutdown_gracefully(cancellation_token, handle.clone()));
+    handle
 }
 
 /// Wait for the cancellation signal and then trigger graceful shutdown on the axum-server handle.
@@ -285,6 +288,6 @@ async fn shutdown_signal(token: CancellationToken) {
         },
     }
 
-    // Signal gracefully shutdown to the application stack, like background tasks
+    // Signal gracefully shutdown to the application stack, like background tasks.
     token.cancel();
 }
