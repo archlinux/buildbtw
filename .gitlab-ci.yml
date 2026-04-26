@@ -148,7 +148,7 @@ push-container-image:secure:
     - if: $CI_PROJECT_PATH != "archlinux/buildbtw"
       when: never
 
-deploy_review_app:
+deploy-review-app:
   stage: deploy
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -164,9 +164,9 @@ deploy_review_app:
     name: review/$CI_COMMIT_REF_SLUG
     auto_stop_in: 2 weeks
     url: https://$CI_COMMIT_REF_SLUG.buildbtw.archlinux.review
-    on_stop: stop_review_app
+    on_stop: stop-review-app
 
-stop_review_app:
+stop-review-app:
   stage: deploy
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -183,7 +183,7 @@ stop_review_app:
     action: stop
   when: manual
 
-deploy_staging:
+deploy-staging:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
