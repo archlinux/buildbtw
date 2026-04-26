@@ -151,9 +151,7 @@ pub fn save_in_cookie_jar(
     cookie.set_same_site(SameSite::Strict);
     cookie.set_path("/");
     cookie.set_http_only(true);
-    // TODO: serve the backend using TLS and enable the "Secure" flag
-    // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
-    // cookie.set_secure(true);
+    cookie.set_secure(true);
     cookie_jar.add(cookie)
 }
 
@@ -162,8 +160,6 @@ pub fn remove_from_cookie_jar(cookie_jar: PrivateCookieJar) -> PrivateCookieJar 
     cookie.set_same_site(SameSite::Strict);
     cookie.set_path("/");
     cookie.set_http_only(true);
-    // TODO: serve the backend using TLS and enable the "Secure" flag
-    // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
-    // cookie.set_secure(true);
+    cookie.set_secure(true);
     cookie_jar.remove(cookie)
 }

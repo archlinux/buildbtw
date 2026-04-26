@@ -229,9 +229,7 @@ impl LoginAttempt {
 
         let mut cookie = Cookie::new(LOGIN_ATTEMPT_COOKIE_NAME, serde_json::to_string(&self)?);
         cookie.set_same_site(same_site);
-        // TODO: serve the backend using TLS and enable the "Secure" flag
-        // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
-        // cookie.set_secure(true);
+        cookie.set_secure(true);
         cookie.set_http_only(true);
         let jar = jar.add(cookie);
 
