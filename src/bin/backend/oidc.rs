@@ -222,6 +222,13 @@ impl LoginAttempt {
 
         Ok(jar)
     }
+
+    pub fn remove_from_cookie_jar(cookie_jar: PrivateCookieJar) -> PrivateCookieJar {
+        let mut cookie = Cookie::from(LOGIN_ATTEMPT_COOKIE_NAME);
+        cookie.set_http_only(true);
+        cookie.set_secure(true);
+        cookie_jar.remove(cookie)
+    }
 }
 
 /// Extracts up til the second-level domain and discards any subdomains.

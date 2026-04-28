@@ -85,6 +85,9 @@ pub async fn authorized(
 
     tx.commit().await?;
 
+    // Remove temporary oidc login redirect flow cookie after authentication
+    let cookie_jar = oidc::LoginAttempt::remove_from_cookie_jar(cookie_jar);
+    // Update buildbtw session cookie with session data after authentication
     let cookie_jar = from_request::auth_user::save_in_cookie_jar(
         &session.secret_token,
         cookie_jar,
