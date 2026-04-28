@@ -4,6 +4,7 @@ use std::{
     os::unix::{fs::PermissionsExt, net::SocketAddr as UnixSocketAddr},
 };
 
+use buildbtw::external_secrets;
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail};
 use redact::Secret;
@@ -96,6 +97,9 @@ pub struct RunArgs {
     #[clap(flatten)]
     pub oidc: Option<Oidc>,
 
+    #[clap(flatten)]
+    pub raw_gitlab: Option<RawGitlab>,
+
     /// URL the backend server is reachable at, including protocol.
     ///
     /// Port can be omitted if it's the standard port.
@@ -142,6 +146,28 @@ pub struct RunArgs {
     #[cfg(debug_assertions)]
     #[clap(flatten)]
     pub authelia_container: AutheliaContainer,
+
+    /// Update package source repositories in the background.
+    ///
+    /// Mostly, this is used for debugging and making the system less noisy in development.
+    #[arg(
+        long,
+        env = "BUILDBTW_UPDATE_SOURCE_REPOS",
+        required = false,
+        default_value = "true"
+    )]
+    pub update_source_repos: bool,
+
+    /// Automatically create new iterations for buildspaces when new commits cause their build graph to change.
+    ///
+    /// Mostly, this is used for debugging and making the system less noisy in development.
+    #[arg(
+        long,
+        env = "BUILDBTW_AUTO_CREATE_ITERATIONS",
+        required = false,
+        default_value = "true"
+    )]
+    pub auto_create_iterations: bool,
 }
 
 #[derive(clap::Args, Debug)]
@@ -197,6 +223,67 @@ pub struct Oidc {
         value_delimiter = ','
     )]
     pub oidc_admin_groups: Vec<String>,
+}
+
+#[derive(clap::Args, Debug)]
+#[group(requires_all = ["gitlab_domain", "gitlab_packages_group"])]
+#[expect(
+    clippy::struct_field_names,
+    reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
+)]
+pub struct RawGitlab {
+    /// Path to a file containing the GitLab API token for authentication
+    ///
+    /// The token needs the `read_api` scope.
+    ///
+    /// The gitlab token can be passed directly using the `BUILDBTW_GITLAB_TOKEN` environment variable.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_GITLAB_TOKEN` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_GITLAB_TOKEN
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "BUILDBTW_GITLAB_TOKEN_PATH", verbatim_doc_comment)]
+    gitlab_token_path: Option<Utf8PathBuf>,
+
+    /// GitLab domain URL
+    ///
+    /// E.g. <https://gitlab.archlinux.org>
+    #[arg(long, env = "BUILDBTW_GITLAB_DOMAIN", required = true)]
+    gitlab_domain: Url,
+
+    /// GitLab package group to monitor
+    ///
+    /// E.g. `archlinux/packaging/packages`
+    #[arg(long, env = "BUILDBTW_GITLAB_PACKAGES_GROUP", required = true)]
+    gitlab_packages_group: String,
+}
+
+/// Like [`Gitlab`] above, but with the secret token resolved to an actual string and the prefixes of the field names removed.
+#[derive(Debug)]
+pub struct Gitlab {
+    pub token: Secret<String>,
+    pub domain: Url,
+    pub packages_group: String,
+}
+
+impl TryFrom<RawGitlab> for Gitlab {
+    fn try_from(value: RawGitlab) -> Result<Gitlab> {
+        let token = external_secrets::get_required(
+            "BUILDBTW_GITLAB_TOKEN",
+            value.gitlab_token_path.as_deref(),
+        )?;
+
+        Ok(Gitlab {
+            token,
+            domain: value.gitlab_domain,
+            packages_group: value.gitlab_packages_group,
+        })
+    }
+
+    type Error = color_eyre::eyre::Error;
 }
 
 #[derive(clap::Args, Debug)]
@@ -334,6 +421,10 @@ mod tests {
             "https://auth.example.com",
             "--oidc-issuer-name",
             "Test OIDC Provider",
+            "--gitlab-domain",
+            "https://gitlab.archlinux.org/",
+            "--gitlab-packages-group",
+            "package/group",
             "--run-authelia-container",
             "--authelia-container-port",
             "9091",
@@ -352,9 +443,13 @@ mod tests {
             oidc,
             server_url,
             cookie_encryption_key_path: _,
+            #[cfg(debug_assertions)]
             authelia_container,
             web_root: _,
             tls,
+            raw_gitlab,
+            update_source_repos,
+            auto_create_iterations,
         }) = parsed_args.command
         else {
             panic!("Expected Run command");
@@ -365,6 +460,8 @@ mod tests {
             TcpSocketOrUnixSocket::Tcp("127.0.0.1:3000".parse().unwrap())
         );
         assert_eq!(server_url, Url::parse("https://example.com").unwrap());
+        assert!(update_source_repos);
+        assert!(auto_create_iterations);
 
         // Verify OIDC config is present and has correct values
         let oidc = oidc.expect("OIDC should be present");
@@ -377,6 +474,13 @@ mod tests {
         let tls = tls.expect("TLS should be present");
         assert_eq!(tls.tls_cert.as_str(), "cert/buildbtw.cert");
         assert_eq!(tls.tls_key.as_str(), "cert/buildbtw.key");
+
+        let gitlab = raw_gitlab.expect("Expected gitlab args");
+        assert_eq!(
+            gitlab.gitlab_domain.as_str(),
+            "https://gitlab.archlinux.org/"
+        );
+        assert_eq!(gitlab.gitlab_packages_group, "package/group");
 
         assert!(authelia_container.run_authelia_container);
         assert_eq!(authelia_container.authelia_container_port, 9091);

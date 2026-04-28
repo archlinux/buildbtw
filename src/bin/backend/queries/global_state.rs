@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), expect(dead_code))]
-
 use sea_orm::{ActiveValue::Set, EntityTrait, Insert, Select, sea_query::OnConflict};
 use time::OffsetDateTime;
 

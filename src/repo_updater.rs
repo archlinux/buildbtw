@@ -17,7 +17,7 @@ pub async fn update_all_source_repos(
     target_dir: Utf8PathBuf,
     client: &AsyncGitlab,
     mut last_fetched: Option<OffsetDateTime>,
-    gitlab_domain: Url,
+    gitlab_domain: &Url,
     gitlab_packages_group: String,
 ) -> Result<Option<OffsetDateTime>> {
     // Query which projects changed
@@ -41,7 +41,7 @@ pub async fn update_all_source_repos(
     crate::git::clone_or_fetch_repositories(
         target_dir,
         changed_projects,
-        &gitlab_domain,
+        gitlab_domain,
         gitlab_packages_group,
     )
     .await?;

@@ -28,6 +28,7 @@ mod db_fields;
 mod entities;
 mod from_request;
 mod input;
+mod iteration_creator;
 mod migrations;
 mod oidc;
 pub mod permissions;
@@ -208,7 +209,11 @@ async fn run_server(
         cookie_encryption_key_path,
         web_root,
         tls,
-        ..
+        update_source_repos,
+        auto_create_iterations,
+        raw_gitlab,
+        #[cfg(debug_assertions)]
+            authelia_container: _,
     }: args::RunArgs,
 ) -> Result<()> {
     // Shared cancellation token to signal graceful shutdown across the application.
@@ -218,12 +223,21 @@ async fn run_server(
         external_secrets::get_cookie_encryption_key(cookie_encryption_key_path.as_deref())?;
 
     let server_state = ServerState {
-        db,
+        db: db.clone(),
         oidc: oidc::MaybeConfig::initialize(&server_url, oidc).await,
         cookie_encryption_key,
     };
 
-    tasks::initialize(server_state.clone(), cancellation_token.clone());
+    let gitlab = raw_gitlab.map(args::Gitlab::try_from).transpose()?;
+    tasks::initialize(
+        server_state.clone(),
+        cancellation_token.clone(),
+        gitlab,
+        update_source_repos,
+        auto_create_iterations,
+        db.clone(),
+    )?;
+
     templates::initialize(&web_root)?;
 
     let router = router::new(&web_root).with_state(server_state);

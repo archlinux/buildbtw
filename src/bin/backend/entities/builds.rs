@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use buildbtw::{api, git, package};
+use buildbtw::{api, dependency_graph, git, package};
 use camino::Utf8PathBuf;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -51,6 +51,25 @@ impl From<Model> for api::builds::Build {
     fn from(value: Model) -> Self {
         api::builds::Build {
             id: value.id.into(),
+        }
+    }
+}
+
+impl From<Model> for dependency_graph::BuildNode {
+    fn from(value: Model) -> Self {
+        let package_file_names = value
+            .pkgnames_filenames
+            .0
+            .into_iter()
+            .map(|(key, val)| (key, Utf8PathBuf::from(val)))
+            .collect();
+
+        dependency_graph::BuildNode {
+            pkgbase: value.pkgbase,
+            commit_hash: value.commit_hash,
+            branch_name: value.branch_name,
+            package_file_names,
+            version: value.version,
         }
     }
 }
