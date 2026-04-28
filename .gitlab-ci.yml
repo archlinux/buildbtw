@@ -57,7 +57,7 @@ check-dependencies:
     - pacman -Syu --needed --noconfirm cargo-deny
     - just check-dependencies
 
-format:
+lint:
   stage: check
   extends: .with-rust
   script:
@@ -148,13 +148,14 @@ push-container-image:secure:
     - if: $CI_PROJECT_PATH != "archlinux/buildbtw"
       when: never
 
-deploy_review_app:
+deploy-review-app:
   stage: deploy
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - >-
       curl
+      --no-progress-meter
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
@@ -163,15 +164,16 @@ deploy_review_app:
     name: review/$CI_COMMIT_REF_SLUG
     auto_stop_in: 2 weeks
     url: https://$CI_COMMIT_REF_SLUG.buildbtw.archlinux.review
-    on_stop: stop_review_app
+    on_stop: stop-review-app
 
-stop_review_app:
+stop-review-app:
   stage: deploy
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - >-
       curl
+      --no-progress-meter
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_DEV_DEPLOY_TOKEN"
@@ -181,7 +183,7 @@ stop_review_app:
     action: stop
   when: manual
 
-deploy_staging:
+deploy-staging:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
@@ -193,6 +195,7 @@ deploy_staging:
   script:
     - >-
       curl
+      --no-progress-meter
       --location
       --fail-with-body
       --header "Authorization: Bearer $BUILDBTW_STAGING_DEPLOY_TOKEN"
