@@ -178,7 +178,10 @@ impl TestCtxBuilder {
             let oidc_args = args::Oidc {
                 oidc_client_id: "buildbtw-test".to_string(),
                 oidc_client_secret: Secret::from("insecure_secret"),
-                oidc_issuer_url: format!("https://authelia.buildbtw.localhost:{authelia_port}"),
+                oidc_issuer_url: Url::parse(
+                    format!("https://authelia.buildbtw.localhost:{authelia_port}").as_str(),
+                )
+                .unwrap(),
                 oidc_issuer_name: "Authelia Test".to_string(),
                 oidc_admin_groups: Vec::new(),
                 oidc_package_maintainer_groups: Vec::new(),

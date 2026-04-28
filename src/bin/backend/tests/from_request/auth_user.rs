@@ -32,7 +32,7 @@ async fn test_authenticate_with_cookie(#[future(awt)] ctx: TestCtx) -> Result<()
     // Save the secret token in a cookie.
     let private_jar = ctx.private_cookie_jar();
     let private_jar =
-        crate::from_request::auth_user::save_in_cookie_jar(&secret_token, private_jar);
+        crate::from_request::auth_user::save_in_cookie_jar(&secret_token, private_jar, None);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request with the cookie attached.
@@ -76,7 +76,7 @@ async fn test_cookie_is_preferred(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     let private_jar = ctx.private_cookie_jar();
     let private_jar =
-        crate::from_request::auth_user::save_in_cookie_jar(&secret_token, private_jar);
+        crate::from_request::auth_user::save_in_cookie_jar(&secret_token, private_jar, None);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // This request has both, the cookie and the authorization header set while the authorization
@@ -117,8 +117,11 @@ async fn test_cookie_and_bearer_token_invalid(#[future(awt)] ctx: TestCtx) -> Re
     let invalid_secret_token = RedactedString::from("lol");
 
     let private_jar = ctx.private_cookie_jar();
-    let private_jar =
-        crate::from_request::auth_user::save_in_cookie_jar(&invalid_secret_token, private_jar);
+    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
+        &invalid_secret_token,
+        private_jar,
+        None,
+    );
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // This request has both, the cookie and the authorization header set and both are invalid.

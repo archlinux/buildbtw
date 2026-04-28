@@ -95,8 +95,13 @@ impl MaybeConfig {
         let args = args.wrap_err("OIDC configuration is absent or incomplete.")?;
         let client_id = ClientId::new(args.oidc_client_id);
         let client_secret = ClientSecret::new(args.oidc_client_secret.expose_secret().clone());
-        let issuer_url =
-            IssuerUrl::new(args.oidc_issuer_url).wrap_err("failed to parse issuer URL")?;
+        // Custom url representation to guarantee exact match, `to_string()` adds an extra slash which throws off strict matching of some OIDC providers.
+        let issuer_url = IssuerUrl::new(format!(
+            "{}://{}",
+            args.oidc_issuer_url.scheme(),
+            args.oidc_issuer_url.authority()
+        ))
+        .wrap_err("failed to parse issuer URL")?;
 
         // Query the provider for metadata
         let provider_metadata = CoreProviderMetadata::discover_async(issuer_url, &reqwest_client)
@@ -113,6 +118,7 @@ impl MaybeConfig {
             oidc_client: client,
             reqwest_client,
             issuer_name: args.oidc_issuer_name,
+            issuer_url: args.oidc_issuer_url,
             admin_oidc_groups: args.oidc_admin_groups,
             package_maintainer_oidc_groups: args.oidc_package_maintainer_groups,
         })
@@ -129,6 +135,8 @@ pub struct Config {
     pub reqwest_client: reqwest::Client,
     /// User-visible name of the OIDC provider ("issuer")
     pub issuer_name: String,
+    /// Url of the OIDC provider ("issuer")
+    pub issuer_url: Url,
     /// Users in one these OIDC groups will be assigned the "package maintainer" role.
     pub package_maintainer_oidc_groups: Vec<String>,
     /// Users in one these OIDC groups will be assigned the "admin" role. Takes precedence over other roles.
@@ -205,30 +213,9 @@ impl LoginAttempt {
         &self,
         jar: PrivateCookieJar,
         oidc_config: &Config,
-        oidc_url: &Url,
     ) -> Result<PrivateCookieJar> {
-        let redirect_domain = second_level_domain(
-            oidc_config
-                .oidc_client
-                .redirect_uri()
-                .ok_or_eyre("no redirect url configured")?
-                .url(),
-        )
-        .ok_or_eyre("redirect url has no second-level domain configured")?;
-        let oidc_domain = second_level_domain(oidc_url)
-            .ok_or_eyre("oidc url has no second-level domain configured")?;
-
-        // Use strict same-site cookies for matching second-level domain sharing a parent.
-        // It is required to set lax in case of diverging domains, otherwise the OIDC cookie
-        // cannot be accessed in a cross-origin redirect flow.
-        let same_site = if redirect_domain == oidc_domain {
-            SameSite::Strict
-        } else {
-            SameSite::Lax
-        };
-
         let mut cookie = Cookie::new(LOGIN_ATTEMPT_COOKIE_NAME, serde_json::to_string(&self)?);
-        cookie.set_same_site(same_site);
+        cookie.set_same_site(same_site_from_oidc_config(Some(oidc_config)));
         cookie.set_secure(true);
         cookie.set_http_only(true);
         let jar = jar.add(cookie);
@@ -244,6 +231,33 @@ fn second_level_domain(url: &Url) -> Option<String> {
     let tld = it.next()?;
     let sld = it.next()?;
     Some(format!("{sld}.{tld}"))
+}
+
+/// Determines cookie same-site settings depending on if the oidc issuer and the target redirect uri
+/// are cross-origin or share the same parent.
+///
+/// Returns lax on cross-origin domains, strict in all other cases including no oidc.
+pub fn same_site_from_oidc_config(oidc_config: Option<&Config>) -> SameSite {
+    let Some(oidc_config) = oidc_config else {
+        return SameSite::Strict;
+    };
+    let Some(redirect_uri) = oidc_config.oidc_client.redirect_uri() else {
+        return SameSite::Strict;
+    };
+    let Some(redirect_domain) = second_level_domain(redirect_uri.url()) else {
+        return SameSite::Strict;
+    };
+    let Some(oidc_domain) = second_level_domain(&oidc_config.issuer_url) else {
+        return SameSite::Strict;
+    };
+
+    // Use strict same-site cookies for matching second-level domain sharing a parent.
+    // It is required to set lax in case of diverging domains, otherwise the OIDC cookie
+    // cannot be accessed in a cross-origin redirect flow.
+    if redirect_domain != oidc_domain {
+        return SameSite::Lax;
+    }
+    SameSite::Strict
 }
 
 #[derive(Serialize, Deserialize, Debug)]
