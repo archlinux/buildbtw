@@ -100,8 +100,8 @@ pub struct RunArgs {
     ///
     /// Port can be omitted if it's the standard port.
     /// E.g. <https://buildbtw.archlinux.org>
-    #[arg(long, env = "BUILDBTW_BASE_URL")]
-    pub base_url: Url,
+    #[arg(long, env = "BUILDBTW_SERVER_URL")]
+    pub server_url: Url,
 
     /// Path to a file containing the secret to encrypt cookies with
     ///
@@ -318,7 +318,7 @@ mod tests {
             "run",
             "--listen",
             "127.0.0.1:3000",
-            "--base-url",
+            "--server-url",
             "https://example.com",
             "--cookie-encryption-key-path",
             "1234567890123456789012345678901234567890123456789012345678901234",
@@ -350,7 +350,7 @@ mod tests {
         let Command::Run(RunArgs {
             listen,
             oidc,
-            base_url,
+            server_url,
             cookie_encryption_key_path: _,
             authelia_container,
             web_root: _,
@@ -364,7 +364,7 @@ mod tests {
             listen,
             TcpSocketOrUnixSocket::Tcp("127.0.0.1:3000".parse().unwrap())
         );
-        assert_eq!(base_url, Url::parse("https://example.com").unwrap());
+        assert_eq!(server_url, Url::parse("https://example.com").unwrap());
 
         // Verify OIDC config is present and has correct values
         let oidc = oidc.expect("OIDC should be present");

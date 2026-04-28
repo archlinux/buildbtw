@@ -204,7 +204,7 @@ async fn run_server(
     args::RunArgs {
         listen,
         oidc,
-        base_url,
+        server_url,
         cookie_encryption_key_path,
         web_root,
         tls,
@@ -219,7 +219,7 @@ async fn run_server(
 
     let server_state = ServerState {
         db,
-        oidc: oidc::MaybeConfig::initialize(&base_url, oidc).await,
+        oidc: oidc::MaybeConfig::initialize(&server_url, oidc).await,
         cookie_encryption_key,
     };
 
@@ -228,7 +228,7 @@ async fn run_server(
 
     let router = router::new(&web_root).with_state(server_state);
 
-    info!("Server available at: {}", base_url);
+    info!("Server available at: {}", server_url);
 
     // Load TLS configuration if both cert and key are provided.
     let rustls_config = if let Some(args::Tls { tls_cert, tls_key }) = tls {

@@ -195,15 +195,15 @@ pub struct BuildScriptArgs {
     pub pacman_repository_base_url: Option<Url>,
 
     /// Build uuid
-    #[arg(long, env = "CUSTOM_ENV_BUILD_ID", requires_all = ["api_base_url"])]
+    #[arg(long, env = "CUSTOM_ENV_BUILD_ID", requires_all = ["api_server_url"])]
     pub build_id: Option<Uuid>,
 
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    #[arg(long, env = "CUSTOM_ENV_API_BASE_URL", requires_all = ["build_id"])]
-    pub api_base_url: Option<Url>,
+    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires_all = ["build_id"])]
+    pub api_server_url: Option<Url>,
 }
 
 #[cfg(test)]
@@ -236,7 +236,7 @@ mod tests {
             "x86_64",
             "--build-id",
             "0807fb37-8d41-40a5-a476-5cc70a32791e",
-            "--api-base-url",
+            "--api-server-url",
             "http://127.0.0.1",
             "--ci-project-dir",
             "/project-dir",
@@ -292,7 +292,7 @@ mod tests {
         if let Command::Run(ref run_args) = parsed_args.command {
             // Verify the run command
             if let RunStage::BuildScript(ref run_stage_args) = run_args.stage {
-                assert_eq!(run_stage_args.api_base_url, None);
+                assert_eq!(run_stage_args.api_server_url, None);
                 assert_eq!(run_stage_args.pacman_repository_base_url, None);
                 assert_eq!(run_stage_args.buildspace_slug, None);
                 assert_eq!(run_stage_args.build_id, None);
