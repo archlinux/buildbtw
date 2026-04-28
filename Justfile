@@ -144,8 +144,14 @@ reset-database: && migrate-database
 
 [group("dev")]
 [doc("Install the development certificates in the system's trust store, e.g. for browsers. Requires root.")]
-install-authelia-ca:
+install-dev-ca: (ensure-command "mkcert")
     mkcert -install
+
+[group("dev")]
+[doc("Create local TLS certificates")]
+gen-dev-cert: (ensure-command "mkcert")
+    mkdir -p cert
+    mkcert -cert-file cert/buildbtw.cert -key-file cert/buildbtw.key buildbtw.localhost "*.buildbtw.localhost"
 
 [doc("Download GitLab GraphQL API schema")]
 [group("dev")]

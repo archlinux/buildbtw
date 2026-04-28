@@ -56,8 +56,8 @@ impl MaybeConfig {
 
     /// Initialize the OIDC configuration with the given command-line arguments.
     /// On failure, return [MaybeConfig::NotConfigured].
-    pub async fn initialize(base_url: &Url, args: Option<args::Oidc>) -> MaybeConfig {
-        match Self::try_initialize_state(base_url, args).await {
+    pub async fn initialize(server_url: &Url, args: Option<args::Oidc>) -> MaybeConfig {
+        match Self::try_initialize_state(server_url, args).await {
             Ok(conf) => {
                 tracing::info!("OIDC enabled");
                 MaybeConfig::Configured(conf)
@@ -70,7 +70,7 @@ impl MaybeConfig {
     }
 
     /// Try to initialize an OIDC client for the given command-line arguments.
-    async fn try_initialize_state(base_url: &Url, args: Option<args::Oidc>) -> Result<Config> {
+    async fn try_initialize_state(server_url: &Url, args: Option<args::Oidc>) -> Result<Config> {
         #[allow(unused_mut)]
         let mut reqwest_client_builder =
             reqwest::ClientBuilder::new().redirect(reqwest::redirect::Policy::none());
@@ -104,7 +104,7 @@ impl MaybeConfig {
             .wrap_err("failed to discover provider")?;
 
         // Create the OIDC client.
-        let redirect_url = base_url.join(&web::oidc::Authorized {}.to_string())?;
+        let redirect_url = server_url.join(&web::oidc::Authorized {}.to_string())?;
         let client =
             CoreClient::from_provider_metadata(provider_metadata, client_id, Some(client_secret))
                 .set_redirect_uri(RedirectUrl::from_url(redirect_url));
@@ -229,9 +229,7 @@ impl LoginAttempt {
 
         let mut cookie = Cookie::new(LOGIN_ATTEMPT_COOKIE_NAME, serde_json::to_string(&self)?);
         cookie.set_same_site(same_site);
-        // TODO: serve the backend using TLS and enable the "Secure" flag
-        // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/190
-        // cookie.set_secure(true);
+        cookie.set_secure(true);
         cookie.set_http_only(true);
         let jar = jar.add(cookie);
 

@@ -7,19 +7,16 @@
 //! It coordinates with the local worker or GitLab runners to process package
 //! builds in VMs.
 
+use axum_server::{Handle, tls_rustls::RustlsConfig};
 use buildbtw::{external_secrets, utils::remove_file_if_exists};
 use clap::Parser;
 use color_eyre::{
     Result,
-    eyre::{Context, ContextCompat},
+    eyre::{Context, ContextCompat, eyre},
 };
 use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
-use tokio::{
-    fs::set_permissions,
-    net::{TcpListener, UnixListener},
-    signal,
-};
+use tokio::{fs::set_permissions, net::UnixListener, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -50,6 +47,9 @@ async fn main() -> Result<()> {
 
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .map_err(|_| eyre!("Failed to install rustls crypto provider"))?;
 
     match args.command {
         args::Command::Run(run_args) => {
@@ -90,36 +90,26 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Create an axum service and make it listen on the given socket.
-async fn run_server(
-    db: DatabaseConnection,
-    args::RunArgs {
-        listen,
-        oidc,
-        base_url,
-        cookie_encryption_key_path,
-        web_root,
-        ..
-    }: args::RunArgs,
+/// Serve the application
+///
+/// This function mostly performs some logic to check what sockets were provided and whether or not
+/// we should use TLS.
+async fn serve(
+    cancellation_token: CancellationToken,
+    listen: args::TcpSocketOrUnixSocket,
+    rustls_config: Option<RustlsConfig>,
+    router: axum::Router,
 ) -> Result<()> {
-    // Shared cancellation token to signal graceful shutdown across the application
-    let cancellation_token = CancellationToken::new();
-
-    let cookie_encryption_key =
-        external_secrets::get_cookie_encryption_key(cookie_encryption_key_path.as_deref())?;
-
-    let server_state = ServerState {
-        db,
-        oidc: oidc::MaybeConfig::initialize(&base_url, oidc).await,
-        cookie_encryption_key,
-    };
-
-    tasks::initialize(server_state.clone(), cancellation_token.clone());
-    templates::initialize(&web_root)?;
-
-    let router = router::new(&web_root).with_state(server_state);
-
-    info!("Server available at: {}", base_url);
+    // I'm sorry for this code but type-wise this these kinds of conditions are really awkward to
+    // handle with axum. The apparent complexity comes from the fact that we have to handle these
+    // three top-level cases:
+    // - Passed ListenFd listener
+    // - TCP listener
+    // - UDP listener
+    // and each of them has to decide whether or not to use TLS. In total, that means we'll have to
+    // handle six cases. All of them output incompatible types so it's hard to do this generally
+    // without macros or a lot of generics-heavy code and I don't want to introduce either complexity
+    // here just to handle the listeners.
 
     // If we find an externally passed file descriptor socket, we'll use that as a listener instead
     // of any other user arguments. This is mostly useful in development or for systemd socket
@@ -132,16 +122,37 @@ async fn run_server(
             "Found externally passed file descriptor to use as listener, ignoring other listener arguments"
         );
         listener.set_nonblocking(true)?;
-        axum::serve(TcpListener::from_std(listener)?, router)
-            .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-            .await?;
+        if let Some(rustls_config) = rustls_config {
+            // Handle TLS.
+            axum_server::from_tcp_rustls(listener, rustls_config)
+                .wrap_err("Failed to create TLS server from passed listener")?
+                .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                .serve(router.into_make_service())
+                .await?;
+        } else {
+            // Handle non-TLS.
+            axum_server::from_tcp(listener)
+                .wrap_err("Failed to create server from passed listener")?
+                .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                .serve(router.into_make_service())
+                .await?;
+        }
     } else {
         match listen {
             args::TcpSocketOrUnixSocket::Tcp(socket_addr) => {
-                let listener = TcpListener::bind(socket_addr).await?;
-                axum::serve(listener, router)
-                    .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-                    .await?;
+                if let Some(rustls_config) = rustls_config {
+                    // Handle TLS.
+                    axum_server::bind_rustls(socket_addr, rustls_config)
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                } else {
+                    // Handle non-TLS.
+                    axum_server::bind(socket_addr)
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                }
             }
             args::TcpSocketOrUnixSocket::Unix((socket_addr, permissions)) => {
                 let socket_addr_path = socket_addr
@@ -160,9 +171,20 @@ async fn run_server(
                 if let Some(permissions) = permissions {
                     set_permissions(socket_addr_path, permissions).await?;
                 }
-                axum::serve(listener, router)
-                    .with_graceful_shutdown(shutdown_signal(cancellation_token.clone()))
-                    .await?;
+                if let Some(rustls_config) = rustls_config {
+                    // Handle TLS.
+                    axum_server::from_unix_rustls(listener.into_std()?, rustls_config)
+                        .wrap_err("Failed to create TLS server from unix listener")?
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                } else {
+                    // Handle non-TLS.
+                    axum_server::from_unix(listener.into_std()?)?
+                        .handle(spawn_shutdown_handle(cancellation_token.clone()))
+                        .serve(router.into_make_service())
+                        .await?;
+                }
 
                 // After the server has run, try to clean up the socket file.
                 remove_file_if_exists(socket_addr_path)
@@ -173,8 +195,69 @@ async fn run_server(
             }
         }
     }
-
     Ok(())
+}
+
+/// Create an axum service and make it listen on the given socket.
+async fn run_server(
+    db: DatabaseConnection,
+    args::RunArgs {
+        listen,
+        oidc,
+        server_url,
+        cookie_encryption_key_path,
+        web_root,
+        tls,
+        ..
+    }: args::RunArgs,
+) -> Result<()> {
+    // Shared cancellation token to signal graceful shutdown across the application.
+    let cancellation_token = CancellationToken::new();
+
+    let cookie_encryption_key =
+        external_secrets::get_cookie_encryption_key(cookie_encryption_key_path.as_deref())?;
+
+    let server_state = ServerState {
+        db,
+        oidc: oidc::MaybeConfig::initialize(&server_url, oidc).await,
+        cookie_encryption_key,
+    };
+
+    tasks::initialize(server_state.clone(), cancellation_token.clone());
+    templates::initialize(&web_root)?;
+
+    let router = router::new(&web_root).with_state(server_state);
+
+    info!("Server available at: {}", server_url);
+
+    // Load TLS configuration if both cert and key are provided.
+    let rustls_config = if let Some(args::Tls { tls_cert, tls_key }) = tls {
+        Some(
+            RustlsConfig::from_pem_file(tls_cert, tls_key)
+                .await
+                .wrap_err("Failed to load TLS certificate and key")?,
+        )
+    } else {
+        None
+    };
+
+    // Start serving.
+    serve(cancellation_token, listen, rustls_config, router).await
+}
+
+/// Create a new axum handle, spawn the graceful shutdown task, and return the handle.
+fn spawn_shutdown_handle<A: axum_server::Address + Send + 'static>(
+    cancellation_token: CancellationToken,
+) -> Handle<A> {
+    let handle = Handle::new();
+    tokio::spawn(shutdown_gracefully(cancellation_token, handle.clone()));
+    handle
+}
+
+/// Wait for the cancellation signal and then trigger graceful shutdown on the axum-server handle.
+async fn shutdown_gracefully<A: axum_server::Address>(token: CancellationToken, handle: Handle<A>) {
+    shutdown_signal(token).await;
+    handle.graceful_shutdown(None);
 }
 
 /// Handles shutdown signals for a graceful termination of the application.
@@ -208,6 +291,6 @@ async fn shutdown_signal(token: CancellationToken) {
         },
     }
 
-    // Signal gracefully shutdown to the application stack, like background tasks
+    // Signal gracefully shutdown to the application stack, like background tasks.
     token.cancel();
 }

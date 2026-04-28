@@ -73,6 +73,8 @@ test:
     RUST_LOG: debug
   script:
     - pacman -Syu --needed --noconfirm cargo-nextest podman jq geckodriver firefox
+    - just install-dev-ca
+    - just gen-dev-cert
     - just test
 
 .build-release:

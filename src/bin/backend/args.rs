@@ -100,8 +100,8 @@ pub struct RunArgs {
     ///
     /// Port can be omitted if it's the standard port.
     /// E.g. <https://buildbtw.archlinux.org>
-    #[arg(long, env = "BUILDBTW_BASE_URL")]
-    pub base_url: Url,
+    #[arg(long, env = "BUILDBTW_SERVER_URL")]
+    pub server_url: Url,
 
     /// Path to a file containing the secret to encrypt cookies with
     ///
@@ -129,8 +129,15 @@ pub struct RunArgs {
     /// The web root path contains the web assets and template directories.
     /// Use the `BUILDBTW_DEFAULT_WEB_ROOT` env var to set a compile time default.
     /// If both `BUILDBTW_WEB_ROOT` and `BUILDBTW_DEFAULT_WEB_ROOT` are not set, uses the current working directory as default.
-    #[arg(long, env = "BUILDBTW_WEB_ROOT", default_value_t = Utf8PathBuf::from(option_env!("BUILDBTW_DEFAULT_WEB_ROOT").unwrap_or("./")))]
+    #[arg(long,
+          env = "BUILDBTW_WEB_ROOT",
+          default_value_t = Utf8PathBuf::from(option_env!("BUILDBTW_DEFAULT_WEB_ROOT").unwrap_or("./")),
+          verbatim_doc_comment,
+    )]
     pub web_root: Utf8PathBuf,
+
+    #[clap(flatten)]
+    pub tls: Option<Tls>,
 
     #[cfg(debug_assertions)]
     #[clap(flatten)]
@@ -193,12 +200,37 @@ pub struct Oidc {
 }
 
 #[derive(clap::Args, Debug)]
+#[group(requires_all = ["tls_cert", "tls_key"])]
+pub struct Tls {
+    /// Path to the TLS certificate file
+    ///
+    /// Must be provided together with `tls_key`.
+    /// If both are set, the server will use TLS.
+    /// If neither is provided, the server will run without TLS.
+    #[arg(
+        long,
+        env = "BUILDBTW_TLS_CERT",
+        required = false,
+        verbatim_doc_comment
+    )]
+    pub tls_cert: Utf8PathBuf,
+
+    /// Path to the TLS private key file
+    ///
+    /// Must be provided together with `tls_cert`.
+    /// If both are set, the server will use TLS.
+    /// If neither is provided, the server will run without TLS.
+    #[arg(long, env = "BUILDBTW_TLS_KEY", required = false, verbatim_doc_comment)]
+    pub tls_key: Utf8PathBuf,
+}
+
+#[derive(clap::Args, Debug)]
 #[group(requires_all = ["run_authelia_container"])]
 pub struct AutheliaContainer {
     /// Run a podman container with authelia as an OIDC provider alongside
     /// the buildbtw server for local development.
     ///
-    /// This container assumes a base URL of <http://buildbtw.localhost:8080>. If you change the
+    /// This container assumes a base URL of <https://buildbtw.localhost:8080>. If you change the
     /// base URL, you'll need to change the authelia config at `authelia/configuration.yml` as well.
     ///
     /// Configuration (yml files, certificates) in ./authelia is mounted as
@@ -286,10 +318,14 @@ mod tests {
             "run",
             "--listen",
             "127.0.0.1:3000",
-            "--base-url",
+            "--server-url",
             "https://example.com",
             "--cookie-encryption-key-path",
             "1234567890123456789012345678901234567890123456789012345678901234",
+            "--tls-cert",
+            "cert/buildbtw.cert",
+            "--tls-key",
+            "cert/buildbtw.key",
             "--oidc-client-id",
             "test-client-id",
             "--oidc-client-secret",
@@ -314,10 +350,11 @@ mod tests {
         let Command::Run(RunArgs {
             listen,
             oidc,
-            base_url,
+            server_url,
             cookie_encryption_key_path: _,
             authelia_container,
             web_root: _,
+            tls,
         }) = parsed_args.command
         else {
             panic!("Expected Run command");
@@ -327,7 +364,7 @@ mod tests {
             listen,
             TcpSocketOrUnixSocket::Tcp("127.0.0.1:3000".parse().unwrap())
         );
-        assert_eq!(base_url, Url::parse("https://example.com").unwrap());
+        assert_eq!(server_url, Url::parse("https://example.com").unwrap());
 
         // Verify OIDC config is present and has correct values
         let oidc = oidc.expect("OIDC should be present");
@@ -335,6 +372,11 @@ mod tests {
         assert_eq!(oidc.oidc_client_secret, Secret::from("test-client-secret"));
         assert_eq!(oidc.oidc_issuer_url, "https://auth.example.com");
         assert_eq!(oidc.oidc_issuer_name, "Test OIDC Provider");
+
+        // Verify TLS config is present and has correct values
+        let tls = tls.expect("TLS should be present");
+        assert_eq!(tls.tls_cert.as_str(), "cert/buildbtw.cert");
+        assert_eq!(tls.tls_key.as_str(), "cert/buildbtw.key");
 
         assert!(authelia_container.run_authelia_container);
         assert_eq!(authelia_container.authelia_container_port, 9091);

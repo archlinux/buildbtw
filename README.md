@@ -66,6 +66,8 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just run-worker` to run the worker
 - `just run-server` to run the server
 - `just run-server --run-authelia-container` to run the server together with a container running Authelia for manually testing OIDC workflows
+- `just install-dev-ca` to install the mkcert CA to your system's trust store
+- `just gen-dev-cert` to generate a locally valid TLS dev certificate for the aforementined trust store
 
 ## Running end-to-end tests
 

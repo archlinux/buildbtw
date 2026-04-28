@@ -4,5 +4,5 @@ build
 data
 .env
 *.sqlite*
-authelia/*.pem
+cert/
 authelia/db

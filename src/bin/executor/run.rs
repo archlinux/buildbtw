@@ -110,7 +110,7 @@ async fn run_build_script(
     print_dir_content(output_dir.path()).await?;
 
     // Upload artifacts inside the output_dir if a collector URL has been passed
-    if let Some(collector_base_url) = build_script_args.api_base_url.clone() {
+    if let Some(collector_base_url) = build_script_args.api_server_url.clone() {
         let http_client = reqwest::Client::new();
         upload_package_artifacts(
             &build_script_args,

@@ -26,7 +26,7 @@ use crate::{
 /// advanced stuff.
 pub struct TestCtx {
     pub server: TestServer,
-    pub base_url: Url,
+    pub server_url: Url,
     pub state: ServerState,
     pub admin_session: sessions::Model,
 
@@ -165,7 +165,8 @@ impl TestCtxBuilder {
             .unwrap();
 
         let testserver_port = 8081;
-        let base_url = Url::parse(&format!("http://buildbtw.localhost:{testserver_port}")).unwrap();
+        let server_url =
+            Url::parse(&format!("http://buildbtw.localhost:{testserver_port}")).unwrap();
 
         let (maybe_authelia_container, oidc_config) = if self.enable_authelia {
             let container = authelia::Container::new(None, false)
@@ -183,7 +184,7 @@ impl TestCtxBuilder {
                 oidc_package_maintainer_groups: Vec::new(),
             };
 
-            let oidc_config = oidc::MaybeConfig::initialize(&base_url, Some(oidc_args)).await;
+            let oidc_config = oidc::MaybeConfig::initialize(&server_url, Some(oidc_args)).await;
             assert!(
                 matches!(oidc_config, oidc::MaybeConfig::Configured(_)),
                 "Expected OIDC to be successfully configured"
@@ -244,7 +245,7 @@ impl TestCtxBuilder {
 
         TestCtx {
             server,
-            base_url,
+            server_url,
             state,
             admin_session,
             _authelia_container: maybe_authelia_container,
