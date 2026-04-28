@@ -5,10 +5,7 @@ use axum::{
 };
 use axum_extra::{
     TypedHeader,
-    extract::{
-        PrivateCookieJar,
-        cookie::{Cookie, SameSite},
-    },
+    extract::{PrivateCookieJar, cookie::Cookie},
     headers::{Authorization, authorization::Bearer},
 };
 use color_eyre::eyre::{Context, ContextCompat};
@@ -16,7 +13,12 @@ use sea_orm::{IntoActiveModel, ModelTrait};
 use serde::Serialize;
 
 use crate::{
-    db, db_fields::RedactedString, entities, queries, response_error::ResponseError,
+    db,
+    db_fields::RedactedString,
+    entities,
+    oidc::{self},
+    queries,
+    response_error::ResponseError,
     server_state::ServerState,
 };
 
@@ -143,12 +145,13 @@ impl FromRequestParts<ServerState> for AuthUser {
 pub fn save_in_cookie_jar(
     session_secret_token: &RedactedString,
     cookie_jar: PrivateCookieJar,
+    oidc_config: Option<&oidc::Config>,
 ) -> PrivateCookieJar {
     let mut cookie = Cookie::new(
         SESSION_SECRET_TOKEN_COOKIE_NAME,
         session_secret_token.expose_secret().to_owned(),
     );
-    cookie.set_same_site(SameSite::Strict);
+    cookie.set_same_site(oidc::same_site_from_oidc_config(oidc_config));
     cookie.set_path("/");
     cookie.set_http_only(true);
     cookie.set_secure(true);
@@ -157,7 +160,6 @@ pub fn save_in_cookie_jar(
 
 pub fn remove_from_cookie_jar(cookie_jar: PrivateCookieJar) -> PrivateCookieJar {
     let mut cookie = Cookie::from(SESSION_SECRET_TOKEN_COOKIE_NAME);
-    cookie.set_same_site(SameSite::Strict);
     cookie.set_path("/");
     cookie.set_http_only(true);
     cookie.set_secure(true);

@@ -27,7 +27,7 @@ pub async fn start_login(
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_config = server_state.oidc.get_config()?;
     let (url, login_attempt) = oidc::new_login_attempt(oidc_config.clone());
-    let cookie_jar = login_attempt.save_in_cookie_jar(cookie_jar, &oidc_config, &url)?;
+    let cookie_jar = login_attempt.save_in_cookie_jar(cookie_jar, &oidc_config)?;
     Ok((cookie_jar, Redirect::to(url.as_str())))
 }
 
@@ -85,7 +85,14 @@ pub async fn authorized(
 
     tx.commit().await?;
 
-    let cookie_jar = from_request::auth_user::save_in_cookie_jar(&session.secret_token, cookie_jar);
+    // Remove temporary oidc login redirect flow cookie after authentication
+    let cookie_jar = oidc::LoginAttempt::remove_from_cookie_jar(cookie_jar);
+    // Update buildbtw session cookie with session data after authentication
+    let cookie_jar = from_request::auth_user::save_in_cookie_jar(
+        &session.secret_token,
+        cookie_jar,
+        Some(&oidc_config),
+    );
 
     Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))
 }

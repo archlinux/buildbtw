@@ -194,7 +194,7 @@ pub struct Oidc {
 
     /// Base URL of the OIDC provider.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_URL", required = false)]
-    pub oidc_issuer_url: String,
+    pub oidc_issuer_url: Url,
 
     /// This will be displayed on the login page.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_NAME", required = false)]
@@ -467,7 +467,10 @@ mod tests {
         let oidc = oidc.expect("OIDC should be present");
         assert_eq!(oidc.oidc_client_id, "test-client-id");
         assert_eq!(oidc.oidc_client_secret, Secret::from("test-client-secret"));
-        assert_eq!(oidc.oidc_issuer_url, "https://auth.example.com");
+        assert_eq!(
+            oidc.oidc_issuer_url,
+            Url::parse("https://auth.example.com").unwrap()
+        );
         assert_eq!(oidc.oidc_issuer_name, "Test OIDC Provider");
 
         // Verify TLS config is present and has correct values

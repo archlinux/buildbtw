@@ -166,8 +166,11 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar =
-        crate::from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar);
+    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
+        &session.secret_token,
+        private_jar,
+        None,
+    );
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -206,8 +209,11 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar =
-        crate::from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar);
+    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
+        &session.secret_token,
+        private_jar,
+        None,
+    );
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -265,8 +271,11 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
 
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar =
-        crate::from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar);
+    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
+        &session.secret_token,
+        private_jar,
+        None,
+    );
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -344,6 +353,7 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
     let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
         &user_a_session.secret_token,
         private_jar,
+        None,
     );
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
@@ -392,6 +402,7 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
         &session.secret_token.clone(),
         private_jar,
+        None,
     );
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
