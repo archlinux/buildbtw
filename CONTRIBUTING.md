@@ -15,8 +15,10 @@
 We have found that code written by AI takes longer to review due to the non-holistic nature of its output.
 As such, we have some reservations towards AI tool usage:
 
-- Do not check in code or docs written by AI.
-- You can use AI tools in other capacities so long as their results are not given to reviewers to look at.
+- Generally, we discourage AI usage in most cases.
+- Do *not* submit any generated comments, documentation, or other prose for review.
+- Never check in purely vibed code! Review _all_ generated code. You're always responsible for everything you push.
+- You must disclose all AI usage (for code, comments, issues, docs, etc) and state the model used.
 
 ## Documentation
 
