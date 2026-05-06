@@ -16,6 +16,7 @@ We have found that code written by AI takes longer to review due to the non-holi
 As such, we have some reservations towards AI tool usage:
 
 - Generally, we discourage AI usage in most cases.
+- Do *not* submit any generated comments, documentation, or other prose for review.
 - Never check in purely vibed code! Review _all_ generated code. You're always responsible for everything you push.
 - You must disclose all AI usage (for code, comments, issues, docs, etc) and state the model used.
 
