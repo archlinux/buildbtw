@@ -8,9 +8,11 @@
 //! builds in VMs.
 
 use axum_server::{Handle, tls_rustls::RustlsConfig};
+#[cfg(debug_assertions)]
+use buildbtw::authelia;
 use buildbtw::{
-    args, authelia, db, error_handler, external_secrets, oidc, router, server_state, tasks,
-    templates, tracing as buildbtw_tracing, utils::remove_file_if_exists,
+    args, db, error_handler, external_secrets, oidc, router, server_state, tasks, templates,
+    tracing as buildbtw_tracing, utils::remove_file_if_exists,
 };
 use clap::Parser;
 use color_eyre::{

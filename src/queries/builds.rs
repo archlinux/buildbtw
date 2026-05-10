@@ -18,6 +18,7 @@ use crate::{
 };
 
 /// Return a query returning all builds, optionally filtered by status.
+#[must_use]
 pub fn list(status: Option<package::BuildStatus>) -> Select<builds::Entity> {
     let mut query = builds::Entity::find();
 
@@ -92,11 +93,13 @@ pub fn insert_builds_with_dependencies(
 }
 
 /// Return a query returning a specific build by its unique uuid.
+#[must_use]
 pub fn by_id(id: TxtUuid) -> Select<builds::Entity> {
     builds::Entity::find_by_id(id)
 }
 
 /// Return all builds for a given iteration
+#[must_use]
 pub fn by_iteration_id(iteration_id: TxtUuid) -> Select<builds::Entity> {
     builds::Entity::find().filter(builds::COLUMN.iteration_id.eq(iteration_id))
 }

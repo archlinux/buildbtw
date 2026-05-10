@@ -3,6 +3,7 @@ use time::OffsetDateTime;
 
 use crate::entities::global_state;
 
+#[must_use]
 pub fn upsert(source_repos_last_updated: OffsetDateTime) -> Insert<global_state::ActiveModel> {
     let model = global_state::ActiveModel {
         source_repos_last_updated: Set(Some(source_repos_last_updated)),
@@ -16,6 +17,7 @@ pub fn upsert(source_repos_last_updated: OffsetDateTime) -> Insert<global_state:
     )
 }
 
+#[must_use]
 pub fn get() -> Select<global_state::Entity> {
     global_state::Entity::find_by_id(global_state::GLOBAL_STATE_ID.to_string())
 }

@@ -48,11 +48,13 @@ use tokio_util::sync::CancellationToken;
 use crate::{args, entities, queries};
 
 /// State of the task.
+#[derive(Debug)]
 pub struct IterationCreator {
     config: Config,
     db: DatabaseConnection,
 }
 
+#[derive(Debug)]
 pub struct Config {
     pub source_repo_dir: Utf8PathBuf,
     pub repo_update: RepoUpdateConfig,
@@ -62,6 +64,7 @@ pub struct Config {
     pub auto_create_iterations: bool,
 }
 
+#[derive(Debug)]
 pub enum RepoUpdateConfig {
     DontUpdate,
     DoUpdate(args::Gitlab),
@@ -69,6 +72,7 @@ pub enum RepoUpdateConfig {
 
 impl IterationCreator {
     /// Create a new [`IterationCreator`] but don't run it.
+    #[must_use]
     pub fn new(config: Config, db: DatabaseConnection) -> Self {
         Self { config, db }
     }

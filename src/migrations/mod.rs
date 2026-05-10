@@ -25,6 +25,7 @@ mod m20260304_155758_rename_namespaces_to_buildspaces;
 mod m20260310_131158_add_global_state;
 mod m20260310_190337_add_iteration_status;
 
+#[derive(Debug)]
 pub struct Migrator;
 
 impl MigratorTrait for Migrator {

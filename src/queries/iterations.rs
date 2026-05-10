@@ -8,6 +8,7 @@ use crate::db_fields::TxtUuid;
 use crate::entities::iterations::{self, NewIterationReason};
 
 #[allow(dead_code)]
+#[must_use]
 pub fn insert(
     buildspace_id: Uuid,
     changesets: git::Changesets,
@@ -27,6 +28,7 @@ pub fn insert(
 
 /// Used when build graph calculation for a new iteration is complete, and the
 /// iterations status changes from "pending" to "calculated".
+#[must_use]
 pub fn set_status_calculated(iteration_id: Uuid) -> UpdateOne<iterations::ActiveModel> {
     let model = iterations::ActiveModel {
         id: Unchanged(iteration_id.into()),
@@ -36,6 +38,7 @@ pub fn set_status_calculated(iteration_id: Uuid) -> UpdateOne<iterations::Active
     iterations::Entity::update(model)
 }
 
+#[must_use]
 pub fn newest_for_buildspace(buildspace_id: TxtUuid) -> Select<iterations::Entity> {
     iterations::Entity::find()
         .order_by_desc(iterations::COLUMN.created_at)
@@ -43,6 +46,7 @@ pub fn newest_for_buildspace(buildspace_id: TxtUuid) -> Select<iterations::Entit
         .limit(1)
 }
 
+#[must_use]
 pub fn pending_calculation() -> Select<iterations::Entity> {
     iterations::Entity::find().filter(
         iterations::COLUMN

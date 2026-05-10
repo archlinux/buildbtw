@@ -8,6 +8,7 @@ use sea_orm_migration::MigratorTrait;
 
 use crate::migrations::Migrator;
 
+#[derive(Debug)]
 pub enum SQLiteLocation {
     File(Utf8PathBuf),
     #[cfg(test)]
@@ -84,4 +85,5 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
 /// explicitly require a `commit()` statement in request handlers, which makes
 /// it straightforward to determine whether any given request will result in a
 /// committed transaction or in a rollback.
+#[derive(Debug)]
 pub struct Tx(pub DatabaseTransaction);

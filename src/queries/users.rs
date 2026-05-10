@@ -9,6 +9,7 @@ use crate::{
     input,
 };
 
+#[must_use]
 pub fn upsert(
     create: input::users::ValidatedCreate,
     refresh_token: Option<RefreshToken>,

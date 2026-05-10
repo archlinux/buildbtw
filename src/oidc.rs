@@ -4,7 +4,7 @@
 //! When the server starts, [`MaybeConfig`] is initialized with arguments from
 //! [args::Oidc]. If the OIDC provider is reachable and the configured
 //! credentials are valid, [MaybeConfig::Configured] is stored in
-//! [crate::ServerState].
+//! [crate::server_state::ServerState].
 //! Then, when a user visits [crate::web::oidc::StartLogin], a [LoginAttempt]
 //! is created and stored in their session. The user is redirected to the OIDC
 //! provider to authorize our OIDC client for their account. Afterwards, they
@@ -32,7 +32,7 @@ use url::Url;
 use crate::{args, db_fields::RedactedString, entities};
 
 /// State used by the http endpoints to run OIDC functionality.
-/// Stored in [super::ServerState].
+/// Stored in [super::server_state::ServerState].
 #[derive(Clone, Debug)]
 #[expect(clippy::large_enum_variant)]
 pub enum MaybeConfig {
@@ -188,7 +188,7 @@ pub fn new_login_attempt(Config { oidc_client, .. }: Config) -> (Url, LoginAttem
     )
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoginAttempt {
     /// Prevents replay attacks
     pub nonce: Nonce,
@@ -243,6 +243,7 @@ fn second_level_domain(url: &Url) -> Option<String> {
 /// are cross-origin or share the same parent.
 ///
 /// Returns lax on cross-origin domains, strict in all other cases including no oidc.
+#[must_use]
 pub fn same_site_from_oidc_config(oidc_config: Option<&Config>) -> SameSite {
     let Some(oidc_config) = oidc_config else {
         return SameSite::Strict;
@@ -340,6 +341,7 @@ pub async fn convert_authorization_code_to_user_info(
     Ok((userinfo, refresh_token))
 }
 
+#[must_use]
 pub fn oidc_groups_to_user_roles(
     user_groups: &GroupClaims,
     admin_group_names: &[String],

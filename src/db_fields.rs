@@ -51,6 +51,7 @@ impl From<TxtUuid> for uuid::Uuid {
 pub struct RedactedString(pub Secret<String>);
 
 impl RedactedString {
+    #[must_use]
     pub fn expose_secret(&self) -> &str {
         self.0.expose_secret()
     }

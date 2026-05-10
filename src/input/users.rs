@@ -1,7 +1,7 @@
 use garde::Validate;
 use nutype::nutype;
 
-#[derive(Validate)]
+#[derive(Debug, Validate)]
 pub struct Create {
     #[garde(length(max = 255))]
     pub oidc_id: String,
