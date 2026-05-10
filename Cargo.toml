@@ -155,9 +155,7 @@ rustls = { version = "0.23.39", features = ["aws-lc-rs"] }
 
 [dev-dependencies]
 axum-test = { version = "20.0.0", features = ["typed-routing"] }
-thirtyfour = { version = "0.36.1", features = [
-    "rustls-tls",
-], default-features = false }
+thirtyfour = { version = "0.37.0", features = ["rustls"], default-features = false }
 rstest = { version = "0.26.1", default-features = false }
 cookie = "0.18.1"
 temp-env = "0.3.6"
