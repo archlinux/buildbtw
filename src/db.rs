@@ -11,7 +11,6 @@ use crate::migrations::Migrator;
 #[derive(Debug)]
 pub enum SQLiteLocation {
     File(Utf8PathBuf),
-    #[cfg(test)]
     Memory,
 }
 
@@ -22,7 +21,6 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
     // Establish connection
     let db_url = match location {
         SQLiteLocation::File(file) => &format!("sqlite://{file}?mode=rwc"),
-        #[cfg(test)]
         SQLiteLocation::Memory => "sqlite::memory:",
     };
 
