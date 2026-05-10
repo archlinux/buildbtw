@@ -82,7 +82,7 @@ test:
   extends: .with-rust
   artifacts:
     paths:
-      - target/release/backend
+      - target/release/buildbtw-backend
   script:
     - just build-release
 

@@ -16,6 +16,10 @@ repository = "https://gitlab.archlinux.org/archlinux/buildbtw"
 publish = false
 
 [[bin]]
+name = "buildbtw-backend"
+path = "src/bin/backend/main.rs"
+
+[[bin]]
 name = "buildbtw-executor"
 path = "src/bin/executor/main.rs"
 

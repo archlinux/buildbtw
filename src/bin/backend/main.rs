@@ -7,8 +7,16 @@
 //! It coordinates with the local worker or GitLab runners to process package
 //! builds in VMs.
 
+mod args;
+
+#[cfg(debug_assertions)]
+use buildbtw::authelia;
+use buildbtw::{
+    db, external_secrets, oidc, router, server_state, tasks, templates,
+    utils::remove_file_if_exists,
+};
+
 use axum_server::{Handle, tls_rustls::RustlsConfig};
-use buildbtw::{external_secrets, utils::remove_file_if_exists};
 use clap::Parser;
 use color_eyre::{
     Result,
@@ -20,31 +28,9 @@ use tokio::{fs::set_permissions, net::UnixListener, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::{args::Args, server_state::ServerState};
-
-mod args;
-mod db;
-mod db_fields;
-mod entities;
-mod from_request;
-mod input;
-mod iteration_creator;
-mod migrations;
-mod oidc;
-pub mod permissions;
-mod queries;
-mod response_error;
-mod router;
-mod routes;
-mod server_state;
-mod tasks;
-mod templates;
-#[cfg(test)]
-mod tests;
-
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Args::parse();
+    let args = args::Args::parse();
 
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
@@ -60,7 +46,7 @@ async fn main() -> Result<()> {
             // finishes. Dropping the container will stop it.
             #[cfg(debug_assertions)]
             let maybe_authelia_container = if run_args.authelia_container.run_authelia_container {
-                let authelia = buildbtw::authelia::Container::new(
+                let authelia = authelia::Container::new(
                     Some(run_args.authelia_container.authelia_container_port),
                     true,
                 )
@@ -211,7 +197,7 @@ async fn run_server(
         tls,
         update_source_repos,
         auto_create_iterations,
-        raw_gitlab,
+        gitlab,
         #[cfg(debug_assertions)]
             authelia_container: _,
     }: args::RunArgs,
@@ -222,13 +208,15 @@ async fn run_server(
     let cookie_encryption_key =
         external_secrets::get_cookie_encryption_key(cookie_encryption_key_path.as_deref())?;
 
-    let server_state = ServerState {
+    let server_state = server_state::ServerState {
         db: db.clone(),
-        oidc: oidc::MaybeConfig::initialize(&server_url, oidc).await,
+        oidc: oidc::MaybeConfig::initialize(&server_url, oidc.map(Into::into)).await,
         cookie_encryption_key,
     };
 
-    let gitlab = raw_gitlab.map(args::Gitlab::try_from).transpose()?;
+    let gitlab = gitlab
+        .map(buildbtw::gitlab::GitlabConfig::try_from)
+        .transpose()?;
     tasks::initialize(
         server_state.clone(),
         cancellation_token.clone(),

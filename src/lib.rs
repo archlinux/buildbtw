@@ -2,14 +2,31 @@
 //! release.
 pub mod api;
 pub mod authelia;
+pub mod db;
+pub mod db_fields;
 pub mod dependency_graph;
+pub mod entities;
 pub mod error_handler;
 pub mod external_secrets;
+pub mod from_request;
 pub mod git;
 pub mod gitlab;
+pub mod input;
+pub mod iteration_creator;
+pub mod migrations;
+pub mod oidc;
 pub mod package;
+pub mod pacman_repository;
+pub mod permissions;
+pub mod queries;
 pub mod repo_updater;
+pub mod response_error;
+pub mod router;
+pub mod routes;
+pub mod server_state;
 pub mod storage;
+pub mod tasks;
+pub mod templates;
 #[cfg(test)]
 mod tests;
 pub mod tracing;

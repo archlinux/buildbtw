@@ -1,0 +1,92 @@
+use std::collections::HashMap;
+
+use crate::{api, dependency_graph, git, package};
+use camino::Utf8PathBuf;
+use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
+
+use crate::{db_fields::TxtUuid, entities::iterations};
+
+/// A single package build job within an iteration.
+///
+/// Each build targets a specific architecture and contains all the metadata
+/// needed to execute the build. Builds are the atomic units of work that get
+/// scheduled and executed either in gitlab pipelines or by the local worker.
+#[sea_orm::model]
+#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[sea_orm(table_name = "builds")]
+pub struct Model {
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: TxtUuid,
+    pub created_at: time::OffsetDateTime,
+
+    // For each architecture in an iteration, build a pkgbase at most once.
+    #[sea_orm(unique_key = "unique_builds")]
+    pub architecture: package::KnownArchitecture,
+    #[sea_orm(unique_key = "unique_builds")]
+    pub pkgbase: package::BaseName,
+    #[sea_orm(unique_key = "unique_builds")]
+    pub iteration_id: TxtUuid,
+
+    pub pkgnames_filenames: PkgnamesFilenames,
+    pub branch_name: git::BranchName,
+    pub commit_hash: git::CommitHash,
+    pub status: package::BuildStatus,
+    pub version: package::Version,
+
+    #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
+    pub iteration: HasOne<iterations::Entity>,
+    #[sea_orm(
+        self_ref,
+        via = "build_dependencies",
+        from = "DependedOnByBuild",
+        to = "DependsOnBuild"
+    )]
+    pub depends_on: HasMany<Entity>,
+    #[sea_orm(self_ref, via = "build_dependencies", reverse)]
+    pub depended_on_by: HasMany<Entity>,
+}
+
+impl From<Model> for api::builds::Build {
+    fn from(value: Model) -> Self {
+        api::builds::Build {
+            id: value.id.into(),
+        }
+    }
+}
+
+impl From<Model> for dependency_graph::BuildNode {
+    fn from(value: Model) -> Self {
+        let package_file_names = value
+            .pkgnames_filenames
+            .0
+            .into_iter()
+            .map(|(key, val)| (key, Utf8PathBuf::from(val)))
+            .collect();
+
+        dependency_graph::BuildNode {
+            pkgbase: value.pkgbase,
+            commit_hash: value.commit_hash,
+            branch_name: value.branch_name,
+            package_file_names,
+            version: value.version,
+        }
+    }
+}
+
+impl ActiveModelBehavior for ActiveModel {}
+
+/// Custom type to allow storing a hashmap of pkgnames and package file names using SeaORM
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct PkgnamesFilenames(pub HashMap<package::Name, String>);
+
+impl From<HashMap<package::Name, Utf8PathBuf>> for PkgnamesFilenames {
+    fn from(value: HashMap<package::Name, Utf8PathBuf>) -> Self {
+        Self(
+            value
+                .into_iter()
+                .map(|(pkgname, filename)| (pkgname, filename.to_string()))
+                .collect::<HashMap<_, _>>(),
+        )
+    }
+}
