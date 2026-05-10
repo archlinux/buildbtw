@@ -134,6 +134,24 @@ clean:
 generate-migration *name: (ensure-command "sea-orm-cli")
     sea-orm-cli migrate generate --migration-dir src/migrations "{{name}}"
 
+[doc("Generate an ER diagram into a mermaid file")]
+[group("dev")]
+er-diagram: (ensure-command 'sea-orm-cli')
+    #!/usr/bin/env bash
+    sea-orm-cli generate entity -u sqlite://buildbtw_backend.sqlite --er-diagram -o target/sea-orm-cli-generated
+    cat > target/sea-orm-cli-generated/entities.html <<EOF
+    <body style="background-color: #131313;" >
+    <pre class="mermaid">
+      $(<target/sea-orm-cli-generated/entities.mermaid)
+    </pre>
+    </body>
+
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: true, theme: 'redux-dark-color' });
+    </script>
+    EOF
+
 [group("dev")]
 migrate-database:
     cargo run --bin buildbtw-backend migrate-database
