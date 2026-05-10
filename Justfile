@@ -8,12 +8,12 @@ default:
 [doc("Run backend server")]
 [group("run")]
 run-server *args:
-    cargo run --features sea-orm-debug-print --bin backend -- run {{ args }}
+    cargo run --features sea-orm-debug-print --bin buildbtw-backend -- run {{ args }}
 
 [doc("Run backend server in release mode")]
 [group("run")]
 run-server-release *args:
-    cargo run --release --bin backend -- run {{ args }}
+    cargo run --release --bin buildbtw-backend -- run {{ args }}
 
 [doc("Run backend and auto-restart on code changes")]
 [group("run")]
@@ -132,11 +132,11 @@ clean:
 [doc("Generate a file with a timestamped name for a new migration")]
 [group("dev")]
 generate-migration *name: (ensure-command "sea-orm-cli")
-    sea-orm-cli migrate generate --migration-dir src/bin/backend/migrations "{{name}}"
+    sea-orm-cli migrate generate --migration-dir src/migrations "{{name}}"
 
 [group("dev")]
 migrate-database:
-    cargo run --bin backend migrate-database
+    cargo run --bin buildbtw-backend migrate-database
 
 [group("dev")]
 reset-database: && migrate-database
