@@ -1,8 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::dependency_graph::{BuildDependency, BuildGraph};
-use crate::dependency_graph::{BuildGraphs, BuildNode};
-use crate::package;
 use color_eyre::Result;
 use rstest::rstest;
 use sea_orm::ActiveValue::Set;
@@ -12,11 +9,13 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use crate::entities::{self, build_dependencies, builds};
-use crate::{
-    queries,
-    tests::test_ctx::{TestCtx, ctx},
+use buildbtw::{
+    dependency_graph::{BuildDependency, BuildGraph, BuildGraphs, BuildNode},
+    entities::{self, build_dependencies, builds},
+    package, queries,
 };
+
+use crate::test_ctx::{TestCtx, ctx};
 
 fn build_node(pkgbase: &str) -> Result<BuildNode> {
     Ok(BuildNode {

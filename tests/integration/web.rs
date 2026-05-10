@@ -2,11 +2,12 @@ mod account;
 mod index;
 mod oidc;
 
-use crate::web;
 use reqwest::StatusCode;
 use rstest::rstest;
 
-use crate::tests::test_ctx::{TestCtx, ctx};
+use buildbtw::web;
+
+use crate::test_ctx::{TestCtx, ctx};
 
 /// Test that 404 errors work properly for non-existent routes
 #[rstest]

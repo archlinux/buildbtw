@@ -3,10 +3,9 @@ use rstest::rstest;
 use sea_orm::TransactionTrait;
 use time::{Duration, OffsetDateTime};
 
-use crate::{
-    entities, queries,
-    tests::test_ctx::{TestCtx, ctx},
-};
+use buildbtw::{entities, queries};
+
+use crate::test_ctx::{TestCtx, ctx};
 
 /// Check that inserting and updating the global state works.
 #[rstest]

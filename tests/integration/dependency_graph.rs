@@ -3,9 +3,9 @@ mod diff;
 use color_eyre::Result;
 use tracing::debug;
 
-use crate::{
+use buildbtw::{
     dependency_graph::{self, BuildGraphs},
-    git, storage,
+    git, package, storage,
 };
 
 #[tokio::test]
@@ -85,7 +85,7 @@ async fn test_build_global_dependency_graphs() -> Result<()> {
     }
 
     let x86_64_deps = global_dependencies
-        .get(&crate::package::KnownArchitecture::X86_64)
+        .get(&package::KnownArchitecture::X86_64)
         .expect("Missing x86_64 in global dependencies graphs");
 
     // Check our testing package from the changesets specified above
@@ -119,7 +119,7 @@ async fn test_calculate_build_graphs() -> Result<()> {
 
     assert!(!graphs.is_empty());
     let x86_64_graph = graphs
-        .get(&crate::package::KnownArchitecture::X86_64)
+        .get(&package::KnownArchitecture::X86_64)
         .expect("Missing build graph for x86_64");
 
     assert!(x86_64_graph.node_count() > 0);
@@ -136,7 +136,7 @@ async fn test_calculate_build_graphs() -> Result<()> {
 
     assert!(!graphs.is_empty());
     let x86_64_graph = graphs
-        .get(&crate::package::KnownArchitecture::X86_64)
+        .get(&package::KnownArchitecture::X86_64)
         .expect("Missing build graph for x86_64");
 
     assert!(x86_64_graph.node_count() > 0);

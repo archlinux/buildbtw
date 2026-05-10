@@ -5,7 +5,7 @@ use sea_orm::{ActiveValue::Set, EntityTrait};
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::{
+use buildbtw::{
     db_fields::{RedactedString, TxtUuid},
     entities::{
         sessions::{self, ClientType},
@@ -13,8 +13,9 @@ use crate::{
     },
     queries,
     tasks::invalidate_old_sessions,
-    tests::test_ctx::{TestCtx, ctx},
 };
+
+use crate::test_ctx::{TestCtx, ctx};
 
 #[rstest]
 #[tokio::test]

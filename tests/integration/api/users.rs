@@ -1,7 +1,8 @@
-use crate::api;
 use rstest::rstest;
 
-use crate::tests::test_ctx::{TestCtx, ctx};
+use buildbtw::api;
+
+use crate::test_ctx::{TestCtx, ctx};
 
 /// Get the authenticated user
 #[rstest]

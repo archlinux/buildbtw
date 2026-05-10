@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use color_eyre::Result;
 
-use crate::{
+use buildbtw::{
     dependency_graph::{BuildGraph, BuildGraphs, BuildNode},
     package,
 };

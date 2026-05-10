@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
+
 mod api;
 mod dependency_graph;
 mod from_request;

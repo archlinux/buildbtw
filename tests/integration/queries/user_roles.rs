@@ -6,12 +6,13 @@ use sea_orm::{
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::{
+use buildbtw::{
     db_fields::TxtUuid,
     entities::{user_roles, users},
     queries,
-    tests::test_ctx::{TestCtx, ctx},
 };
+
+use crate::test_ctx::{TestCtx, ctx};
 
 #[rstest]
 #[tokio::test]

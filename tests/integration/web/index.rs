@@ -1,7 +1,8 @@
-use crate::web;
 use rstest::rstest;
 
-use crate::tests::test_ctx::{TestCtx, ctx};
+use buildbtw::web;
+
+use crate::test_ctx::{TestCtx, ctx};
 
 /// Test the index endpoint returns expected content
 #[rstest]

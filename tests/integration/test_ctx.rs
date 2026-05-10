@@ -1,4 +1,3 @@
-use crate::authelia;
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use axum_test::TestServer;
@@ -9,17 +8,18 @@ use sea_orm::DatabaseConnection;
 use thirtyfour::CapabilitiesHelper;
 use url::Url;
 
-use crate::{
-    db,
+use buildbtw::{
+    authelia, db,
     entities::{
         sessions::{self, ClientType},
         user_roles,
     },
-    oidc, queries, router,
+    input, oidc, queries, router,
     server_state::ServerState,
     templates,
-    tests::geckodriver::{self, ProcessGuard},
 };
+
+use crate::geckodriver::{self, ProcessGuard};
 
 /// Comprehensive test support. Can either be created by using the [ctx] rstest
 /// fixture for the common basic use case, or by using [TestCtxBuilder] for
@@ -106,7 +106,7 @@ impl CookieJarExt for PrivateCookieJar {
 /// Create a new user, directly accessing the database, removing the need for an existing login
 /// token.
 pub async fn make_admin_session(db: DatabaseConnection) -> Result<sessions::Model> {
-    let create_user = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+    let create_user = input::users::ValidatedCreate::try_new(input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
         username: "admin".to_string(),
     })?;
@@ -158,7 +158,7 @@ impl TestCtxBuilder {
 
     pub async fn build(self) -> TestCtx {
         // Using tracing in tests allows us to see error descriptions when tests fail.
-        let _ = crate::tracing::init(0, false);
+        let _ = buildbtw::tracing::init(0, false);
 
         let db = db::connect_and_migrate(db::SQLiteLocation::Memory)
             .await
