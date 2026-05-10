@@ -5,12 +5,13 @@ use sea_orm::{ActiveValue::Set, EntityTrait, PaginatorTrait};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::{
+use buildbtw::{
     db_fields::{RedactedString, TxtUuid},
     entities::{sessions, users},
     queries,
-    tests::test_ctx::{TestCtx, ctx},
 };
+
+use crate::test_ctx::{TestCtx, ctx};
 
 /// Test that the `count_by_user_id` function returns the correct value when there are no sessions.
 #[rstest]

@@ -2,10 +2,9 @@ use color_eyre::Result;
 use rstest::rstest;
 use sea_orm::TransactionTrait;
 
-use crate::{
-    entities, queries,
-    tests::test_ctx::{TestCtx, ctx},
-};
+use buildbtw::{entities, queries};
+
+use crate::test_ctx::{TestCtx, ctx};
 
 #[rstest]
 #[tokio::test]

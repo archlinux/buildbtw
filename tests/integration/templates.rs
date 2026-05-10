@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use rstest::rstest;
 
-use crate::templates;
+use buildbtw::templates;
 
 /// Test the template engine initialization and parse all templates
 #[rstest]

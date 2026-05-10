@@ -1,12 +1,11 @@
-use crate::storage;
 use color_eyre::Result;
 use sea_orm::{DatabaseTransaction, TransactionTrait};
 
-use crate::{db, entities, iteration_creator, queries};
+use buildbtw::{db, entities, git, iteration_creator, queries, storage};
 
 async fn create_buildspace_with_iteration(
     tx: &DatabaseTransaction,
-    changesets: crate::git::Changesets,
+    changesets: git::Changesets,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
     let buildspace = queries::buildspaces::insert("test".to_string())
         .exec_with_returning(tx)
@@ -26,7 +25,7 @@ async fn create_buildspace_with_iteration(
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is heavyweight."]
 async fn test_run() -> Result<()> {
-    let _ = crate::tracing::init(0, false);
+    let _ = buildbtw::tracing::init(0, false);
     let db = db::connect_and_migrate(db::SQLiteLocation::Memory)
         .await
         .unwrap();
@@ -37,7 +36,7 @@ async fn test_run() -> Result<()> {
     let tx = db.begin().await?;
     let (buildspace, iteration) = create_buildspace_with_iteration(
         &tx,
-        vec![crate::git::Changeset {
+        vec![git::Changeset {
             repo_slug: "libfoo".try_into()?,
             branch_name: "main".try_into()?,
         }]

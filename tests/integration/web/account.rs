@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use crate::web;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
 use rstest::rstest;
@@ -8,9 +7,10 @@ use sea_orm::TransactionTrait;
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
 
-use crate::entities::sessions::ClientType;
-use crate::queries;
-use crate::tests::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
+use buildbtw::{entities::sessions::ClientType, queries, web};
+use buildbtw::{from_request, input};
+
+use crate::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
 
 /// Test the full logout flow really invalidates the session
 #[tokio::test]
@@ -79,7 +79,7 @@ async fn test_e2e_account_logout() -> Result<()> {
         .private_cookie_jar_from_thirtyfour(c.get_all_cookies().await?.as_ref())
         .wrap_err("Failed to decrypt cookies")?;
     let session_secret_token = private_jar
-        .get(crate::from_request::auth_user::SESSION_SECRET_TOKEN_COOKIE_NAME)
+        .get(from_request::auth_user::SESSION_SECRET_TOKEN_COOKIE_NAME)
         .wrap_err("Failed to get session if from decrypt cookie")?
         .value()
         .to_owned();
@@ -116,7 +116,7 @@ async fn test_e2e_account_logout() -> Result<()> {
 
     // Check if the session cookie got removed
     let session_cookie = c
-        .get_named_cookie(crate::from_request::auth_user::SESSION_SECRET_TOKEN_COOKIE_NAME)
+        .get_named_cookie(from_request::auth_user::SESSION_SECRET_TOKEN_COOKIE_NAME)
         .await
         .ok();
     assert!(
@@ -146,7 +146,7 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = db.begin().await?;
 
     // Create a valid user
-    let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+    let create = input::users::ValidatedCreate::try_new(input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
     })?;
@@ -166,11 +166,8 @@ async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
-        &session.secret_token,
-        private_jar,
-        None,
-    );
+    let private_jar =
+        from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar, None);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -196,7 +193,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let db = &ctx.state.db;
 
     // Create a valid user
-    let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+    let create = input::users::ValidatedCreate::try_new(input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
         username: "username".to_string(),
     })?;
@@ -209,11 +206,8 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
-        &session.secret_token,
-        private_jar,
-        None,
-    );
+    let private_jar =
+        from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar, None);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -252,7 +246,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     let db = &ctx.state.db;
 
     // Create a valid user
-    let create = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+    let create = input::users::ValidatedCreate::try_new(input::users::Create {
         oidc_id: "OIDC_ID".to_string(),
         username: "test_username".to_string(),
     })?;
@@ -271,11 +265,8 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
 
     // Create cookie jar with the current session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
-        &session.secret_token,
-        private_jar,
-        None,
-    );
+    let private_jar =
+        from_request::auth_user::save_in_cookie_jar(&session.secret_token, private_jar, None);
     let cookies = private_jar.to_encrypted_cookie_jar()?;
 
     // Request the endpoint to test
@@ -323,19 +314,17 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
     let db = &ctx.state.db;
 
     // Create user A
-    let create_user_a =
-        crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
-            oidc_id: "OIDC_ID_USER_A".to_string(),
-            username: "user_a".to_string(),
-        })?;
+    let create_user_a = input::users::ValidatedCreate::try_new(input::users::Create {
+        oidc_id: "OIDC_ID_USER_A".to_string(),
+        username: "user_a".to_string(),
+    })?;
     let user_a = queries::users::upsert(create_user_a, None).exec(db).await?;
 
     // Create user B
-    let create_user_b =
-        crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
-            oidc_id: "OIDC_ID_USER_B".to_string(),
-            username: "user_b".to_string(),
-        })?;
+    let create_user_b = input::users::ValidatedCreate::try_new(input::users::Create {
+        oidc_id: "OIDC_ID_USER_B".to_string(),
+        username: "user_b".to_string(),
+    })?;
     let user_b = queries::users::upsert(create_user_b, None).exec(db).await?;
 
     // Create session for user A (we'll authenticate as user A)
@@ -350,7 +339,7 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
 
     // Create cookie jar with user A's session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
+    let private_jar = from_request::auth_user::save_in_cookie_jar(
         &user_a_session.secret_token,
         private_jar,
         None,
@@ -386,7 +375,7 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     let db = &ctx.state.db;
 
     // Create user
-    let create_user = crate::input::users::ValidatedCreate::try_new(crate::input::users::Create {
+    let create_user = input::users::ValidatedCreate::try_new(input::users::Create {
         oidc_id: "OIDC_ID_USER_A".to_string(),
         username: "user_a".to_string(),
     })?;
@@ -399,7 +388,7 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
 
     // Create cookie jar with user A's session
     let private_jar = ctx.private_cookie_jar();
-    let private_jar = crate::from_request::auth_user::save_in_cookie_jar(
+    let private_jar = from_request::auth_user::save_in_cookie_jar(
         &session.secret_token.clone(),
         private_jar,
         None,

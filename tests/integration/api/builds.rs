@@ -1,9 +1,10 @@
-use crate::api;
-use crate::package;
 use reqwest::StatusCode;
 use rstest::rstest;
 
-use crate::tests::test_ctx::{TestCtx, ctx};
+use buildbtw::api;
+use buildbtw::package;
+
+use crate::test_ctx::{TestCtx, ctx};
 
 /// List builds with various status filters
 #[rstest]

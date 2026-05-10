@@ -27,8 +27,6 @@ pub mod server_state;
 pub mod storage;
 pub mod tasks;
 pub mod templates;
-#[cfg(test)]
-mod tests;
 pub mod tracing;
 pub mod utils;
 pub mod web;

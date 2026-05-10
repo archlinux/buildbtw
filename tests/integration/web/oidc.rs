@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use crate::web;
 use axum_test::TestResponse;
 use color_eyre::Result;
 use openidconnect::{AuthorizationCode, CsrfToken};
@@ -8,10 +7,9 @@ use rstest::rstest;
 use thirtyfour::{By, prelude::ElementQueryable};
 use url::Url;
 
-use crate::{
-    entities::sessions::ClientType,
-    tests::test_ctx::{TestCtx, TestCtxBuilder, ctx},
-};
+use buildbtw::{entities::sessions::ClientType, web};
+
+use crate::test_ctx::{TestCtx, TestCtxBuilder, ctx};
 
 #[rstest]
 #[tokio::test]
