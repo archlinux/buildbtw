@@ -7,13 +7,16 @@
 //! It coordinates with the local worker or GitLab runners to process package
 //! builds in VMs.
 
-use axum_server::{Handle, tls_rustls::RustlsConfig};
+mod args;
+
 #[cfg(debug_assertions)]
 use buildbtw::authelia;
 use buildbtw::{
-    args, db, error_handler, external_secrets, oidc, router, server_state, tasks, templates,
-    tracing as buildbtw_tracing, utils::remove_file_if_exists,
+    db, external_secrets, oidc, router, server_state, tasks, templates,
+    utils::remove_file_if_exists,
 };
+
+use axum_server::{Handle, tls_rustls::RustlsConfig};
 use clap::Parser;
 use color_eyre::{
     Result,
@@ -29,8 +32,8 @@ use tracing::info;
 async fn main() -> Result<()> {
     let args = args::Args::parse();
 
-    error_handler::init(args.verbose)?;
-    buildbtw_tracing::init(args.verbose, args.tokio_console_telemetry)?;
+    buildbtw::error_handler::init(args.verbose)?;
+    buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .map_err(|_| eyre!("Failed to install rustls crypto provider"))?;
@@ -194,7 +197,7 @@ async fn run_server(
         tls,
         update_source_repos,
         auto_create_iterations,
-        raw_gitlab,
+        gitlab,
         #[cfg(debug_assertions)]
             authelia_container: _,
     }: args::RunArgs,
@@ -207,11 +210,13 @@ async fn run_server(
 
     let server_state = server_state::ServerState {
         db: db.clone(),
-        oidc: oidc::MaybeConfig::initialize(&server_url, oidc).await,
+        oidc: oidc::MaybeConfig::initialize(&server_url, oidc.map(Into::into)).await,
         cookie_encryption_key,
     };
 
-    let gitlab = raw_gitlab.map(args::Gitlab::try_from).transpose()?;
+    let gitlab = gitlab
+        .map(buildbtw::gitlab::GitlabConfig::try_from)
+        .transpose()?;
     tasks::initialize(
         server_state.clone(),
         cancellation_token.clone(),

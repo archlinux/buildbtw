@@ -9,7 +9,6 @@
 
 use std::collections::HashSet;
 
-use crate::storage;
 use color_eyre::Result;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, DatabaseTransaction, PaginatorTrait, QueryFilter,
@@ -22,8 +21,9 @@ use tracing::Instrument;
 use tracing::{error, info_span, instrument, warn};
 
 use crate::entities::user_roles;
-use crate::{args, iteration_creator};
+use crate::gitlab::GitlabConfig;
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
+use crate::{iteration_creator, storage};
 
 /// Starts background tasks.
 ///
@@ -39,7 +39,7 @@ use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
 pub fn initialize(
     state: ServerState,
     token: CancellationToken,
-    gitlab: Option<args::Gitlab>,
+    gitlab: Option<GitlabConfig>,
     update_source_repos: bool,
     auto_create_iterations: bool,
     db: DatabaseConnection,

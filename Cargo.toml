@@ -17,7 +17,7 @@ publish = false
 
 [[bin]]
 name = "buildbtw-backend"
-path = "src/bin/backend.rs"
+path = "src/bin/backend/main.rs"
 
 [[bin]]
 name = "buildbtw-executor"

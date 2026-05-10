@@ -36,6 +36,7 @@ use std::{
 
 use crate::{
     dependency_graph::{self, BuildGraphs},
+    gitlab::GitlabConfig,
     package::KnownArchitecture,
     repo_updater,
 };
@@ -45,7 +46,7 @@ use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
 
-use crate::{args, entities, queries};
+use crate::{entities, queries};
 
 /// State of the task.
 #[derive(Debug)]
@@ -67,7 +68,7 @@ pub struct Config {
 #[derive(Debug)]
 pub enum RepoUpdateConfig {
     DontUpdate,
-    DoUpdate(args::Gitlab),
+    DoUpdate(GitlabConfig),
 }
 
 impl IterationCreator {
@@ -273,7 +274,7 @@ impl IterationCreator {
 
     /// Fetch new commits for all source repositories.
     #[tracing::instrument(skip(self, client))]
-    async fn update_repos(&self, client: &AsyncGitlab, gitlab_args: &args::Gitlab) -> Result<()> {
+    async fn update_repos(&self, client: &AsyncGitlab, gitlab_args: &GitlabConfig) -> Result<()> {
         // Get the previous update cutoff timestamp
         let source_repos_last_updated = self
             .db

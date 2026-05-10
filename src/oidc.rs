@@ -1,8 +1,7 @@
 //! Single-sign-on functionality using the Open ID Connect (OIDC) standard
 //!
 //! Overview:
-//! When the server starts, [`MaybeConfig`] is initialized with arguments from
-//! [args::Oidc]. If the OIDC provider is reachable and the configured
+//! When the server starts, [`MaybeConfig`] is initialized with an [`OidcConfig`]. If the OIDC provider is reachable and the configured
 //! credentials are valid, [MaybeConfig::Configured] is stored in
 //! [crate::server_state::ServerState].
 //! Then, when a user visits [crate::web::oidc::StartLogin], a [LoginAttempt]
@@ -26,10 +25,23 @@ use openidconnect::{
     TokenResponse, UserInfoClaims,
 };
 use openidconnect::{PkceCodeVerifier, reqwest};
+use redact::Secret;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{args, db_fields::RedactedString, entities};
+use crate::web;
+use crate::{db_fields::RedactedString, entities};
+
+/// OIDC configuration for initializing the client.
+#[derive(Debug)]
+pub struct OidcConfig {
+    pub client_id: String,
+    pub client_secret: Secret<String>,
+    pub issuer_url: Url,
+    pub issuer_name: String,
+    pub package_maintainer_groups: Vec<String>,
+    pub admin_groups: Vec<String>,
+}
 
 /// State used by the http endpoints to run OIDC functionality.
 /// Stored in [super::server_state::ServerState].
@@ -53,10 +65,10 @@ impl MaybeConfig {
         }
     }
 
-    /// Initialize the OIDC configuration with the given command-line arguments.
+    /// Initialize the OIDC configuration for the given configuration.
     /// On failure, return [MaybeConfig::NotConfigured].
-    pub async fn initialize(server_url: &Url, args: Option<args::Oidc>) -> MaybeConfig {
-        match Self::try_initialize_state(server_url, args).await {
+    pub async fn initialize(server_url: &Url, config: Option<OidcConfig>) -> MaybeConfig {
+        match Self::try_initialize_state(server_url, config).await {
             Ok(conf) => {
                 tracing::info!("OIDC enabled");
                 MaybeConfig::Configured(conf)
@@ -68,8 +80,8 @@ impl MaybeConfig {
         }
     }
 
-    /// Try to initialize an OIDC client for the given command-line arguments.
-    async fn try_initialize_state(server_url: &Url, args: Option<args::Oidc>) -> Result<Config> {
+    /// Try to initialize an OIDC client for the given configuration.
+    async fn try_initialize_state(server_url: &Url, config: Option<OidcConfig>) -> Result<Config> {
         #[allow(unused_mut)]
         let mut reqwest_client_builder =
             reqwest::ClientBuilder::new().redirect(reqwest::redirect::Policy::none());
@@ -91,14 +103,14 @@ impl MaybeConfig {
             .build()
             .wrap_err("Failed to build reqwest client")?;
 
-        let args = args.wrap_err("OIDC configuration is absent or incomplete.")?;
-        let client_id = ClientId::new(args.oidc_client_id);
-        let client_secret = ClientSecret::new(args.oidc_client_secret.expose_secret().clone());
+        let config = config.wrap_err("OIDC configuration is absent or incomplete.")?;
+        let client_id = ClientId::new(config.client_id);
+        let client_secret = ClientSecret::new(config.client_secret.expose_secret().clone());
         // Custom url representation to guarantee exact match, `to_string()` adds an extra slash which throws off strict matching of some OIDC providers.
         let issuer_url = IssuerUrl::new(format!(
             "{}://{}",
-            args.oidc_issuer_url.scheme(),
-            args.oidc_issuer_url.authority()
+            config.issuer_url.scheme(),
+            config.issuer_url.authority()
         ))
         .wrap_err("failed to parse issuer URL")?;
 
@@ -116,10 +128,10 @@ impl MaybeConfig {
         Ok(Config {
             oidc_client: client,
             reqwest_client,
-            issuer_name: args.oidc_issuer_name,
-            issuer_url: args.oidc_issuer_url,
-            admin_oidc_groups: args.oidc_admin_groups,
-            package_maintainer_oidc_groups: args.oidc_package_maintainer_groups,
+            issuer_name: config.issuer_name,
+            issuer_url: config.issuer_url,
+            admin_oidc_groups: config.admin_groups,
+            package_maintainer_oidc_groups: config.package_maintainer_groups,
         })
     }
 }

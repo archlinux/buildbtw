@@ -1,7 +1,6 @@
 //! The buildbtw library, providing functionality for all the binaries we
 //! release.
 pub mod api;
-pub mod args;
 pub mod authelia;
 pub mod db;
 pub mod db_fields;

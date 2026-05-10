@@ -10,7 +10,7 @@ use thirtyfour::CapabilitiesHelper;
 use url::Url;
 
 use crate::{
-    args, db,
+    db,
     entities::{
         sessions::{self, ClientType},
         user_roles,
@@ -175,16 +175,16 @@ impl TestCtxBuilder {
             // These values are hardcoded in Authelia's `configuration.yml` and
             // `users_database.yml`.
             let authelia_port = container.port;
-            let oidc_args = args::Oidc {
-                oidc_client_id: "buildbtw-test".to_string(),
-                oidc_client_secret: Secret::from("insecure_secret"),
-                oidc_issuer_url: Url::parse(
+            let oidc_args = oidc::OidcConfig {
+                client_id: "buildbtw-test".to_string(),
+                client_secret: Secret::from("insecure_secret"),
+                issuer_url: Url::parse(
                     format!("https://authelia.buildbtw.localhost:{authelia_port}").as_str(),
                 )
                 .unwrap(),
-                oidc_issuer_name: "Authelia Test".to_string(),
-                oidc_admin_groups: Vec::new(),
-                oidc_package_maintainer_groups: Vec::new(),
+                issuer_name: "Authelia Test".to_string(),
+                admin_groups: Vec::new(),
+                package_maintainer_groups: Vec::new(),
             };
 
             let oidc_config = oidc::MaybeConfig::initialize(&server_url, Some(oidc_args)).await;

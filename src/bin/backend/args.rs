@@ -4,7 +4,10 @@ use std::{
     os::unix::{fs::PermissionsExt, net::SocketAddr as UnixSocketAddr},
 };
 
-use crate::external_secrets;
+use buildbtw::external_secrets;
+use buildbtw::gitlab::GitlabConfig;
+use buildbtw::oidc::OidcConfig;
+
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail};
 use redact::Secret;
@@ -98,7 +101,7 @@ pub struct RunArgs {
     pub oidc: Option<Oidc>,
 
     #[clap(flatten)]
-    pub raw_gitlab: Option<RawGitlab>,
+    pub gitlab: Option<Gitlab>,
 
     /// URL the backend server is reachable at, including protocol.
     ///
@@ -172,7 +175,10 @@ pub struct RunArgs {
 
 #[derive(clap::Args, Debug)]
 #[group(requires_all = ["oidc_client_id", "oidc_client_secret", "oidc_issuer_url", "oidc_issuer_name"])]
-#[allow(clippy::struct_field_names)]
+#[expect(
+    clippy::struct_field_names,
+    reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
+)]
 pub struct Oidc {
     /// To use OIDC, all options beginning with `oidc` must be set.
     /// We support RS*, PS*, or HS* signature algorithms.
@@ -222,13 +228,26 @@ pub struct Oidc {
     pub oidc_admin_groups: Vec<String>,
 }
 
+impl From<Oidc> for OidcConfig {
+    fn from(value: Oidc) -> Self {
+        Self {
+            client_id: value.oidc_client_id,
+            client_secret: value.oidc_client_secret,
+            issuer_url: value.oidc_issuer_url,
+            issuer_name: value.oidc_issuer_name,
+            admin_groups: value.oidc_admin_groups,
+            package_maintainer_groups: value.oidc_package_maintainer_groups,
+        }
+    }
+}
+
 #[derive(clap::Args, Debug)]
 #[group(requires_all = ["gitlab_domain", "gitlab_packages_group"])]
 #[expect(
     clippy::struct_field_names,
     reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
 )]
-pub struct RawGitlab {
+pub struct Gitlab {
     /// Path to a file containing the GitLab API token for authentication
     ///
     /// The token needs the `read_api` scope.
@@ -258,22 +277,14 @@ pub struct RawGitlab {
     gitlab_packages_group: String,
 }
 
-/// Like [`Gitlab`] above, but with the secret token resolved to an actual string and the prefixes of the field names removed.
-#[derive(Debug)]
-pub struct Gitlab {
-    pub token: Secret<String>,
-    pub domain: Url,
-    pub packages_group: String,
-}
-
-impl TryFrom<RawGitlab> for Gitlab {
-    fn try_from(value: RawGitlab) -> Result<Gitlab> {
+impl TryFrom<Gitlab> for GitlabConfig {
+    fn try_from(value: Gitlab) -> Result<GitlabConfig> {
         let token = external_secrets::get_required(
             "BUILDBTW_GITLAB_TOKEN",
             value.gitlab_token_path.as_deref(),
         )?;
 
-        Ok(Gitlab {
+        Ok(GitlabConfig {
             token,
             domain: value.gitlab_domain,
             packages_group: value.gitlab_packages_group,
@@ -365,6 +376,7 @@ fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
 mod tests {
 
     use clap::Parser;
+    use redact::Secret;
     use rstest::rstest;
     use url::Url;
 
@@ -444,7 +456,7 @@ mod tests {
             authelia_container,
             web_root: _,
             tls,
-            raw_gitlab,
+            gitlab,
             update_source_repos,
             auto_create_iterations,
         }) = parsed_args.command
@@ -475,7 +487,7 @@ mod tests {
         assert_eq!(tls.tls_cert.as_str(), "cert/buildbtw.cert");
         assert_eq!(tls.tls_key.as_str(), "cert/buildbtw.key");
 
-        let gitlab = raw_gitlab.expect("Expected gitlab args");
+        let gitlab = gitlab.expect("Expected gitlab args");
         assert_eq!(
             gitlab.gitlab_domain.as_str(),
             "https://gitlab.archlinux.org/"
