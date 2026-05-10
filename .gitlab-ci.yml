@@ -63,6 +63,22 @@ lint:
   script:
     - just lint
 
+er-diagram:
+  stage: check
+  extends: .with-rust
+  variables:
+    BUILDBTW_DATABASE_FILE: buildbtw_backend.sqlite
+  script:
+    - cargo install 'sea-orm-cli@^2.0.0-rc' --force
+    - just migrate-database
+    - PATH="$PATH:$CARGO_HOME/bin" just er-diagram
+
+  artifacts:
+    expose_as: "ER Diagram"
+    paths:
+      - target/sea-orm-cli-generated/entities.html
+      - target/sea-orm-cli-generated/entities.mermaid
+
 test:
   tags:
     # the test suite needs to spawn podman containers, so we run this job in a VM
