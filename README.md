@@ -14,6 +14,7 @@ To follow current project progress, you can check the [milestones](https://gitla
 - [Architecture Overview](docs/Architecture_Overview.md)
 - [Frontend](Frontend.md)
 - [Infrastructure Operations](https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/master/docs/buildbtw.md)
+- [Generated ER Diagram](https://gitlab.archlinux.org/archlinux/buildbtw/-/jobs/artifacts/main/file/target/sea-orm-cli-generated/entities.html?job=er-diagram)
 
 Information on prior art, technical background, feedback from user interviews and other notes are gathered in the [notes](./notes) folder.
 
