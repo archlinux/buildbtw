@@ -8,8 +8,7 @@ use uuid::Uuid;
 
 use crate::package;
 
-/// List builds, optionally filtered by the status given in the query
-/// parameters.
+/// List builds, optionally filtered by status or namespace name.
 #[derive(TypedPath, Deserialize, Debug)]
 #[typed_path("/api/v1/builds")]
 pub struct ListByStatus {}
@@ -19,6 +18,9 @@ pub struct ListByStatus {}
 pub struct ListByStatusQuery {
     /// Only return builds with this status.
     pub status: Option<package::BuildStatus>,
+
+    /// Only return builds for this namespace.
+    pub buildspace_name: Option<String>,
 }
 
 /// A single package build job within an iteration.
