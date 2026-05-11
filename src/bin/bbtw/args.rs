@@ -43,6 +43,15 @@ pub enum Command {
     Show {
         #[arg()]
         name: String,
+
+        /// Maximum number of builds to show for each status.
+        #[arg(long, short, default_value = "3", value_parser = clap::value_parser!(u64).range(1..))]
+        limit: Option<u64>,
+
+        #[cfg(debug_assertions)]
+        /// Display some non-existent builds for development. Temporary, until we have more ways to modify builds in the actual DB.
+        #[arg(long, action)]
+        show_demo_builds: bool,
     },
 
     /// Authenticate and check login status

@@ -174,6 +174,8 @@ impl From<KnownArchitecture> for Architecture {
     sea_orm::DeriveValueType,
     Serialize,
     Deserialize,
+    strum::EnumIter,
+    Hash,
 )]
 #[sea_orm(value_type = "String")]
 pub enum BuildStatus {
@@ -194,6 +196,34 @@ pub enum BuildStatus {
 
     /// Build as failed
     Failed,
+}
+
+impl BuildStatus {
+    /// Return a color for showing this status on the CLI.
+    #[must_use]
+    pub fn cli_color(&self) -> yansi::Color {
+        match self {
+            BuildStatus::Blocked | BuildStatus::Pending | BuildStatus::Scheduled => {
+                yansi::Color::Yellow
+            }
+            BuildStatus::Building => yansi::Color::Blue,
+            BuildStatus::Built => yansi::Color::Green,
+            BuildStatus::Failed => yansi::Color::Red,
+        }
+    }
+
+    /// Return a unicode symbol representing this status.
+    #[must_use]
+    pub fn symbol(&self) -> char {
+        match self {
+            BuildStatus::Blocked => '●',
+            // Since this status should only be rarely visible, it's fine to use the same icon as `Scheduled`.
+            BuildStatus::Pending | BuildStatus::Scheduled => '⧗',
+            BuildStatus::Building => '✦',
+            BuildStatus::Built => '✓',
+            BuildStatus::Failed => '✗',
+        }
+    }
 }
 
 /// Provides SeaORM compatibility for ALPM package versions.
