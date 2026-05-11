@@ -6,10 +6,13 @@ use crate::{db, queries, response_error::ResponseResult};
 
 pub async fn list(
     _: builds::ListByStatus,
-    Query(builds::ListByStatusQuery { status }): Query<builds::ListByStatusQuery>,
+    Query(builds::ListByStatusQuery {
+        status,
+        buildspace_name,
+    }): Query<builds::ListByStatusQuery>,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<Json<Vec<builds::Build>>> {
-    let builds = queries::builds::list(status)
+    let builds = queries::builds::list(status, buildspace_name.as_deref())
         .all(&tx)
         .await?
         .into_iter()
