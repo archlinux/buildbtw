@@ -178,6 +178,11 @@ update-graphql-schema: (ensure-command "graphql-client")
     graphql-client introspect-schema "$BUILDBTW_GITLAB_DOMAIN/api/graphql" --authorization "$BUILDBTW_GITLAB_TOKEN" --output src/gitlab/graphql_schema.json
     ./scripts/prune-graphql-schema.sh src/gitlab/graphql_schema.json
 
+[doc("Insert dummy data into DB")]
+[group("dev")]
+seed-database:
+    cargo run --features sea-orm-debug-print --bin buildbtw-backend -- seed
+
 [doc("Ensures that one or more required commands are installed")]
 [private]
 ensure-command +command:

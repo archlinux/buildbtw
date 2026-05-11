@@ -24,6 +24,7 @@ use color_eyre::{
 };
 use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
+use sea_orm::TransactionTrait;
 use tokio::{fs::set_permissions, net::UnixListener, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
@@ -71,6 +72,12 @@ async fn main() -> Result<()> {
         }
         args::Command::MigrateDatabase {} => {
             db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
+        }
+        #[cfg(debug_assertions)]
+        args::Command::Seed {} => {
+            let db = db::connect_and_migrate(db::SQLiteLocation::File(args.database_file)).await?;
+            let tx = db.begin().await?;
+            buildbtw::seed::seed(tx).await?;
         }
     }
 
