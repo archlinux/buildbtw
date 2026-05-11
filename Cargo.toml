@@ -69,7 +69,7 @@ datastar = { version = "0.3.1", features = ["axum", "tracing"] }
 directories = "6.0.0"
 gitlab = "0.1811.0"
 redact = { version = "0.1.11", features = ["serde"] }
-reqwest = { version = "0.13.2", features = ["json", "stream"] }
+reqwest = { version = "0.13.2", features = ["json", "stream", "query"] }
 serde = { version = "1.0.228", features = ["serde_derive"] }
 serde_json = { version = "1.0.149", features = ["raw_value"] }
 strum = { version = "0.28.0", features = ["derive"] }
@@ -158,6 +158,7 @@ axum-server = { version = "0.8.0", features = ["tls-rustls"] }
 rustls = { version = "0.23.39", features = ["aws-lc-rs"] }
 serde_with = "3.20.0"
 yansi = { version = "1.0.1", features = ["detect-env", "detect-tty"] }
+futures = "0.3.32"
 
 [dev-dependencies]
 axum-test = { version = "20.0.0", features = ["typed-routing"] }

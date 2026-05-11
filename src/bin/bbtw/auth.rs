@@ -17,10 +17,10 @@ use url::Url;
 use crate::args::AuthCommand;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct AuthToken {
-    created_at: OffsetDateTime,
+pub struct AuthToken {
+    pub created_at: OffsetDateTime,
     #[serde(serialize_with = "redact::expose_secret")]
-    secret_token: redact::Secret<String>,
+    pub secret_token: redact::Secret<String>,
 }
 
 /// Return the path to the login token
@@ -37,7 +37,7 @@ fn auth_token_path() -> Result<PathBuf> {
 
 /// Return an auth token if it exists
 #[instrument]
-async fn auth_token() -> Result<Option<AuthToken>> {
+pub async fn auth_token() -> Result<Option<AuthToken>> {
     if auth_token_path()?.exists() {
         let auth_token_str = fs::read_to_string(auth_token_path()?).await?;
         let auth_token: AuthToken = serde_json::from_str(&auth_token_str)?;
