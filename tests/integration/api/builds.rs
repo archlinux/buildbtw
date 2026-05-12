@@ -78,6 +78,7 @@ async fn test_list_builds_by_status_empty(
         .add_query_params(api::builds::ListByStatusQuery {
             status,
             buildspace_name: None,
+            max_results: None,
         })
         .await;
 
@@ -115,6 +116,7 @@ async fn test_list_builds_by_status_and_namespace(
         .add_query_params(api::builds::ListByStatusQuery {
             status,
             buildspace_name: Some("target".to_string()),
+            max_results: None,
         })
         .await;
 
@@ -126,6 +128,38 @@ async fn test_list_builds_by_status_and_namespace(
     let build_ids: HashSet<_> = builds.into_iter().map(|build| build.id).collect();
     let expected_ids = HashSet::from([build_one.id.into(), build_two.id.into()]);
     assert_eq!(build_ids, expected_ids);
+
+    Ok(())
+}
+
+/// Check that the max_results filter limits the number of results when listing builds.
+#[rstest]
+#[tokio::test]
+async fn test_list_builds_max_results(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create buildspace, iteration, and three builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = create_buildspace_with_iteration(&tx, "buildspace").await?;
+    create_build(&tx, iteration.id, "one").await?;
+    create_build(&tx, iteration.id, "two").await?;
+    create_build(&tx, iteration.id, "three").await?;
+    tx.commit().await?;
+
+    // Get the builds limited to two max_results
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ListByStatus {})
+        .add_query_params(api::builds::ListByStatusQuery {
+            status: None,
+            buildspace_name: Some("buildspace".to_string()),
+            max_results: Some(2),
+        })
+        .await;
+
+    // Check that we got two builds
+    response.assert_status_ok();
+    let builds: Vec<api::builds::Build> = response.json();
+    assert!(!builds.is_empty(), "Should return at least one build");
+    assert_eq!(builds.len(), 2);
 
     Ok(())
 }

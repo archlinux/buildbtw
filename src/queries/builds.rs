@@ -8,7 +8,7 @@ use crate::{
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::Set, ColumnTrait, EntityTrait, Insert, InsertMany, QueryFilter, QuerySelect,
-    QueryTrait, RelationTrait, Select, UpdateOne,
+    RelationTrait, Select, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -27,19 +27,26 @@ use crate::{
 pub fn list(
     status: Option<package::BuildStatus>,
     buildspace_name: Option<&str>,
+    limit: Option<u64>,
 ) -> Select<builds::Entity> {
-    let mut query = builds::Entity::find().apply_if(buildspace_name, |query, buildspace_name| {
-        query
+    let mut query = builds::Entity::find();
+
+    if let Some(buildspace_name) = buildspace_name {
+        query = query
             .inner_join(iterations::Entity)
             .join(
                 sea_orm::JoinType::InnerJoin,
                 iterations::Relation::Buildspaces.def(),
             )
-            .filter(buildspaces::COLUMN.name.eq(buildspace_name))
-    });
+            .filter(buildspaces::COLUMN.name.eq(buildspace_name));
+    }
 
     if let Some(status_filter) = status {
         query = query.filter(builds::COLUMN.status.eq(status_filter));
+    }
+
+    if let Some(limit) = limit {
+        query = query.limit(limit);
     }
 
     query

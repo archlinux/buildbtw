@@ -9,10 +9,11 @@ pub async fn list(
     Query(builds::ListByStatusQuery {
         status,
         buildspace_name,
+        max_results,
     }): Query<builds::ListByStatusQuery>,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<Json<Vec<builds::Build>>> {
-    let builds = queries::builds::list(status, buildspace_name.as_deref())
+    let builds = queries::builds::list(status, buildspace_name.as_deref(), max_results)
         .all(&tx)
         .await?
         .into_iter()
