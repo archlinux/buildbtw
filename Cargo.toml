@@ -152,6 +152,7 @@ named-lock = "0.4.1"
 port_check = "0.3.0"
 axum-server = { version = "0.8.0", features = ["tls-rustls"] }
 rustls = { version = "0.23.39", features = ["aws-lc-rs"] }
+serde_with = "3.20.0"
 
 [dev-dependencies]
 axum-test = { version = "20.0.0", features = ["typed-routing"] }

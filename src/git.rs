@@ -13,6 +13,7 @@ use derive_more::{Display, From, FromStr, IntoIterator};
 use nutype::nutype;
 use sea_orm::DeriveValueType;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use tracing::{info, trace};
 use url::Url;
 
@@ -20,9 +21,22 @@ use crate::package;
 
 /// An unambiguous git commit hash.
 /// This has no validation, but serves as a type marker to differentiate from other types of Oid (e.g. tree, blob, tag)
-#[derive(Debug, Clone, PartialEq, Eq, Hash, From, FromStr, Display, DeriveValueType)]
+#[serde_as]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    From,
+    FromStr,
+    Display,
+    DeriveValueType,
+    Deserialize,
+    Serialize,
+)]
 #[sea_orm(value_type = "String", try_from_u64)]
-pub struct CommitHash(git2::Oid);
+pub struct CommitHash(#[serde_as(as = "serde_with::DisplayFromStr")] git2::Oid);
 
 /// The name of a git branch.
 /// A git branch name used in package source repositories.
