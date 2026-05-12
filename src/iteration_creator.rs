@@ -228,6 +228,7 @@ impl IterationCreator {
 
         queries::iterations::insert(
             buildspace.id.into(),
+            newest_iteration.sequence + 1,
             newest_iteration.changesets,
             entities::iterations::NewIterationReason::BuildGraphChanged,
         )

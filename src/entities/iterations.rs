@@ -21,7 +21,10 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: TxtUuid,
     pub created_at: time::OffsetDateTime,
+    #[sea_orm(unique_key = "unique_iteration_sequence")]
     pub buildspace_id: TxtUuid,
+    #[sea_orm(unique_key = "unique_iteration_sequence")]
+    pub sequence: u32,
 
     pub changesets: git::Changesets,
     pub reason: NewIterationReason,

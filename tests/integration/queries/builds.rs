@@ -38,6 +38,7 @@ async fn create_buildspace_with_iteration(
         .await?;
     let iteration = queries::iterations::insert(
         buildspace.id.0,
+        1u32,
         Vec::new().into(),
         entities::iterations::NewIterationReason::FirstIteration,
     )

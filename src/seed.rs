@@ -47,6 +47,7 @@ pub async fn seed(tx: DatabaseTransaction) -> Result<()> {
 
         queries::iterations::insert(
             buildspace_id,
+            1u32,
             changesets,
             entities::iterations::NewIterationReason::FirstIteration,
         )

@@ -11,6 +11,7 @@ use crate::entities::iterations::{self, NewIterationReason};
 #[must_use]
 pub fn insert(
     buildspace_id: Uuid,
+    sequence: u32,
     changesets: git::Changesets,
     reason: NewIterationReason,
 ) -> Insert<iterations::ActiveModel> {
@@ -18,6 +19,7 @@ pub fn insert(
         id: Set(Uuid::new_v4().into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
         buildspace_id: Set(buildspace_id.into()),
+        sequence: Set(sequence),
         changesets: Set(changesets),
         reason: Set(reason),
         status: Set(iterations::Status::PendingCalculation),
@@ -41,7 +43,7 @@ pub fn set_status_calculated(iteration_id: Uuid) -> UpdateOne<iterations::Active
 #[must_use]
 pub fn newest_for_buildspace(buildspace_id: TxtUuid) -> Select<iterations::Entity> {
     iterations::Entity::find()
-        .order_by_desc(iterations::COLUMN.created_at)
+        .order_by_desc(iterations::COLUMN.sequence)
         .filter(iterations::COLUMN.buildspace_id.eq(buildspace_id))
         .limit(1)
 }

@@ -5,6 +5,7 @@ use buildbtw::{db, entities, git, iteration_creator, queries, storage};
 
 async fn create_buildspace_with_iteration(
     tx: &DatabaseTransaction,
+    sequence: u32,
     changesets: git::Changesets,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
     let buildspace = queries::buildspaces::insert("test".to_string())
@@ -12,6 +13,7 @@ async fn create_buildspace_with_iteration(
         .await?;
     let iteration = queries::iterations::insert(
         buildspace.id.0,
+        sequence,
         changesets,
         entities::iterations::NewIterationReason::FirstIteration,
     )
@@ -36,6 +38,7 @@ async fn test_run() -> Result<()> {
     let tx = db.begin().await?;
     let (buildspace, iteration) = create_buildspace_with_iteration(
         &tx,
+        1u32,
         vec![git::Changeset {
             repo_slug: "libfoo".try_into()?,
             branch_name: "main".try_into()?,
