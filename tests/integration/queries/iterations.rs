@@ -15,6 +15,7 @@ async fn newest_iteration_for_buildspace(#[future(awt)] ctx: TestCtx) -> Result<
         .await?;
     let _older_iteration = queries::iterations::insert(
         buildspace.id.0,
+        1u32,
         Vec::new().into(),
         entities::iterations::NewIterationReason::FirstIteration,
     )
@@ -23,6 +24,7 @@ async fn newest_iteration_for_buildspace(#[future(awt)] ctx: TestCtx) -> Result<
 
     let iteration = queries::iterations::insert(
         buildspace.id.0,
+        2u32,
         Vec::new().into(),
         entities::iterations::NewIterationReason::CreatedByUser,
     )
