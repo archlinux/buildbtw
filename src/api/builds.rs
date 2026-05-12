@@ -21,6 +21,9 @@ pub struct ListByStatusQuery {
 
     /// Only return builds for this namespace.
     pub buildspace_name: Option<String>,
+
+    /// Do not return more than this number of builds
+    pub max_results: Option<u64>,
 }
 
 /// A single package build job within an iteration.
