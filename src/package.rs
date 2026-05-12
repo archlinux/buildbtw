@@ -108,6 +108,8 @@ fn validate_repository_name(name: &str) -> bool {
     strum::EnumString,
     strum::EnumIter,
     strum::Display,
+    Serialize,
+    Deserialize,
 )]
 #[non_exhaustive]
 #[sea_orm(value_type = "String")]

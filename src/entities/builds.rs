@@ -51,6 +51,14 @@ impl From<Model> for api::builds::Build {
     fn from(value: Model) -> Self {
         api::builds::Build {
             id: value.id.into(),
+            pkgbase: value.pkgbase,
+            status: value.status,
+            version: value.version,
+            architecture: value.architecture,
+            iteration_id: value.iteration_id.into(),
+            created_at: value.created_at,
+            branch_name: value.branch_name,
+            commit_hash: value.commit_hash,
         }
     }
 }

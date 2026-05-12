@@ -6,7 +6,7 @@ use axum_extra::routing::TypedPath;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::package;
+use crate::{git, package};
 
 /// List builds, optionally filtered by status or namespace name.
 #[derive(TypedPath, Deserialize, Debug)]
@@ -30,8 +30,15 @@ pub struct ListByStatusQuery {
 /// scheduled and executed either in gitlab pipelines or by the local worker.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Build {
-    /// Used to reference this build, e.g. in API endpoint paths.
     pub id: Uuid,
+    pub iteration_id: Uuid,
+    pub created_at: time::OffsetDateTime,
+    pub pkgbase: package::BaseName,
+    pub branch_name: git::BranchName,
+    pub commit_hash: git::CommitHash,
+    pub status: package::BuildStatus,
+    pub version: package::Version,
+    pub architecture: package::KnownArchitecture,
 }
 
 /// Upload a built package identitifed by its build-id.
