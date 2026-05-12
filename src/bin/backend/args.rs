@@ -71,6 +71,10 @@ pub enum Command {
     ///
     /// Will create the database file if it doesn't exist yet.
     MigrateDatabase {},
+
+    /// Add dummy data for testing and development to the database
+    #[cfg(debug_assertions)]
+    Seed {},
 }
 
 #[derive(Debug, clap::Args)]

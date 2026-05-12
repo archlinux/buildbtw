@@ -23,6 +23,7 @@ pub mod repo_updater;
 pub mod response_error;
 pub mod router;
 pub mod routes;
+pub mod seed;
 pub mod server_state;
 pub mod storage;
 pub mod tasks;
