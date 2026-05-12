@@ -165,6 +165,7 @@ impl From<KnownArchitecture> for Architecture {
 /// States a build can be in.
 #[derive(
     Clone,
+    Copy,
     Debug,
     PartialEq,
     Eq,

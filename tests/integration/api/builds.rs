@@ -83,11 +83,12 @@ async fn test_list_builds_by_status_empty(
         .await;
 
     response.assert_status_ok();
-    let builds: Vec<api::builds::Build> = response.json();
+    let body: api::builds::ListBuildsResponse = response.json();
     assert!(
-        builds.is_empty(),
+        body.builds.is_empty(),
         "Should return no builds because none exist"
     );
+    assert_eq!(body.total_build_count, 0);
 
     Ok(())
 }
@@ -121,11 +122,12 @@ async fn test_list_builds_by_status_and_namespace(
         .await;
 
     response.assert_status_ok();
-    let builds: Vec<api::builds::Build> = response.json();
-    assert!(!builds.is_empty(), "Should return some builds");
-    assert_eq!(builds.len(), 2);
+    let body: api::builds::ListBuildsResponse = response.json();
+    assert!(!body.builds.is_empty(), "Should return some builds");
+    assert_eq!(body.builds.len(), 2);
+    assert_eq!(body.total_build_count, 2);
 
-    let build_ids: HashSet<_> = builds.into_iter().map(|build| build.id).collect();
+    let build_ids: HashSet<_> = body.builds.into_iter().map(|build| build.id).collect();
     let expected_ids = HashSet::from([build_one.id.into(), build_two.id.into()]);
     assert_eq!(build_ids, expected_ids);
 
@@ -157,9 +159,52 @@ async fn test_list_builds_max_results(#[future(awt)] ctx: TestCtx) -> Result<()>
 
     // Check that we got two builds
     response.assert_status_ok();
-    let builds: Vec<api::builds::Build> = response.json();
-    assert!(!builds.is_empty(), "Should return at least one build");
-    assert_eq!(builds.len(), 2);
+    let body: api::builds::ListBuildsResponse = response.json();
+    assert!(!body.builds.is_empty(), "Should return at least one build");
+    assert_eq!(body.builds.len(), 2);
+    assert_eq!(body.total_build_count, 3);
+
+    Ok(())
+}
+
+/// Check that the total_count field is correct when listing builds.
+#[rstest]
+#[case::more_builds_than_max_results(3, Some(2))]
+#[case::less_builds_than_max_results(2, Some(5))]
+#[case::no_max_results(3, None)]
+#[tokio::test]
+async fn test_list_builds_total_count(
+    #[case] total_builds: usize,
+    #[case] max_results: Option<u64>,
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    // Create buildspace, iteration and `create_builds` builds.
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = create_buildspace_with_iteration(&tx, "buildspace").await?;
+    let pkg_names = ["one", "two", "three"];
+    for pkgbase in &pkg_names[..total_builds] {
+        create_build(&tx, iteration.id, pkgbase).await?;
+    }
+    tx.commit().await?;
+
+    // Query the backend
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ListByStatus {})
+        .add_query_params(api::builds::ListByStatusQuery {
+            status: None,
+            buildspace_name: Some("buildspace".to_string()),
+            max_results,
+        })
+        .await;
+
+    // Check that the total build count matches the number of builds created
+    response.assert_status_ok();
+    let body: api::builds::ListBuildsResponse = response.json();
+    assert_eq!(
+        body.total_build_count, total_builds as u64,
+        "total_build_count should equal the total number of builds in the DB"
+    );
 
     Ok(())
 }

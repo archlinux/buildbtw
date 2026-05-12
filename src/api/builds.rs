@@ -44,6 +44,13 @@ pub struct Build {
     pub architecture: package::KnownArchitecture,
 }
 
+/// Response of the [ListByStatus] endpoint.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListBuildsResponse {
+    pub total_build_count: u64,
+    pub builds: Vec<Build>,
+}
+
 /// Upload a built package identitifed by its build-id.
 ///
 /// All relevant metadata like architecture, pkgbase, filename etc are pre-derived
