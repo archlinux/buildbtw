@@ -53,7 +53,8 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just lint` to run `cargo fmt` and `cargo clippy`
 - `just lint-fix` to automatically fix lints and formatting
 - `just format` to format the source code
-- `just test` to run tests
+- `just test` to run normal, fast tests
+- `just test-e2e` to run tests that run a headless browser
 - `just test-flaky` to run long running e2e tests that need network resources and are potentially flaky\
   **Note**: Before you run this for the first time, you'll have to run `just test-flaky test_update_source_repos` in order for the local source repos to be in place. You'll need a valid GitLab token in `BUILDBTW_GITLAB_TOKEN` for this to work.
 - `just watch-test` to run tests and auto-rerun on code changes

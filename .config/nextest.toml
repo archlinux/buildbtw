@@ -1,8 +1,8 @@
 [test-groups]
-not_concurrent = { max-threads = 1 }
+e2e = { max-threads = 1 }
 
 [[profile.default.overrides]]
 # end-to-end tests depend on geckodriver which is currently always spawned on the same port,
 # and they need to bind the buildbtw server to an actual port, which is currently hardcoded
 filter = 'test(e2e)'
-test-group = 'not_concurrent'
+test-group = 'e2e'

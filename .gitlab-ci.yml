@@ -25,6 +25,8 @@ workflow:
     - !reference [".default-before-script", "before_script"]
     # pkgconf: for the openssl crate to locate libssl files
     - pacman -Syu --needed --noconfirm rust just gcc pkgconf
+  variables:
+    RUST_LOG: debug
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
     paths:
@@ -81,17 +83,23 @@ er-diagram:
 
 test:
   tags:
+  stage: check
+  extends: .with-rust
+  script:
+    - pacman -Syu --needed --noconfirm cargo-nextest
+    - just test
+
+test-e2e:
+  tags:
     # the test suite needs to spawn podman containers, so we run this job in a VM
     - vm
   stage: check
   extends: .with-rust
-  variables:
-    RUST_LOG: debug
   script:
-    - pacman -Syu --needed --noconfirm cargo-nextest podman jq geckodriver firefox
+    - pacman -Syu --needed --noconfirm cargo-nextest podman geckodriver firefox
     - just install-dev-ca
     - just gen-dev-cert
-    - just test
+    - just test-e2e
 
 .build-release:
   stage: build
