@@ -48,7 +48,7 @@ async fn test_oidc_authorized_not_configured(#[future(awt)] ctx: TestCtx) {
 }
 
 #[tokio::test]
-async fn test_authelia_configured() {
+async fn test_e2e_authelia_configured() {
     // Test that our OIDC configuration works with the authelia container
     let ctx = TestCtxBuilder::new().with_authelia().build().await;
 

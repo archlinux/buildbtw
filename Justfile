@@ -109,10 +109,13 @@ format:
 check-dependencies: (ensure-command "cargo-deny")
     cargo deny check
 
-[doc("Run tests")]
+[doc("Run fast tests, excluding browser-based e2e tests.")]
 [group("test")]
-test *args: (ensure-command "geckodriver")
-    cargo nextest run --features sea-orm-debug-print {{ args }}
+test *args:
+    cargo nextest run --features sea-orm-debug-print -E 'not group(e2e)' {{ args }}
+
+test-e2e *args: (ensure-command "geckodriver")
+    cargo nextest run --features sea-orm-debug-print -E 'group(e2e)' {{ args }}
 
 [doc("Run tests that take long to run or might be flaky")]
 [group("test")]
