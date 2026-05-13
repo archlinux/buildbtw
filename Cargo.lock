@@ -827,6 +827,7 @@ dependencies = [
  "sea-orm-migration",
  "serde",
  "serde_json",
+ "serde_with",
  "strum",
  "temp-env",
  "tempfile",

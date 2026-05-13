@@ -6,10 +6,9 @@ use axum_extra::routing::TypedPath;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::package;
+use crate::{git, package};
 
-/// List builds, optionally filtered by the status given in the query
-/// parameters.
+/// List builds, optionally filtered by status or namespace name.
 #[derive(TypedPath, Deserialize, Debug)]
 #[typed_path("/api/v1/builds")]
 pub struct ListByStatus {}
@@ -19,6 +18,12 @@ pub struct ListByStatus {}
 pub struct ListByStatusQuery {
     /// Only return builds with this status.
     pub status: Option<package::BuildStatus>,
+
+    /// Only return builds for this namespace.
+    pub buildspace_name: Option<String>,
+
+    /// Do not return more than this number of builds
+    pub max_results: Option<u64>,
 }
 
 /// A single package build job within an iteration.
@@ -28,8 +33,22 @@ pub struct ListByStatusQuery {
 /// scheduled and executed either in gitlab pipelines or by the local worker.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Build {
-    /// Used to reference this build, e.g. in API endpoint paths.
     pub id: Uuid,
+    pub iteration_id: Uuid,
+    pub created_at: time::OffsetDateTime,
+    pub pkgbase: package::BaseName,
+    pub branch_name: git::BranchName,
+    pub commit_hash: git::CommitHash,
+    pub status: package::BuildStatus,
+    pub version: package::Version,
+    pub architecture: package::KnownArchitecture,
+}
+
+/// Response of the [ListByStatus] endpoint.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListBuildsResponse {
+    pub total_build_count: u64,
+    pub builds: Vec<Build>,
 }
 
 /// Upload a built package identitifed by its build-id.
