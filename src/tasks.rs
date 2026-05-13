@@ -17,8 +17,7 @@ use sea_orm::{
 use time::Duration;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
-use tracing::Instrument;
-use tracing::{error, info_span, instrument, warn};
+use tracing::{error, instrument, warn};
 
 use crate::entities::user_roles;
 use crate::gitlab::GitlabConfig;
@@ -61,48 +60,58 @@ pub fn initialize(
         token.clone(),
     );
 
-    spawn_hourly_jobs(state, token);
+    spawn_invalidate_old_sessions(state.clone(), token.clone());
+
+    // Run OIDC role sync, if OIDC is configured
+    if let crate::oidc::MaybeConfig::Configured(oidc_config) = state.oidc {
+        spawn_sync_oidc_roles(state.db, oidc_config, token);
+    }
 
     Ok(())
 }
 
-fn spawn_hourly_jobs(state: ServerState, token: CancellationToken) {
-    tokio::spawn(
-        async move {
-            let mut hourly_ticker = interval(std::time::Duration::from_hours(1));
-            loop {
-                tokio::select! {
-                    _ = hourly_ticker.tick() => {
-                        run_hourly_job(&state).await;
+fn spawn_invalidate_old_sessions(state: ServerState, token: CancellationToken) {
+    tokio::spawn(async move {
+        let mut every_hour = interval(std::time::Duration::from_hours(1));
+        loop {
+            tokio::select! {
+                _ = every_hour.tick() => {
+                    if let Err(e) = invalidate_old_sessions(&state).await {
+                        tracing::error!(?e, "Failed to invalidate old sessions");
                     }
-                    // Stop gracefully when the provided [`CancellationToken`] is cancelled
-                    () = token.cancelled() => {
-                        tracing::info!("background task worker shutting down");
-                        break;
-                    }
+                }
+                // Stop gracefully when the provided [`CancellationToken`] is cancelled
+                () = token.cancelled() => {
+                    break;
                 }
             }
         }
-        .instrument(info_span!("background-task-worker")),
-    );
+    });
 }
 
-/// Executes the hourly maintenance tasks.
-///
-/// This function is called once every hour by the background worker.
-#[instrument(skip_all)]
-async fn run_hourly_job(state: &ServerState) {
-    tracing::debug!("Running hourly jobs");
-    if let Err(e) = invalidate_old_sessions(state).await {
-        tracing::error!(?e, "Failed to invalidate old sessions");
-    }
-
-    // Run OIDC role sync, if OIDC is configured
-    if let crate::oidc::MaybeConfig::Configured(oidc_config) = &state.oidc
-        && let Err(e) = sync_user_roles_from_oidc(&state.db, oidc_config).await
-    {
-        tracing::error!(?e, "Failed to sync user roles from OIDC");
-    }
+fn spawn_sync_oidc_roles(
+    db: DatabaseConnection,
+    oidc_config: crate::oidc::Config,
+    token: CancellationToken,
+) {
+    tokio::spawn(async move {
+        // Make sure this interval is lower than the default refresh token lifespan,
+        // since expired refresh tokens will lead to users being logged out from all clients
+        let mut every_ten_minutes = interval(std::time::Duration::from_mins(10));
+        loop {
+            tokio::select! {
+                _ = every_ten_minutes.tick() => {
+                    if let Err(e) = sync_user_roles_from_oidc(&db, &oidc_config).await {
+                        tracing::error!(?e, "Failed to sync user roles from OIDC");
+                    }
+                }
+                // Stop gracefully when the provided [`CancellationToken`] is cancelled
+                () = token.cancelled() => {
+                    break;
+                }
+            }
+        }
+    });
 }
 
 /// Removes inactive user sessions from the database.
