@@ -75,7 +75,6 @@ build-release-container-image:
 [doc("Run a sequence of recipes that resemble CI")]
 [group("check")]
 ci-dev:
-    #!/usr/bin/env -S parallel --shebang --ungroup
     just licenses
     just lint -q
     just check-dependencies
