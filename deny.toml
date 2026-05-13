@@ -6,8 +6,6 @@ version = 2
 yanked = "deny"
 ignore = [
     #"RUSTSEC-0000-0000",
-    # https://github.com/Vrtgs/thirtyfour/issues/283
-    "RUSTSEC-2024-0436",
     # https://github.com/ramosbugs/openidconnect-rs/issues/140
     "RUSTSEC-2023-0071",
 ]
