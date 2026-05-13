@@ -83,6 +83,10 @@ identity_providers:
         revocation_endpoint_auth_method: "client_secret_basic"
         introspection_endpoint_auth_method: "client_secret_basic"
         pushed_authorization_request_endpoint_auth_method: "client_secret_basic"
+    lifespans:
+      # Keep user sessions active even if devs don't start their backend for a few days
+      # (Obviously never use this in production)
+      refresh_token: '30d'
     jwks:
       - key_id: "example"
         # Generated using `openssl genrsa`
