@@ -26,6 +26,8 @@ async fn main() -> Result<()> {
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, false)?;
 
+    yansi::whenever(yansi::Condition::TTY_AND_COLOR);
+
     #[allow(clippy::todo)]
     match args.command {
         args::Command::New { name: _ } => todo!(),

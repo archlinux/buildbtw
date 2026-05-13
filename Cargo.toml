@@ -123,7 +123,11 @@ axum-extra = { version = "0.12.5", features = [
     "cookie-private",
 ] }
 uuid = { version = "1.22.0", features = ["v4", "serde"] }
-nutype = { version = "0.7.0", features = ["derive_unchecked", "serde", "regex"] }
+nutype = { version = "0.7.0", features = [
+    "derive_unchecked",
+    "serde",
+    "regex",
+] }
 regex = "1.12.3"
 rust-embed = { version = "8.11.0", features = [
     "deterministic-timestamps",
@@ -153,10 +157,13 @@ port_check = "0.3.0"
 axum-server = { version = "0.8.0", features = ["tls-rustls"] }
 rustls = { version = "0.23.39", features = ["aws-lc-rs"] }
 serde_with = "3.20.0"
+yansi = { version = "1.0.1", features = ["detect-env", "detect-tty"] }
 
 [dev-dependencies]
 axum-test = { version = "20.0.0", features = ["typed-routing"] }
-thirtyfour = { version = "0.37.0", features = ["rustls"], default-features = false }
+thirtyfour = { version = "0.37.0", features = [
+    "rustls",
+], default-features = false }
 rstest = { version = "0.26.1", default-features = false }
 cookie = "0.18.1"
 temp-env = "0.3.6"
