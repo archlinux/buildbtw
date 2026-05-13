@@ -1,4 +1,4 @@
-use sea_orm::{ActiveValue::Set, EntityTrait, Insert};
+use sea_orm::{ActiveValue::Set, EntityTrait, Insert, Select};
 use uuid::Uuid;
 
 use crate::entities::buildspaces;
@@ -18,4 +18,9 @@ pub fn insert(name: String) -> Insert<buildspaces::ActiveModel> {
 #[must_use]
 pub fn list() -> buildspaces::EntityLoader {
     buildspaces::Entity::load()
+}
+
+#[must_use]
+pub fn by_name(name: &str) -> Select<buildspaces::Entity> {
+    buildspaces::Entity::find_by_name(name)
 }
