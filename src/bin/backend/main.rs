@@ -24,6 +24,7 @@ use color_eyre::{
 };
 use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
+#[cfg(debug_assertions)]
 use sea_orm::TransactionTrait;
 use tokio::{fs::set_permissions, net::UnixListener, signal};
 use tokio_util::sync::CancellationToken;
