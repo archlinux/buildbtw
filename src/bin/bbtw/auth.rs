@@ -1,12 +1,9 @@
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use buildbtw::api::users::User;
 use buildbtw::xdg_dirs;
-use color_eyre::eyre::Context;
 use color_eyre::{Result, eyre::ContextCompat};
 use colored::Colorize;
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
@@ -15,6 +12,7 @@ use tracing::instrument;
 use url::Url;
 
 use crate::args::AuthCommand;
+use crate::client;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthToken {
@@ -44,41 +42,6 @@ pub async fn auth_token() -> Result<Option<AuthToken>> {
         Ok(Some(auth_token))
     } else {
         Ok(None)
-    }
-}
-
-/// Attempt to log in with the provided auth token
-///
-/// If the successful, will return the logged-in [`User`].
-/// If we receive an UNAUTHORIZED from the server, return `None`.
-#[instrument]
-async fn get_user_from_auth_token(
-    server_url: &Url,
-    auth_token: &AuthToken,
-) -> Result<Option<User>> {
-    let secret_token = auth_token.secret_token.expose_secret();
-    let reqwest_client = reqwest::Client::new();
-    let resp = reqwest_client
-        .get(server_url.join(&buildbtw::api::users::AuthenticatedUser {}.to_string())?)
-        .bearer_auth(secret_token)
-        .send()
-        .await
-        .wrap_err("Couldn't get login status")?;
-
-    match resp.error_for_status_ref() {
-        Ok(_) => {
-            let user = resp
-                .json::<User>()
-                .await
-                .wrap_err("Couldn't deserialize JSON to User")?;
-            Ok(Some(user))
-        }
-        Err(e) if e.status() == Some(StatusCode::UNAUTHORIZED) => {
-            // If we get UNAUTHORIZED, we probably entered an invalid secret token. That is, a secret token
-            // that can't be associated with a Session.
-            return Ok(None);
-        }
-        Err(e) => Err(e).wrap_err("Unexpected HTTP error while getting user from auth token"),
     }
 }
 
@@ -126,7 +89,7 @@ pub async fn login(server_url: &Url) -> Result<()> {
         };
 
         // Verify whether this is even a valid token.
-        let user = get_user_from_auth_token(server_url, &auth_token).await?;
+        let user = client::user::current(server_url, &client::reqwest::new().await?).await?;
         if let Some(user) = user {
             println!("Logged in (as {})", user.username.bold());
             break auth_token;
@@ -154,7 +117,7 @@ pub async fn login(server_url: &Url) -> Result<()> {
 pub async fn status(server_url: &Url) -> Result<()> {
     if let Some(auth_token) = auth_token().await? {
         // We'll verify that we're actually logged in properly and that the session is valid.
-        let user = get_user_from_auth_token(server_url, &auth_token).await?;
+        let user = client::user::current(server_url, &client::reqwest::new().await?).await?;
         if let Some(user) = user {
             println!(
                 "Logged in as {} (since {})",
