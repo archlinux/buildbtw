@@ -11,13 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.4] - 2026-02-03
 
-### buildbtw client
+### bbtw
 
 - Added basic client scaffolding ([!121](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/121))
 
 ## [0.0.3] - 2026-02-03
 
-### buildbtw backend
+### backend
 
 #### Highlights
 
@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix some deployment stuff
 - Add frontend template
 
-### arch-pkg-repo-updater
+### repo-updater
 
 - Don't clone archived repositories ([#179](https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/179))
 
