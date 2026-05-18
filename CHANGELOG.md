@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### backend
+
+#### Highlights
+
+- Renamed "namespaces" to "buildspaces" everywhere as this is hopefully a good unique term to describe a bunch of packages being rebuilt together ([#212](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/212))
+- Restructured whole project source to make more sense ([#239](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/239) [!176](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/176))
+
+#### New Features
+
+- Build listing API (`/api/v1/builds/`) ([!181](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/181))
+- Port over build dependency graph stuff from PoC ([#209](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/209))
+- Local TLS support for the axum server ([!166](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/166))
+- Upgrade to SeaORM 2.0 ([!132](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/132))
+
+#### Bug Fixes
+
+- Fix OIDC cookie behavior when OIDC provider and buildbtw use different domains ([!167](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/167) [!172](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/172))
+- Fix tracing instrumentation for background workers ([!142](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/142))
+
+### bbtw
+
+#### New Features
+
+- `bbtw auth login` and `bbtw auth status` commands with automatic browser opening for OIDC flow ([!139](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/139))
+
+### executor
+
+#### New Features
+
+- Custom `buildbtw-executor` for gitlab-runner to dispatch localhost and GitLab builds ([!122](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/122))
+
 ## [0.0.4] - 2026-02-03
 
 ### bbtw
