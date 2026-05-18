@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### buildbtw client
 
-- Added basic client scaffolding (!121)
+- Added basic client scaffolding ([!121](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/121))
 
 ## [0.0.3] - 2026-02-03
 
