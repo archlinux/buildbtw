@@ -74,7 +74,7 @@ pub enum Command {
 
     /// Add dummy data for testing and development to the database
     #[cfg(debug_assertions)]
-    Seed {},
+    Seed,
 }
 
 #[derive(Debug, clap::Args)]

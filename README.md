@@ -72,6 +72,7 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just run-server --run-authelia-container` to run the server together with a container running Authelia for manually testing OIDC workflows
 - `just install-dev-ca` to install the mkcert CA to your system's trust store
 - `just gen-dev-cert` to generate a locally valid TLS dev certificate for the aforementined trust store
+- `just seed-database` to seed the database with sample data (add `--reset` to drop and recreate the database if it already contains data)
 
 ## Running end-to-end tests
 
