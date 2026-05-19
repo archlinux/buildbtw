@@ -53,7 +53,7 @@ pub fn initialize(
     iteration_creator::IterationCreator::spawn(
         iteration_creator::Config {
             repo_update: repo_update_config,
-            source_repo_dir: storage::package_source_repos_dir()?,
+            source_repo_dir: storage::package_source_repos_dir(&state.data_dir)?,
             auto_create_iterations,
         },
         db,

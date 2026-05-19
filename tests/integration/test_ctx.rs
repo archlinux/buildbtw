@@ -1,10 +1,12 @@
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use axum_test::TestServer;
+use camino::Utf8PathBuf;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 use redact::Secret;
 use sea_orm::DatabaseConnection;
+use tempfile::TempDir;
 use thirtyfour::CapabilitiesHelper;
 use url::Url;
 
@@ -36,6 +38,9 @@ pub struct TestCtx {
 
     /// Not accessed, but stored to keep it from dropping too early
     pub _geckodriver: Option<ProcessGuard>,
+
+    /// Stored to keep it from dropping too early
+    pub data_dir: TempDir,
 
     pub thirtyfour_client: Option<thirtyfour::WebDriver>,
 }
@@ -126,14 +131,20 @@ pub struct TestCtxBuilder {
     enable_authelia: bool,
     enable_geckodriver: bool,
     use_http_transport: bool,
+    data_dir: TempDir,
 }
 
 impl TestCtxBuilder {
     pub fn new() -> Self {
+        let test_data_dir = tempfile::Builder::new()
+            .prefix("buildbtw-test-data-dir-")
+            .tempdir()
+            .unwrap();
         Self {
             enable_authelia: false,
             enable_geckodriver: false,
             use_http_transport: false,
+            data_dir: test_data_dir,
         }
     }
 
@@ -230,6 +241,7 @@ impl TestCtxBuilder {
             cookie_encryption_key: Secret::new(axum_extra::extract::cookie::Key::from(
                 b"oeghai5phee4gaeti5eegheev6eefee5yu2muoV8phoChohg7aipeuh2Thahsiup",
             )),
+            data_dir: Some(Utf8PathBuf::from_path_buf(self.data_dir.path().to_path_buf()).unwrap()),
         };
 
         templates::initialize("./".into()).unwrap();
@@ -254,6 +266,7 @@ impl TestCtxBuilder {
             admin_session,
             _authelia_container: maybe_authelia_container,
             _geckodriver: geckodriver,
+            data_dir: self.data_dir,
             thirtyfour_client,
         }
     }

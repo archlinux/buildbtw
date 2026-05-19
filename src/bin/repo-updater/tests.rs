@@ -10,7 +10,7 @@ use crate::state::State;
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is flaky."]
 async fn test_update_source_repos() -> Result<()> {
-    let source_repo_dir = storage::package_source_repos_dir()?;
+    let source_repo_dir = storage::package_source_repos_dir(&None)?;
 
     let gitlab_config = GitlabConfig {
         token: external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", None)?,

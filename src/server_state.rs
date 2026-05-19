@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use redact::Secret;
 use sea_orm::DatabaseConnection;
 
@@ -13,6 +14,8 @@ pub struct ServerState {
     pub oidc: oidc::MaybeConfig,
     /// Used to encrypt values stored as cookies in user's browsers
     pub cookie_encryption_key: Secret<axum_extra::extract::cookie::Key>,
+    /// Override data storage dir used for package repos, build artifacts etc
+    pub data_dir: Option<Utf8PathBuf>,
 }
 
 /// Allows us to use the [axum_extra::extract::cookie::PrivateCookieJar]
