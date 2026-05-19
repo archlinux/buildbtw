@@ -1,10 +1,10 @@
-use color_eyre::Result;
-use sea_orm::{DatabaseTransaction, TransactionTrait};
-
 use buildbtw::{
     buildspace::BuildspaceSlug, db, entities, git, iteration_creator, queries, storage,
 };
+use color_eyre::Result;
+use sea_orm::{DatabaseTransaction, TransactionTrait};
 
+// Separate from existing factories because it takes other parameters only needed for tests in this module.
 async fn create_buildspace_with_iteration(
     tx: &DatabaseTransaction,
     sequence: u32,

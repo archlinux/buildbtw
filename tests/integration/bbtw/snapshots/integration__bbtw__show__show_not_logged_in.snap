@@ -1,0 +1,6 @@
+---
+source: tests/integration/bbtw/show.rs
+expression: output.stderr
+---
+Error: 
+   0: Please log in first.

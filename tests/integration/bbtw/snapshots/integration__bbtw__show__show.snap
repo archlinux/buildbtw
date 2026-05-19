@@ -1,0 +1,21 @@
+---
+source: tests/integration/bbtw/show.rs
+expression: output.stdout
+---
+Showing builds for buildspace other
+
+Building builds
+  ✦ dummy_build
+
+Built builds
+  ✓ dummy_build
+
+Failed builds
+  ✗ dummy_build
+
+Pending builds
+  ⧗ dummy_build (Waiting for runner)
+  ⧗ dummy_build (Waiting to be sent to executor)
+  ● other_build (Waiting for dependencies to build)
+  ● dummy_build (Waiting for dependencies to build)
+  [And 1 others]
