@@ -17,7 +17,17 @@ pub fn data_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> 
     })
 }
 
+/// Returns the data directory storing temporary artifacts in the same mount point.
+pub fn data_tmp_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
+    Ok(data_dir(override_data_dir)?.join("tmp"))
+}
+
 /// Returns the data directory storing package source repositories.
 pub fn package_source_repos_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
     Ok(data_dir(override_data_dir)?.join("package-source-repos"))
+}
+
+/// Returns the data directory storing build artifacts of buildspaces and iterations.
+pub fn build_artifact_storage(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
+    Ok(data_dir(override_data_dir)?.join("artifacts"))
 }

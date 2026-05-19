@@ -7,7 +7,8 @@ use crate::{
 };
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait, EntityTrait, Insert, InsertMany, QueryFilter, QuerySelect,
+    ActiveValue::{Set, Unchanged},
+    ColumnTrait, EntityLoaderTrait, EntityTrait, Insert, InsertMany, QueryFilter, QuerySelect,
     RelationTrait, Select, UpdateOne,
 };
 use uuid::Uuid;
@@ -142,8 +143,28 @@ pub fn by_id(id: TxtUuid) -> Select<builds::Entity> {
     builds::Entity::find_by_id(id)
 }
 
+/// Return an entity loader returning a specific build by its unique uuid.
+#[must_use]
+pub fn load_by_id(id: TxtUuid) -> builds::EntityLoader {
+    builds::Entity::load().filter_by_id(id)
+}
+
 /// Return all builds for a given iteration
 #[must_use]
 pub fn by_iteration_id(iteration_id: TxtUuid) -> Select<builds::Entity> {
     builds::Entity::find().filter(builds::COLUMN.iteration_id.eq(iteration_id))
+}
+
+/// Updates the build status of a build.
+#[must_use]
+pub fn update_build_status(
+    build_id: TxtUuid,
+    status: package::BuildStatus,
+) -> UpdateOne<builds::ActiveModel> {
+    let model = builds::ActiveModel {
+        id: Unchanged(build_id),
+        status: Set(status),
+        ..Default::default()
+    };
+    builds::Entity::update(model)
 }

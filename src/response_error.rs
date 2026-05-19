@@ -24,7 +24,7 @@ pub enum ResponseError {
     DbError(sea_orm::DbErr),
 
     /// Resource not found error with entity name.
-    #[error("Given {0} not found")]
+    #[error("Not found: {0}")]
     NotFound(String),
 
     /// Invalid input provided by client.
@@ -44,8 +44,12 @@ pub enum ResponseError {
     Tera(#[from] tera::Error),
 
     /// User's role has insufficient permissions.
-    #[error("Action not permitted")]
-    NotPermitted,
+    #[error("Action not permitted: {0}")]
+    NotPermitted(String),
+
+    /// User's role has insufficient permissions.
+    #[error("Internal server error: {0}")]
+    InternalServer(String),
 }
 
 impl IntoResponse for ResponseError {
@@ -56,12 +60,13 @@ impl IntoResponse for ResponseError {
             ResponseError::Eyre(_)
             | ResponseError::DbError(_)
             | ResponseError::IO(_)
-            | ResponseError::Tera(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            | ResponseError::Tera(_)
+            | ResponseError::InternalServer(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             ResponseError::InvalidInput(_) => StatusCode::BAD_REQUEST,
             ResponseError::NotAuthenticated => StatusCode::UNAUTHORIZED,
-            ResponseError::NotPermitted => StatusCode::FORBIDDEN,
+            ResponseError::NotPermitted(_) => StatusCode::FORBIDDEN,
         };
         // Send only the opaque description using the display trait, to avoid leaking
         // information
