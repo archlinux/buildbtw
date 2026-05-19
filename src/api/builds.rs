@@ -69,3 +69,22 @@ pub struct UploadPackageQuery {
     /// Pkgname of the package artifact from the build job.
     pub pkgname: package::Name,
 }
+
+/// Download a built and uploaded package identified by its [`DownloadPackageQuery::build_id`].
+///
+/// All relevant metadata like architecture, pkgbase, filename etc are pre-derived
+/// and will be looked up by the endpoint using the unique [`DownloadPackageQuery::build_id`] which identifies
+/// a single build job.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/download_package")]
+pub struct DownloadPackage {}
+
+/// Query Parameters for the [`DownloadPackage`] endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DownloadPackageQuery {
+    /// Unique build id for which to download a package artifact.
+    pub build_id: Uuid,
+
+    /// Pkgname of the package artifact from the build job.
+    pub pkgname: package::Name,
+}

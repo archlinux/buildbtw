@@ -487,3 +487,100 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
 
     Ok(())
 }
+
+#[rstest]
+#[tokio::test]
+async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
+    let build = create_build(&tx, iteration.id, "one").await?;
+    tx.commit().await?;
+
+    let expected_data = "IDDQD";
+    let pkgname = "one".parse()?;
+
+    let data_dir = Utf8PathBuf::from_path_buf(ctx.data_dir.path().to_path_buf()).unwrap();
+    let dest = buildbtw::builds::build_artifact_path(
+        &buildspace.clone().into_ex(),
+        &iteration.clone().into_ex(),
+        &build.clone().into_ex(),
+        &pkgname,
+        &Some(data_dir),
+    )?;
+    tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
+    tokio::fs::write(&dest, expected_data).await?;
+
+    // Get the artifact download response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::DownloadPackage {})
+        .add_query_params(api::builds::DownloadPackageQuery {
+            build_id: build.id.into(),
+            pkgname,
+        })
+        .await;
+
+    // Check downloaded bytes match artifact data
+    response.assert_status_ok();
+    let bytes = response.into_bytes();
+    assert_eq!(
+        expected_data,
+        std::str::from_utf8(&bytes)?,
+        "downloaded bytes must match"
+    );
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_download_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
+    let build = create_build(&tx, iteration.id, "one").await?;
+    tx.commit().await?;
+
+    // Get the artifact download response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::DownloadPackage {})
+        .add_query_params(api::builds::DownloadPackageQuery {
+            build_id: build.id.into(),
+            // Request a pkgname that doesn't exist.
+            pkgname: "doesnt-exist".parse()?,
+        })
+        .await;
+
+    // Check artifact not found
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_download_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
+    let _ = create_build(&tx, iteration.id, "one").await?;
+    tx.commit().await?;
+
+    // Get the artifact download response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::DownloadPackage {})
+        .add_query_params(api::builds::DownloadPackageQuery {
+            // Generate a build_id that doesn't exist.
+            build_id: Uuid::new_v4(),
+            pkgname: "one".parse()?,
+        })
+        .await;
+
+    // Check artifact not found
+    response.assert_status_not_found();
+
+    Ok(())
+}

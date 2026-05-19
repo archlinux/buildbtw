@@ -3,14 +3,19 @@ use crate::server_state::ServerState;
 use crate::{api, builds, entities, from_request, package, storage};
 use crate::{db, queries, response_error::ResponseResult};
 
+use axum::body::Body;
 use axum::extract::State;
+use axum::http::HeaderValue;
+use axum::response::Response;
 use axum::{
     Json,
     extract::{Query, Request},
 };
 use camino::Utf8Path;
 use color_eyre::eyre::{Context, OptionExt};
+use reqwest::header;
 use sea_orm::{PaginatorTrait, SelectExt, TransactionTrait};
+use tokio_util::io::ReaderStream;
 
 use std::os::unix::fs::PermissionsExt;
 
@@ -147,4 +152,63 @@ pub async fn upload_package(
     }
 
     Ok(())
+}
+
+pub async fn download_package(
+    _: api::builds::DownloadPackage,
+    Query(api::builds::DownloadPackageQuery { build_id, pkgname }): Query<
+        api::builds::DownloadPackageQuery,
+    >,
+    State(server_state): State<ServerState>,
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<Response> {
+    let build = queries::builds::load_by_id(build_id.into())
+        .with((entities::iterations::Entity, entities::buildspaces::Entity))
+        .one(&tx)
+        .await?
+        .ok_or_else(|| ResponseError::NotFound("Build job".into()))?;
+
+    let iteration = build
+        .iteration
+        .clone()
+        .into_option()
+        .ok_or_else(|| ResponseError::NotFound("Build iteration".into()))?;
+
+    let buildspace = iteration
+        .buildspace
+        .clone()
+        .into_option()
+        .ok_or_else(|| ResponseError::NotFound("Build buildspace".into()))?;
+
+    let filenames = &build.pkgnames_filenames.0;
+    let filename = filenames.get(&pkgname).ok_or_else(|| {
+        ResponseError::NotFound(format!("Package '{pkgname}' not found in build"))
+    })?;
+
+    // Resolve and open build artifact path
+    let dest = builds::build_artifact_path(
+        &buildspace,
+        &iteration,
+        &build,
+        &pkgname,
+        &server_state.data_dir,
+    )?;
+    let file = tokio::fs::File::open(&dest)
+        .await
+        .wrap_err_with(|| ResponseError::NotFound("Build artifact not found".into()))?;
+    let len = file.metadata().await?.len();
+    tracing::debug!(
+        "Downloading {len} bytes from build-id {build_id} pkgname {pkgname} filename {filename}",
+    );
+
+    Ok(Response::builder()
+        .header(header::CONTENT_TYPE, "application/octet-stream")
+        .header(header::CONTENT_LENGTH, len)
+        .header(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&format!("attachment; filename=\"{filename:?}\""))
+                .wrap_err("Invalid filename for header value")?,
+        )
+        .body(Body::from_stream(ReaderStream::new(file)))
+        .wrap_err("Failed to build response stream")?)
 }
