@@ -7,9 +7,10 @@ use std::time::Duration;
 
 use color_eyre::eyre::{self, Context, OptionExt, bail};
 use color_eyre::{Result, eyre::eyre};
-use port_check::is_local_ipv4_port_free;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
+
+use crate::utils::free_port;
 
 const AUTHELIA_IMAGE_URL: &str = "ghcr.io/authelia/authelia:4";
 
@@ -58,21 +59,7 @@ impl Container {
         let (actual_port, _startup_lock) = if let Some(p) = port {
             (p, None)
         } else {
-            let mut port_candidate = 32000;
-            loop {
-                if is_local_ipv4_port_free(port_candidate) {
-                    // We'll make the port part of the lock so that we can quickly find an unused port.
-                    let lock_name = format!("buildbtw-authelia-startup-{port_candidate}");
-                    if let Ok(guard) = tokio::task::spawn_blocking(move || {
-                        named_lock::NamedLock::create(&lock_name)?.try_lock()
-                    })
-                    .await?
-                    {
-                        break (port_candidate, Some(guard));
-                    }
-                }
-                port_candidate += 1;
-            }
+            free_port().await?
         };
 
         // Start the authelia container
