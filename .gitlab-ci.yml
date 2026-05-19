@@ -107,6 +107,7 @@ test-e2e:
   artifacts:
     paths:
       - target/release/buildbtw-backend
+      - target/release/buildbtw-executor
   script:
     - just build-release
 
