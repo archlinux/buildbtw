@@ -51,6 +51,7 @@ async fn main() -> Result<()> {
                 let authelia = authelia::Container::new(
                     Some(run_args.authelia_container.authelia_container_port),
                     true,
+                    &run_args.server_url,
                 )
                 .await;
 

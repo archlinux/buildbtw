@@ -9,6 +9,7 @@ use color_eyre::eyre::{self, Context, OptionExt, bail};
 use color_eyre::{Result, eyre::eyre};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
+use url::Url;
 
 use crate::utils::free_port;
 
@@ -39,7 +40,11 @@ impl Container {
     /// * `port` - Specific host port to expose Authelia on. If `None`, expose on a random port.
     /// * `persist_between_runs` - Whether to mount the state dir to a location outside the container
     #[allow(clippy::too_many_lines)]
-    pub async fn new(port: Option<u16>, persist_between_runs: bool) -> Result<Self> {
+    pub async fn new(
+        port: Option<u16>,
+        persist_between_runs: bool,
+        buildbtw_server_url: &Url,
+    ) -> Result<Self> {
         // Generate a unique container name for referencing it later on
         let container_name = format!("authelia-test-{}", uuid::Uuid::new_v4().simple());
 
@@ -75,6 +80,8 @@ impl Container {
             "X_AUTHELIA_CONFIG_FILTERS=template",
             "-e",
             &format!("CONTAINER_PORT={actual_port}"),
+            "-e",
+            &format!("BUILDBTW_SERVER_URL={buildbtw_server_url}"),
             "-v",
             "./authelia/configuration.yml:/config/configuration.yml:ro",
             "-v",
