@@ -114,7 +114,7 @@ check-dependencies: (ensure-command "cargo-deny")
 test *args:
     cargo nextest run --features sea-orm-debug-print -E 'not group(e2e)' {{ args }}
 
-[doc("Run browser-based e2e tests")]
+[doc("Run slow, browser-based end-to-end tests")]
 [group("test")]
 test-e2e *args: (ensure-command "geckodriver")
     cargo nextest run --features sea-orm-debug-print -E 'group(e2e)' {{ args }}
@@ -123,6 +123,11 @@ test-e2e *args: (ensure-command "geckodriver")
 [group("test")]
 test-flaky *args:
     cargo nextest run --features sea-orm-debug-print --run-ignored only {{ args }}
+
+[doc("Run tests, accepting and writing any new snapshot values")]
+[group("test")]
+update-test-snapshots:
+    INSTA_UPDATE=always just test
 
 [doc("Run tests and auto-rerun on code changes")]
 [group("test")]

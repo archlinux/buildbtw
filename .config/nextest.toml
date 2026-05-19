@@ -1,5 +1,7 @@
 [profile.default]
 slow-timeout = { period = "2s", terminate-after = 2 }
+# Don't fail fast so all insta snapshots update.
+fail-fast = false
 
 [test-groups]
 e2e = { max-threads = 1 }

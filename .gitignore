@@ -6,3 +6,4 @@ data
 *.sqlite*
 cert/
 authelia/db
+*.snap.new
