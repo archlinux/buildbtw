@@ -1,10 +1,10 @@
 use color_eyre::{Result, eyre::ContextCompat};
 
-use crate::auth;
-
 pub async fn new() -> Result<reqwest::Client> {
     // Get auth token
-    let auth_token = auth::auth_token().await?.wrap_err("Please log in first.")?;
+    let auth_token = buildbtw::bbtw::auth::Token::read()
+        .await?
+        .wrap_err("Please log in first.")?;
     let auth_token = auth_token.secret_token.expose_secret();
 
     // Put token into a sensitive header value
