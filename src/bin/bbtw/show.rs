@@ -11,10 +11,10 @@ use url::Url;
 use uuid::Uuid;
 use yansi::Paint;
 
-use crate::client;
+use crate::api;
 
 pub async fn show(
-    server_url: &Url,
+    server_url: Url,
     buildspace_name: String,
     max_results: Option<u64>,
     #[cfg(debug_assertions)] show_demo_data: bool,
@@ -133,19 +133,18 @@ pub async fn show(
 }
 
 async fn all_builds_grouped_by_status(
-    server_url: &Url,
+    server_url: Url,
     buildspace_name: &str,
     max_results: Option<u64>,
 ) -> Result<HashMap<BuildStatus, ListBuildsResponse>> {
-    let client = client::reqwest::new().await?;
+    let client = api::Client::new(server_url).await?;
     let all_statuses: Vec<BuildStatus> = BuildStatus::iter().collect();
     let builds: HashMap<BuildStatus, ListBuildsResponse> = futures::stream::iter(all_statuses)
         .map(async |status| {
             Ok((
                 status,
-                client::builds::list(
+                api::builds::list(
                     &client,
-                    server_url,
                     Some(status),
                     buildspace_name.to_string(),
                     max_results,

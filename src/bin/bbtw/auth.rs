@@ -8,11 +8,11 @@ use time::format_description::well_known::Rfc3339;
 use tracing::instrument;
 use url::Url;
 
+use crate::api;
 use crate::args::AuthCommand;
-use crate::client;
 
 #[instrument]
-pub async fn login(server_url: &Url) -> Result<()> {
+pub async fn login(server_url: Url) -> Result<()> {
     if let Some(auth_token) = bbtw::auth::Token::read().await? {
         eprintln!(
             "{} You're already logged in as (since {}).",
@@ -35,6 +35,8 @@ pub async fn login(server_url: &Url) -> Result<()> {
     println!("\nYou'll need to log in first via OIDC if you haven't already.");
     println!("Then click 'Create CLI Session' and copy the generated token.\n");
 
+    let client = api::Client::new(server_url).await?;
+
     let auth_token = loop {
         print!("{}", "Paste your CLI session token here: ".bold());
         io::stdout().flush()?;
@@ -55,7 +57,7 @@ pub async fn login(server_url: &Url) -> Result<()> {
         };
 
         // Verify whether this is even a valid token.
-        let user = client::user::current(server_url, &client::reqwest::new().await?).await?;
+        let user = api::user::current(&client).await?;
         if let Some(user) = user {
             println!("Logged in (as {})", user.username.bold());
             break auth_token;
@@ -74,10 +76,10 @@ pub async fn login(server_url: &Url) -> Result<()> {
 }
 
 #[instrument]
-pub async fn status(server_url: &Url) -> Result<()> {
+pub async fn status(server_url: Url) -> Result<()> {
     if let Some(auth_token) = bbtw::auth::Token::read().await? {
         // We'll verify that we're actually logged in properly and that the session is valid.
-        let user = client::user::current(server_url, &client::reqwest::new().await?).await?;
+        let user = api::user::current(&api::Client::new(server_url).await?).await?;
         if let Some(user) = user {
             println!(
                 "Logged in as {} (since {})",
@@ -99,7 +101,7 @@ pub async fn status(server_url: &Url) -> Result<()> {
     Ok(())
 }
 
-pub async fn auth(auth_command: AuthCommand, server_url: &Url) -> Result<()> {
+pub async fn auth(auth_command: AuthCommand, server_url: Url) -> Result<()> {
     match auth_command {
         AuthCommand::Login => login(server_url).await,
         AuthCommand::Status => status(server_url).await,
