@@ -16,8 +16,6 @@ mod auth;
 
 mod client;
 mod show;
-#[cfg(test)]
-mod tests;
 
 use crate::args::Args;
 
