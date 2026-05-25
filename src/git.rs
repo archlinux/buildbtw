@@ -165,7 +165,7 @@ fn clone_or_fetch_repository(
 ) -> Result<git2::Repository> {
     let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path));
     let repo = if let Ok(repo) = maybe_repo {
-        fetch_packaging_repo(target_dir, gitlab_project_path)?;
+        fetch_packaging_repo(&repo)?;
         repo
     } else {
         clone_packaging_repo(
@@ -210,12 +210,8 @@ fn clone_packaging_repo(
 }
 
 /// Run the equivalent of `git fetch` for an existing git repository.
-fn fetch_packaging_repo(
-    target_dir: &Utf8Path,
-    gitlab_project_path: &crate::gitlab::projects::ProjectPath,
-) -> Result<()> {
-    trace!("Fetching repository {:?}", &gitlab_project_path);
-    let repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path))?;
+fn fetch_packaging_repo(repo: &git2::Repository) -> Result<()> {
+    trace!("Fetching repository {:?}", repo.path());
 
     // Set up the callbacks to use SSH credentials
     let mut callbacks = git2::RemoteCallbacks::new();
