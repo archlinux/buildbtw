@@ -38,14 +38,14 @@ use crate::{iteration_creator, storage};
 pub fn initialize(
     state: ServerState,
     token: CancellationToken,
-    gitlab: Option<GitlabConfig>,
+    gitlab_config: Option<GitlabConfig>,
     update_source_repos: bool,
     auto_create_iterations: bool,
     db: DatabaseConnection,
 ) -> Result<()> {
     // If the flag is enabled, and a gitlab config is present, tell the iteration creator to update source repos
-    let repo_update_config = if update_source_repos && let Some(gitlab) = gitlab {
-        iteration_creator::RepoUpdateConfig::DoUpdate(gitlab)
+    let repo_update_config = if update_source_repos && let Some(gitlab_config) = gitlab_config {
+        iteration_creator::RepoUpdateConfig::DoUpdate(gitlab_config)
     } else {
         iteration_creator::RepoUpdateConfig::DontUpdate
     };

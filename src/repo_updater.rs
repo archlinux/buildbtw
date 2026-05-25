@@ -4,7 +4,8 @@ use camino::Utf8PathBuf;
 use color_eyre::Result;
 use gitlab::AsyncGitlab;
 use time::{Duration, OffsetDateTime};
-use url::Url;
+
+use crate::gitlab::GitlabConfig;
 
 /// Make sure the package source repos in `target_dir` match the current state
 /// on the server by cloning all repos that don't exist locally, and fetching
@@ -15,15 +16,17 @@ use url::Url;
 /// Returns the most recent date of activity we observed, which can be passed as `last_fetched` on the next call to this function.
 pub async fn update_all_source_repos(
     target_dir: Utf8PathBuf,
-    client: &AsyncGitlab,
+    gitlab_client: &AsyncGitlab,
     mut last_fetched: Option<OffsetDateTime>,
-    gitlab_domain: &Url,
-    gitlab_packages_group: String,
+    gitlab_config: GitlabConfig,
 ) -> Result<Option<OffsetDateTime>> {
     // Query which projects changed
-    let changed_projects =
-        crate::gitlab::projects::changed_since(client, last_fetched, &gitlab_packages_group)
-            .await?;
+    let changed_projects = crate::gitlab::projects::changed_since(
+        gitlab_client,
+        last_fetched,
+        &gitlab_config.packages_group,
+    )
+    .await?;
     if let Some(most_recently_changed_project) = changed_projects.first() {
         tracing::info!(
             "{} changed source repos found (first: {:?})",
@@ -38,13 +41,7 @@ pub async fn update_all_source_repos(
     }
 
     // Run git operations for changed projects
-    crate::git::clone_or_fetch_repositories(
-        target_dir,
-        changed_projects,
-        gitlab_domain,
-        gitlab_packages_group,
-    )
-    .await?;
+    crate::git::clone_or_fetch_repositories(target_dir, changed_projects, gitlab_config).await?;
 
     Ok(last_fetched)
 }

@@ -159,6 +159,7 @@ rustls = { version = "0.23.39", features = ["aws-lc-rs"] }
 serde_with = "3.20.0"
 yansi = { version = "1.0.1", features = ["detect-env", "detect-tty"] }
 futures = "0.3.32"
+ssh-key = { version = "0.6.7", default-features = false, features = ["ecdsa", "std"] }
 
 [dev-dependencies]
 axum-test = { version = "20.0.0", features = ["typed-routing"] }

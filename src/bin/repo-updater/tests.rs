@@ -1,6 +1,8 @@
-use color_eyre::Result;
+use std::env;
 
-use buildbtw::{external_secrets, repo_updater, storage};
+use color_eyre::{Result, eyre::OptionExt};
+
+use buildbtw::{external_secrets, gitlab::GitlabConfig, repo_updater, storage};
 use color_eyre::eyre::Context;
 
 use crate::state::State;
@@ -10,16 +12,19 @@ use crate::state::State;
 async fn test_update_source_repos() -> Result<()> {
     let source_repo_dir = storage::package_source_repos_dir()?;
 
-    let gitlab_domain = url::Url::parse(&std::env::var("BUILDBTW_GITLAB_DOMAIN")?)?;
-    let gitlab_packages_group = std::env::var("BUILDBTW_GITLAB_PACKAGES_GROUP")?;
+    let gitlab_config = GitlabConfig {
+        token: external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", None)?,
+        domain: url::Url::parse(&env::var("BUILDBTW_GITLAB_DOMAIN")?)?,
+        ssh_host_key: env::var("BUILDBTW_GITLAB_SSH_HOST_KEY")?.parse()?,
+        packages_group: env::var("BUILDBTW_GITLAB_PACKAGES_GROUP")?,
+    };
 
-    let gitlab_token = external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", None)?;
-
-    let client = gitlab::GitlabBuilder::new(
-        gitlab_domain
+    let gitlab_client = gitlab::GitlabBuilder::new(
+        gitlab_config
+            .domain
             .host_str()
-            .ok_or_else(|| color_eyre::eyre::eyre!("GitLab domain URL has no host"))?,
-        gitlab_token.clone().expose_secret(),
+            .ok_or_eyre("GitLab domain URL has no host")?,
+        gitlab_config.token.clone().expose_secret(),
     )
     .build_async()
     .await
@@ -33,10 +38,9 @@ async fn test_update_source_repos() -> Result<()> {
 
     let last_updated = repo_updater::update_all_source_repos(
         source_repo_dir.clone(),
-        &client,
+        &gitlab_client,
         last_updated,
-        &gitlab_domain,
-        gitlab_packages_group,
+        gitlab_config,
     )
     .await?;
 

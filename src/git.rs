@@ -15,9 +15,8 @@ use sea_orm::DeriveValueType;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::{info, trace};
-use url::Url;
 
-use crate::package;
+use crate::{gitlab::GitlabConfig, package};
 
 /// An unambiguous git commit hash.
 /// This has no validation, but serves as a type marker to differentiate from other types of Oid (e.g. tree, blob, tag)
@@ -86,8 +85,7 @@ pub struct Changeset {
 pub async fn clone_or_fetch_repositories(
     target_dir: Utf8PathBuf,
     gitlab_projects: Vec<crate::gitlab::projects::Project>,
-    gitlab_domain: &Url,
-    gitlab_packages_group: String,
+    gitlab_config: GitlabConfig,
 ) -> Result<()> {
     let project_count = gitlab_projects.len();
     info!("Updating {project_count} repos");
@@ -97,19 +95,13 @@ pub async fn clone_or_fetch_repositories(
 
     for gitlab_project in gitlab_projects {
         let target_dir = target_dir.clone();
-        let gitlab_domain = gitlab_domain.clone();
-        let gitlab_packages_group = gitlab_packages_group.clone();
+        let gitlab_config = gitlab_config.clone();
         join_set.spawn_blocking(move || {
             // TODO: handle spurious errors (network etc.) by retrying.
             // Maybe also clean up repositories on error in some way?
             // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/198
-            clone_or_fetch_repository(
-                &target_dir,
-                &gitlab_project.path,
-                &gitlab_domain,
-                &gitlab_packages_group,
-            )
-            .wrap_err(gitlab_project.path)?;
+            clone_or_fetch_repository(&target_dir, &gitlab_project.path, &gitlab_config)
+                .wrap_err(gitlab_project.path)?;
             Ok(())
         });
 
@@ -160,20 +152,14 @@ pub async fn clone_or_fetch_repositories(
 fn clone_or_fetch_repository(
     target_dir: &Utf8Path,
     gitlab_project_path: &crate::gitlab::projects::ProjectPath,
-    gitlab_domain: &Url,
-    gitlab_packages_group: &str,
+    gitlab_config: &GitlabConfig,
 ) -> Result<git2::Repository> {
     let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path));
     let repo = if let Ok(repo) = maybe_repo {
         fetch_packaging_repo(&repo)?;
         repo
     } else {
-        clone_packaging_repo(
-            target_dir,
-            gitlab_project_path,
-            gitlab_domain,
-            gitlab_packages_group,
-        )?
+        clone_packaging_repo(target_dir, gitlab_project_path, gitlab_config)?
     };
     Ok(repo)
 }
@@ -182,8 +168,7 @@ fn clone_or_fetch_repository(
 fn clone_packaging_repo(
     target_dir: &Utf8Path,
     gitlab_project_path: &crate::gitlab::projects::ProjectPath,
-    gitlab_domain: &Url,
-    gitlab_packages_group: &str,
+    gitlab_config: &GitlabConfig,
 ) -> Result<git2::Repository> {
     trace!("Cloning {gitlab_project_path}");
 
@@ -195,14 +180,18 @@ fn clone_packaging_repo(
     let mut fetch_options = git2::FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
 
-    let gitlab_domain = gitlab_domain
+    let gitlab_domain = gitlab_config
+        .domain
         .host_str()
-        .ok_or_eyre("Gitlab domain URL has no host")?;
+        .ok_or_eyre("GitLab domain URL has no host")?;
 
     let repo = git2::build::RepoBuilder::new()
         .fetch_options(fetch_options)
         .clone(
-            &format!("git@{gitlab_domain}:{gitlab_packages_group}/{gitlab_project_path}.git"),
+            &format!(
+                "git@{gitlab_domain}:{packages_group}/{gitlab_project_path}.git",
+                packages_group = gitlab_config.packages_group
+            ),
             packaging_repo_path(target_dir, gitlab_project_path).as_std_path(),
         )?;
 

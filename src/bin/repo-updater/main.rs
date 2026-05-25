@@ -6,10 +6,12 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-use buildbtw::{external_secrets, repo_updater};
+use buildbtw::{gitlab::GitlabConfig, repo_updater};
 use clap::Parser;
-use color_eyre::Result;
-use color_eyre::eyre::Context;
+use color_eyre::{
+    Result,
+    eyre::{Context, OptionExt},
+};
 
 use crate::{
     args::{Args, Command},
@@ -25,16 +27,16 @@ async fn main() -> Result<()> {
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
-    let gitlab_token =
-        external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", args.gitlab_token_path.as_deref())?;
+    let gitlab_config: GitlabConfig = args.gitlab.try_into()?;
 
     match args.command {
         Command::PrintChanged(print_args) => {
             let client = gitlab::GitlabBuilder::new(
-                args.gitlab_domain
+                gitlab_config
+                    .domain
                     .host_str()
-                    .ok_or_else(|| color_eyre::eyre::eyre!("GitLab domain URL has no host"))?,
-                gitlab_token.expose_secret(),
+                    .ok_or_eyre("GitLab domain URL has no host")?,
+                gitlab_config.token.expose_secret(),
             )
             .build_async()
             .await
@@ -44,7 +46,7 @@ async fn main() -> Result<()> {
             let projects = buildbtw::gitlab::projects::changed_since(
                 &client,
                 print_args.since,
-                &args.gitlab_packages_group,
+                &gitlab_config.packages_group,
             )
             .await?;
 
@@ -55,11 +57,12 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Command::Update(update_args) => {
-            let client = gitlab::GitlabBuilder::new(
-                args.gitlab_domain
+            let gitlab_client = gitlab::GitlabBuilder::new(
+                gitlab_config
+                    .domain
                     .host_str()
                     .ok_or_else(|| color_eyre::eyre::eyre!("GitLab domain URL has no host"))?,
-                gitlab_token.clone().expose_secret(),
+                gitlab_config.token.clone().expose_secret(),
             )
             .build_async()
             .await
@@ -75,10 +78,9 @@ async fn main() -> Result<()> {
 
             let last_updated = repo_updater::update_all_source_repos(
                 update_args.target_dir.clone(),
-                &client,
+                &gitlab_client,
                 last_updated,
-                &args.gitlab_domain,
-                args.gitlab_packages_group,
+                gitlab_config,
             )
             .await?;
 

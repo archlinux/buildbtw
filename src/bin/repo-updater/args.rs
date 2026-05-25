@@ -1,5 +1,9 @@
+use buildbtw::{external_secrets, gitlab::GitlabConfig};
 use camino::Utf8PathBuf;
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, eyre},
+};
 use time::{OffsetDateTime, Time, format_description::well_known::Iso8601};
 use url::Url;
 
@@ -20,33 +24,8 @@ pub struct Args {
     )]
     pub tokio_console_telemetry: bool,
 
-    /// Path to a file containing the GitLab API token for authentication
-    ///
-    /// The token needs the `read_api` scope.
-    ///
-    /// The gitlab token can be passed directly using the `BUILDBTW_GITLAB_TOKEN` environment variable.
-    ///
-    /// Precedence:
-    ///
-    /// 1. `BUILDBTW_GITLAB_TOKEN` env var
-    /// 2. Contents of file specified by the token path
-    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_GITLAB_TOKEN
-    //
-    // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "BUILDBTW_GITLAB_TOKEN_PATH", verbatim_doc_comment)]
-    pub gitlab_token_path: Option<Utf8PathBuf>,
-
-    /// GitLab domain URL
-    ///
-    /// E.g. <https://gitlab.archlinux.org>
-    #[arg(long, env = "BUILDBTW_GITLAB_DOMAIN", required = true)]
-    pub gitlab_domain: Url,
-
-    /// GitLab package group to monitor
-    ///
-    /// E.g. `archlinux/packaging/packages`
-    #[arg(long, env = "BUILDBTW_GITLAB_PACKAGES_GROUP", required = true)]
-    pub gitlab_packages_group: String,
+    #[clap(flatten)]
+    pub gitlab: Gitlab,
 
     #[command(subcommand)]
     pub command: Command,
@@ -91,6 +70,70 @@ pub struct UpdateArgs {
     pub target_dir: Utf8PathBuf,
 }
 
+#[derive(clap::Args, Debug)]
+#[group(requires_all = ["gitlab_token_path", "gitlab_domain", "gitlab_ssh_host_key", "gitlab_packages_group"])]
+#[expect(
+    clippy::struct_field_names,
+    reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
+)]
+pub struct Gitlab {
+    /// Path to a file containing the GitLab API token for authentication
+    ///
+    /// The token needs the `read_api` scope.
+    ///
+    /// The gitlab token can be passed directly using the `BUILDBTW_GITLAB_TOKEN` environment variable.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_GITLAB_TOKEN` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_GITLAB_TOKEN
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "BUILDBTW_GITLAB_TOKEN_PATH", verbatim_doc_comment)]
+    gitlab_token_path: Option<Utf8PathBuf>,
+
+    /// GitLab domain URL
+    ///
+    /// E.g. `https://gitlab.archlinux.org`
+    #[arg(long, env = "BUILDBTW_GITLAB_DOMAIN", required = true)]
+    gitlab_domain: Url,
+
+    /// GitLab SSH host public key
+    ///
+    /// Retrieve this using `ssh-keyscan -q -t ecdsa gitlab.archlinux.org`
+    ///
+    /// Note: A local SSH known_hosts file will not be used.
+    ///
+    /// E.g. `gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy`
+    #[arg(long, env = "BUILDBTW_GITLAB_SSH_HOST_KEY", required = true, value_parser = parse_ssh_host_key)]
+    gitlab_ssh_host_key: ssh_key::known_hosts::Entry,
+
+    /// GitLab package group to monitor
+    ///
+    /// E.g. `archlinux/packaging/packages`
+    #[arg(long, env = "BUILDBTW_GITLAB_PACKAGES_GROUP", required = true)]
+    gitlab_packages_group: String,
+}
+
+impl TryFrom<Gitlab> for GitlabConfig {
+    fn try_from(value: Gitlab) -> Result<GitlabConfig> {
+        let token = external_secrets::get_required(
+            "BUILDBTW_GITLAB_TOKEN",
+            value.gitlab_token_path.as_deref(),
+        )?;
+
+        Ok(GitlabConfig {
+            token,
+            domain: value.gitlab_domain,
+            ssh_host_key: value.gitlab_ssh_host_key.public_key().clone(),
+            packages_group: value.gitlab_packages_group,
+        })
+    }
+
+    type Error = color_eyre::eyre::Error;
+}
+
 fn parse_iso8601(src: &str) -> Result<OffsetDateTime> {
     // Try parsing as full ISO 8601 datetime first
     if let Ok(dt) = OffsetDateTime::parse(src, &Iso8601::DEFAULT) {
@@ -103,6 +146,11 @@ fn parse_iso8601(src: &str) -> Result<OffsetDateTime> {
         .wrap_err("Failed to parse date (expected ISO 8601 datetime like '2024-01-01T00:00:00Z' or date like '2024-01-01')")?;
 
     Ok(date.with_time(Time::MIDNIGHT).assume_utc())
+}
+
+fn parse_ssh_host_key(s: &str) -> Result<ssh_key::known_hosts::Entry> {
+    s.parse()
+        .map_err(|e| eyre!("Couldn't parse SSH host key: {e}"))
 }
 
 #[cfg(test)]
@@ -120,6 +168,8 @@ mod tests {
             "--tokio-console-telemetry",
             "--gitlab-domain",
             "https://gitlab.archlinux.org",
+            "--gitlab-ssh-host-key",
+            "gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy",
             "--gitlab-token-path",
             "test/path",
             "--gitlab-packages-group",
@@ -133,11 +183,11 @@ mod tests {
         assert_eq!(parsed_args.verbose, 3);
         assert!(parsed_args.tokio_console_telemetry);
         assert_eq!(
-            parsed_args.gitlab_domain,
+            parsed_args.gitlab.gitlab_domain,
             Url::parse("https://gitlab.archlinux.org")?
         );
         assert_eq!(
-            parsed_args.gitlab_packages_group,
+            parsed_args.gitlab.gitlab_packages_group,
             "archlinux/packaging/packages"
         );
 
@@ -153,6 +203,10 @@ mod tests {
             "buildbtw-repo-updater",
             "--gitlab-domain",
             "https://gitlab.archlinux.org",
+            "--gitlab-ssh-host-key",
+            "gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy",
+            "--gitlab-token-path",
+            "test/path",
             "--gitlab-packages-group",
             "archlinux/packaging/packages",
             "print-changed",
@@ -179,6 +233,10 @@ mod tests {
             "buildbtw-repo-updater",
             "--gitlab-domain",
             "https://gitlab.archlinux.org",
+            "--gitlab-ssh-host-key",
+            "gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy",
+            "--gitlab-token-path",
+            "test/path",
             "--gitlab-packages-group",
             "archlinux/packaging/packages",
             "print-changed",

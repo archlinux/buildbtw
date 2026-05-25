@@ -9,7 +9,7 @@ use buildbtw::gitlab::GitlabConfig;
 use buildbtw::oidc::OidcConfig;
 
 use camino::Utf8PathBuf;
-use color_eyre::eyre::{Result, bail};
+use color_eyre::eyre::{Result, bail, eyre};
 use redact::Secret;
 use url::Url;
 
@@ -246,7 +246,7 @@ impl From<Oidc> for OidcConfig {
 }
 
 #[derive(clap::Args, Debug)]
-#[group(requires_all = ["gitlab_domain", "gitlab_packages_group"])]
+#[group(requires_all = ["gitlab_token_path", "gitlab_domain", "gitlab_ssh_host_key", "gitlab_packages_group"])]
 #[expect(
     clippy::struct_field_names,
     reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
@@ -270,9 +270,19 @@ pub struct Gitlab {
 
     /// GitLab domain URL
     ///
-    /// E.g. <https://gitlab.archlinux.org>
+    /// E.g. `https://gitlab.archlinux.org`
     #[arg(long, env = "BUILDBTW_GITLAB_DOMAIN", required = true)]
     gitlab_domain: Url,
+
+    /// GitLab SSH host public key
+    ///
+    /// Retrieve this using `ssh-keyscan -q -t ecdsa gitlab.archlinux.org`
+    ///
+    /// Note: A local SSH known_hosts file will not be used.
+    ///
+    /// E.g. `gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy`
+    #[arg(long, env = "BUILDBTW_GITLAB_SSH_HOST_KEY", required = true, value_parser = parse_ssh_host_key)]
+    gitlab_ssh_host_key: ssh_key::known_hosts::Entry,
 
     /// GitLab package group to monitor
     ///
@@ -291,6 +301,7 @@ impl TryFrom<Gitlab> for GitlabConfig {
         Ok(GitlabConfig {
             token,
             domain: value.gitlab_domain,
+            ssh_host_key: value.gitlab_ssh_host_key.public_key().clone(),
             packages_group: value.gitlab_packages_group,
         })
     }
@@ -376,6 +387,11 @@ fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
     }
 }
 
+fn parse_ssh_host_key(s: &str) -> Result<ssh_key::known_hosts::Entry> {
+    s.parse()
+        .map_err(|e| eyre!("Couldn't parse SSH host key: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -403,6 +419,23 @@ mod tests {
         let parsed = parse_listen(input)?;
 
         assert_eq!(parsed, expected);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(
+        "gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy",
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy"
+    )]
+    #[case(
+        "gitlab.archlinux.org ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBL+Hs65GpF45799k+r9AW5+xxIRLOdOrOUFsce1BVD8f/tFGBpu6ay06f3tvXXUHVA9iRI6wogDVTpy4x5ch4jY=",
+        "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBL+Hs65GpF45799k+r9AW5+xxIRLOdOrOUFsce1BVD8f/tFGBpu6ay06f3tvXXUHVA9iRI6wogDVTpy4x5ch4jY="
+    )]
+    fn test_parse_ssh_host_key(#[case] input: &str, #[case] expected_key: &str) -> Result<()> {
+        let parsed = parse_ssh_host_key(input)?;
+
+        assert_eq!(parsed.public_key().to_openssh().unwrap(), expected_key);
 
         Ok(())
     }
@@ -436,6 +469,10 @@ mod tests {
             "Test OIDC Provider",
             "--gitlab-domain",
             "https://gitlab.archlinux.org/",
+            "--gitlab-ssh-host-key",
+            "gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy",
+            "--gitlab-token-path",
+            "test/path",
             "--gitlab-packages-group",
             "package/group",
             "--run-authelia-container",

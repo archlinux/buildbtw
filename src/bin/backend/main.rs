@@ -223,13 +223,13 @@ async fn run_server(
         cookie_encryption_key,
     };
 
-    let gitlab = gitlab
+    let gitlab_config = gitlab
         .map(buildbtw::gitlab::GitlabConfig::try_from)
         .transpose()?;
     tasks::initialize(
         server_state.clone(),
         cancellation_token.clone(),
-        gitlab,
+        gitlab_config,
         update_source_repos,
         auto_create_iterations,
         db.clone(),

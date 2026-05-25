@@ -116,18 +116,19 @@ impl IterationCreator {
     /// TODO: check if it's safe to cancel this function, because it can hold up the shutdown process.
     #[tracing::instrument(skip(self))]
     pub async fn tick(&mut self) -> Result<()> {
-        if let RepoUpdateConfig::DoUpdate(gitlab_args) = &self.config.repo_update {
-            let client = gitlab::GitlabBuilder::new(
-                gitlab_args
+        if let RepoUpdateConfig::DoUpdate(gitlab_config) = &self.config.repo_update {
+            let gitlab_client = gitlab::GitlabBuilder::new(
+                gitlab_config
                     .domain
                     .host_str()
                     .ok_or_eyre("GitLab domain URL has no host")?,
-                gitlab_args.token.clone().expose_secret(),
+                gitlab_config.token.clone().expose_secret(),
             )
             .build_async()
             .await?;
 
-            self.update_repos(&client, gitlab_args).await?;
+            self.update_repos(&gitlab_client, gitlab_config.clone())
+                .await?;
         }
 
         let mut source_repo_cache =
@@ -274,8 +275,12 @@ impl IterationCreator {
     }
 
     /// Fetch new commits for all source repositories.
-    #[tracing::instrument(skip(self, client))]
-    async fn update_repos(&self, client: &AsyncGitlab, gitlab_args: &GitlabConfig) -> Result<()> {
+    #[tracing::instrument(skip(self, gitlab_client))]
+    async fn update_repos(
+        &self,
+        gitlab_client: &AsyncGitlab,
+        gitlab_config: GitlabConfig,
+    ) -> Result<()> {
         // Get the previous update cutoff timestamp
         let source_repos_last_updated = self
             .db
@@ -286,10 +291,9 @@ impl IterationCreator {
         // Update the source repos
         let source_repos_new_last_updated = repo_updater::update_all_source_repos(
             self.config.source_repo_dir.clone(),
-            client,
+            gitlab_client,
             source_repos_last_updated,
-            &gitlab_args.domain,
-            gitlab_args.packages_group.clone(),
+            gitlab_config,
         )
         .await?;
 
