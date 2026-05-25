@@ -48,9 +48,9 @@ pub enum Command {
         #[arg(long, short, default_value = "3", value_parser = clap::value_parser!(u64).range(1..))]
         limit: Option<u64>,
 
-        #[cfg(debug_assertions)]
         /// Display some non-existent builds for development. Temporary, until we have more ways to modify builds in the actual DB.
         #[arg(long, action)]
+        #[cfg(debug_assertions)]
         show_demo_builds: bool,
     },
 
