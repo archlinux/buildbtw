@@ -35,12 +35,14 @@ async fn main() -> Result<()> {
         args::Command::Resume { name: _ } => todo!(),
         args::Command::List { all: _ } => todo!(),
         args::Command::Retry { name: _ } => todo!(),
+        #[cfg(debug_assertions)]
         args::Command::Show {
             name,
             limit,
-            #[cfg(debug_assertions)]
             show_demo_builds,
         } => show::show(&args.server_url, name, limit, show_demo_builds).await,
+        #[cfg(not(debug_assertions))]
+        args::Command::Show { name, limit } => show::show(&args.server_url, name, limit).await,
         args::Command::Auth(auth_command) => auth::auth(auth_command, &args.server_url).await,
     }
 }
