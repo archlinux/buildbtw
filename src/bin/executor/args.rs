@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
 use buildbtw::package::KnownArchitecture;
+use camino::Utf8PathBuf;
+use color_eyre::eyre::Result;
+use redact::Secret;
 use url::Url;
 use uuid::Uuid;
 
@@ -28,6 +31,9 @@ pub struct Args {
     /// SSH connection timeout
     #[arg(long, env = "CUSTOM_ENV_SSH_TIMEOUT", default_value = "120")]
     pub ssh_timeout: u32,
+
+    #[clap(flatten)]
+    pub bbtw: Option<BbtwArgs>,
 
     /// Primary command of a custom GitLab executor implementaiton
     #[command(subcommand)]
@@ -204,6 +210,41 @@ pub struct BuildScriptArgs {
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
     #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires_all = ["build_id"])]
     pub api_server_url: Option<Url>,
+}
+
+#[derive(clap::Args, Clone, Debug)]
+pub struct BbtwArgs {
+    /// Path to a file containing the bbtw API token for authentication
+    ///
+    /// The bbtw token can be passed directly using the `BUILDBTW_TOKEN` environment variable.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_TOKEN` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_TOKEN
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "BUILDBTW_TOKEN_PATH", verbatim_doc_comment)]
+    bbtw_token_path: Option<Utf8PathBuf>,
+}
+
+impl TryFrom<BbtwArgs> for BbtwConfig {
+    fn try_from(value: BbtwArgs) -> Result<BbtwConfig> {
+        let token = buildbtw::external_secrets::get_required(
+            "BUILDBTW_TOKEN",
+            value.bbtw_token_path.as_deref(),
+        )?;
+
+        Ok(BbtwConfig { token })
+    }
+
+    type Error = color_eyre::eyre::Error;
+}
+
+#[derive(Debug, Clone)]
+pub struct BbtwConfig {
+    pub token: Secret<String>,
 }
 
 #[cfg(test)]

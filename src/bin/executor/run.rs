@@ -11,10 +11,11 @@ use color_eyre::{
     eyre::{OptionExt, bail, eyre},
 };
 use tokio::{fs, process::Command};
+use tokio_util::io::ReaderStream;
 use url::Url;
 
 use crate::{
-    args::{Args, BuildScriptArgs, GetSourcesArgs, RunArgs, RunStage},
+    args::{Args, BbtwConfig, BuildScriptArgs, GetSourcesArgs, RunArgs, RunStage},
     shell::ShellScripts,
 };
 
@@ -113,6 +114,7 @@ async fn run_build_script(
     if let Some(collector_base_url) = build_script_args.api_server_url.clone() {
         let http_client = reqwest::Client::new();
         upload_package_artifacts(
+            &args,
             &build_script_args,
             &http_client,
             output_dir.path(),
@@ -185,6 +187,7 @@ pub async fn build_project_dir(
 /// Uploads all package artifacts inside the given build output directory to the
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
+    args: &Args,
     build_script_args: &BuildScriptArgs,
     http_client: &reqwest::Client,
     output_dir: &Path,
@@ -197,8 +200,14 @@ async fn upload_package_artifacts(
         if let Some(filename) = file.file_name()
             && file.is_file()
         {
-            upload_package_artifact(build_script_args, http_client, file, collector_base_url)
-                .await?;
+            upload_package_artifact(
+                args,
+                build_script_args,
+                http_client,
+                file,
+                collector_base_url,
+            )
+            .await?;
             tracing::info!("✅ {}", filename.to_string_lossy());
         } else {
             tracing::warn!("⚠️ Skipping invalid file: {}", file.display());
@@ -209,6 +218,7 @@ async fn upload_package_artifacts(
 
 /// Uploads a single passed package artifact to the buildbtw collector endpoint.
 async fn upload_package_artifact(
+    args: &Args,
     build_script_args: &BuildScriptArgs,
     http_client: &reqwest::Client,
     artifact_path: &PathBuf,
@@ -235,13 +245,28 @@ async fn upload_package_artifact(
         )
         .append_pair("pkgname", pkgname.as_ref());
 
-    let artifact_data = fs::read(artifact_path).await?;
-    let artifact_bytes = artifact_data.len();
+    let artifact_file = fs::File::open(artifact_path).await?;
+    let artifact_bytes = artifact_file.metadata().await?.len();
+
+    // Extract API secret from bbtw config
+    let bbtw_config = args
+        .clone()
+        .bbtw
+        .map(BbtwConfig::try_from)
+        .transpose()?
+        .ok_or_eyre("Missing BBTW_TOKEN secret")?;
+    let token = bbtw_config.token.expose_secret();
+
+    // Wrap stream in 2MB chunks for chunked transfer.
+    // https://docs.rs/axum/latest/axum/extract/struct.DefaultBodyLimit.html
+    let stream = ReaderStream::with_capacity(artifact_file, 2 * 1024 * 1024);
+    let body = reqwest::Body::wrap_stream(stream);
 
     tracing::debug!("⬆️ Sending {artifact_bytes} bytes for {pkgname}");
     let response = http_client
         .post(upload_url.clone())
-        .body(artifact_data)
+        .bearer_auth(token)
+        .body(body)
         .send()
         .await?;
 
