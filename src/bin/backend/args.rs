@@ -478,6 +478,8 @@ mod tests {
             "--run-authelia-container",
             "--authelia-container-port",
             "9091",
+            "--update-source-repos",
+            "--auto-create-iterations",
         ];
 
         let parsed_args = Args::try_parse_from(args)?;
