@@ -137,7 +137,7 @@ rust-embed = { version = "8.11.0", features = [
 openidconnect = { version = "4.0.1", features = [
     "timing-resistant-secret-traits",
 ] }
-garde = { version = "0.22.1", features = ["derive"] }
+garde = { version = "0.23", features = ["derive"] }
 listenfd = "1.0.2"
 graphql_client = "0.14.0"
 derive_more = { version = "2.1.1", features = [
@@ -147,7 +147,7 @@ derive_more = { version = "2.1.1", features = [
     "from",
     "from_str",
 ] }
-git2 = { version = "0.20.4", default-features = false, features = ["ssh"] }
+git2 = { version = "0.21", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
 tempfile = "3.27.0"
 colored = "3.1.1"
