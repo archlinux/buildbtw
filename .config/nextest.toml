@@ -1,3 +1,6 @@
+[profile.default]
+slow-timeout = { period = "2s", terminate-after = 2 }
+
 [test-groups]
 e2e = { max-threads = 1 }
 
@@ -6,3 +9,4 @@ e2e = { max-threads = 1 }
 # and they need to bind the buildbtw server to an actual port, which is currently hardcoded
 filter = 'test(e2e)'
 test-group = 'e2e'
+slow-timeout = { period = "20s", terminate-after = 2 }

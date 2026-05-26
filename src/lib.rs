@@ -2,6 +2,7 @@
 //! release.
 pub mod api;
 pub mod authelia;
+pub mod bbtw;
 pub mod db;
 pub mod db_fields;
 pub mod dependency_graph;

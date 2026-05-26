@@ -1,20 +1,16 @@
 use std::collections::HashMap;
 
-use buildbtw::{
-    api::builds::{self, ListBuildsResponse},
-    package::{self, BuildStatus},
-};
+use buildbtw::{api::builds::ListBuildsResponse, package::BuildStatus};
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
 use sea_orm::Iterable;
 use url::Url;
-use uuid::Uuid;
 use yansi::Paint;
 
-use crate::client;
+use crate::api;
 
 pub async fn show(
-    server_url: &Url,
+    server_url: Url,
     buildspace_name: String,
     max_results: Option<u64>,
     #[cfg(debug_assertions)] show_demo_data: bool,
@@ -23,29 +19,7 @@ pub async fn show(
         all_builds_grouped_by_status(server_url, &buildspace_name, max_results).await?;
 
     #[cfg(debug_assertions)]
-    if show_demo_data {
-        for status in BuildStatus::iter() {
-            // Create build outside of the closure below to simplify Result handling.
-            let proto_build = builds::Build {
-                id: Uuid::new_v4(),
-                iteration_id: Uuid::new_v4(),
-                created_at: time::OffsetDateTime::now_utc(),
-                pkgbase: "dummy_build".parse()?,
-                branch_name: "main".try_into()?,
-                commit_hash: "aaaaa".parse()?,
-                status,
-                version: "0.1.0-0".parse()?,
-                architecture: package::KnownArchitecture::X86_64,
-            };
-            builds.entry(status).and_modify(|response| {
-                response.builds.push(builds::Build {
-                    status,
-                    ..proto_build
-                });
-                response.total_build_count += 1;
-            });
-        }
-    }
+    add_demo_data(&mut builds, show_demo_data)?;
 
     tracing::trace!(?builds);
 
@@ -132,20 +106,55 @@ pub async fn show(
     Ok(())
 }
 
+#[cfg(debug_assertions)]
+fn add_demo_data(
+    builds: &mut HashMap<BuildStatus, ListBuildsResponse>,
+    show_demo_data: bool,
+) -> Result<(), color_eyre::eyre::Error> {
+    use buildbtw::api;
+    use uuid::Uuid;
+
+    if show_demo_data {
+        for status in BuildStatus::iter() {
+            // Create build outside of the closure below to simplify Result handling.
+
+            let proto_build = api::builds::Build {
+                id: Uuid::new_v4(),
+                iteration_id: Uuid::new_v4(),
+                created_at: time::OffsetDateTime::now_utc(),
+                pkgbase: "dummy_build".parse()?,
+                branch_name: "main".try_into()?,
+                commit_hash: "aaaaa".parse()?,
+                status,
+                version: "0.1.0-0".parse()?,
+                architecture: buildbtw::package::KnownArchitecture::X86_64,
+            };
+            builds.entry(status).and_modify(|response| {
+                response.builds.push(api::builds::Build {
+                    status,
+                    ..proto_build
+                });
+                response.total_build_count += 1;
+            });
+        }
+    }
+
+    Ok(())
+}
+
 async fn all_builds_grouped_by_status(
-    server_url: &Url,
+    server_url: Url,
     buildspace_name: &str,
     max_results: Option<u64>,
 ) -> Result<HashMap<BuildStatus, ListBuildsResponse>> {
-    let client = client::reqwest::new().await?;
+    let client = api::Client::new(server_url).await?;
     let all_statuses: Vec<BuildStatus> = BuildStatus::iter().collect();
     let builds: HashMap<BuildStatus, ListBuildsResponse> = futures::stream::iter(all_statuses)
         .map(async |status| {
             Ok((
                 status,
-                client::builds::list(
+                api::builds::list(
                     &client,
-                    server_url,
                     Some(status),
                     buildspace_name.to_string(),
                     max_results,

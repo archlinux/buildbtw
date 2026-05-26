@@ -2,16 +2,20 @@ use buildbtw::api::users::User;
 use color_eyre::{Result, eyre::Context};
 use reqwest::StatusCode;
 use tracing::instrument;
-use url::Url;
 
 /// Get the currently logged in user
 ///
-/// If the successful, will return the logged-in [`User`].
+/// If successful, will return the logged-in [`User`].
 /// If we receive an UNAUTHORIZED from the server, return `None`.
-#[instrument]
-pub async fn current(server_url: &Url, client: &reqwest::Client) -> Result<Option<User>> {
+#[instrument(skip(client))]
+pub async fn current(client: &super::Client) -> Result<Option<User>> {
     let resp = client
-        .get(server_url.join(&buildbtw::api::users::AuthenticatedUser {}.to_string())?)
+        .reqwest_client
+        .get(
+            client
+                .buildbtw_server_url
+                .join(&buildbtw::api::users::AuthenticatedUser {}.to_string())?,
+        )
         .send()
         .await
         .wrap_err("Couldn't get login status")?;

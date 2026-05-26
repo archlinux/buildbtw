@@ -17,6 +17,7 @@ use buildbtw::{
     input, oidc, queries, router,
     server_state::ServerState,
     templates,
+    utils::free_port,
 };
 
 use crate::geckodriver::{self, ProcessGuard};
@@ -164,12 +165,13 @@ impl TestCtxBuilder {
             .await
             .unwrap();
 
-        let testserver_port = 8081;
+        let (testserver_port, _startup_port_lock) =
+            free_port().await.expect("Failed to find a free port");
         let server_url =
             Url::parse(&format!("http://buildbtw.localhost:{testserver_port}")).unwrap();
 
         let (maybe_authelia_container, oidc_config) = if self.enable_authelia {
-            let container = authelia::Container::new(None, false)
+            let container = authelia::Container::new(None, false, &server_url)
                 .await
                 .expect("Failed to start Authelia container");
             // These values are hardcoded in Authelia's `configuration.yml` and
@@ -233,7 +235,6 @@ impl TestCtxBuilder {
         templates::initialize("./".into()).unwrap();
 
         let server = if self.use_http_transport {
-            // TODO try multiple ports to find one that's free
             TestServer::builder()
                 .http_transport_with_ip_port(
                     Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
