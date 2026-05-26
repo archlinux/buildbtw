@@ -54,6 +54,7 @@ doc_markdown = "allow"
 missing_errors_doc = "allow"
 unnecessary_debug_formatting = "allow"
 implicit_hasher = "allow"
+large_enum_variant = "allow"
 
 [features]
 sea-orm-debug-print = ["sea-orm/debug-print"]
