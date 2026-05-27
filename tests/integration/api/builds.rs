@@ -2,7 +2,6 @@ use buildbtw::db_fields::TxtUuid;
 use buildbtw::dependency_graph::BuildNode;
 use buildbtw::entities;
 use buildbtw::queries;
-use camino::Utf8PathBuf;
 use color_eyre::eyre::Result;
 use reqwest::StatusCode;
 use rstest::rstest;
@@ -283,7 +282,7 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Check uploaded artifact
     response.assert_status_ok();
 
-    let data_dir = Utf8PathBuf::from_path_buf(ctx.data_dir.path().to_path_buf()).unwrap();
+    let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
         &buildspace.clone().into_ex(),
         &iteration.clone().into_ex(),
@@ -362,7 +361,7 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
     // Check uploaded artifact
     response.assert_status_ok();
 
-    let data_dir = Utf8PathBuf::from_path_buf(ctx.data_dir.path().to_path_buf()).unwrap();
+    let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
         &buildspace.clone().into_ex(),
         &iteration.clone().into_ex(),
@@ -459,7 +458,7 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
     let pkgname: package::Name = "one".parse()?;
 
     // Write existing file into the storage
-    let data_dir = Utf8PathBuf::from_path_buf(ctx.data_dir.path().to_path_buf()).unwrap();
+    let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
         &buildspace.clone().into_ex(),
         &iteration.clone().into_ex(),
@@ -500,7 +499,7 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
     let expected_data = "IDDQD";
     let pkgname = "one".parse()?;
 
-    let data_dir = Utf8PathBuf::from_path_buf(ctx.data_dir.path().to_path_buf()).unwrap();
+    let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
         &buildspace.clone().into_ex(),
         &iteration.clone().into_ex(),

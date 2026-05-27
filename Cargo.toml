@@ -103,7 +103,7 @@ sea-orm-migration = { version = "2.0.0-rc.37", features = [
     "runtime-tokio-rustls",
     "sqlx-sqlite",
 ], default-features = false }
-camino = "1.2.2"
+camino = { version = "1.2.2", features = ["serde1"] }
 axum = { version = "0.8.8", features = [
     "macros",
     "tracing",
@@ -149,7 +149,7 @@ derive_more = { version = "2.1.1", features = [
 ] }
 git2 = { version = "0.21", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
-tempfile = "3.27.0"
+camino-tempfile = "1.4.1"
 colored = "3.1.1"
 webbrowser = { version = "1.2.0", features = ["hardened", "disable-wsl"] }
 tracing-error = "0.2.1"
@@ -160,7 +160,10 @@ rustls = { version = "0.23.39", features = ["aws-lc-rs"] }
 serde_with = "3.20.0"
 yansi = { version = "1.0.1", features = ["detect-env", "detect-tty"] }
 futures = "0.3.32"
-ssh-key = { version = "0.6.7", default-features = false, features = ["ecdsa", "std"] }
+ssh-key = { version = "0.6.7", default-features = false, features = [
+    "ecdsa",
+    "std",
+] }
 
 [dev-dependencies]
 axum-test = { version = "20.0.0", features = ["typed-routing"] }

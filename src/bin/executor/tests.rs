@@ -1,11 +1,11 @@
+use std::{process::Stdio, time::Duration};
+
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use color_eyre::{
     Result,
     eyre::{bail, eyre},
 };
-
 use rstest::*;
-use std::{process::Stdio, time::Duration};
 use tokio::process::Command;
 
 use crate::run::build_project_dir;
@@ -13,10 +13,10 @@ use crate::run::build_project_dir;
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is heavyweight."]
 async fn test_gitlab_executor_build_project_dir() -> Result<()> {
-    let test_project_dir = tempfile::Builder::new()
+    let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
-    let test_output_dir = tempfile::Builder::new()
+    let test_output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
 
@@ -48,7 +48,13 @@ pkgname = buildbtw-rocks
     )
     .await?;
 
-    build_project_dir(test_project_dir.path(), test_output_dir.path(), None, 120).await?;
+    build_project_dir(
+        test_project_dir.path().as_std_path(),
+        test_output_dir.path().as_std_path(),
+        None,
+        120,
+    )
+    .await?;
     assert!(
         tokio::fs::try_exists(
             test_output_dir
@@ -65,10 +71,10 @@ pkgname = buildbtw-rocks
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is heavyweight."]
 async fn test_gitlab_executor_build_project_dir_fails_on_broken_pkgbuild() -> Result<()> {
-    let test_project_dir = tempfile::Builder::new()
+    let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
-    let test_output_dir = tempfile::Builder::new()
+    let test_output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
 
@@ -83,9 +89,14 @@ arch=(any)
     .await?;
 
     assert!(
-        build_project_dir(test_project_dir.path(), test_output_dir.path(), None, 120)
-            .await
-            .is_err(),
+        build_project_dir(
+            test_project_dir.path().as_std_path(),
+            test_output_dir.path().as_std_path(),
+            None,
+            120
+        )
+        .await
+        .is_err(),
         "Build must fail on broken pkgbuild"
     );
 
@@ -97,10 +108,10 @@ arch=(any)
 #[rstest]
 #[timeout(Duration::from_mins(2))]
 async fn test_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Result<()> {
-    let test_project_dir = tempfile::Builder::new()
+    let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
-    let test_output_dir = tempfile::Builder::new()
+    let test_output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
 
@@ -120,8 +131,8 @@ async fn test_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Resu
     }
 
     build_project_dir(
-        test_project_dir.path().join("git-smash").as_path(),
-        test_output_dir.path(),
+        test_project_dir.path().join("git-smash").as_std_path(),
+        test_output_dir.path().as_std_path(),
         None,
         120,
     )

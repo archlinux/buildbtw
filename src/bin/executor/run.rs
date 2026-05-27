@@ -96,19 +96,19 @@ async fn run_build_script(
             None => None,
         };
 
-    let output_dir = tempfile::Builder::new()
+    let output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-output-dir-")
         .tempdir()?;
 
     tracing::info!("🚀 Starting build job...");
     build_project_dir(
         &build_script_args.ci_project_dir,
-        output_dir.path(),
+        output_dir.path().as_std_path(),
         pacman_repository_url,
         args.ssh_timeout,
     )
     .await?;
-    print_dir_content(output_dir.path()).await?;
+    print_dir_content(output_dir.path().as_std_path()).await?;
 
     // Upload artifacts inside the output_dir if a collector URL has been passed
     if let Some(collector_base_url) = build_script_args.api_server_url.clone() {
@@ -117,7 +117,7 @@ async fn run_build_script(
             &args,
             &build_script_args,
             &http_client,
-            output_dir.path(),
+            output_dir.path().as_std_path(),
             &collector_base_url,
         )
         .await?;
@@ -132,7 +132,7 @@ pub async fn build_project_dir(
     pacman_repo_url: Option<Url>,
     ssh_timeout: u32,
 ) -> Result<()> {
-    let bin_dir = tempfile::Builder::new()
+    let bin_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-bin-dir-")
         .tempdir()?;
 
@@ -155,7 +155,7 @@ pub async fn build_project_dir(
     .args(["--ssh-timeout", &ssh_timeout.to_string()])
     .args([
         "--volume",
-        &format!("{}:/mnt/bin:ro", bin_dir.path().display()),
+        &format!("{}:/mnt/bin:ro", bin_dir.path().as_std_path().display()),
     ])
     .args([
         "--volume",
