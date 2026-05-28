@@ -11,6 +11,7 @@ pub async fn list(
     client: &super::Client,
     status: Option<BuildStatus>,
     buildspace_name: BuildspaceSlug,
+    iteration_sequence: Option<u32>,
     max_results: Option<u64>,
 ) -> Result<ListBuildsResponse> {
     let resp = client
@@ -22,8 +23,9 @@ pub async fn list(
         )
         .query(&builds::ListByStatusQuery {
             status,
-            buildspace_name: Some(buildspace_name),
+            buildspace_name,
             max_results,
+            iteration_sequence,
         })
         .send()
         .await

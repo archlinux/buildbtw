@@ -1,22 +1,22 @@
-use crate::response_error::ResponseError;
-use crate::server_state::ServerState;
-use crate::{api, builds, entities, from_request, package, storage};
-use crate::{db, queries, response_error::ResponseResult};
+use std::os::unix::fs::PermissionsExt;
 
 use axum::body::Body;
+use axum::extract::Request;
 use axum::extract::State;
 use axum::http::HeaderValue;
 use axum::response::Response;
-use axum::{
-    Json,
-    extract::{Query, Request},
-};
-use color_eyre::eyre::{Context, OptionExt};
+use axum::{Json, extract::Query};
+use color_eyre::eyre::Context;
+use color_eyre::eyre::OptionExt;
 use reqwest::header;
-use sea_orm::{PaginatorTrait, SelectExt, TransactionTrait};
+use sea_orm::PaginatorTrait;
+use sea_orm::TransactionTrait;
 use tokio_util::io::ReaderStream;
 
-use std::os::unix::fs::PermissionsExt;
+use crate::server_state::ServerState;
+use crate::{api, entities, response_error::ResponseError};
+use crate::{builds, from_request, package, storage};
+use crate::{db, queries, response_error::ResponseResult};
 
 pub async fn list(
     _: api::builds::ListByStatus,
@@ -24,33 +24,40 @@ pub async fn list(
         status,
         buildspace_name,
         max_results,
+        iteration_sequence,
     }): Query<api::builds::ListByStatusQuery>,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<Json<api::builds::ListBuildsResponse>> {
-    if let Some(buildspace_name) = &buildspace_name {
-        let buildspace_exists = queries::buildspaces::by_name(buildspace_name.clone())
-            .exists(&tx)
-            .await?;
+    let buildspace = queries::buildspaces::by_name(buildspace_name)
+        .one(&tx)
+        .await?
+        .ok_or(ResponseError::NotFound("buildspace".to_string()))?;
 
-        if !buildspace_exists {
-            return Err(ResponseError::NotFound("buildspace".to_string()));
-        }
+    let iteration: entities::iterations::Model = if let Some(sequence) = iteration_sequence {
+        queries::iterations::by_sequence(buildspace.id, sequence)
+    } else {
+        queries::iterations::newest_for_buildspace(buildspace.id)
     }
+    .one(&tx)
+    .await?
+    .ok_or(ResponseError::NotFound("iteration".to_string()))?;
 
-    let builds = queries::builds::list(status, buildspace_name.as_ref(), max_results)
+    let query = queries::builds::list(status, iteration.id, max_results);
+
+    let builds = query
+        .clone()
         .all(&tx)
         .await?
         .into_iter()
         .map(Into::into)
         .collect();
 
-    let total_build_count = queries::builds::list(status, buildspace_name.as_ref(), None)
-        .count(&tx)
-        .await?;
+    let total_build_count = query.count(&tx).await?;
 
     Ok(Json(api::builds::ListBuildsResponse {
         total_build_count,
         builds,
+        iteration_sequence: iteration.sequence,
     }))
 }
 

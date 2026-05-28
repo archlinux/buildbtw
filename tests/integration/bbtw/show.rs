@@ -1,4 +1,6 @@
+use buildbtw::{entities, queries};
 use color_eyre::Result;
+use insta::assert_snapshot;
 use rstest::rstest;
 use sea_orm::TransactionTrait;
 
@@ -136,7 +138,7 @@ async fn test_show_valid_limits(
     cmd.arg("show")
         .arg("--limit")
         .arg(option_value)
-        .arg(buildspace.name);
+        .arg(buildspace.name.as_ref());
     let output = run_cmd(&mut cmd).await?;
 
     // Snapshot output
@@ -145,6 +147,55 @@ async fn test_show_valid_limits(
 
     // Check that it failed
     assert!(output.status.success());
+
+    Ok(())
+}
+
+// Verify that the iteration selection works.
+#[rstest]
+#[tokio::test]
+async fn test_show_iteration() -> Result<()> {
+    let ctx = TestCtxBuilder::new().build().await.login_bbtw().await;
+
+    let tx = ctx.state.db.begin().await?;
+
+    // Set up buildspace and iterations
+    let (buildspace, first_iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+    factories::build(&tx, first_iteration.id, "old_pkg").await?;
+
+    let second_iteration = queries::iterations::insert(
+        buildspace.id.0,
+        2,
+        Vec::new().into(),
+        entities::iterations::NewIterationReason::CreatedByUser,
+    )
+    .exec_with_returning(&tx)
+    .await?;
+    factories::build(&tx, second_iteration.id, "new_pkg_one").await?;
+    factories::build(&tx, second_iteration.id, "new_pkg_two").await?;
+
+    tx.commit().await?;
+
+    // Check that it shows the latest iteration by default.
+    let mut cmd = ctx.bbtw_cmd();
+    cmd.arg("show").arg(buildspace.name.as_ref());
+    let output = run_cmd(&mut cmd).await?;
+    assert!(output.status.success(), "stderr: {}", output.stderr);
+    assert!(output.stderr.is_empty());
+    assert!(output.stdout.contains("iteration #2"));
+    assert_snapshot!(output.stdout);
+
+    // Check that specifying a non-latest iteration shows the correct builds.
+    let mut cmd = ctx.bbtw_cmd();
+    cmd.arg("show")
+        .arg("--iteration")
+        .arg("1")
+        .arg(buildspace.name.as_ref());
+    let output = run_cmd(&mut cmd).await?;
+    assert!(output.status.success(), "stderr: {}", output.stderr);
+    assert!(output.stderr.is_empty());
+    assert!(output.stdout.contains("iteration #1"));
+    assert_snapshot!(output.stdout);
 
     Ok(())
 }

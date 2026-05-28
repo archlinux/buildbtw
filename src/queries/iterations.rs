@@ -1,4 +1,3 @@
-use crate::git;
 use sea_orm::ActiveValue::Unchanged;
 use sea_orm::{ActiveValue::Set, EntityTrait, Insert};
 use sea_orm::{ColumnTrait, QueryFilter, QueryOrder, QuerySelect, Select, UpdateOne};
@@ -6,6 +5,7 @@ use uuid::Uuid;
 
 use crate::db_fields::TxtUuid;
 use crate::entities::iterations::{self, NewIterationReason};
+use crate::git;
 
 #[allow(dead_code)]
 #[must_use]
@@ -55,4 +55,9 @@ pub fn pending_calculation() -> Select<iterations::Entity> {
             .status
             .eq(iterations::Status::PendingCalculation),
     )
+}
+
+#[must_use]
+pub fn by_sequence(buildspace_id: TxtUuid, sequence: u32) -> Select<iterations::Entity> {
+    iterations::Entity::find_by_unique_iteration_sequence((buildspace_id, sequence))
 }

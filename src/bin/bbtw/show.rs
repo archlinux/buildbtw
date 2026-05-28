@@ -14,30 +14,40 @@ pub async fn show(
     server_url: Url,
     override_state_dir: Option<Utf8PathBuf>,
     buildspace_name: BuildspaceSlug,
+    iteration_sequence: Option<u32>,
     max_results: Option<u64>,
     #[cfg(debug_assertions)] show_demo_data: bool,
 ) -> Result<()> {
-    let mut builds = all_builds_grouped_by_status(
+    let mut responses_by_status = all_builds_grouped_by_status(
         server_url,
         override_state_dir,
         &buildspace_name,
+        iteration_sequence,
         max_results,
     )
     .await?;
 
     #[cfg(debug_assertions)]
-    add_demo_data(&mut builds, show_demo_data)?;
+    add_demo_data(&mut responses_by_status, show_demo_data)?;
 
-    tracing::trace!(?builds);
+    tracing::trace!(?responses_by_status);
 
-    println!("Showing builds for buildspace {buildspace_name}");
+    let returned_sequence = responses_by_status
+        .values()
+        .next()
+        .ok_or_eyre("Expected to receive response for at least one status")?
+        .iteration_sequence;
+
+    let iteration_description = format!("iteration #{returned_sequence}");
+
+    println!("Showing builds for {iteration_description} of buildspace {buildspace_name}");
 
     for status in [
         BuildStatus::Building,
         BuildStatus::Built,
         BuildStatus::Failed,
     ] {
-        let Some(response) = builds.get(&status) else {
+        let Some(response) = responses_by_status.get(&status) else {
             continue;
         };
 
@@ -62,13 +72,13 @@ pub async fn show(
         }
     }
 
-    let to_be_scheduled_builds = builds
+    let to_be_scheduled_builds = responses_by_status
         .get(&BuildStatus::Pending)
         .ok_or_eyre("Missing builds that we fetched earlier")?;
-    let blocked_builds = builds
+    let blocked_builds = responses_by_status
         .get(&BuildStatus::Blocked)
         .ok_or_eyre("Missing builds that we fetched earlier")?;
-    let scheduled_builds = builds
+    let scheduled_builds = responses_by_status
         .get(&BuildStatus::Scheduled)
         .ok_or_eyre("Missing builds that we fetched earlier")?;
     let total_pending = to_be_scheduled_builds.total_build_count
@@ -153,6 +163,7 @@ async fn all_builds_grouped_by_status(
     server_url: Url,
     override_state_dir: Option<Utf8PathBuf>,
     buildspace_name: &BuildspaceSlug,
+    iteration_sequence: Option<u32>,
     max_results: Option<u64>,
 ) -> Result<HashMap<BuildStatus, ListBuildsResponse>> {
     let client = api::Client::new(server_url, override_state_dir).await?;
@@ -161,8 +172,14 @@ async fn all_builds_grouped_by_status(
         .map(async |status| {
             Ok((
                 status,
-                api::builds::list(&client, Some(status), buildspace_name.clone(), max_results)
-                    .await?,
+                api::builds::list(
+                    &client,
+                    Some(status),
+                    buildspace_name.clone(),
+                    iteration_sequence,
+                    max_results,
+                )
+                .await?,
             ))
         })
         .buffer_unordered(10)
