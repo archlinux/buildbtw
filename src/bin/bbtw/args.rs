@@ -46,9 +46,9 @@ pub enum Command {
         #[arg()]
         name: BuildspaceSlug,
 
-        /// Maximum number of builds to show for each status.
-        #[arg(long, short, default_value = "3", value_parser = clap::value_parser!(u64).range(1..))]
-        limit: Option<u64>,
+        /// Maximum number of builds to show for each status. Pass "no" to show an unlimited number of builds.
+        #[arg(long, short, default_value = "5", value_parser = parse_show_limit)]
+        limit: ShowLimit,
 
         /// Display some non-existent builds for development. Temporary, until we have more ways to modify builds in the actual DB.
         #[arg(long, action)]
@@ -59,6 +59,36 @@ pub enum Command {
     /// Authenticate and check login status
     #[command(subcommand)]
     Auth(AuthCommand),
+}
+
+#[derive(Debug, Clone)]
+pub enum ShowLimit {
+    Unlimited,
+    Limited(u64),
+}
+
+fn parse_show_limit(s: &str) -> Result<ShowLimit, String> {
+    match s {
+        "no" => Ok(ShowLimit::Unlimited),
+        s => {
+            let num: u64 = s
+                .parse()
+                .map_err(|_| r#"limit should either be "no", or a number"#)?;
+            if num < 1 {
+                return Err("limit must be > 0".to_string());
+            }
+            Ok(ShowLimit::Limited(num))
+        }
+    }
+}
+
+impl From<ShowLimit> for Option<u64> {
+    fn from(value: ShowLimit) -> Self {
+        match value {
+            ShowLimit::Unlimited => None,
+            ShowLimit::Limited(num) => Some(num),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Subcommand)]
