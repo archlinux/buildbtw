@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
                 args.server_url,
                 args.state_dir,
                 name,
-                limit,
+                limit.into(),
                 #[cfg(debug_assertions)]
                 show_demo_builds,
             )

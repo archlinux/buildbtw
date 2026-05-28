@@ -1,0 +1,10 @@
+---
+source: tests/integration/bbtw/show.rs
+expression: output.stdout
+---
+Showing builds for buildspace target
+
+Pending builds
+  ● 0 (Waiting for dependencies to build)
+  ● 1 (Waiting for dependencies to build)
+  ● 2 (Waiting for dependencies to build)
