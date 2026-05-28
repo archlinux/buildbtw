@@ -1,6 +1,6 @@
 use buildbtw::buildspace::BuildspaceSlug;
 use camino::Utf8PathBuf;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, value_parser};
 use url::Url;
 
 #[derive(Debug, Clone, Subcommand)]
@@ -41,7 +41,9 @@ pub enum Command {
         name: BuildspaceSlug,
     },
 
-    /// Show status and builds for a buildspace
+    /// Show status and builds for the latest iteration of a buildspace
+    ///
+    /// Default: show builds from the latest iteration.
     Show {
         #[arg()]
         name: BuildspaceSlug,
@@ -49,6 +51,10 @@ pub enum Command {
         /// Maximum number of builds to show for each status. Pass "no" to show an unlimited number of builds.
         #[arg(long, short, default_value = "5", value_parser = parse_show_limit)]
         limit: ShowLimit,
+
+        /// Show builds from the iteration with this sequence number. Default: show the builds from the latest iteration.
+        #[arg(long, short, value_parser = value_parser!(u32).range(1..))]
+        iteration: Option<u32>,
 
         /// Display some non-existent builds for development. Temporary, until we have more ways to modify builds in the actual DB.
         #[arg(long, action)]

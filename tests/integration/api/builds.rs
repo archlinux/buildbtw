@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use buildbtw::api;
-use buildbtw::buildspace::BuildspaceSlug;
 use buildbtw::db_fields::TxtUuid;
 use buildbtw::dependency_graph::BuildNode;
 use buildbtw::entities;
@@ -31,13 +30,18 @@ async fn test_list_builds_by_status_empty(
     #[case] status: Option<package::BuildStatus>,
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace, _) = factories::buildspace_with_iteration(&tx, "target").await?;
+    tx.commit().await?;
+
     let response = ctx
         .server
         .typed_get(&api::builds::ListByStatus {})
         .add_query_params(api::builds::ListByStatusQuery {
             status,
-            buildspace_name: None,
+            buildspace_name: buildspace.name,
             max_results: None,
+            iteration_sequence: None,
         })
         .await;
 
@@ -65,7 +69,7 @@ async fn test_list_builds_by_status_and_namespace(
     let tx = ctx.state.db.begin().await?;
     let (_, other_iteration) = factories::buildspace_with_iteration(&tx, "other").await?;
     factories::build(&tx, other_iteration.id, "other_build").await?;
-    let (_, iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
     let build_one = factories::build(&tx, iteration.id, "one").await?;
     let build_two = factories::build(&tx, iteration.id, "two").await?;
     tx.commit().await?;
@@ -75,8 +79,9 @@ async fn test_list_builds_by_status_and_namespace(
         .typed_get(&api::builds::ListByStatus {})
         .add_query_params(api::builds::ListByStatusQuery {
             status,
-            buildspace_name: BuildspaceSlug::try_from("target").ok(),
+            buildspace_name: buildspace.name,
             max_results: None,
+            iteration_sequence: None,
         })
         .await;
 
@@ -99,7 +104,7 @@ async fn test_list_builds_by_status_and_namespace(
 async fn test_list_builds_max_results(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and three builds
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
     factories::build(&tx, iteration.id, "one").await?;
     factories::build(&tx, iteration.id, "two").await?;
     factories::build(&tx, iteration.id, "three").await?;
@@ -111,8 +116,9 @@ async fn test_list_builds_max_results(#[future(awt)] ctx: TestCtx) -> Result<()>
         .typed_get(&api::builds::ListByStatus {})
         .add_query_params(api::builds::ListByStatusQuery {
             status: None,
-            buildspace_name: BuildspaceSlug::try_from("buildspace").ok(),
+            buildspace_name: buildspace.name,
             max_results: Some(2),
+            iteration_sequence: None,
         })
         .await;
 
@@ -139,7 +145,7 @@ async fn test_list_builds_total_count(
 ) -> Result<()> {
     // Create buildspace, iteration and `factories::builds` builds.
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
     let pkg_names = ["one", "two", "three"];
     for pkgbase in &pkg_names[..total_builds] {
         factories::build(&tx, iteration.id, pkgbase).await?;
@@ -152,8 +158,9 @@ async fn test_list_builds_total_count(
         .typed_get(&api::builds::ListByStatus {})
         .add_query_params(api::builds::ListByStatusQuery {
             status: None,
-            buildspace_name: BuildspaceSlug::try_from("buildspace").ok(),
+            buildspace_name: buildspace.name,
             max_results,
+            iteration_sequence: None,
         })
         .await;
 
@@ -163,6 +170,114 @@ async fn test_list_builds_total_count(
     assert_eq!(
         body.total_build_count, total_builds as u64,
         "total_build_count should equal the total number of builds in the DB"
+    );
+
+    Ok(())
+}
+
+/// Check that by default, only builds from the latest iteration are returned.
+#[rstest]
+#[tokio::test]
+async fn test_list_builds_defaults_to_latest_iteration(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    // Create builds we don't want to see
+    let (buildspace, older_iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+    factories::build(&tx, older_iteration.id, "old_pkg").await?;
+
+    // Create latest iteration with builds we want to see
+    let latest_iteration = queries::iterations::insert(
+        buildspace.id.0,
+        2,
+        Vec::new().into(),
+        entities::iterations::NewIterationReason::CreatedByUser,
+    )
+    .exec_with_returning(&tx)
+    .await?;
+    let latest_build_one = factories::build(&tx, latest_iteration.id, "new_pkg_one").await?;
+    let latest_build_two = factories::build(&tx, latest_iteration.id, "new_pkg_two").await?;
+    tx.commit().await?;
+
+    // Send request
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ListByStatus {})
+        .add_query_params(api::builds::ListByStatusQuery {
+            status: None,
+            buildspace_name: buildspace.name,
+            max_results: None,
+            iteration_sequence: None,
+        })
+        .await;
+
+    response.assert_status_ok();
+
+    // Check that the expected builds were returned
+    let body: api::builds::ListBuildsResponse = response.json();
+
+    let returned_ids: HashSet<_> = body.builds.iter().map(|b| b.id).collect();
+    let expected_ids: HashSet<_> =
+        HashSet::from([latest_build_one.id.into(), latest_build_two.id.into()]);
+    assert_eq!(
+        returned_ids, expected_ids,
+        "Only latest iteration builds should be returned"
+    );
+    assert_eq!(body.total_build_count, 2);
+
+    Ok(())
+}
+
+/// Check that filtering by iteration only returns builds from that iteration.
+#[rstest]
+#[tokio::test]
+async fn test_list_builds_for_specific_iteration(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    // Create target iteration
+    let (buildspace, target_iteration) =
+        factories::buildspace_with_iteration(&tx, "target").await?;
+    let build_1a = factories::build(&tx, target_iteration.id, "pkg_1a").await?;
+    let build_1b = factories::build(&tx, target_iteration.id, "pkg_1b").await?;
+
+    // Create latest iteration
+    let other_iteration = queries::iterations::insert(
+        buildspace.id.0,
+        2,
+        Vec::new().into(),
+        entities::iterations::NewIterationReason::CreatedByUser,
+    )
+    .exec_with_returning(&tx)
+    .await?;
+    factories::build(&tx, other_iteration.id, "pkg_2a").await?;
+
+    tx.commit().await?;
+
+    // Act
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ListByStatus {})
+        .add_query_params(api::builds::ListByStatusQuery {
+            status: None,
+            buildspace_name: buildspace.name,
+            max_results: None,
+            iteration_sequence: Some(target_iteration.sequence),
+        })
+        .await;
+
+    response.assert_status_ok();
+
+    // Check that the expected builds were returned
+    let body: api::builds::ListBuildsResponse = response.json();
+
+    assert_eq!(body.builds.len(), 2);
+    assert_eq!(body.total_build_count, 2);
+
+    let expected_ids: HashSet<_> = HashSet::from([build_1a.id.into(), build_1b.id.into()]);
+
+    let returned_ids: HashSet<_> = body.builds.iter().map(|b| b.id).collect();
+    assert_eq!(
+        returned_ids, expected_ids,
+        "Only builds from iteration 1 should be returned"
     );
 
     Ok(())

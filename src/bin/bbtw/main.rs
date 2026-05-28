@@ -40,11 +40,13 @@ async fn main() -> Result<()> {
             limit,
             #[cfg(debug_assertions)]
             show_demo_builds,
+            iteration,
         } => {
             show::show(
                 args.server_url,
                 args.state_dir,
                 name,
+                iteration,
                 limit.into(),
                 #[cfg(debug_assertions)]
                 show_demo_builds,

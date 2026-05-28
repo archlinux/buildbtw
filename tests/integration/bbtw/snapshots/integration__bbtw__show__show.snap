@@ -2,7 +2,7 @@
 source: tests/integration/bbtw/show.rs
 expression: output.stdout
 ---
-Showing builds for buildspace target
+Showing builds for iteration #1 of buildspace target
 
 Building builds
   ✦ dummy_build

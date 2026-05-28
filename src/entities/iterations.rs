@@ -1,8 +1,8 @@
-use crate::git;
 use derive_more::Display;
 use sea_orm::entity::prelude::*;
 use strum::EnumString;
 
+use crate::git;
 use crate::{
     db_fields::TxtUuid,
     entities::{builds, buildspaces},
@@ -23,6 +23,8 @@ pub struct Model {
     pub created_at: time::OffsetDateTime,
     #[sea_orm(unique_key = "unique_iteration_sequence")]
     pub buildspace_id: TxtUuid,
+
+    /// Starts at 1.
     #[sea_orm(unique_key = "unique_iteration_sequence")]
     pub sequence: u32,
 
