@@ -20,8 +20,6 @@ use crate::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    color_eyre::install()?;
-
     let args = Args::parse();
 
     buildbtw::error_handler::init(args.verbose)?;
