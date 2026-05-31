@@ -7,7 +7,7 @@ use gitlab::AsyncGitlab;
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 /// Gitlab's `path` value on a project. Basically an URL-safe, slugified variant
 /// of the project name.
@@ -59,6 +59,8 @@ pub async fn changed_since(
             .ok_or_eyre("Missing projects")?
             .into_iter()
             .flatten();
+
+        debug!("Fetched {} projects", projects.clone().count());
 
         // For each project, check if it's older than `last_fetched` and break if so
         // Otherwise, add it to the results list of changed projects
