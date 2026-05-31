@@ -183,7 +183,7 @@ impl IterationCreator {
     }
 
     /// Check if this buildspace needs a new iteration because of build graph changes.
-    #[tracing::instrument(skip(self, source_repos))]
+    #[tracing::instrument(skip(self, source_repos, buildspace), fields(buildspace.name = %buildspace.name))]
     async fn check_buildspace_graph(
         &self,
         source_repos: &mut dependency_graph::SourceRepoCache,
