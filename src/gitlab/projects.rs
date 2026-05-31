@@ -1,6 +1,6 @@
 //! API functionality for GitLab projects
 
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, OptionExt};
 use color_eyre::{Result, eyre::eyre};
 use derive_more::{AsRef, Display};
 use gitlab::AsyncGitlab;
@@ -56,7 +56,7 @@ pub async fn changed_since(
         // Remove nesting and check that required fields are present
         let projects = response
             .nodes
-            .ok_or_else(|| eyre!("Missing projects"))?
+            .ok_or_eyre("Missing projects")?
             .into_iter()
             .flatten();
 
@@ -122,7 +122,7 @@ async fn query_changed_projects_page(
         .await
         .wrap_err("Failed to fetch changed projects")?
         .group
-        .ok_or_else(|| eyre!("Gitlab packaging group not found"))?
+        .ok_or_eyre("Gitlab packaging group not found")?
         .projects;
 
     Ok(response)
