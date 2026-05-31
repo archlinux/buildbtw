@@ -7,6 +7,7 @@ use gitlab::AsyncGitlab;
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use tracing::{info, instrument};
 
 /// Gitlab's `path` value on a project. Basically an URL-safe, slugified variant
 /// of the project name.
@@ -33,12 +34,13 @@ pub struct Project {
 
 /// Get all projects that changed since the given timestamp, ordered by most
 /// recent activity first.
+#[instrument(skip(client, package_group))]
 pub async fn changed_since(
     client: &AsyncGitlab,
     last_fetched: Option<OffsetDateTime>,
     package_group: &str,
 ) -> Result<Vec<Project>> {
-    tracing::info!("Querying changed projects since {last_fetched:?}");
+    info!("Querying changed projects since {last_fetched:?}");
     let mut end_of_last_query = None;
     let mut results = Vec::new();
     // Loop over pages received from the API, until
