@@ -45,6 +45,7 @@ use color_eyre::eyre::{OptionExt, Result};
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
+use tracing::instrument;
 
 use crate::{entities, queries};
 
@@ -87,6 +88,7 @@ impl IterationCreator {
 
     /// Continuously run the whole process in a loop.
     /// Check the module description for an overview.
+    #[instrument(name = "iteration_creator", skip_all)]
     pub async fn run(mut self, token: CancellationToken) {
         while !token.is_cancelled() {
             let run_start = Instant::now();
