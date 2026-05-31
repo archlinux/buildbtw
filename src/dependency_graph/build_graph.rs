@@ -86,7 +86,7 @@ pub struct BuildGraphs(HashMap<package::KnownArchitecture, BuildGraph>);
 
 impl BuildGraphs {
     /// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
-    #[tracing::instrument(skip(source_repos))]
+    #[tracing::instrument(skip(changesets, source_repos))]
     pub async fn calculate(
         changesets: &git::Changesets,
         source_repos: &mut SourceRepoCache,

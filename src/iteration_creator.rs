@@ -275,7 +275,7 @@ impl IterationCreator {
     }
 
     /// Fetch new commits for all source repositories.
-    #[tracing::instrument(skip(self, gitlab_client))]
+    #[tracing::instrument(skip(self, gitlab_client, gitlab_config))]
     async fn update_repos(
         &self,
         gitlab_client: &AsyncGitlab,
