@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### repo-updater
 
--  Fix double color_eyre::install() ([!197](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/197))
+- Fix double color_eyre::install() ([!197](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/197))
 
 ## [0.0.5] - 2026-05-19
 
