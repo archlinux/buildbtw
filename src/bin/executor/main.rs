@@ -3,26 +3,18 @@
 //!
 //! <https://docs.gitlab.com/runner/executors/custom/>
 
-mod args;
-mod cleanup;
-mod config;
-mod prepare;
-mod run;
-mod shell;
+use std::process::ExitCode;
 
-#[cfg(test)]
-mod tests;
-
+use buildbtw::executor::{
+    args::{self, Command},
+    cleanup, prepare, run,
+};
 use clap::Parser;
 use color_eyre::Result;
 
-use std::process::ExitCode;
-
-use crate::args::{Args, Command};
-
 #[tokio::main]
 async fn main() -> ExitCode {
-    let args = Args::parse();
+    let args = args::Args::parse();
 
     if let Err(error) = execute(args.clone()).await {
         eprintln!("{error:?}");
@@ -37,12 +29,12 @@ async fn main() -> ExitCode {
 ///
 /// The execution dispatcher also takes care of setting up the execution environment
 /// like telemetry, error report handler etc.
-async fn execute(args: Args) -> Result<()> {
+async fn execute(args: args::Args) -> Result<()> {
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
     match args.command.clone() {
-        Command::Config(config_args) => config::config(&config_args)?,
+        Command::Config(config_args) => args::config(&config_args)?,
         Command::Prepare => prepare::prepare(args).await?,
         Command::Run(run_args) => run::run(args, run_args).await?,
         Command::Cleanup => cleanup::cleanup().await?,

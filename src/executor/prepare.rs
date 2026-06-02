@@ -6,7 +6,7 @@ use color_eyre::{
 };
 use tokio::process::Command;
 
-use crate::args::Args;
+use super::args::Args;
 
 /// Pull image if it doesn't exist and make sure a booted snapshot is available.
 ///

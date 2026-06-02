@@ -1,12 +1,7 @@
-use std::{
-    fs::Permissions,
-    os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
-    process::Stdio,
-};
+use std::{fs::Permissions, os::unix::fs::PermissionsExt, process::Stdio};
 
 use alpm_types::PackageFileName;
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::{
     Result,
     eyre::{OptionExt, bail, eyre},
@@ -15,7 +10,7 @@ use tokio::{fs, process::Command};
 use tokio_util::io::ReaderStream;
 use url::Url;
 
-use crate::{
+use crate::executor::{
     args::{Args, BbtwConfig, BuildScriptArgs, GetSourcesArgs, RunArgs, RunStage},
     shell::ShellScripts,
 };
@@ -109,7 +104,7 @@ async fn run_build_script(
         args.ssh_timeout,
     )
     .await?;
-    print_dir_content(output_dir.path().as_std_path()).await?;
+    print_dir_content(output_dir.path()).await?;
 
     // Upload artifacts inside the output_dir if a collector URL has been passed
     if let Some(collector_base_url) = build_script_args.api_server_url.clone() {
@@ -118,7 +113,7 @@ async fn run_build_script(
             &args,
             &build_script_args,
             &http_client,
-            output_dir.path().as_std_path(),
+            output_dir.path(),
             &collector_base_url,
         )
         .await?;
@@ -188,13 +183,13 @@ async fn upload_package_artifacts(
     args: &Args,
     build_script_args: &BuildScriptArgs,
     http_client: &reqwest::Client,
-    output_dir: &Path,
+    output_dir: &Utf8Path,
     collector_base_url: &Url,
 ) -> Result<()> {
     tracing::info!("📡 Uploading artifacts...");
     let mut read_dir = fs::read_dir(output_dir).await?;
     while let Some(entry) = read_dir.next_entry().await? {
-        let file = &entry.path();
+        let file: Utf8PathBuf = entry.path().try_into()?;
         if let Some(filename) = file.file_name()
             && file.is_file()
         {
@@ -202,13 +197,13 @@ async fn upload_package_artifacts(
                 args,
                 build_script_args,
                 http_client,
-                file,
+                &file,
                 collector_base_url,
             )
             .await?;
-            tracing::info!("✅ {}", filename.to_string_lossy());
+            tracing::info!("✅ {}", filename);
         } else {
-            tracing::warn!("⚠️ Skipping invalid file: {}", file.display());
+            tracing::warn!("⚠️ Skipping invalid file: {}", file);
         }
     }
     Ok(())
@@ -219,10 +214,10 @@ async fn upload_package_artifact(
     args: &Args,
     build_script_args: &BuildScriptArgs,
     http_client: &reqwest::Client,
-    artifact_path: &PathBuf,
+    artifact_path: &Utf8PathBuf,
     collector_base_url: &Url,
 ) -> Result<()> {
-    let pkgfile = PackageFileName::try_from(artifact_path.as_path())?;
+    let pkgfile = PackageFileName::try_from(artifact_path.as_std_path())?;
     let pkgname = pkgfile.name();
 
     let mut upload_url = collector_base_url.clone();
@@ -273,7 +268,7 @@ async fn upload_package_artifact(
         let body = response.text().await?;
         bail!(
             "❌ Failed to upload package artifact '{}' to '{}': HTTP {status}: {body}",
-            artifact_path.display(),
+            artifact_path,
             upload_url
         );
     }
@@ -283,7 +278,7 @@ async fn upload_package_artifact(
 
 /// Prints the passed directory listing to show all build output artifacts
 /// in the executor log.
-async fn print_dir_content(path: &Path) -> Result<()> {
+async fn print_dir_content(path: &Utf8Path) -> Result<()> {
     tracing::info!("🔍 Listing build artifacts...");
     let mut read_dir = fs::read_dir(path).await?;
     while let Some(entry) = read_dir.next_entry().await? {

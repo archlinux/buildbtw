@@ -1,9 +1,11 @@
-use buildbtw::package::KnownArchitecture;
 use camino::Utf8PathBuf;
-use color_eyre::eyre::Result;
+use color_eyre::{Result, eyre::Context};
 use redact::Secret;
 use url::Url;
 use uuid::Uuid;
+
+use crate::executor::config::BuildConfig;
+use crate::package::KnownArchitecture;
 
 #[derive(Debug, Clone, clap::Parser)]
 #[command(name = "buildbtw executor", author, about, version)]
@@ -210,6 +212,37 @@ pub struct BuildScriptArgs {
     pub api_server_url: Option<Url>,
 }
 
+impl BuildConfig {
+    #[must_use]
+    pub fn from_args(args: &ConfigArgs) -> Self {
+        let builds_dir = args
+            .builds_dir
+            .join(format!("{}", args.ci_concurrent_project_id))
+            .join(&args.ci_project_path_slug);
+
+        let cache_dir = args
+            .cache_dir
+            .join(format!("{}", args.ci_concurrent_project_id))
+            .join(&args.ci_project_path_slug);
+
+        Self {
+            builds_dir,
+            cache_dir,
+        }
+    }
+}
+
+/// The Config stage which defines configuration for the build environment in JSON.
+///
+/// <https://docs.gitlab.com/runner/executors/custom/#config>
+pub fn config(args: &ConfigArgs) -> Result<()> {
+    let build_config = BuildConfig::from_args(args);
+    let json =
+        serde_json::to_string_pretty(&build_config).wrap_err("Failed to serialize build config")?;
+    println!("{json}");
+    Ok(())
+}
+
 #[derive(clap::Args, Clone, Debug)]
 pub struct BbtwArgs {
     /// Path to a file containing the bbtw API token for authentication
@@ -229,7 +262,7 @@ pub struct BbtwArgs {
 
 impl TryFrom<BbtwArgs> for BbtwConfig {
     fn try_from(value: BbtwArgs) -> Result<BbtwConfig> {
-        let token = buildbtw::external_secrets::get_required(
+        let token = crate::external_secrets::get_required(
             "BUILDBTW_TOKEN",
             value.bbtw_token_path.as_deref(),
         )?;
