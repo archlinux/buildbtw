@@ -210,6 +210,7 @@ async fn run_server(
         #[cfg(debug_assertions)]
             authelia_container: _,
         data_dir,
+        dispatch_builds_to: _,
     }: args::RunArgs,
 ) -> Result<()> {
     // Shared cancellation token to signal graceful shutdown across the application.

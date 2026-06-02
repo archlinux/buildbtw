@@ -4,12 +4,12 @@ use std::{
     os::unix::{fs::PermissionsExt, net::SocketAddr as UnixSocketAddr},
 };
 
-use buildbtw::external_secrets;
 use buildbtw::gitlab_api;
 use buildbtw::oidc;
-
+use buildbtw::{external_secrets, schedule_builds};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail, eyre};
+use derive_more::Display;
 use openidconnect::IssuerUrl;
 use url::Url;
 
@@ -182,6 +182,27 @@ pub struct RunArgs {
     /// or fall back to the project XDG_DATA_HOME directory by default.
     #[arg(long, env = "BUILDBTW_DATA_DIR")]
     pub data_dir: Option<Utf8PathBuf>,
+
+    /// Which platform to dispatch builds to.
+    ///
+    /// If not specified, builds will not be dispatched.
+    #[arg(long, env = "BUILDBTW_DISPATCH_BUILDS_TO", value_enum)]
+    pub dispatch_builds_to: Option<DispatchBuildsTo>,
+}
+
+#[derive(Display, Debug, Clone, PartialEq, Eq, clap::ValueEnum)]
+pub enum DispatchBuildsTo {
+    GitlabPipelines,
+    LocalVmexec,
+}
+
+impl From<DispatchBuildsTo> for schedule_builds::DispatchBuildsTo {
+    fn from(value: DispatchBuildsTo) -> Self {
+        match value {
+            DispatchBuildsTo::GitlabPipelines => schedule_builds::DispatchBuildsTo::GitlabPipelines,
+            DispatchBuildsTo::LocalVmexec => schedule_builds::DispatchBuildsTo::LocalExecutor,
+        }
+    }
 }
 
 #[derive(clap::Args, Debug)]
@@ -264,7 +285,7 @@ impl TryFrom<Oidc> for oidc::InitConfig {
     }
 }
 
-#[derive(clap::Args, Debug)]
+#[derive(clap::Args, Debug, Clone)]
 #[group(requires_all = ["gitlab_domain", "gitlab_ssh_host_key", "gitlab_packages_group"])]
 #[expect(
     clippy::struct_field_names,
