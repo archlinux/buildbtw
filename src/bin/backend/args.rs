@@ -246,7 +246,7 @@ impl From<Oidc> for OidcConfig {
 }
 
 #[derive(clap::Args, Debug)]
-#[group(requires_all = ["gitlab_token_path", "gitlab_domain", "gitlab_ssh_host_key", "gitlab_packages_group"])]
+#[group(requires_all = ["gitlab_domain", "gitlab_ssh_host_key", "gitlab_packages_group"])]
 #[expect(
     clippy::struct_field_names,
     reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
