@@ -11,7 +11,6 @@ use axum::{
     Json,
     extract::{Query, Request},
 };
-use camino::Utf8Path;
 use color_eyre::eyre::{Context, OptionExt};
 use reqwest::header;
 use sea_orm::{PaginatorTrait, SelectExt, TransactionTrait};
@@ -121,16 +120,13 @@ pub async fn upload_package(
         .wrap_err_with(|| format!("Failed to create build artifact dir {dest_dir}"))?;
 
     // Write uploaded body data to temp file and atomically move to destination
-    let named_temp_file = tempfile::Builder::new()
+    let named_temp_file = camino_tempfile::Builder::new()
         .prefix("buildbtw-artifact-upload-")
         .tempfile_in(&artifact_tmp_path)?;
     let temp_file = named_temp_file.path();
-    crate::web::utils::stream_to_file(
-        Utf8Path::from_path(temp_file).ok_or_eyre("Failed to convert path to Utf8Path")?,
-        request.into_body().into_data_stream(),
-    )
-    .await
-    .wrap_err_with(|| format!("Failed to write artifact to {temp_file:?}"))?;
+    crate::web::utils::stream_to_file(temp_file, request.into_body().into_data_stream())
+        .await
+        .wrap_err_with(|| format!("Failed to write artifact to {temp_file:?}"))?;
 
     // Ensure consistent permissions as used for mirrorlist by default without relying on umask
     tokio::fs::set_permissions(&temp_file, std::fs::Permissions::from_mode(0o644))

@@ -799,6 +799,7 @@ dependencies = [
  "axum-server",
  "axum-test",
  "camino",
+ "camino-tempfile",
  "clap",
  "color-eyre",
  "colored",
@@ -832,7 +833,6 @@ dependencies = [
  "ssh-key",
  "strum",
  "temp-env",
- "tempfile",
  "tera",
  "thirtyfour",
  "thiserror 2.0.18",
@@ -901,6 +901,19 @@ name = "camino"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629a66d692cb9ff1a1c664e41771b3dcaf961985a9774c0eb0bd1b51cf60a48"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "camino-tempfile"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64308c4c82a5c38679945ddf88738dc1483dcc563bbb5780755ae9f8497d2b20"
+dependencies = [
+ "camino",
+ "tempfile",
+]
 
 [[package]]
 name = "castaway"

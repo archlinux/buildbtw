@@ -6,6 +6,7 @@ use std::{
 };
 
 use alpm_types::PackageFileName;
+use camino::Utf8Path;
 use color_eyre::{
     Result,
     eyre::{OptionExt, bail, eyre},
@@ -96,7 +97,7 @@ async fn run_build_script(
             None => None,
         };
 
-    let output_dir = tempfile::Builder::new()
+    let output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-output-dir-")
         .tempdir()?;
 
@@ -108,7 +109,7 @@ async fn run_build_script(
         args.ssh_timeout,
     )
     .await?;
-    print_dir_content(output_dir.path()).await?;
+    print_dir_content(output_dir.path().as_std_path()).await?;
 
     // Upload artifacts inside the output_dir if a collector URL has been passed
     if let Some(collector_base_url) = build_script_args.api_server_url.clone() {
@@ -117,7 +118,7 @@ async fn run_build_script(
             &args,
             &build_script_args,
             &http_client,
-            output_dir.path(),
+            output_dir.path().as_std_path(),
             &collector_base_url,
         )
         .await?;
@@ -127,12 +128,12 @@ async fn run_build_script(
 }
 
 pub async fn build_project_dir(
-    project_dir: &Path,
-    output_dir: &Path,
+    project_dir: &Utf8Path,
+    output_dir: &Utf8Path,
     pacman_repo_url: Option<Url>,
     ssh_timeout: u32,
 ) -> Result<()> {
-    let bin_dir = tempfile::Builder::new()
+    let bin_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-bin-dir-")
         .tempdir()?;
 
@@ -155,13 +156,10 @@ pub async fn build_project_dir(
     .args(["--ssh-timeout", &ssh_timeout.to_string()])
     .args([
         "--volume",
-        &format!("{}:/mnt/bin:ro", bin_dir.path().display()),
+        &format!("{}:/mnt/bin:ro", bin_dir.path().as_std_path().display()),
     ])
-    .args([
-        "--volume",
-        &format!("{}:/mnt/src_repo:ro", project_dir.display()),
-    ])
-    .args(["--volume", &format!("{}:/mnt/output", output_dir.display())])
+    .args(["--volume", &format!("{project_dir}:/mnt/src_repo:ro")])
+    .args(["--volume", &format!("{output_dir}:/mnt/output")])
     .arg("--")
     .arg(format!("/mnt/bin/{build_script_filename}"))
     .arg(

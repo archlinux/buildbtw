@@ -51,10 +51,12 @@ pub fn get_cookie_encryption_key(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use camino::Utf8PathBuf;
     use std::io::Write;
-    use tempfile::NamedTempFile;
+
+    use camino::Utf8PathBuf;
+    use camino_tempfile::NamedUtf8TempFile;
+
+    use super::*;
 
     #[test]
     fn test_get_required_secret_from_env() {
@@ -74,11 +76,11 @@ mod tests {
         let expected_value = "secret_from_file";
 
         // Create temporary file with secret
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let mut temp_file = NamedUtf8TempFile::new().unwrap();
         writeln!(temp_file, "{expected_value}").unwrap();
         temp_file.flush().unwrap();
 
-        let file_path = Utf8PathBuf::from_path_buf(temp_file.path().to_path_buf()).unwrap();
+        let file_path = temp_file.path().to_path_buf();
 
         temp_env::with_var_unset(var_name, || {
             let result = get_required(var_name, Some(&file_path));
@@ -95,13 +97,13 @@ mod tests {
         let file_value = "secret_from_file";
 
         // Create temporary file with different secret
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let mut temp_file = NamedUtf8TempFile::new().unwrap();
         writeln!(temp_file, "{file_value}").unwrap();
         temp_file.flush().unwrap();
 
         // Set environment variable
         temp_env::with_var(var_name, Some(env_value), || {
-            let file_path = Utf8PathBuf::from_path_buf(temp_file.path().to_path_buf()).unwrap();
+            let file_path = temp_file.path().to_path_buf();
 
             let result = get_required(var_name, Some(&file_path));
             assert!(result.is_ok());

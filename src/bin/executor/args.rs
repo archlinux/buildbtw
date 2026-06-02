@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use buildbtw::package::KnownArchitecture;
 use camino::Utf8PathBuf;
 use color_eyre::eyre::Result;
@@ -89,7 +87,7 @@ pub struct ConfigArgs {
         env = "BUILDBTW_BUILDS_DIR",
         default_value = "/srv/buildbtw/gitlab/builds"
     )]
-    pub builds_dir: PathBuf,
+    pub builds_dir: Utf8PathBuf,
 
     /// Directory that stores build caches
     #[arg(
@@ -97,7 +95,7 @@ pub struct ConfigArgs {
         env = "BUILDBTW_CACHE_DIR",
         default_value = "/srv/buildbtw/gitlab/cache"
     )]
-    pub cache_dir: PathBuf,
+    pub cache_dir: Utf8PathBuf,
 
     /// Project ID of the dispatched job
     #[arg(long, env = "CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID")]
@@ -111,7 +109,7 @@ pub struct ConfigArgs {
 #[derive(Debug, Clone, clap::Args)]
 pub struct RunArgs {
     /// The path to the script that downloads the sources. Created by GitLab Runner for the Custom executor to run
-    pub script_path: PathBuf,
+    pub script_path: Utf8PathBuf,
 
     /// Name of the action of the run stage that should be executed
     #[command(subcommand)]
@@ -172,14 +170,14 @@ pub struct GetSourcesArgs {
         env = "BUILDBTW_BUILDS_DIR",
         default_value = "/srv/buildbtw/gitlab/builds"
     )]
-    pub builds_dir: PathBuf,
+    pub builds_dir: Utf8PathBuf,
 }
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct BuildScriptArgs {
     /// Directory of the project that will be built
     #[arg(long, env = "CUSTOM_ENV_CI_PROJECT_DIR")]
-    pub ci_project_dir: PathBuf,
+    pub ci_project_dir: Utf8PathBuf,
 
     /// Buildspace slug
     #[arg(long, env = "CUSTOM_ENV_BUILDSPACE_SLUG", requires_all = ["iteration_seqid", "architecture", "pacman_repository_base_url"])]
@@ -305,7 +303,10 @@ mod tests {
                 );
                 assert_eq!(run_stage_args.iteration_seqid, Some(1));
                 assert_eq!(run_stage_args.architecture, Some(KnownArchitecture::X86_64));
-                assert_eq!(run_stage_args.ci_project_dir, PathBuf::from("/project-dir"));
+                assert_eq!(
+                    run_stage_args.ci_project_dir,
+                    Utf8PathBuf::from("/project-dir")
+                );
             } else {
                 panic!("Unexpected run stage {:?}", run_args.stage)
             }
@@ -339,7 +340,10 @@ mod tests {
                 assert_eq!(run_stage_args.build_id, None);
                 assert_eq!(run_stage_args.iteration_seqid, None);
                 assert_eq!(run_stage_args.architecture, None);
-                assert_eq!(run_stage_args.ci_project_dir, PathBuf::from("/project-dir"));
+                assert_eq!(
+                    run_stage_args.ci_project_dir,
+                    Utf8PathBuf::from("/project-dir")
+                );
             } else {
                 panic!("Unexpected run stage {:?}", run_args.stage)
             }

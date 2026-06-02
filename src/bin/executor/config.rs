@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-
+use camino::Utf8PathBuf;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 use serde::Serialize;
@@ -8,9 +7,9 @@ use crate::args::ConfigArgs;
 
 #[derive(Debug, Serialize)]
 pub struct BuildConfig {
-    builds_dir: PathBuf,
+    builds_dir: Utf8PathBuf,
     /// Non-optional directory provided by the gitlab runner. Allows caching stuff between separate runs. Currently unused.
-    cache_dir: PathBuf,
+    cache_dir: Utf8PathBuf,
 }
 
 impl BuildConfig {
