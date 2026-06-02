@@ -12,7 +12,7 @@ use color_eyre::{
 };
 use nutype::nutype;
 use petgraph::{Directed, Graph, graph::NodeIndex, visit::EdgeRef};
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use crate::{
     dependency_graph::{
@@ -87,7 +87,7 @@ pub struct BuildGraphs(HashMap<package::KnownArchitecture, BuildGraph>);
 
 impl BuildGraphs {
     /// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
-    #[tracing::instrument(skip(changesets, source_repos))]
+    #[instrument(skip(changesets, source_repos))]
     pub async fn calculate(
         changesets: &git::Changesets,
         source_repos: &mut SourceRepoCache,
@@ -158,7 +158,7 @@ impl BuildGraphs {
 }
 
 /// Check which dependents are reachable from the given changesets in the given architecture and global dependency graph.
-#[tracing::instrument(skip(global_graph, packages_metadata))]
+#[instrument(skip(global_graph, packages_metadata))]
 fn calculate_build_graph_for_architecture(
     changesets: &git::Changesets,
     global_graph: &GlobalDependencies,
