@@ -6,6 +6,7 @@ use std::{
 };
 
 use alpm_types::PackageFileName;
+use camino::Utf8Path;
 use color_eyre::{
     Result,
     eyre::{OptionExt, bail, eyre},
@@ -103,7 +104,7 @@ async fn run_build_script(
     tracing::info!("🚀 Starting build job...");
     build_project_dir(
         &build_script_args.ci_project_dir,
-        output_dir.path().as_std_path(),
+        output_dir.path(),
         pacman_repository_url,
         args.ssh_timeout,
     )
@@ -127,8 +128,8 @@ async fn run_build_script(
 }
 
 pub async fn build_project_dir(
-    project_dir: &Path,
-    output_dir: &Path,
+    project_dir: &Utf8Path,
+    output_dir: &Utf8Path,
     pacman_repo_url: Option<Url>,
     ssh_timeout: u32,
 ) -> Result<()> {
@@ -157,11 +158,8 @@ pub async fn build_project_dir(
         "--volume",
         &format!("{}:/mnt/bin:ro", bin_dir.path().as_std_path().display()),
     ])
-    .args([
-        "--volume",
-        &format!("{}:/mnt/src_repo:ro", project_dir.display()),
-    ])
-    .args(["--volume", &format!("{}:/mnt/output", output_dir.display())])
+    .args(["--volume", &format!("{project_dir}:/mnt/src_repo:ro")])
+    .args(["--volume", &format!("{output_dir}:/mnt/output")])
     .arg("--")
     .arg(format!("/mnt/bin/{build_script_filename}"))
     .arg(
