@@ -35,3 +35,24 @@ impl Config {
         })
     }
 }
+
+pub async fn schedule_pending_builds(config: &Config, tx: &DatabaseTransaction) -> Result<()> {
+    let pending = queries::builds::pending(None).all(tx).await?;
+
+    for build in &pending {
+        match config {
+            Config::Local => {
+                queries::builds::dispatch_to_local_executor(build.id)
+                    .exec(tx)
+                    .await?
+            }
+            Config::Gitlab(_) => {
+                return Err(eyre!(
+                    "Dispatching builds to gitlab is not implemented yet."
+                ));
+            }
+        };
+    }
+
+    Ok(())
+}
