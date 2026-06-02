@@ -33,7 +33,7 @@ async fn test_run() -> Result<()> {
         .unwrap();
 
     // Setup: Create a new buildspace and iteration, read configuration from env
-    let source_repo_dir = storage::package_source_repos_dir()?;
+    let source_repo_dir = storage::package_source_repos_dir(&None)?;
 
     let tx = db.begin().await?;
     let (buildspace, iteration) = create_buildspace_with_iteration(

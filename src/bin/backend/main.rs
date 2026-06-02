@@ -210,6 +210,7 @@ async fn run_server(
         gitlab,
         #[cfg(debug_assertions)]
             authelia_container: _,
+        data_dir,
     }: args::RunArgs,
 ) -> Result<()> {
     // Shared cancellation token to signal graceful shutdown across the application.
@@ -222,6 +223,7 @@ async fn run_server(
         db: db.clone(),
         oidc: oidc::MaybeConfig::initialize(&server_url, oidc.map(Into::into)).await,
         cookie_encryption_key,
+        data_dir,
     };
 
     let gitlab_config = gitlab

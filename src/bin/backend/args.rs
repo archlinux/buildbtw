@@ -175,6 +175,13 @@ pub struct RunArgs {
         default_value = "true"
     )]
     pub auto_create_iterations: bool,
+
+    /// Override default buildbtw storage data dir.
+    ///
+    /// Default storage location comes either from the `BUILDBTW_DATA_DIR` override variable,
+    /// or fall back to the project XDG_DATA_HOME directory by default.
+    #[arg(long, env = "BUILDBTW_DATA_DIR")]
+    pub data_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -480,6 +487,8 @@ mod tests {
             "9091",
             "--update-source-repos",
             "--auto-create-iterations",
+            "--data-dir",
+            "/tmp/buildbtw",
         ];
 
         let parsed_args = Args::try_parse_from(args)?;
@@ -502,6 +511,7 @@ mod tests {
             gitlab,
             update_source_repos,
             auto_create_iterations,
+            data_dir: _,
         }) = parsed_args.command
         else {
             panic!("Expected Run command");

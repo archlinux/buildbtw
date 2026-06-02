@@ -1,6 +1,6 @@
 //! Functions for determining which users are allowed to do what.
 
-use color_eyre::eyre::{OptionExt, Result};
+use color_eyre::eyre::Result;
 use sea_orm::{DatabaseTransaction, EntityTrait};
 use uuid::Uuid;
 
@@ -16,10 +16,9 @@ pub async fn can_revoke_session(
     user: &AuthUser,
     session_id: Uuid,
 ) -> Result<bool> {
-    let session_user_id = sessions::Entity::find_by_id(session_id)
-        .one(db)
-        .await?
-        .ok_or_eyre("Session does not exist")?;
+    let Some(session_user_id) = sessions::Entity::find_by_id(session_id).one(db).await? else {
+        return Ok(false);
+    };
 
     let is_session_owner = session_user_id.user_id == user.user.id;
     let is_admin = user.roles.contains(&entities::user_roles::Role::Admin);
@@ -31,10 +30,12 @@ pub async fn can_revoke_session(
 pub fn permission_ok(permission: Result<bool>) -> ResponseResult<()> {
     match permission {
         Ok(true) => Ok(()),
-        Ok(false) => Err(ResponseError::NotPermitted),
+        Ok(false) => Err(ResponseError::NotPermitted("Insufficient user role".into())),
         Err(error) => {
             tracing::error!(?error, "Could not check permissions");
-            Err(ResponseError::NotPermitted)
+            Err(ResponseError::InternalServer(
+                "Could not check permissions".into(),
+            ))
         }
     }
 }

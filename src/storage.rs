@@ -8,16 +8,26 @@ use crate::xdg_dirs;
 /// Return the configured buildbtw data dir, either from the `BUILDBTW_DATA_DIR` override variable,
 /// or fall back to the project XDG_DATA_HOME directory by default.
 /// Files should not be stored inside the root, but inside namespaced sub-directories.
-pub fn data_dir() -> Result<Utf8PathBuf> {
-    Ok(match std::env::var("BUILDBTW_DATA_DIR") {
-        Ok(data_dir) => Utf8PathBuf::from(data_dir),
+pub fn data_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
+    Ok(match override_data_dir {
+        Some(data_dir) => Utf8PathBuf::from(data_dir),
         _ => Utf8Path::from_path(xdg_dirs::new()?.data_dir())
             .ok_or_eyre("XDG data directory is not valid")?
             .into(),
     })
 }
 
+/// Returns the data directory storing temporary artifacts in the same mount point.
+pub fn data_tmp_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
+    Ok(data_dir(override_data_dir)?.join("tmp"))
+}
+
 /// Returns the data directory storing package source repositories.
-pub fn package_source_repos_dir() -> Result<Utf8PathBuf> {
-    Ok(data_dir()?.join("package-source-repos"))
+pub fn package_source_repos_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
+    Ok(data_dir(override_data_dir)?.join("package-source-repos"))
+}
+
+/// Returns the data directory storing build artifacts of buildspaces and iterations.
+pub fn build_artifact_storage(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
+    Ok(data_dir(override_data_dir)?.join("artifacts"))
 }

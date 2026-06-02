@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### backend
+
+#### Highlights
+
+- Implement build artifact storage with upload package API (`/api/v1/upload_package`) ([!189](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/189))
+
 ### bbtw
 
 #### New Features
