@@ -135,6 +135,8 @@ build-release:secure:
     - just build-release-container-image
     - |
       if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        # This branch is for main branch builds.
+
         # REGISTRY_USERNAME/REGISTRY_PASSWORD are injected as CI/CD vars.
         # They represent a deploy token that has registry write access so we can overwrite protected tags.
         # The automatic $CI_REGISTRY_USER/$CI_REGISTRY_PASSWORD can't overwrite protected tags.
@@ -145,6 +147,8 @@ build-release:secure:
         podman artifact add "$CI_REGISTRY_IMAGE/executor:staging" target/release/buildbtw-executor
         podman artifact push "$CI_REGISTRY_IMAGE/executor:staging"
       elif [[ "$CI_COMMIT_TAG" == v* ]]; then
+        # This branch is for tagged builds (aka releases).
+
         # REGISTRY_USERNAME/REGISTRY_PASSWORD are injected as CI/CD vars.
         # They represent a deploy token that has registry write access so we can overwrite protected tags.
         # The automatic $CI_REGISTRY_USER/$CI_REGISTRY_PASSWORD can't overwrite protected tags.
@@ -157,6 +161,8 @@ build-release:secure:
         podman artifact add "$CI_REGISTRY_IMAGE/executor:release" target/release/buildbtw-executor
         podman artifact push "$CI_REGISTRY_IMAGE/executor:release"
       else
+        # This branch is for merge request builds.
+
         podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
         podman push buildbtw-backend "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
       fi
