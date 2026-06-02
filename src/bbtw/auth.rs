@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 use tokio::fs;
 use tracing::instrument;
 
-use crate::xdg_dirs;
+use crate::{utils, xdg_dirs};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Token {
@@ -48,6 +48,13 @@ impl Token {
 
         Ok(())
     }
+}
+
+/// Remove the token stored at the given path, if it exists.
+///
+/// Also succeeds if the file does not exist.
+pub async fn delete_token(path: &Utf8Path) -> Result<()> {
+    Ok(utils::remove_file_if_exists(path).await?)
 }
 
 /// Return the path to the login token
