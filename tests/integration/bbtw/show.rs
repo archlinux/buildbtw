@@ -5,9 +5,8 @@ use rstest::rstest;
 use sea_orm::TransactionTrait;
 
 use crate::{
-    bbtw::ctx,
     factories,
-    test_ctx::{TestCtx, TestCtxBuilder, run_cmd},
+    test_ctx::{TestCtx, ctx, run_cmd},
 };
 
 #[rstest]
@@ -65,9 +64,8 @@ async fn test_show_nonexistent(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
 #[rstest]
 #[tokio::test]
-async fn test_show_not_logged_in() -> Result<()> {
-    // don't log in here
-    let ctx = TestCtxBuilder::new().build().await;
+async fn test_show_not_logged_in(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    ctx.logout_bbtw().await;
 
     // Run show command
     let mut cmd = ctx.bbtw_cmd();
@@ -154,9 +152,7 @@ async fn test_show_valid_limits(
 // Verify that the iteration selection works.
 #[rstest]
 #[tokio::test]
-async fn test_show_iteration() -> Result<()> {
-    let ctx = TestCtxBuilder::new().build().await.login_bbtw().await;
-
+async fn test_show_iteration(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Set up buildspace and iterations
