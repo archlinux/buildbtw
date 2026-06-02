@@ -64,13 +64,18 @@ pub struct BranchName(String);
     Default,
     IntoIterator,
     derive_more::From,
+    Display,
 )]
 #[into_iterator(ref)]
+#[display("{}", self.0.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))]
 pub struct Changesets(Vec<Changeset>);
 
 /// Represents a source repository and a git branch inside of the repo,
 /// pointing to a specific commit with build instructions.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sea_orm::FromJsonQueryResult)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sea_orm::FromJsonQueryResult, Display,
+)]
+#[display("{repo_slug}/{branch_name}")]
 pub struct Changeset {
     /// Slug of the repository, as in GitLab
     pub repo_slug: package::RepositorySlug,
