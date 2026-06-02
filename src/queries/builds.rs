@@ -150,3 +150,17 @@ pub fn update_build_status(
     };
     builds::Entity::update(model)
 }
+
+/// Get the set of builds that are currently pending, optionally filtered
+/// by iteration.
+#[must_use]
+pub fn pending(iteration_id: Option<Uuid>) -> Select<builds::Entity> {
+    let mut query =
+        builds::Entity::find().filter(builds::COLUMN.status.eq(package::BuildStatus::Pending));
+
+    if let Some(iteration_id) = iteration_id {
+        query = query.filter(builds::COLUMN.iteration_id.eq(iteration_id));
+    }
+
+    query
+}
