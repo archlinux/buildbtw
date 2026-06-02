@@ -1,6 +1,6 @@
 use color_eyre::{
     Result,
-    eyre::{OptionExt, eyre},
+    eyre::{OptionExt, bail},
 };
 use derive_more::Display;
 use sea_orm::DatabaseTransaction;
@@ -37,4 +37,24 @@ impl Config {
             None => Ok(None),
         }
     }
+}
+
+/// Find all builds that are ready to build and either create gitlab pipelines for them or mark them to be built locally.
+pub async fn schedule_pending_builds(config: &Config, tx: &DatabaseTransaction) -> Result<()> {
+    let pending = queries::builds::pending(None).all(tx).await?;
+
+    for build in &pending {
+        match config {
+            Config::Local => {
+                queries::builds::dispatch_to_local_executor(build.id)
+                    .exec(tx)
+                    .await?
+            }
+            Config::Gitlab(_) => {
+                bail!("Dispatching builds to gitlab is not implemented yet.");
+            }
+        };
+    }
+
+    Ok(())
 }
