@@ -62,7 +62,7 @@ async fn test_show_nonexistent(#[future(awt)] ctx: TestCtx) -> Result<()> {
 #[tokio::test]
 async fn test_show_not_logged_in() -> Result<()> {
     // don't log in here
-    let ctx = TestCtxBuilder::new().with_http_transport().build().await;
+    let ctx = TestCtxBuilder::new().build().await;
 
     // Run show command
     let mut cmd = ctx.bbtw_cmd();

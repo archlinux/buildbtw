@@ -197,7 +197,6 @@ pub async fn make_admin_session(db: DatabaseConnection) -> Result<sessions::Mode
 pub struct TestCtxBuilder {
     enable_authelia: bool,
     enable_geckodriver: bool,
-    use_http_transport: bool,
     data_dir: Utf8TempDir,
 }
 
@@ -210,7 +209,6 @@ impl TestCtxBuilder {
         Self {
             enable_authelia: false,
             enable_geckodriver: false,
-            use_http_transport: false,
             data_dir: test_data_dir,
         }
     }
@@ -225,13 +223,6 @@ impl TestCtxBuilder {
     /// Run a geckodriver process for headless browser-based end-to-end tests.
     pub fn with_geckodriver(mut self) -> Self {
         self.enable_geckodriver = true;
-        self
-    }
-
-    /// Use [axum_test]s HTTP transport based on real ports and TCP packets,
-    /// instead of directly calling axum handler functions like usual.
-    pub fn with_http_transport(mut self) -> Self {
-        self.use_http_transport = true;
         self
     }
 
@@ -313,16 +304,12 @@ impl TestCtxBuilder {
 
         templates::initialize("./".into()).unwrap();
 
-        let server = if self.use_http_transport {
-            TestServer::builder()
-                .http_transport_with_ip_port(
-                    Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
-                    Some(testserver_port),
-                )
-                .build(router::new("./".into()).with_state(state.clone()))
-        } else {
-            TestServer::new(router::new("./".into()).with_state(state.clone()))
-        };
+        let server = TestServer::builder()
+            .http_transport_with_ip_port(
+                Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
+                Some(testserver_port),
+            )
+            .build(router::new("./".into()).with_state(state.clone()));
 
         let admin_session = make_admin_session(db).await.unwrap();
 

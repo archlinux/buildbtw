@@ -1,13 +1,12 @@
 use std::time::Duration;
 
 use axum_test::TestResponse;
+use buildbtw::{entities::sessions::ClientType, web};
 use color_eyre::Result;
 use openidconnect::{AuthorizationCode, CsrfToken};
 use rstest::rstest;
 use thirtyfour::{By, prelude::ElementQueryable};
 use url::Url;
-
-use buildbtw::{entities::sessions::ClientType, web};
 
 use crate::test_ctx::{TestCtx, TestCtxBuilder, ctx};
 
@@ -70,7 +69,6 @@ async fn test_e2e_authelia_configured() {
 async fn test_e2e_authelia_login() -> Result<()> {
     // Exercise the whole OIDC login process using a real browser
     let ctx_with_oidc = TestCtxBuilder::new()
-        .with_http_transport()
         .with_geckodriver()
         .with_authelia()
         .build()
