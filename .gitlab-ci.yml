@@ -136,17 +136,23 @@ build-release:secure:
     - |
       if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
         podman login -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD" "$CI_REGISTRY"
-        podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
+        podman push buildbtw-backend "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
         # If this is a build on main, additionally add a staging tag
-        podman push buildbtw "$CI_REGISTRY_IMAGE/backend:staging"
+        podman push buildbtw-backend "$CI_REGISTRY_IMAGE/backend:staging"
+        podman artifact add "$CI_REGISTRY_IMAGE/executor:staging" target/release/buildbtw-executor
+        podman artifact push "$CI_REGISTRY_IMAGE/executor:staging"
       elif [[ "$CI_COMMIT_TAG" == v* ]]; then
         podman login -u "$REGISTRY_USERNAME" -p "$REGISTRY_PASSWORD" "$CI_REGISTRY"
-        podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_TAG"
+        podman push buildbtw-backend "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_TAG"
+        podman artifact add "$CI_REGISTRY_IMAGE/executor:$CI_COMMIT_TAG" target/release/buildbtw-executor
+        podman artifact push "$CI_REGISTRY_IMAGE/executor:$CI_COMMIT_TAG"
         # If this is building a version tag, additionally add a release tag
-        podman push buildbtw "$CI_REGISTRY_IMAGE/backend:release"
+        podman push buildbtw-backend "$CI_REGISTRY_IMAGE/backend:release"
+        podman artifact add "$CI_REGISTRY_IMAGE/executor:release" target/release/buildbtw-executor
+        podman artifact push "$CI_REGISTRY_IMAGE/executor:release"
       else
         podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-        podman push buildbtw "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
+        podman push buildbtw-backend "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG"
       fi
 
 push-container-image:
