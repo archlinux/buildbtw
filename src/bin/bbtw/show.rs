@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use buildbtw::{api::builds::ListBuildsResponse, package::BuildStatus};
+use buildbtw::{api::builds::ListBuildsResponse, buildspace::BuildspaceSlug, package::BuildStatus};
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
 use sea_orm::Iterable;
@@ -11,7 +11,7 @@ use crate::api;
 
 pub async fn show(
     server_url: Url,
-    buildspace_name: String,
+    buildspace_name: BuildspaceSlug,
     max_results: Option<u64>,
     #[cfg(debug_assertions)] show_demo_data: bool,
 ) -> Result<()> {
@@ -144,7 +144,7 @@ fn add_demo_data(
 
 async fn all_builds_grouped_by_status(
     server_url: Url,
-    buildspace_name: &str,
+    buildspace_name: &BuildspaceSlug,
     max_results: Option<u64>,
 ) -> Result<HashMap<BuildStatus, ListBuildsResponse>> {
     let client = api::Client::new(server_url).await?;
@@ -153,13 +153,8 @@ async fn all_builds_grouped_by_status(
         .map(async |status| {
             Ok((
                 status,
-                api::builds::list(
-                    &client,
-                    Some(status),
-                    buildspace_name.to_string(),
-                    max_results,
-                )
-                .await?,
+                api::builds::list(&client, Some(status), buildspace_name.clone(), max_results)
+                    .await?,
             ))
         })
         .buffer_unordered(10)

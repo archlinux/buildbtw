@@ -25,7 +25,7 @@ pub fn build_artifact_path(
     // Destination path: repo/buildspace/{}/iteration/{}/os/{}
     let dest_dir = artifact_storage_base_path
         .join("buildspace")
-        .join(&buildspace.name)
+        .join(buildspace.name.to_string())
         .join("iteration")
         .join(iteration.sequence.to_string())
         .join("os")

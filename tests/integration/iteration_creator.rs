@@ -1,14 +1,17 @@
 use color_eyre::Result;
 use sea_orm::{DatabaseTransaction, TransactionTrait};
 
-use buildbtw::{db, entities, git, iteration_creator, queries, storage};
+use buildbtw::{
+    buildspace::BuildspaceSlug, db, entities, git, iteration_creator, queries, storage,
+};
 
 async fn create_buildspace_with_iteration(
     tx: &DatabaseTransaction,
     sequence: u32,
     changesets: git::Changesets,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
-    let buildspace = queries::buildspaces::insert("test".to_string())
+    let buildspace_slug = BuildspaceSlug::try_from("test")?;
+    let buildspace = queries::buildspaces::insert(buildspace_slug)
         .exec_with_returning(tx)
         .await?;
     let iteration = queries::iterations::insert(

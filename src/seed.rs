@@ -9,6 +9,7 @@ use sea_orm::{ActiveValue::Set, DatabaseTransaction, EntityLoaderTrait, EntityTr
 use uuid::Uuid;
 
 use crate::{
+    buildspace,
     entities::{self, buildspaces},
     git::{BranchName, Changeset, Changesets},
     package::RepositorySlug,
@@ -32,10 +33,11 @@ pub async fn seed(tx: DatabaseTransaction) -> Result<()> {
     // Use the "main" branch for the changesets.
     for pkgbase in ["libfoo", "cowfortune"] {
         let buildspace_id = Uuid::new_v4();
+        let buildspace_slug = buildspace::BuildspaceSlug::try_from(pkgbase.to_string())?;
         buildspaces::Entity::insert(buildspaces::ActiveModel {
             id: Set(buildspace_id.into()),
             created_at: Set(time::OffsetDateTime::now_utc()),
-            name: Set(pkgbase.to_string()),
+            name: Set(buildspace_slug),
         })
         .exec(&tx)
         .await?;

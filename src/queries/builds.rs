@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    buildspace::BuildspaceSlug,
     dependency_graph::{BuildGraph, BuildNode},
     entities::buildspaces,
     package,
@@ -27,7 +28,7 @@ use crate::{
 #[must_use]
 pub fn list(
     status: Option<package::BuildStatus>,
-    buildspace_name: Option<&str>,
+    buildspace_name: Option<&BuildspaceSlug>,
     limit: Option<u64>,
 ) -> Select<builds::Entity> {
     let mut query = builds::Entity::find();
@@ -39,7 +40,7 @@ pub fn list(
                 sea_orm::JoinType::InnerJoin,
                 iterations::Relation::Buildspaces.def(),
             )
-            .filter(buildspaces::COLUMN.name.eq(buildspace_name));
+            .filter(buildspaces::COLUMN.name.eq(buildspace_name.clone()));
     }
 
     if let Some(status_filter) = status {

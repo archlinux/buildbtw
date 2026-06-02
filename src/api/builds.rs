@@ -6,7 +6,7 @@ use axum_extra::routing::TypedPath;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{git, package};
+use crate::{buildspace, git, package};
 
 /// List builds, optionally filtered by status or namespace name.
 #[derive(TypedPath, Deserialize, Debug)]
@@ -19,8 +19,8 @@ pub struct ListByStatusQuery {
     /// Only return builds with this status.
     pub status: Option<package::BuildStatus>,
 
-    /// Only return builds for this namespace.
-    pub buildspace_name: Option<String>,
+    /// Only return builds for this buildspace.
+    pub buildspace_name: Option<buildspace::BuildspaceSlug>,
 
     /// Do not return more than this number of builds
     pub max_results: Option<u64>,

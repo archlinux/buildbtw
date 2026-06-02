@@ -1,3 +1,4 @@
+use buildbtw::buildspace::BuildspaceSlug;
 use clap::{Parser, Subcommand};
 use url::Url;
 
@@ -9,20 +10,20 @@ pub enum Command {
         /// Name of the new buildspace. Default: Name of the first repository
         /// specified in origin changesets
         #[arg(short, long)]
-        name: Option<String>,
+        name: Option<BuildspaceSlug>,
     },
 
     /// Cancel a buildspace. No new iterations or builds will be created.
     /// Existing builds will not be interrupted
     Cancel {
         #[arg()]
-        name: String,
+        name: BuildspaceSlug,
     },
 
     /// Resume building a cancelled buildspace
     Resume {
         #[arg()]
-        name: String,
+        name: BuildspaceSlug,
     },
 
     /// List all buildspaces
@@ -36,13 +37,13 @@ pub enum Command {
     /// graph and starting to build from the beginning
     Retry {
         #[arg()]
-        name: String,
+        name: BuildspaceSlug,
     },
 
     /// Show status and builds for a buildspace
     Show {
         #[arg()]
-        name: String,
+        name: BuildspaceSlug,
 
         /// Maximum number of builds to show for each status.
         #[arg(long, short, default_value = "3", value_parser = clap::value_parser!(u64).range(1..))]
