@@ -12,6 +12,7 @@ use color_eyre::{
 };
 use nutype::nutype;
 use petgraph::{Directed, Graph, graph::NodeIndex, visit::EdgeRef};
+use tracing::{debug, instrument};
 
 use crate::{
     dependency_graph::{
@@ -86,12 +87,12 @@ pub struct BuildGraphs(HashMap<package::KnownArchitecture, BuildGraph>);
 
 impl BuildGraphs {
     /// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
-    #[tracing::instrument(skip(source_repos))]
+    #[instrument(skip(changesets, source_repos))]
     pub async fn calculate(
         changesets: &git::Changesets,
         source_repos: &mut SourceRepoCache,
     ) -> Result<Self> {
-        tracing::debug!("Calculating packages to be built");
+        debug!("Calculating packages to be built for changesets: {changesets}");
         let start_time = Instant::now();
 
         let packages_metadata = BuildspaceSourceInfoIndex::build(changesets.clone(), source_repos)
@@ -99,7 +100,7 @@ impl BuildGraphs {
             .wrap_err("Error mapping package names to srcinfo")?;
         let global_graphs = build_global_dependency_graphs(&packages_metadata);
 
-        tracing::debug!("Calculating build set graph");
+        debug!("Calculating build set graph");
 
         let mut graphs = HashMap::new();
         for (architecture, graph) in global_graphs {
@@ -112,7 +113,7 @@ impl BuildGraphs {
 
             // Skip architectures with empty build graphs
             if packages_to_build.node_count() > 0 {
-                tracing::debug!(
+                debug!(
                     "{architecture:?}: {} build jobs",
                     packages_to_build.node_count()
                 );
@@ -122,7 +123,7 @@ impl BuildGraphs {
         }
 
         let elapsed_time = start_time.elapsed();
-        tracing::debug!(?elapsed_time, "Build set graph calculated");
+        debug!(?elapsed_time, "Build set graph calculated");
 
         Ok(BuildGraphs::new(graphs))
     }
@@ -157,7 +158,7 @@ impl BuildGraphs {
 }
 
 /// Check which dependents are reachable from the given changesets in the given architecture and global dependency graph.
-#[tracing::instrument(skip(global_graph, packages_metadata))]
+#[instrument(skip(global_graph, packages_metadata))]
 fn calculate_build_graph_for_architecture(
     changesets: &git::Changesets,
     global_graph: &GlobalDependencies,

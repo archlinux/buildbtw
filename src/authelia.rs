@@ -51,10 +51,10 @@ impl Container {
         // Pull the container before starting it so we can use a shorter timeout for the
         // `podman run` command below
         tokio::time::timeout(Duration::from_mins(1), async {
-            let mut child = tokio::process::Command::new("podman")
+            tokio::process::Command::new("podman")
                 .args(["pull", "--policy", "newer", AUTHELIA_IMAGE_URL])
-                .spawn()?;
-            child.wait().await?;
+                .output()
+                .await?;
             Result::<(), eyre::Report>::Ok(())
         })
         .await??;

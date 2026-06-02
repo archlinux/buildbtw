@@ -1,12 +1,13 @@
 //! API functionality for GitLab projects
 
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, OptionExt};
 use color_eyre::{Result, eyre::eyre};
 use derive_more::{AsRef, Display};
 use gitlab::AsyncGitlab;
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use tracing::{debug, info, instrument};
 
 /// Gitlab's `path` value on a project. Basically an URL-safe, slugified variant
 /// of the project name.
@@ -33,12 +34,13 @@ pub struct Project {
 
 /// Get all projects that changed since the given timestamp, ordered by most
 /// recent activity first.
+#[instrument(skip(client, package_group))]
 pub async fn changed_since(
     client: &AsyncGitlab,
     last_fetched: Option<OffsetDateTime>,
     package_group: &str,
 ) -> Result<Vec<Project>> {
-    tracing::info!("Querying changed projects since {last_fetched:?}");
+    info!("Querying changed projects since {last_fetched:?}");
     let mut end_of_last_query = None;
     let mut results = Vec::new();
     // Loop over pages received from the API, until
@@ -54,9 +56,11 @@ pub async fn changed_since(
         // Remove nesting and check that required fields are present
         let projects = response
             .nodes
-            .ok_or_else(|| eyre!("Missing projects"))?
+            .ok_or_eyre("Missing projects")?
             .into_iter()
             .flatten();
+
+        debug!("Fetched {} projects", projects.clone().count());
 
         // For each project, check if it's older than `last_fetched` and break if so
         // Otherwise, add it to the results list of changed projects
@@ -120,7 +124,7 @@ async fn query_changed_projects_page(
         .await
         .wrap_err("Failed to fetch changed projects")?
         .group
-        .ok_or_else(|| eyre!("Gitlab packaging group not found"))?
+        .ok_or_eyre("Gitlab packaging group not found")?
         .projects;
 
     Ok(response)

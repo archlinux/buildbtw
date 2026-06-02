@@ -4,6 +4,7 @@ use camino::Utf8PathBuf;
 use color_eyre::Result;
 use gitlab::AsyncGitlab;
 use time::{Duration, OffsetDateTime};
+use tracing::instrument;
 
 use crate::gitlab::GitlabConfig;
 
@@ -14,6 +15,7 @@ use crate::gitlab::GitlabConfig;
 /// that date.
 ///
 /// Returns the most recent date of activity we observed, which can be passed as `last_fetched` on the next call to this function.
+#[instrument(skip(target_dir, gitlab_client, gitlab_config))]
 pub async fn update_all_source_repos(
     target_dir: Utf8PathBuf,
     gitlab_client: &AsyncGitlab,

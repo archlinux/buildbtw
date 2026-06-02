@@ -45,6 +45,7 @@ use color_eyre::eyre::{OptionExt, Result};
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
+use tracing::instrument;
 
 use crate::{entities, queries};
 
@@ -87,6 +88,7 @@ impl IterationCreator {
 
     /// Continuously run the whole process in a loop.
     /// Check the module description for an overview.
+    #[instrument(name = "iteration_creator", skip_all)]
     pub async fn run(mut self, token: CancellationToken) {
         while !token.is_cancelled() {
             let run_start = Instant::now();
@@ -183,7 +185,7 @@ impl IterationCreator {
     }
 
     /// Check if this buildspace needs a new iteration because of build graph changes.
-    #[tracing::instrument(skip(self, source_repos))]
+    #[tracing::instrument(skip(self, source_repos, buildspace), fields(buildspace.name = %buildspace.name))]
     async fn check_buildspace_graph(
         &self,
         source_repos: &mut dependency_graph::SourceRepoCache,
@@ -275,7 +277,7 @@ impl IterationCreator {
     }
 
     /// Fetch new commits for all source repositories.
-    #[tracing::instrument(skip(self, gitlab_client))]
+    #[tracing::instrument(skip(self, gitlab_client, gitlab_config))]
     async fn update_repos(
         &self,
         gitlab_client: &AsyncGitlab,
