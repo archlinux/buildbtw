@@ -61,10 +61,13 @@ impl Container {
 
         // This whole block makes sure we don't double-allocate ports from multiple tests at the
         // same time.
-        let (actual_port, _startup_lock) = if let Some(p) = port {
-            (p, None)
+        let mut _startup_port_lock = None;
+        let actual_port = if let Some(p) = port {
+            p
         } else {
-            free_port().await?
+            let (port, lock) = free_port().await?;
+            _startup_port_lock = Some(lock);
+            port
         };
 
         // Start the authelia container

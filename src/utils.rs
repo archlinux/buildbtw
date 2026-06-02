@@ -4,7 +4,7 @@ use std::io;
 use std::path::Path;
 
 use color_eyre::Result;
-use port_check::is_local_ipv4_port_free;
+use port_check::with_free_ipv4_port;
 use tokio::fs;
 
 /// Delete the file at `path` only if it exists
@@ -37,22 +37,19 @@ macro_rules! regex {
 /// get before actually starting to listen on it.
 ///
 /// You can drop the returned lock guard once your process started listening on it and there's no chance of another process taking it.
-pub async fn free_port() -> Result<(u16, Option<named_lock::NamedLockGuard>)> {
-    let mut port_candidate = 32000;
-    Ok(loop {
-        if is_local_ipv4_port_free(port_candidate) {
-            // We'll make the port part of the lock so that we can quickly find an unused port.
-            let lock_name = format!("buildbtw-test-port-{port_candidate}");
-            if let Ok(guard) = tokio::task::spawn_blocking(move || {
+pub async fn free_port() -> Result<(u16, named_lock::NamedLockGuard)> {
+    Ok(tokio::task::spawn_blocking(|| {
+        loop {
+            if let Some((lock, port)) = with_free_ipv4_port(|port| {
+                // We'll make the port part of the lock so that we can quickly find an unused port.
+                let lock_name = format!("buildbtw-test-port-{port}");
                 named_lock::NamedLock::create(&lock_name)?.try_lock()
-            })
-            .await?
-            {
-                break (port_candidate, Some(guard));
+            }) {
+                break (port, lock);
             }
         }
-        port_candidate += 1;
     })
+    .await?)
 }
 
 /// Convert any unicode string to an ascii "slug" (useful for safe file names/url components)
@@ -120,8 +117,9 @@ pub fn slugify<S: AsRef<str>>(s: S) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     #[rstest]
     #[case("", "")]
