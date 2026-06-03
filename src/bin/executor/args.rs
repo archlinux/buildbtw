@@ -1,4 +1,4 @@
-use buildbtw::{executor::config, package::KnownArchitecture};
+use buildbtw::{executor::config, external_secrets, package::KnownArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::Context};
 use url::Url;
@@ -28,9 +28,6 @@ pub struct Args {
     /// SSH connection timeout
     #[arg(long, env = "CUSTOM_ENV_SSH_TIMEOUT", default_value = "120")]
     pub ssh_timeout: u32,
-
-    #[clap(flatten)]
-    pub bbtw: Option<BbtwArgs>,
 
     /// Primary command of a custom GitLab executor implementaiton
     #[command(subcommand)]
@@ -210,13 +207,31 @@ pub struct BuildScriptArgs {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
+    /// If set, requires build ID and API server URL as well.
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires_all = ["build_id"])]
+    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires_all = ["build_id", "api_token_path"])]
     pub api_server_url: Option<Url>,
+
+    /// Path to a file containing the API token for authentication
+    ///
+    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
+    /// If set, requires build ID and API server URL as well.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_EXECUTOR_TOKEN` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "BUILDBTW_EXECUTOR_TOKEN_PATH", verbatim_doc_comment, requires_all = ["api_server_url"])]
+    api_token_path: Option<Utf8PathBuf>,
 }
 
-impl From<BuildScriptArgs> for config::RunBuildScript {
-    fn from(
+impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
+    type Error = color_eyre::eyre::Error;
+
+    fn try_from(
         BuildScriptArgs {
             ci_project_dir,
             buildspace_slug,
@@ -225,17 +240,33 @@ impl From<BuildScriptArgs> for config::RunBuildScript {
             pacman_repository_base_url,
             build_id,
             api_server_url,
+            api_token_path: bbtw_token_path,
         }: BuildScriptArgs,
-    ) -> Self {
-        config::RunBuildScript {
+    ) -> Result<Self, Self::Error> {
+        let api_token =
+            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", bbtw_token_path.as_deref())?;
+
+        let mut upload_config = None;
+
+        if let Some(api_token) = api_token
+            && let Some(api_server_url) = api_server_url
+        {
+            upload_config = Some(config::Upload {
+                api_server_url,
+                api_token,
+            });
+        }
+
+        Ok(config::RunBuildScript {
             ci_project_dir,
             buildspace_slug,
             iteration_seqid,
             architecture,
             pacman_repository_base_url,
             build_id,
-            api_server_url,
-        }
+
+            upload_config,
+        })
     }
 }
 
@@ -267,36 +298,6 @@ pub fn config(args: &ConfigArgs) -> Result<()> {
         serde_json::to_string_pretty(&build_config).wrap_err("Failed to serialize build config")?;
     println!("{json}");
     Ok(())
-}
-
-#[derive(clap::Args, Clone, Debug)]
-pub struct BbtwArgs {
-    /// Path to a file containing the bbtw API token for authentication
-    ///
-    /// The bbtw token can be passed directly using the `BUILDBTW_TOKEN` environment variable.
-    ///
-    /// Precedence:
-    ///
-    /// 1. `BUILDBTW_TOKEN` env var
-    /// 2. Contents of file specified by the token path
-    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_TOKEN
-    //
-    // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "BUILDBTW_TOKEN_PATH", verbatim_doc_comment)]
-    bbtw_token_path: Option<Utf8PathBuf>,
-}
-
-impl TryFrom<BbtwArgs> for config::BbtwConfig {
-    fn try_from(value: BbtwArgs) -> Result<config::BbtwConfig> {
-        let token = buildbtw::external_secrets::get_required(
-            "BUILDBTW_TOKEN",
-            value.bbtw_token_path.as_deref(),
-        )?;
-
-        Ok(config::BbtwConfig { token })
-    }
-
-    type Error = color_eyre::eyre::Error;
 }
 
 #[cfg(test)]

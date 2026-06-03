@@ -36,20 +36,23 @@ pub struct RunBuildScript {
     /// Build uuid
     pub build_id: Option<Uuid>,
 
+    /// Configuration for uploading build artifacts to the server
+    pub upload_config: Option<Upload>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Upload {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    pub api_server_url: Option<Url>,
+    pub api_server_url: Url,
+
+    pub api_token: Secret<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct RunGetSources {
     /// Directory that stores build artifacts
     pub builds_dir: Utf8PathBuf,
-}
-
-#[derive(Debug, Clone)]
-pub struct BbtwConfig {
-    pub token: Secret<String>,
 }

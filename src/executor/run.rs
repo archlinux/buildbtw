@@ -41,7 +41,6 @@ pub async fn get_sources(
 /// The output artifacts are published to the buildbtw collector endpoint which
 /// manages the results.
 pub async fn build_script(
-    bbtw_config: config::BbtwConfig,
     ssh_timeout: u32,
     build_script_args: config::RunBuildScript,
 ) -> Result<()> {
@@ -89,14 +88,14 @@ pub async fn build_script(
     print_dir_content(output_dir.path()).await?;
 
     // Upload artifacts inside the output_dir if a collector URL has been passed
-    if let Some(collector_base_url) = build_script_args.api_server_url.clone() {
+    if let Some(upload_config) = &build_script_args.upload_config {
         let http_client = reqwest::Client::new();
         upload_package_artifacts(
-            bbtw_config,
+            upload_config,
             &build_script_args,
             &http_client,
             output_dir.path(),
-            &collector_base_url,
+            &upload_config.api_server_url,
         )
         .await?;
     }
@@ -159,7 +158,7 @@ pub async fn build_project_dir(
 /// Uploads all package artifacts inside the given build output directory to the
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
-    bbtw_config: config::BbtwConfig,
+    upload_config: &config::Upload,
     build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
     output_dir: &Utf8Path,
@@ -173,7 +172,7 @@ async fn upload_package_artifacts(
             && file.is_file()
         {
             upload_package_artifact(
-                &bbtw_config,
+                upload_config,
                 build_script_args,
                 http_client,
                 &file,
@@ -190,7 +189,7 @@ async fn upload_package_artifacts(
 
 /// Uploads a single passed package artifact to the buildbtw collector endpoint.
 async fn upload_package_artifact(
-    bbtw_config: &config::BbtwConfig,
+    upload_config: &config::Upload,
     build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
     artifact_path: &Utf8PathBuf,
@@ -221,7 +220,7 @@ async fn upload_package_artifact(
     let artifact_bytes = artifact_file.metadata().await?.len();
 
     // Extract API secret from bbtw config
-    let token = bbtw_config.token.expose_secret();
+    let token = upload_config.api_token.expose_secret();
 
     // Wrap stream in 2MB chunks for chunked transfer.
     // https://docs.rs/axum/latest/axum/extract/struct.DefaultBodyLimit.html

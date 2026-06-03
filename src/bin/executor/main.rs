@@ -6,9 +6,9 @@
 use std::process::ExitCode;
 
 use args::{Args, Command, RunArgs, RunStage};
-use buildbtw::executor::{cleanup, config, prepare, run};
+use buildbtw::executor::{cleanup, prepare, run};
 use clap::Parser;
-use color_eyre::{Result, eyre::OptionExt};
+use color_eyre::Result;
 
 mod args;
 
@@ -50,19 +50,12 @@ async fn execute(args: Args) -> Result<()> {
 ///
 /// <https://docs.gitlab.com/runner/executors/custom/#run>
 pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
-    let bbtw_config = args
-        .clone()
-        .bbtw
-        .map(config::BbtwConfig::try_from)
-        .transpose()?
-        .ok_or_eyre("Missing BBTW_TOKEN secret")?;
-
     match run_args.stage.clone() {
         RunStage::GetSources(get_sources_args) => {
             run::get_sources(&run_args.script_path, get_sources_args.into()).await?;
         }
         RunStage::BuildScript(build_script_args) => {
-            run::build_script(bbtw_config, args.ssh_timeout, build_script_args.into()).await?;
+            run::build_script(args.ssh_timeout, build_script_args.try_into()?).await?;
         }
         _ => tracing::info!("Unhandled run stage: {:?}", run_args.stage),
     }
