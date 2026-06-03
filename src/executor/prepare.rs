@@ -6,12 +6,10 @@ use color_eyre::{
 };
 use tokio::process::Command;
 
-use crate::args::Args;
-
 /// Pull image if it doesn't exist and make sure a booted snapshot is available.
 ///
 /// <https://docs.gitlab.com/runner/executors/custom/#prepare>
-pub async fn prepare(args: Args) -> Result<()> {
+pub async fn prepare(ssh_timeout: u32) -> Result<()> {
     let mut cmd = Command::new("vmexec");
     cmd.args([
         "run",
@@ -21,7 +19,7 @@ pub async fn prepare(args: Args) -> Result<()> {
         "--pmem",
         "/var/lib/archbuild:30",
     ])
-    .args(["--ssh-timeout", &args.ssh_timeout.to_string()])
+    .args(["--ssh-timeout", &ssh_timeout.to_string()])
     .args(["--", "echo", "VM image warmed up"])
     .stdin(Stdio::inherit())
     .stdout(Stdio::inherit())

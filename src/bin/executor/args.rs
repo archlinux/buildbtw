@@ -1,7 +1,6 @@
-use buildbtw::package::KnownArchitecture;
+use buildbtw::{executor::config, external_secrets, package::KnownArchitecture};
 use camino::Utf8PathBuf;
-use color_eyre::eyre::Result;
-use redact::Secret;
+use color_eyre::{Result, eyre::Context};
 use url::Url;
 use uuid::Uuid;
 
@@ -29,9 +28,6 @@ pub struct Args {
     /// SSH connection timeout
     #[arg(long, env = "CUSTOM_ENV_SSH_TIMEOUT", default_value = "120")]
     pub ssh_timeout: u32,
-
-    #[clap(flatten)]
-    pub bbtw: Option<BbtwArgs>,
 
     /// Primary command of a custom GitLab executor implementaiton
     #[command(subcommand)]
@@ -173,6 +169,12 @@ pub struct GetSourcesArgs {
     pub builds_dir: Utf8PathBuf,
 }
 
+impl From<GetSourcesArgs> for config::RunGetSources {
+    fn from(GetSourcesArgs { builds_dir }: GetSourcesArgs) -> Self {
+        config::RunGetSources { builds_dir }
+    }
+}
+
 #[derive(Debug, Clone, clap::Args)]
 pub struct BuildScriptArgs {
     /// Directory of the project that will be built
@@ -205,152 +207,95 @@ pub struct BuildScriptArgs {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
+    /// If set, requires build ID and API server URL as well.
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires_all = ["build_id"])]
+    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires_all = ["build_id", "api_token_path"])]
     pub api_server_url: Option<Url>,
-}
 
-#[derive(clap::Args, Clone, Debug)]
-pub struct BbtwArgs {
-    /// Path to a file containing the bbtw API token for authentication
+    /// Path to a file containing the API token for authentication
     ///
-    /// The bbtw token can be passed directly using the `BUILDBTW_TOKEN` environment variable.
+    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
+    /// If set, requires build ID and API server URL as well.
     ///
     /// Precedence:
     ///
-    /// 1. `BUILDBTW_TOKEN` env var
+    /// 1. `BUILDBTW_EXECUTOR_TOKEN` env var
     /// 2. Contents of file specified by the token path
-    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_TOKEN
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "BUILDBTW_TOKEN_PATH", verbatim_doc_comment)]
-    bbtw_token_path: Option<Utf8PathBuf>,
+    #[arg(long, env = "BUILDBTW_EXECUTOR_TOKEN_PATH", verbatim_doc_comment, requires_all = ["api_server_url"])]
+    api_token_path: Option<Utf8PathBuf>,
 }
 
-impl TryFrom<BbtwArgs> for BbtwConfig {
-    fn try_from(value: BbtwArgs) -> Result<BbtwConfig> {
-        let token = buildbtw::external_secrets::get_required(
-            "BUILDBTW_TOKEN",
-            value.bbtw_token_path.as_deref(),
-        )?;
-
-        Ok(BbtwConfig { token })
-    }
-
+impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
     type Error = color_eyre::eyre::Error;
-}
 
-#[derive(Debug, Clone)]
-pub struct BbtwConfig {
-    pub token: Secret<String>,
-}
+    fn try_from(
+        BuildScriptArgs {
+            ci_project_dir,
+            buildspace_slug,
+            iteration_seqid,
+            architecture,
+            pacman_repository_base_url,
+            build_id,
+            api_server_url,
+            api_token_path: bbtw_token_path,
+        }: BuildScriptArgs,
+    ) -> Result<Self, Self::Error> {
+        let api_token =
+            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", bbtw_token_path.as_deref())?;
 
-#[cfg(test)]
-mod tests {
-    use clap::Parser;
-    use color_eyre::eyre::Result;
+        let mut upload_config = None;
 
-    use super::*;
-
-    #[test]
-    fn test_run_build_script_with_all_flags() -> Result<()> {
-        let args = vec![
-            "buildbtw-gitlab-executor",
-            "-vvv", // verbose: 3 (trace level)
-            "--tokio-console-telemetry",
-            "--build-failure-exit-code",
-            "1",
-            "--ssh-timeout",
-            "120",
-            "run",
-            "/project-dir",
-            "build_script",
-            "--pacman-repository-base-url",
-            "http://127.0.0.1",
-            "--buildspace-slug",
-            "buildbtw-test",
-            "--iteration-seqid",
-            "1",
-            "--architecture",
-            "x86_64",
-            "--build-id",
-            "0807fb37-8d41-40a5-a476-5cc70a32791e",
-            "--api-server-url",
-            "http://127.0.0.1",
-            "--ci-project-dir",
-            "/project-dir",
-        ];
-
-        let parsed_args = Args::try_parse_from(args)?;
-
-        // Verify top-level args
-        assert_eq!(parsed_args.verbose, 3);
-        assert!(parsed_args.tokio_console_telemetry);
-        assert_eq!(parsed_args.build_failure_exit_code, 1);
-        assert_eq!(parsed_args.ssh_timeout, 120);
-
-        // Verify the run command
-        if let Command::Run(ref run_args) = parsed_args.command {
-            // Verify the run command
-            if let RunStage::BuildScript(ref run_stage_args) = run_args.stage {
-                assert_eq!(
-                    run_stage_args.buildspace_slug,
-                    Some("buildbtw-test".to_string())
-                );
-                assert_eq!(
-                    run_stage_args.build_id.map(|uuid| uuid.to_string()),
-                    Some("0807fb37-8d41-40a5-a476-5cc70a32791e".to_string())
-                );
-                assert_eq!(run_stage_args.iteration_seqid, Some(1));
-                assert_eq!(run_stage_args.architecture, Some(KnownArchitecture::X86_64));
-                assert_eq!(
-                    run_stage_args.ci_project_dir,
-                    Utf8PathBuf::from("/project-dir")
-                );
-            } else {
-                panic!("Unexpected run stage {:?}", run_args.stage)
-            }
-        } else {
-            panic!("Unexpected command {:?}", parsed_args.command)
+        if let Some(api_token) = api_token
+            && let Some(api_server_url) = api_server_url
+        {
+            upload_config = Some(config::Upload {
+                api_server_url,
+                api_token,
+            });
         }
 
-        Ok(())
+        Ok(config::RunBuildScript {
+            ci_project_dir,
+            buildspace_slug,
+            iteration_seqid,
+            architecture,
+            pacman_repository_base_url,
+            build_id,
+
+            upload_config,
+        })
     }
+}
 
-    #[test]
-    fn test_run_build_script_with_minimal_flags() -> Result<()> {
-        let args = vec![
-            "buildbtw-gitlab-executor",
-            "run",
-            "/project-dir",
-            "build_script",
-            "--ci-project-dir",
-            "/project-dir",
-        ];
+impl From<ConfigArgs> for config::BuildConfig {
+    fn from(args: ConfigArgs) -> Self {
+        let builds_dir = args
+            .builds_dir
+            .join(format!("{}", args.ci_concurrent_project_id))
+            .join(&args.ci_project_path_slug);
 
-        let parsed_args = Args::try_parse_from(args)?;
+        let cache_dir = args
+            .cache_dir
+            .join(format!("{}", args.ci_concurrent_project_id))
+            .join(&args.ci_project_path_slug);
 
-        // Verify the run command
-        if let Command::Run(ref run_args) = parsed_args.command {
-            // Verify the run command
-            if let RunStage::BuildScript(ref run_stage_args) = run_args.stage {
-                assert_eq!(run_stage_args.api_server_url, None);
-                assert_eq!(run_stage_args.pacman_repository_base_url, None);
-                assert_eq!(run_stage_args.buildspace_slug, None);
-                assert_eq!(run_stage_args.build_id, None);
-                assert_eq!(run_stage_args.iteration_seqid, None);
-                assert_eq!(run_stage_args.architecture, None);
-                assert_eq!(
-                    run_stage_args.ci_project_dir,
-                    Utf8PathBuf::from("/project-dir")
-                );
-            } else {
-                panic!("Unexpected run stage {:?}", run_args.stage)
-            }
-        } else {
-            panic!("Unexpected command {:?}", parsed_args.command)
+        Self {
+            builds_dir,
+            cache_dir,
         }
-
-        Ok(())
     }
+}
+
+/// The Config stage which defines configuration for the build environment in JSON.
+///
+/// <https://docs.gitlab.com/runner/executors/custom/#config>
+pub fn config(args: &ConfigArgs) -> Result<()> {
+    let build_config = config::BuildConfig::from(args.clone());
+    let json =
+        serde_json::to_string_pretty(&build_config).wrap_err("Failed to serialize build config")?;
+    println!("{json}");
+    Ok(())
 }

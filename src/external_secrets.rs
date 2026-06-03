@@ -38,6 +38,45 @@ pub fn get_required(name: &str, file_path: Option<&Utf8Path>) -> Result<Secret<S
         .map(Secret::new)
 }
 
+/// Read a secret
+///
+/// Try to read from multiple sources, in order of precedence:
+/// 1. env var specified by `name`
+/// 2. file specified by `file_path`
+/// 3. `$XDG_CONFIG_HOME`/buildbtw/{name}
+///
+/// If none of them exist, return `None`.
+/// Returns an error for other failures, such as invalid UTF8 contents etc.
+pub fn get_optional(name: &str, file_path: Option<&Utf8Path>) -> Result<Option<Secret<String>>> {
+    match std::env::var(name) {
+        Ok(v) => return Ok(Some(v.into())),
+        Err(std::env::VarError::NotPresent) => {}
+        Err(e) => return Err(e.into()),
+    }
+
+    if let Some(path) = file_path {
+        return Ok(Some(
+            std::fs::read_to_string(path)
+                .wrap_err(format!("Could not read secret at {path}"))?
+                .into(),
+        ));
+    }
+
+    let xdg_dirs = crate::xdg_dirs::new()?;
+    let config_dir = xdg_dirs.config_dir();
+    let xdg_secret_path = config_dir.join(name);
+
+    if std::fs::exists(&xdg_secret_path)? {
+        let val = std::fs::read_to_string(&xdg_secret_path).wrap_err(format!(
+            "Could not read secret at {}",
+            xdg_secret_path.display()
+        ))?;
+        return Ok(Some(val.into()));
+    }
+
+    Ok(None)
+}
+
 /// Create a [`axum_extra::extract::cookie::Key`] from a string
 pub fn get_cookie_encryption_key(
     path: Option<&Utf8Path>,

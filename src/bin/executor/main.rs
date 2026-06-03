@@ -3,22 +3,14 @@
 //!
 //! <https://docs.gitlab.com/runner/executors/custom/>
 
-mod args;
-mod cleanup;
-mod config;
-mod prepare;
-mod run;
-mod shell;
+use std::process::ExitCode;
 
-#[cfg(test)]
-mod tests;
-
+use args::{Args, Command, RunArgs, RunStage};
+use buildbtw::executor::{cleanup, prepare, run};
 use clap::Parser;
 use color_eyre::Result;
 
-use std::process::ExitCode;
-
-use crate::args::{Args, Command};
+mod args;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -42,11 +34,30 @@ async fn execute(args: Args) -> Result<()> {
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
     match args.command.clone() {
-        Command::Config(config_args) => config::config(&config_args)?,
-        Command::Prepare => prepare::prepare(args).await?,
-        Command::Run(run_args) => run::run(args, run_args).await?,
+        Command::Config(config_args) => args::config(&config_args)?,
+        Command::Prepare => prepare::prepare(args.ssh_timeout).await?,
+        Command::Run(run_args) => run(args, run_args).await?,
         Command::Cleanup => cleanup::cleanup().await?,
     }
 
+    Ok(())
+}
+
+/// Runs a specific action from the run stage.
+///
+/// The run stage is executed multiple times, because it’s split into sub stages.
+/// STDOUT and STDERR returned from this executable prints to the job log.
+///
+/// <https://docs.gitlab.com/runner/executors/custom/#run>
+pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
+    match run_args.stage.clone() {
+        RunStage::GetSources(get_sources_args) => {
+            run::get_sources(&run_args.script_path, get_sources_args.into()).await?;
+        }
+        RunStage::BuildScript(build_script_args) => {
+            run::build_script(args.ssh_timeout, build_script_args.try_into()?).await?;
+        }
+        _ => tracing::info!("Unhandled run stage: {:?}", run_args.stage),
+    }
     Ok(())
 }

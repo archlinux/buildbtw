@@ -10,6 +10,7 @@ pub mod db_fields;
 pub mod dependency_graph;
 pub mod entities;
 pub mod error_handler;
+pub mod executor;
 pub mod external_secrets;
 pub mod from_request;
 pub mod git;

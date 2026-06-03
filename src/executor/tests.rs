@@ -8,7 +8,7 @@ use color_eyre::{
 use rstest::*;
 use tokio::process::Command;
 
-use crate::run::build_project_dir;
+use super::run::build_project_dir;
 
 #[tokio::test]
 #[ignore = "Test depends on an external resource and is heavyweight."]
@@ -120,7 +120,7 @@ async fn test_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Resu
     }
 
     build_project_dir(
-        &test_project_dir.path().join("git-smash"),
+        test_project_dir.path().join("git-smash").as_path(),
         test_output_dir.path(),
         None,
         120,
