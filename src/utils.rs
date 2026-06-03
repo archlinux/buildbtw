@@ -54,3 +54,93 @@ pub async fn free_port() -> Result<(u16, Option<named_lock::NamedLockGuard>)> {
         port_candidate += 1;
     })
 }
+
+/// Convert any unicode string to an ascii "slug" (useful for safe file names/url components)
+///
+/// The returned "slug" will consist of a-z, 0-9, and '-' or '.'. Furthermore, a slug will
+/// never contain more than one '-' or '.' in a row and will never start or end with '-' or '.'.
+///
+/// ```rust
+/// use self::utils::slugify;
+///
+/// assert_eq!(slugify("My Test String!!!1!1"), "my-test-string-1-1");
+/// assert_eq!(slugify("test\nit   now!"), "test-it-now");
+/// assert_eq!(slugify("  --test_-_cool"), "test-cool");
+/// assert_eq!(slugify("Æúű--cool?"), "cool");
+/// assert_eq!(slugify("You & Me"), "you-me");
+/// assert_eq!(slugify("user@example.com"), "user-example.com");
+/// ```
+pub fn slugify<S: AsRef<str>>(s: S) -> String {
+    let s = s.as_ref();
+    let mut slug = String::with_capacity(s.len());
+    // Starts with true to avoid leading - or .
+    let mut prev_is_dash_or_dot = true;
+    {
+        let mut push_char = |x: u8| {
+            match x {
+                b'a'..=b'z' | b'0'..=b'9' => {
+                    prev_is_dash_or_dot = false;
+                    slug.push(x.into());
+                }
+                b'A'..=b'Z' => {
+                    prev_is_dash_or_dot = false;
+                    // Manual lowercasing as Rust to_lowercase() is unicode
+                    // aware and therefore much slower
+                    slug.push((x - b'A' + b'a').into());
+                }
+                c => {
+                    if !prev_is_dash_or_dot {
+                        if c == b'.' {
+                            slug.push(c.into());
+                        } else {
+                            slug.push('-');
+                        }
+                        prev_is_dash_or_dot = true;
+                    }
+                }
+            }
+        };
+
+        for c in s.chars() {
+            if c.is_ascii() {
+                (push_char)(c as u8);
+            } else {
+                (push_char)(b'-');
+            }
+        }
+    }
+
+    if slug.ends_with('-') || slug.ends_with('.') {
+        slug.pop();
+    }
+    // We likely reserved more space than needed.
+    slug.shrink_to_fit();
+    slug
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("", "")]
+    #[case("test\nit   now!", "test-it-now")]
+    #[case("test\tit   now!", "test-it-now")]
+    #[case("  --test_-_cool", "test-cool")]
+    #[case("Æúű--cool?", "cool")]
+    #[case("You & Me", "you-me")]
+    #[case("user@example.com", "user-example.com")]
+    #[case("upgrade-git-smash-1.0", "upgrade-git-smash-1.0")]
+    #[case("1.?", "1")]
+    #[case("1.?2", "1.2")]
+    #[case("../foo", "foo")]
+    #[case("foo/../../bar", "foo-bar")]
+    #[case("..", "")]
+    #[case("...---...", "")]
+    fn test_slugify(#[case] s: &str, #[case] expected: &str) {
+        assert_eq!(slugify(s), expected);
+        // check conversion is idempotent
+        assert_eq!(slugify(slugify(s)), expected);
+    }
+}

@@ -1,5 +1,6 @@
 use buildbtw::{
     api::builds::{self, ListBuildsResponse},
+    buildspace::BuildspaceSlug,
     package::BuildStatus,
 };
 use color_eyre::{Result, eyre::Context};
@@ -9,7 +10,7 @@ use tracing::instrument;
 pub async fn list(
     client: &super::Client,
     status: Option<BuildStatus>,
-    buildspace_name: String,
+    buildspace_name: BuildspaceSlug,
     max_results: Option<u64>,
 ) -> Result<ListBuildsResponse> {
     let resp = client

@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::{db_fields::TxtUuid, entities::iterations};
+use crate::{buildspace, db_fields::TxtUuid, entities::iterations};
 
 /// A logical grouping of package repositories and build configurations.
 ///
@@ -17,7 +17,7 @@ pub struct Model {
     pub created_at: time::OffsetDateTime,
 
     #[sea_orm(unique)]
-    pub name: String,
+    pub name: buildspace::BuildspaceSlug,
 
     #[sea_orm(has_many)]
     pub iterations: HasMany<iterations::Entity>,

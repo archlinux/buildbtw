@@ -1,3 +1,4 @@
+use buildbtw::buildspace::BuildspaceSlug;
 use buildbtw::db_fields::TxtUuid;
 use buildbtw::dependency_graph::BuildNode;
 use buildbtw::entities;
@@ -19,7 +20,8 @@ async fn create_buildspace_with_iteration(
     tx: &DatabaseTransaction,
     name: &str,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
-    let buildspace = queries::buildspaces::insert(name.to_string())
+    let buildspace_slug = BuildspaceSlug::try_from(name)?;
+    let buildspace = queries::buildspaces::insert(buildspace_slug.clone())
         .exec_with_returning(tx)
         .await?;
     let iteration = queries::iterations::insert(
@@ -151,7 +153,7 @@ async fn test_list_builds_by_status_and_namespace(
         .typed_get(&api::builds::ListByStatus {})
         .add_query_params(api::builds::ListByStatusQuery {
             status,
-            buildspace_name: Some("target".to_string()),
+            buildspace_name: BuildspaceSlug::try_from("target").ok(),
             max_results: None,
         })
         .await;
@@ -187,7 +189,7 @@ async fn test_list_builds_max_results(#[future(awt)] ctx: TestCtx) -> Result<()>
         .typed_get(&api::builds::ListByStatus {})
         .add_query_params(api::builds::ListByStatusQuery {
             status: None,
-            buildspace_name: Some("buildspace".to_string()),
+            buildspace_name: BuildspaceSlug::try_from("buildspace").ok(),
             max_results: Some(2),
         })
         .await;
@@ -228,7 +230,7 @@ async fn test_list_builds_total_count(
         .typed_get(&api::builds::ListByStatus {})
         .add_query_params(api::builds::ListByStatusQuery {
             status: None,
-            buildspace_name: Some("buildspace".to_string()),
+            buildspace_name: BuildspaceSlug::try_from("buildspace").ok(),
             max_results,
         })
         .await;

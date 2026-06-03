@@ -28,7 +28,7 @@ pub async fn list(
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<Json<api::builds::ListBuildsResponse>> {
     if let Some(buildspace_name) = &buildspace_name {
-        let buildspace_exists = queries::buildspaces::by_name(buildspace_name)
+        let buildspace_exists = queries::buildspaces::by_name(buildspace_name.clone())
             .exists(&tx)
             .await?;
 
@@ -37,14 +37,14 @@ pub async fn list(
         }
     }
 
-    let builds = queries::builds::list(status, buildspace_name.as_deref(), max_results)
+    let builds = queries::builds::list(status, buildspace_name.as_ref(), max_results)
         .all(&tx)
         .await?
         .into_iter()
         .map(Into::into)
         .collect();
 
-    let total_build_count = queries::builds::list(status, buildspace_name.as_deref(), None)
+    let total_build_count = queries::builds::list(status, buildspace_name.as_ref(), None)
         .count(&tx)
         .await?;
 
