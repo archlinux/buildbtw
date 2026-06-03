@@ -87,6 +87,7 @@ pub fn insert_builds_with_dependencies(
             commit_hash: Set(build.commit_hash),
             status: Set(status),
             version: Set(build.version),
+            dispatched_to: Set(None),
         });
 
         node_index_to_build_uuid.insert(node_index, id);
@@ -163,4 +164,15 @@ pub fn pending(iteration_id: Option<Uuid>) -> Select<builds::Entity> {
     }
 
     query
+}
+
+#[must_use]
+pub fn dispatch_to_local_executor(build_id: TxtUuid) -> UpdateOne<builds::ActiveModel> {
+    let model = builds::ActiveModel {
+        id: Unchanged(build_id),
+        status: Set(package::BuildStatus::Scheduled),
+        dispatched_to: Set(Some(builds::DispatchedTo::Local)),
+        ..Default::default()
+    };
+    builds::Entity::update(model)
 }

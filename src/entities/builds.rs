@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{api, dependency_graph, git, package};
 use camino::Utf8PathBuf;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::{api, dependency_graph, git, package};
 use crate::{db_fields::TxtUuid, entities::iterations};
 
 /// A single package build job within an iteration.
@@ -32,6 +32,7 @@ pub struct Model {
     pub branch_name: git::BranchName,
     pub commit_hash: git::CommitHash,
     pub status: package::BuildStatus,
+    pub dispatched_to: Option<DispatchedTo>,
     pub version: package::Version,
 
     #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
@@ -45,6 +46,21 @@ pub struct Model {
     pub depends_on: HasMany<Entity>,
     #[sea_orm(self_ref, via = "build_dependencies", reverse)]
     pub depended_on_by: HasMany<Entity>,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    derive_more::Display,
+    derive_more::FromStr,
+    sea_orm::DeriveValueType,
+)]
+#[sea_orm(value_type = "String")]
+pub enum DispatchedTo {
+    /// The local executor will query the database and pick up builds with this value and the `Scheduled` status.
+    Local,
 }
 
 impl From<Model> for api::builds::Build {
