@@ -5,16 +5,16 @@
 
 use std::process::ExitCode;
 
-use buildbtw::executor::{
-    args::{self, Command},
-    cleanup, prepare, run,
-};
+use args::{Args, Command, RunArgs, RunStage};
+use buildbtw::executor::{cleanup, config, prepare, run};
 use clap::Parser;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::OptionExt};
+
+mod args;
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let args = args::Args::parse();
+    let args = Args::parse();
 
     if let Err(error) = execute(args.clone()).await {
         eprintln!("{error:?}");
@@ -29,16 +29,42 @@ async fn main() -> ExitCode {
 ///
 /// The execution dispatcher also takes care of setting up the execution environment
 /// like telemetry, error report handler etc.
-async fn execute(args: args::Args) -> Result<()> {
+async fn execute(args: Args) -> Result<()> {
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
     match args.command.clone() {
         Command::Config(config_args) => args::config(&config_args)?,
-        Command::Prepare => prepare::prepare(args).await?,
-        Command::Run(run_args) => run::run(args, run_args).await?,
+        Command::Prepare => prepare::prepare(args.ssh_timeout).await?,
+        Command::Run(run_args) => run(args, run_args).await?,
         Command::Cleanup => cleanup::cleanup().await?,
     }
 
+    Ok(())
+}
+
+/// Runs a specific action from the run stage.
+///
+/// The run stage is executed multiple times, because it’s split into sub stages.
+/// STDOUT and STDERR returned from this executable prints to the job log.
+///
+/// <https://docs.gitlab.com/runner/executors/custom/#run>
+pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
+    let bbtw_config = args
+        .clone()
+        .bbtw
+        .map(config::BbtwConfig::try_from)
+        .transpose()?
+        .ok_or_eyre("Missing BBTW_TOKEN secret")?;
+
+    match run_args.stage.clone() {
+        RunStage::GetSources(get_sources_args) => {
+            run::get_sources(&run_args.script_path, get_sources_args.into()).await?;
+        }
+        RunStage::BuildScript(build_script_args) => {
+            run::build_script(bbtw_config, args.ssh_timeout, build_script_args.into()).await?;
+        }
+        _ => tracing::info!("Unhandled run stage: {:?}", run_args.stage),
+    }
     Ok(())
 }

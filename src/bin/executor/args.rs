@@ -1,11 +1,8 @@
+use buildbtw::{executor::config, package::KnownArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::Context};
-use redact::Secret;
 use url::Url;
 use uuid::Uuid;
-
-use crate::executor::config::BuildConfig;
-use crate::package::KnownArchitecture;
 
 #[derive(Debug, Clone, clap::Parser)]
 #[command(name = "buildbtw executor", author, about, version)]
@@ -175,6 +172,12 @@ pub struct GetSourcesArgs {
     pub builds_dir: Utf8PathBuf,
 }
 
+impl From<GetSourcesArgs> for config::RunGetSources {
+    fn from(GetSourcesArgs { builds_dir }: GetSourcesArgs) -> Self {
+        config::RunGetSources { builds_dir }
+    }
+}
+
 #[derive(Debug, Clone, clap::Args)]
 pub struct BuildScriptArgs {
     /// Directory of the project that will be built
@@ -212,9 +215,32 @@ pub struct BuildScriptArgs {
     pub api_server_url: Option<Url>,
 }
 
-impl BuildConfig {
-    #[must_use]
-    pub fn from_args(args: &ConfigArgs) -> Self {
+impl From<BuildScriptArgs> for config::RunBuildScript {
+    fn from(
+        BuildScriptArgs {
+            ci_project_dir,
+            buildspace_slug,
+            iteration_seqid,
+            architecture,
+            pacman_repository_base_url,
+            build_id,
+            api_server_url,
+        }: BuildScriptArgs,
+    ) -> Self {
+        config::RunBuildScript {
+            ci_project_dir,
+            buildspace_slug,
+            iteration_seqid,
+            architecture,
+            pacman_repository_base_url,
+            build_id,
+            api_server_url,
+        }
+    }
+}
+
+impl From<ConfigArgs> for config::BuildConfig {
+    fn from(args: ConfigArgs) -> Self {
         let builds_dir = args
             .builds_dir
             .join(format!("{}", args.ci_concurrent_project_id))
@@ -236,7 +262,7 @@ impl BuildConfig {
 ///
 /// <https://docs.gitlab.com/runner/executors/custom/#config>
 pub fn config(args: &ConfigArgs) -> Result<()> {
-    let build_config = BuildConfig::from_args(args);
+    let build_config = config::BuildConfig::from(args.clone());
     let json =
         serde_json::to_string_pretty(&build_config).wrap_err("Failed to serialize build config")?;
     println!("{json}");
@@ -260,22 +286,17 @@ pub struct BbtwArgs {
     bbtw_token_path: Option<Utf8PathBuf>,
 }
 
-impl TryFrom<BbtwArgs> for BbtwConfig {
-    fn try_from(value: BbtwArgs) -> Result<BbtwConfig> {
-        let token = crate::external_secrets::get_required(
+impl TryFrom<BbtwArgs> for config::BbtwConfig {
+    fn try_from(value: BbtwArgs) -> Result<config::BbtwConfig> {
+        let token = buildbtw::external_secrets::get_required(
             "BUILDBTW_TOKEN",
             value.bbtw_token_path.as_deref(),
         )?;
 
-        Ok(BbtwConfig { token })
+        Ok(config::BbtwConfig { token })
     }
 
     type Error = color_eyre::eyre::Error;
-}
-
-#[derive(Debug, Clone)]
-pub struct BbtwConfig {
-    pub token: Secret<String>,
 }
 
 #[cfg(test)]

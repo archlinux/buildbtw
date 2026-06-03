@@ -1,9 +1,55 @@
 use camino::Utf8PathBuf;
+use redact::Secret;
 use serde::Serialize;
+use url::Url;
+use uuid::Uuid;
+
+use crate::package::KnownArchitecture;
 
 #[derive(Debug, Serialize)]
 pub struct BuildConfig {
     pub builds_dir: Utf8PathBuf,
     /// Non-optional directory provided by the gitlab runner. Allows caching stuff between separate runs. Currently unused.
     pub cache_dir: Utf8PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct RunBuildScript {
+    /// Directory of the project that will be built
+    pub ci_project_dir: Utf8PathBuf,
+
+    /// Buildspace slug
+    pub buildspace_slug: Option<String>,
+
+    /// Iteration sequence-id
+    pub iteration_seqid: Option<u32>,
+
+    /// Build architecture
+    pub architecture: Option<KnownArchitecture>,
+
+    /// Base URL of the pacman repository that should be injected
+    ///
+    /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
+    /// If no value is provided, no pacman repository will be injected into the build.
+    pub pacman_repository_base_url: Option<Url>,
+
+    /// Build uuid
+    pub build_id: Option<Uuid>,
+
+    /// Base URL of the output artifacts collector endpoint that retrieves build results
+    ///
+    /// If no value is provided, the produced output artifacts will not be uploaded.
+    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
+    pub api_server_url: Option<Url>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RunGetSources {
+    /// Directory that stores build artifacts
+    pub builds_dir: Utf8PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct BbtwConfig {
+    pub token: Secret<String>,
 }

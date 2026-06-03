@@ -10,33 +10,15 @@ use tokio::{fs, process::Command};
 use tokio_util::io::ReaderStream;
 use url::Url;
 
-use crate::executor::{
-    args::{Args, BbtwConfig, BuildScriptArgs, GetSourcesArgs, RunArgs, RunStage},
-    shell::ShellScripts,
-};
-
-/// Runs a specific action from the run stage.
-///
-/// The run stage is executed multiple times, because it’s split into sub stages.
-/// STDOUT and STDERR returned from this executable prints to the job log.
-///
-/// <https://docs.gitlab.com/runner/executors/custom/#run>
-pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
-    match run_args.stage.clone() {
-        RunStage::GetSources(get_sources_args) => {
-            run_get_sources(run_args, get_sources_args).await?;
-        }
-        RunStage::BuildScript(build_script_args) => {
-            run_build_script(args, run_args, build_script_args).await?;
-        }
-        _ => tracing::info!("Unhandled run stage: {:?}", run_args.stage),
-    }
-    Ok(())
-}
+use super::shell::ShellScripts;
+use crate::executor::config;
 
 /// Prepares the Git configuration, and clone/fetch the repository.
-async fn run_get_sources(run_args: RunArgs, get_sources_args: GetSourcesArgs) -> Result<()> {
-    let mut cmd = Command::new(run_args.script_path);
+pub async fn get_sources(
+    script_path: &Utf8Path,
+    get_sources_args: config::RunGetSources,
+) -> Result<()> {
+    let mut cmd = Command::new(script_path);
     cmd.current_dir(get_sources_args.builds_dir)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
@@ -58,10 +40,10 @@ async fn run_get_sources(run_args: RunArgs, get_sources_args: GetSourcesArgs) ->
 ///
 /// The output artifacts are published to the buildbtw collector endpoint which
 /// manages the results.
-async fn run_build_script(
-    args: Args,
-    _run_args: RunArgs,
-    build_script_args: BuildScriptArgs,
+pub async fn build_script(
+    bbtw_config: config::BbtwConfig,
+    ssh_timeout: u32,
+    build_script_args: config::RunBuildScript,
 ) -> Result<()> {
     let pacman_repository_url: Option<Url> =
         match build_script_args.pacman_repository_base_url.clone() {
@@ -101,7 +83,7 @@ async fn run_build_script(
         &build_script_args.ci_project_dir,
         output_dir.path(),
         pacman_repository_url,
-        args.ssh_timeout,
+        ssh_timeout,
     )
     .await?;
     print_dir_content(output_dir.path()).await?;
@@ -110,7 +92,7 @@ async fn run_build_script(
     if let Some(collector_base_url) = build_script_args.api_server_url.clone() {
         let http_client = reqwest::Client::new();
         upload_package_artifacts(
-            &args,
+            bbtw_config,
             &build_script_args,
             &http_client,
             output_dir.path(),
@@ -149,10 +131,7 @@ pub async fn build_project_dir(
         "/var/lib/archbuild:30",
     ])
     .args(["--ssh-timeout", &ssh_timeout.to_string()])
-    .args([
-        "--volume",
-        &format!("{}:/mnt/bin:ro", bin_dir.path().as_std_path().display()),
-    ])
+    .args(["--volume", &format!("{}:/mnt/bin:ro", bin_dir.path())])
     .args(["--volume", &format!("{project_dir}:/mnt/src_repo:ro")])
     .args(["--volume", &format!("{output_dir}:/mnt/output")])
     .arg("--")
@@ -180,8 +159,8 @@ pub async fn build_project_dir(
 /// Uploads all package artifacts inside the given build output directory to the
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
-    args: &Args,
-    build_script_args: &BuildScriptArgs,
+    bbtw_config: config::BbtwConfig,
+    build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
     output_dir: &Utf8Path,
     collector_base_url: &Url,
@@ -194,7 +173,7 @@ async fn upload_package_artifacts(
             && file.is_file()
         {
             upload_package_artifact(
-                args,
+                &bbtw_config,
                 build_script_args,
                 http_client,
                 &file,
@@ -211,8 +190,8 @@ async fn upload_package_artifacts(
 
 /// Uploads a single passed package artifact to the buildbtw collector endpoint.
 async fn upload_package_artifact(
-    args: &Args,
-    build_script_args: &BuildScriptArgs,
+    bbtw_config: &config::BbtwConfig,
+    build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
     artifact_path: &Utf8PathBuf,
     collector_base_url: &Url,
@@ -242,12 +221,6 @@ async fn upload_package_artifact(
     let artifact_bytes = artifact_file.metadata().await?.len();
 
     // Extract API secret from bbtw config
-    let bbtw_config = args
-        .clone()
-        .bbtw
-        .map(BbtwConfig::try_from)
-        .transpose()?
-        .ok_or_eyre("Missing BBTW_TOKEN secret")?;
     let token = bbtw_config.token.expose_secret();
 
     // Wrap stream in 2MB chunks for chunked transfer.
