@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::ContextCompat};
 use url::Url;
 
@@ -13,9 +14,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(buildbtw_server_url: Url) -> Result<Client> {
+    pub async fn new(
+        buildbtw_server_url: Url,
+        override_state_dir: Option<Utf8PathBuf>,
+    ) -> Result<Client> {
         // Get auth token
-        let auth_token = buildbtw::bbtw::auth::Token::read()
+        let auth_token = buildbtw::bbtw::auth::Token::read(override_state_dir)
             .await?
             .wrap_err("Please log in first.")?;
         let auth_token = auth_token.secret_token.expose_secret();

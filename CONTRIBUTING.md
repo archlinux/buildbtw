@@ -58,11 +58,15 @@ When writing tests for HTTP endpoints, make sure to include the following edge c
 - Ensure deletion works, especially when all potential relationships are present
 - Ensure foreign key constraints are present and enforced
 
+We use `insta` for snapshot testing where appropriate, e.g. for CLI output.
+You can run `just update-test-snapshots` to update the expected snapshot values.
+
 Test locations:
 
 - Unit tests go into the same file as the code they are testing
-- Integration tests go in the `tests/` dir inside a binary crate (e.g. `src/bin/backend/tests/`)
+- Integration tests go in the root-level `tests/` dir
 - End-to-end tests using a headless browser go in the root-level `tests/` dir
+- Snapshots created by insta will go into a `snapshots` dir next to the test with the snapshot assertion
 
 ## Writing routes
 

@@ -1,21 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
-use buildbtw::buildspace::BuildspaceSlug;
+use buildbtw::{
+    dependency_graph::{BuildDependency, BuildGraph, BuildGraphs, BuildNode},
+    entities::{build_dependencies, builds},
+    package, queries,
+};
 use color_eyre::Result;
 use rstest::rstest;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{
-    ColumnTrait, DatabaseTransaction, EntityTrait, PaginatorTrait, QueryFilter, SqlErr,
-    TransactionTrait,
-};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, SqlErr, TransactionTrait};
 use uuid::Uuid;
 
-use buildbtw::{
-    dependency_graph::{BuildDependency, BuildGraph, BuildGraphs, BuildNode},
-    entities::{self, build_dependencies, builds},
-    package, queries,
-};
-
+use crate::factories;
 use crate::test_ctx::{TestCtx, ctx};
 
 fn build_node(pkgbase: &str) -> Result<BuildNode> {
@@ -31,32 +27,13 @@ fn build_node(pkgbase: &str) -> Result<BuildNode> {
     })
 }
 
-async fn create_buildspace_with_iteration(
-    tx: &DatabaseTransaction,
-) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
-    let buildspace_slug = BuildspaceSlug::try_from("test")?;
-    let buildspace = queries::buildspaces::insert(buildspace_slug)
-        .exec_with_returning(tx)
-        .await?;
-    let iteration = queries::iterations::insert(
-        buildspace.id.0,
-        1u32,
-        Vec::new().into(),
-        entities::iterations::NewIterationReason::FirstIteration,
-    )
-    .exec_with_returning(tx)
-    .await?;
-
-    Ok((buildspace, iteration))
-}
-
 #[rstest]
 #[tokio::test]
 async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
     // Create build graph
     let mut graph = BuildGraph::new();
@@ -136,7 +113,7 @@ async fn test_unique_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
     // Create build graph
     let mut graph = BuildGraph::new();
@@ -178,7 +155,7 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
     // Create build graph with two builds, without edges
     let mut graph = BuildGraph::new();
@@ -242,7 +219,7 @@ async fn test_read_diff_graph_from_db(#[future(awt)] ctx: TestCtx) -> Result<()>
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
     // Create build graph
     let mut old_graph = BuildGraph::new();
@@ -323,7 +300,7 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = create_buildspace_with_iteration(&tx).await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
     // Create build graph with two builds, without edges
     let mut graph = BuildGraph::new();

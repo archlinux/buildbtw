@@ -27,7 +27,10 @@ pub fn init(verbose: u8) -> Result<()> {
     // Custom color_eyre config so that we hide the env nagging section to get cleaner output in the
     // default case.
     eyre_builder.panic_section("If you believe this is a program error, consider reporting a bug at https://gitlab.archlinux.org/archlinux/buildbtw")
+        // Reduce noise when verbosity level is 0.
         .display_env_section(verbose != 0)
+        // Also reduce noise, and prevent line numbers causing test snapshots to change often.
+        .display_location_section(verbose != 0)
         .install()?;
 
     Ok(())

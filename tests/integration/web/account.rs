@@ -1,14 +1,13 @@
 use std::time::Duration;
 
+use buildbtw::{entities::sessions::ClientType, queries, web};
+use buildbtw::{from_request, input};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
 use rstest::rstest;
 use sea_orm::TransactionTrait;
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
-
-use buildbtw::{entities::sessions::ClientType, queries, web};
-use buildbtw::{from_request, input};
 
 use crate::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
 
@@ -17,7 +16,6 @@ use crate::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
 async fn test_e2e_account_logout() -> Result<()> {
     // Exercise the whole OIDC logout process using a real browser
     let ctx_with_oidc = TestCtxBuilder::new()
-        .with_http_transport()
         .with_geckodriver()
         .with_authelia()
         .build()

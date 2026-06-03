@@ -1,16 +1,12 @@
+use std::io::{BufRead, BufReader, Read};
+use std::process::{Command, ExitStatus};
+
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use axum_test::TestServer;
-use camino_tempfile::Utf8TempDir;
-use color_eyre::Result;
-use color_eyre::eyre::Context;
-use redact::Secret;
-use sea_orm::DatabaseConnection;
-use thirtyfour::CapabilitiesHelper;
-use url::Url;
-
+use buildbtw::bbtw::auth::token_path;
 use buildbtw::{
-    authelia, db,
+    authelia, bbtw, db,
     entities::{
         sessions::{self, ClientType},
         user_roles,
@@ -20,8 +16,23 @@ use buildbtw::{
     templates,
     utils::free_port,
 };
+use camino::Utf8PathBuf;
+use camino_tempfile::Utf8TempDir;
+use color_eyre::Result;
+use color_eyre::eyre::Context;
+use redact::Secret;
+use sea_orm::DatabaseConnection;
+use thirtyfour::CapabilitiesHelper;
+use time::OffsetDateTime;
+use url::Url;
 
 use crate::geckodriver::{self, ProcessGuard};
+
+pub struct BbtwOutput {
+    pub status: ExitStatus,
+    pub stdout: String,
+    pub stderr: String,
+}
 
 /// Comprehensive test support. Can either be created by using the [ctx] rstest
 /// fixture for the common basic use case, or by using [TestCtxBuilder] for
@@ -72,6 +83,63 @@ impl TestCtx {
             self.state.cookie_encryption_key.expose_secret().clone(),
         ))
     }
+
+    pub fn client_state_path(&self) -> Utf8PathBuf {
+        self.data_dir.path().join("bbtw_state")
+    }
+
+    /// Write the admin session token to the CLI client's state directory, effectively
+    /// logging in the admin user into the CLI.
+    pub async fn login_bbtw(self) -> Self {
+        let secret_token = self.admin_session.secret_token.0.clone();
+        let auth_token = bbtw::auth::Token {
+            created_at: OffsetDateTime::now_utc(),
+            secret_token,
+        };
+
+        auth_token
+            .persist(&token_path(Some(self.client_state_path())).unwrap())
+            .await
+            .expect("Failed to write secret token");
+
+        self
+    }
+
+    const BBTW_BINARY: &str = env!("CARGO_BIN_EXE_bbtw");
+
+    /// Create a new [std::process::Command] for running the `bbtw` binary in a test.
+    ///
+    /// Configures Server URL, disables logging and sets the state directory to a temporary directory.
+    /// Stderr and Stdout are sent to new pipes rather than inherited.
+    pub fn bbtw_cmd(&self) -> Command {
+        let mut cmd = Command::new(Self::BBTW_BINARY);
+
+        cmd.arg("--server-url")
+            .arg(self.server_url.to_string())
+            .arg("--state-dir")
+            .arg(self.client_state_path())
+            // Reset RUST_LOG to prevent tracing output polluting our snapshots
+            .env("RUST_LOG", "")
+            .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped());
+
+        cmd
+    }
+}
+
+async fn stream_output<R: Read + Send + 'static>(pipe: R, description: &str) -> String {
+    let description = description.to_string();
+    let join_handle = tokio::task::spawn_blocking(move || {
+        let mut buf = String::new();
+        for line in BufReader::new(pipe).lines().map_while(Result::ok) {
+            eprintln!("[{description}] {line}");
+            buf.push_str(&line);
+            buf.push('\n');
+        }
+        buf
+    });
+
+    join_handle.await.expect("Failed to join")
 }
 
 /// Extention trait to create a [`cookie::CookieJar`] with encrypted values.
@@ -129,7 +197,6 @@ pub async fn make_admin_session(db: DatabaseConnection) -> Result<sessions::Mode
 pub struct TestCtxBuilder {
     enable_authelia: bool,
     enable_geckodriver: bool,
-    use_http_transport: bool,
     data_dir: Utf8TempDir,
 }
 
@@ -142,7 +209,6 @@ impl TestCtxBuilder {
         Self {
             enable_authelia: false,
             enable_geckodriver: false,
-            use_http_transport: false,
             data_dir: test_data_dir,
         }
     }
@@ -157,13 +223,6 @@ impl TestCtxBuilder {
     /// Run a geckodriver process for headless browser-based end-to-end tests.
     pub fn with_geckodriver(mut self) -> Self {
         self.enable_geckodriver = true;
-        self
-    }
-
-    /// Use [axum_test]s HTTP transport based on real ports and TCP packets,
-    /// instead of directly calling axum handler functions like usual.
-    pub fn with_http_transport(mut self) -> Self {
-        self.use_http_transport = true;
         self
     }
 
@@ -245,16 +304,12 @@ impl TestCtxBuilder {
 
         templates::initialize("./".into()).unwrap();
 
-        let server = if self.use_http_transport {
-            TestServer::builder()
-                .http_transport_with_ip_port(
-                    Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
-                    Some(testserver_port),
-                )
-                .build(router::new("./".into()).with_state(state.clone()))
-        } else {
-            TestServer::new(router::new("./".into()).with_state(state.clone()))
-        };
+        let server = TestServer::builder()
+            .http_transport_with_ip_port(
+                Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
+                Some(testserver_port),
+            )
+            .build(router::new("./".into()).with_state(state.clone()));
 
         let admin_session = make_admin_session(db).await.unwrap();
 
@@ -276,4 +331,24 @@ impl TestCtxBuilder {
 #[rstest::fixture]
 pub async fn ctx() -> TestCtx {
     TestCtxBuilder::new().build().await
+}
+
+/// Spawn the command, stream stdout/stderr in the background, and wait for completion.
+/// This dance is required to allow test output capturing to work as expected.
+/// See https://github.com/rust-lang/rust/issues/92370 and https://github.com/rust-lang/rust/issues/90785
+pub async fn run_cmd(cmd: &mut Command) -> Result<BbtwOutput> {
+    let mut child = cmd.spawn()?;
+
+    let stdout_join = stream_output(child.stdout.take().expect("stdout is None"), "cmd stdout");
+    let stderr_join = stream_output(child.stderr.take().expect("stderr is None"), "cmd stderr");
+
+    let status = tokio::task::spawn_blocking(move || child.wait()).await??;
+    let stdout = stdout_join.await;
+    let stderr = stderr_join.await;
+
+    Ok(BbtwOutput {
+        status,
+        stdout,
+        stderr,
+    })
 }

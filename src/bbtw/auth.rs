@@ -1,6 +1,9 @@
-use color_eyre::{Result, eyre::ContextCompat};
+use camino::{Utf8Path, Utf8PathBuf};
+use color_eyre::{
+    Result,
+    eyre::{Context, ContextCompat},
+};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use time::OffsetDateTime;
 use tokio::fs;
 use tracing::instrument;
@@ -17,11 +20,13 @@ pub struct Token {
 impl Token {
     /// Read an auth token from disk if it exists
     #[instrument]
-    pub async fn read() -> Result<Option<Token>> {
-        let path = token_path()?;
+    pub async fn read(override_state_dir: Option<Utf8PathBuf>) -> Result<Option<Token>> {
+        let path = token_path(override_state_dir)?;
         tracing::debug!(?path, "Reading token");
         if path.exists() {
-            let auth_token_str = fs::read_to_string(path).await?;
+            let auth_token_str = fs::read_to_string(path)
+                .await
+                .wrap_err("Could not read auth token")?;
             let auth_token: Token = serde_json::from_str(&auth_token_str)?;
             Ok(Some(auth_token))
         } else {
@@ -32,7 +37,7 @@ impl Token {
     /// Write this token to disk.
     ///
     /// Writes to a file in the XDG state directory.
-    pub async fn persist(&self, path: &Path) -> Result<()> {
+    pub async fn persist(&self, path: &Utf8Path) -> Result<()> {
         let token_str = serde_json::to_string(self)?;
         tracing::debug!(?path, "Writing token");
 
@@ -48,11 +53,19 @@ impl Token {
 /// Return the path to the login token
 ///
 /// It doesn't guarantee that it exists, it's just the path where it would be at.
-pub fn token_path() -> Result<PathBuf> {
-    let project_dir = xdg_dirs::new()?;
-    Ok(project_dir
-        .state_dir()
-        .wrap_err("Missing XDG state dir")?
-        .join("auth_token")
-        .to_path_buf())
+pub fn token_path(override_state_dir: Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
+    let resolved_path = if let Some(x) = override_state_dir {
+        x
+    } else {
+        let project_dir = xdg_dirs::new()?;
+        let state_dir = project_dir
+            .state_dir()
+            .wrap_err("Missing XDG state dir")?
+            .to_path_buf();
+
+        Utf8PathBuf::try_from(state_dir)?
+    }
+    .join("auth_token");
+
+    Ok(resolved_path)
 }

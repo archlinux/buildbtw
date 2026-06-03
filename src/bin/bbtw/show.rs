@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use buildbtw::{api::builds::ListBuildsResponse, buildspace::BuildspaceSlug, package::BuildStatus};
+use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
 use sea_orm::Iterable;
@@ -11,12 +12,18 @@ use crate::api;
 
 pub async fn show(
     server_url: Url,
+    override_state_dir: Option<Utf8PathBuf>,
     buildspace_name: BuildspaceSlug,
     max_results: Option<u64>,
     #[cfg(debug_assertions)] show_demo_data: bool,
 ) -> Result<()> {
-    let mut builds =
-        all_builds_grouped_by_status(server_url, &buildspace_name, max_results).await?;
+    let mut builds = all_builds_grouped_by_status(
+        server_url,
+        override_state_dir,
+        &buildspace_name,
+        max_results,
+    )
+    .await?;
 
     #[cfg(debug_assertions)]
     add_demo_data(&mut builds, show_demo_data)?;
@@ -144,10 +151,11 @@ fn add_demo_data(
 
 async fn all_builds_grouped_by_status(
     server_url: Url,
+    override_state_dir: Option<Utf8PathBuf>,
     buildspace_name: &BuildspaceSlug,
     max_results: Option<u64>,
 ) -> Result<HashMap<BuildStatus, ListBuildsResponse>> {
-    let client = api::Client::new(server_url).await?;
+    let client = api::Client::new(server_url, override_state_dir).await?;
     let all_statuses: Vec<BuildStatus> = BuildStatus::iter().collect();
     let builds: HashMap<BuildStatus, ListBuildsResponse> = futures::stream::iter(all_statuses)
         .map(async |status| {

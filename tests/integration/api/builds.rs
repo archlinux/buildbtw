@@ -1,99 +1,21 @@
+use std::collections::HashSet;
+
+use buildbtw::api;
 use buildbtw::buildspace::BuildspaceSlug;
 use buildbtw::db_fields::TxtUuid;
 use buildbtw::dependency_graph::BuildNode;
 use buildbtw::entities;
+use buildbtw::package;
 use buildbtw::queries;
 use color_eyre::eyre::Result;
 use reqwest::StatusCode;
 use rstest::rstest;
-use std::collections::HashSet;
-use uuid::Uuid;
-
-use buildbtw::api;
-use buildbtw::package;
 use sea_orm::DatabaseTransaction;
 use sea_orm::TransactionTrait;
+use uuid::Uuid;
 
+use crate::factories;
 use crate::test_ctx::{TestCtx, ctx};
-
-async fn create_buildspace_with_iteration(
-    tx: &DatabaseTransaction,
-    name: &str,
-) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
-    let buildspace_slug = BuildspaceSlug::try_from(name)?;
-    let buildspace = queries::buildspaces::insert(buildspace_slug.clone())
-        .exec_with_returning(tx)
-        .await?;
-    let iteration = queries::iterations::insert(
-        buildspace.id.0,
-        1,
-        Vec::new().into(),
-        entities::iterations::NewIterationReason::FirstIteration,
-    )
-    .exec_with_returning(tx)
-    .await?;
-
-    Ok((buildspace, iteration))
-}
-
-async fn create_build(
-    tx: &DatabaseTransaction,
-    iteration_id: TxtUuid,
-    pkgbase: &str,
-) -> Result<entities::builds::Model> {
-    let build_node = BuildNode {
-        pkgbase: pkgbase.parse()?,
-        commit_hash: "aaaaaa".parse()?,
-        branch_name: pkgbase.try_into()?,
-        package_file_names: [(pkgbase.parse()?, "dummy.tar.gz".parse()?)]
-            .iter()
-            .cloned()
-            .collect(),
-        version: "2.1-0".parse()?,
-    };
-
-    Ok(queries::builds::insert(
-        build_node,
-        package::KnownArchitecture::X86_64,
-        iteration_id.into(),
-    )
-    .exec_with_returning(tx)
-    .await?)
-}
-
-async fn create_split_package_build(
-    tx: &DatabaseTransaction,
-    iteration_id: TxtUuid,
-    pkgbase: &str,
-) -> Result<entities::builds::Model> {
-    let build_node = BuildNode {
-        pkgbase: pkgbase.parse()?,
-        commit_hash: "aaaaaa".parse()?,
-        branch_name: pkgbase.try_into()?,
-        package_file_names: [
-            (
-                format!("{pkgbase}-foo").parse()?,
-                format!("{pkgbase}-foo.tar.gz").parse()?,
-            ),
-            (
-                format!("{pkgbase}-bar").parse()?,
-                format!("{pkgbase}-bar.tar.gz").parse()?,
-            ),
-        ]
-        .iter()
-        .cloned()
-        .collect(),
-        version: "2.1-0".parse()?,
-    };
-
-    Ok(queries::builds::insert(
-        build_node,
-        package::KnownArchitecture::X86_64,
-        iteration_id.into(),
-    )
-    .exec_with_returning(tx)
-    .await?)
-}
 
 /// List builds with various status filters, when no builds exist yet
 #[rstest]
@@ -141,11 +63,11 @@ async fn test_list_builds_by_status_and_namespace(
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
-    let (_, other_iteration) = create_buildspace_with_iteration(&tx, "other").await?;
-    create_build(&tx, other_iteration.id, "other_build").await?;
-    let (_, iteration) = create_buildspace_with_iteration(&tx, "target").await?;
-    let build_one = create_build(&tx, iteration.id, "one").await?;
-    let build_two = create_build(&tx, iteration.id, "two").await?;
+    let (_, other_iteration) = factories::buildspace_with_iteration(&tx, "other").await?;
+    factories::build(&tx, other_iteration.id, "other_build").await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+    let build_one = factories::build(&tx, iteration.id, "one").await?;
+    let build_two = factories::build(&tx, iteration.id, "two").await?;
     tx.commit().await?;
 
     let response = ctx
@@ -177,10 +99,10 @@ async fn test_list_builds_by_status_and_namespace(
 async fn test_list_builds_max_results(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and three builds
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = create_buildspace_with_iteration(&tx, "buildspace").await?;
-    create_build(&tx, iteration.id, "one").await?;
-    create_build(&tx, iteration.id, "two").await?;
-    create_build(&tx, iteration.id, "three").await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    factories::build(&tx, iteration.id, "one").await?;
+    factories::build(&tx, iteration.id, "two").await?;
+    factories::build(&tx, iteration.id, "three").await?;
     tx.commit().await?;
 
     // Get the builds limited to two max_results
@@ -215,12 +137,12 @@ async fn test_list_builds_total_count(
     #[case] max_results: Option<u64>,
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
-    // Create buildspace, iteration and `create_builds` builds.
+    // Create buildspace, iteration and `factories::builds` builds.
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = create_buildspace_with_iteration(&tx, "buildspace").await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
     let pkg_names = ["one", "two", "three"];
     for pkgbase in &pkg_names[..total_builds] {
-        create_build(&tx, iteration.id, pkgbase).await?;
+        factories::build(&tx, iteration.id, pkgbase).await?;
     }
     tx.commit().await?;
 
@@ -262,8 +184,8 @@ async fn test_list_builds_invalid_status(#[future(awt)] ctx: TestCtx) {
 async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let build = create_build(&tx, iteration.id, "one").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
@@ -312,8 +234,8 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
 async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (_buildspace, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let build = create_build(&tx, iteration.id, "one").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
@@ -336,12 +258,46 @@ async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) ->
     Ok(())
 }
 
+async fn create_split_package_build(
+    tx: &DatabaseTransaction,
+    iteration_id: TxtUuid,
+    pkgbase: &str,
+) -> Result<entities::builds::Model> {
+    let build_node = BuildNode {
+        pkgbase: pkgbase.parse()?,
+        commit_hash: "aaaaaa".parse()?,
+        branch_name: pkgbase.try_into()?,
+        package_file_names: [
+            (
+                format!("{pkgbase}-foo").parse()?,
+                format!("{pkgbase}-foo.tar.gz").parse()?,
+            ),
+            (
+                format!("{pkgbase}-bar").parse()?,
+                format!("{pkgbase}-bar.tar.gz").parse()?,
+            ),
+        ]
+        .iter()
+        .cloned()
+        .collect(),
+        version: "2.1-0".parse()?,
+    };
+
+    Ok(queries::builds::insert(
+        build_node,
+        package::KnownArchitecture::X86_64,
+        iteration_id.into(),
+    )
+    .exec_with_returning(tx)
+    .await?)
+}
+
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = create_split_package_build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
@@ -391,8 +347,8 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
 async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let _ = create_build(&tx, iteration.id, "one").await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let _ = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
@@ -422,8 +378,8 @@ async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx)
 async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let build = create_build(&tx, iteration.id, "one").await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
@@ -452,8 +408,8 @@ async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCt
 async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let build = create_build(&tx, iteration.id, "one").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
@@ -494,8 +450,8 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
 async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let build = create_build(&tx, iteration.id, "one").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
@@ -539,8 +495,8 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
 async fn test_download_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let build = create_build(&tx, iteration.id, "one").await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     // Get the artifact download response
@@ -565,8 +521,8 @@ async fn test_download_build_artifact_pkgname_not_found(#[future(awt)] ctx: Test
 async fn test_download_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (_, iteration) = create_buildspace_with_iteration(&tx, "testspace").await?;
-    let _ = create_build(&tx, iteration.id, "one").await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let _ = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     // Get the artifact download response

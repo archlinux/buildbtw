@@ -1,4 +1,5 @@
 use buildbtw::buildspace::BuildspaceSlug;
+use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand};
 use url::Url;
 
@@ -85,6 +86,13 @@ pub struct Args {
         default_value = "https://buildbtw.archlinux.org"
     )]
     pub server_url: Url,
+
+    /// Override default state directory
+    ///
+    /// The location is either set by the `XDG_STATE_HOME` environment variable,
+    /// or by the standard XDG_STATE_HOME directory as a fallback.
+    #[arg(long, env = "BUILDBTW_DATA_DIR")]
+    pub state_dir: Option<Utf8PathBuf>,
 
     #[command(subcommand)]
     pub command: Command,
