@@ -221,7 +221,11 @@ async fn run_server(
 
     let server_state = server_state::ServerState {
         db: db.clone(),
-        oidc: oidc::MaybeConfig::initialize(&server_url, oidc.map(Into::into)).await,
+        oidc: oidc::MaybeConfig::initialize(
+            &server_url,
+            oidc.map(oidc::OidcConfig::try_from).transpose()?,
+        )
+        .await,
         cookie_encryption_key,
         data_dir,
     };

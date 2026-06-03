@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Highlights
 
 - Implement build artifact storage with upload package API (`/api/v1/upload_package`) ([!189](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/189))
+- Remove `--oidc-client-secret` and provide `--oidc-client-secret-path` instead ([!204](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/204))
 
 ### bbtw
 
