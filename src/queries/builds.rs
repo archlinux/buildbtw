@@ -1,16 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{
-    buildspace::BuildspaceSlug,
-    dependency_graph::{BuildGraph, BuildNode},
-    entities::buildspaces,
-    package,
-};
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
     ColumnTrait, EntityLoaderTrait, EntityTrait, Insert, InsertMany, QueryFilter, QuerySelect,
-    RelationTrait, Select, UpdateOne,
+    Select, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -23,25 +17,21 @@ use crate::{
     },
     queries,
 };
+use crate::{
+    dependency_graph::{BuildGraph, BuildNode},
+    package,
+};
 
 /// Return a query returning all builds, optionally filtered by status.
 #[must_use]
 pub fn list(
     status: Option<package::BuildStatus>,
-    buildspace_name: Option<&BuildspaceSlug>,
+    iteration_id: TxtUuid,
     limit: Option<u64>,
 ) -> Select<builds::Entity> {
     let mut query = builds::Entity::find();
 
-    if let Some(buildspace_name) = buildspace_name {
-        query = query
-            .inner_join(iterations::Entity)
-            .join(
-                sea_orm::JoinType::InnerJoin,
-                iterations::Relation::Buildspaces.def(),
-            )
-            .filter(buildspaces::COLUMN.name.eq(buildspace_name.clone()));
-    }
+    query = query.filter(builds::COLUMN.iteration_id.eq(iteration_id));
 
     if let Some(status_filter) = status {
         query = query.filter(builds::COLUMN.status.eq(status_filter));

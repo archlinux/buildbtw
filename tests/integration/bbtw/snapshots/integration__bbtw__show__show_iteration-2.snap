@@ -1,0 +1,8 @@
+---
+source: tests/integration/bbtw/show.rs
+expression: output.stdout
+---
+Showing builds for iteration #1 of buildspace target
+
+Pending builds
+  ● old_pkg (Waiting for dependencies to build)

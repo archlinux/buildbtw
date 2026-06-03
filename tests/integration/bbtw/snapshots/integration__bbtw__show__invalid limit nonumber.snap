@@ -1,0 +1,7 @@
+---
+source: tests/integration/bbtw/show.rs
+expression: output.stderr
+---
+error: invalid value 'nonumber' for '--limit <LIMIT>': limit should either be "no", or a number
+
+For more information, try '--help'.

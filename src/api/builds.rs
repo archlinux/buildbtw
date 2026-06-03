@@ -20,10 +20,13 @@ pub struct ListByStatusQuery {
     pub status: Option<package::BuildStatus>,
 
     /// Only return builds for this buildspace.
-    pub buildspace_name: Option<buildspace::BuildspaceSlug>,
+    pub buildspace_name: buildspace::BuildspaceSlug,
 
     /// Do not return more than this number of builds
     pub max_results: Option<u64>,
+
+    /// Only return builds from this iteration
+    pub iteration_sequence: Option<u32>,
 }
 
 /// A single package build job within an iteration.
@@ -49,6 +52,7 @@ pub struct Build {
 pub struct ListBuildsResponse {
     pub total_build_count: u64,
     pub builds: Vec<Build>,
+    pub iteration_sequence: u32,
 }
 
 /// Upload a built package identitifed by its build-id.

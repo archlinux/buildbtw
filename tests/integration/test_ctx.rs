@@ -105,6 +105,13 @@ impl TestCtx {
         self
     }
 
+    /// Remove the stored auth token.
+    pub async fn logout_bbtw(&self) {
+        bbtw::auth::delete_token(&token_path(Some(self.client_state_path())).unwrap())
+            .await
+            .unwrap();
+    }
+
     const BBTW_BINARY: &str = env!("CARGO_BIN_EXE_bbtw");
 
     /// Create a new [std::process::Command] for running the `bbtw` binary in a test.
@@ -330,7 +337,7 @@ impl TestCtxBuilder {
 /// tests.
 #[rstest::fixture]
 pub async fn ctx() -> TestCtx {
-    TestCtxBuilder::new().build().await
+    TestCtxBuilder::new().build().await.login_bbtw().await
 }
 
 /// Spawn the command, stream stdout/stderr in the background, and wait for completion.
