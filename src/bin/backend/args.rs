@@ -10,7 +10,6 @@ use buildbtw::oidc::OidcConfig;
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail, eyre};
-use redact::Secret;
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -185,7 +184,7 @@ pub struct RunArgs {
 }
 
 #[derive(clap::Args, Debug)]
-#[group(requires_all = ["oidc_client_id", "oidc_client_secret", "oidc_issuer_url", "oidc_issuer_name"])]
+#[group(requires_all = ["oidc_client_id", "oidc_issuer_url", "oidc_issuer_name"])]
 #[expect(
     clippy::struct_field_names,
     reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
@@ -197,14 +196,19 @@ pub struct Oidc {
     #[clap(long, env = "BUILDBTW_OIDC_CLIENT_ID", required = false)]
     pub oidc_client_id: String,
 
-    /// OIDC client secret as configured in your OIDC provider.
-    #[clap(
-        hide_env_values = true,
-        long,
-        env = "BUILDBTW_OIDC_CLIENT_SECRET",
-        required = false
-    )]
-    pub oidc_client_secret: Secret<String>,
+    /// Path to a file containing the OIDC client secret.
+    ///
+    /// The client secret can be passed directly using the `BUILDBTW_OIDC_CLIENT_SECRET` environment variable.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_OIDC_CLIENT_SECRET` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. `$XDG_CONFIG_HOME`/buildbtw/BUILDBTW_OIDC_CLIENT_SECRET`
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "BUILDBTW_OIDC_CLIENT_SECRET", verbatim_doc_comment)]
+    pub oidc_client_secret_path: Option<Utf8PathBuf>,
 
     /// Base URL of the OIDC provider.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_URL", required = false)]
@@ -239,16 +243,23 @@ pub struct Oidc {
     pub oidc_admin_groups: Vec<String>,
 }
 
-impl From<Oidc> for OidcConfig {
-    fn from(value: Oidc) -> Self {
-        Self {
+impl TryFrom<Oidc> for OidcConfig {
+    type Error = color_eyre::eyre::Error;
+
+    fn try_from(value: Oidc) -> Result<Self> {
+        let client_secret = external_secrets::get_required(
+            "BUILDBTW_OIDC_CLIENT_SECRET",
+            value.oidc_client_secret_path.as_deref(),
+        )?;
+
+        Ok(Self {
             client_id: value.oidc_client_id,
-            client_secret: value.oidc_client_secret,
+            client_secret,
             issuer_url: value.oidc_issuer_url,
             issuer_name: value.oidc_issuer_name,
             admin_groups: value.oidc_admin_groups,
             package_maintainer_groups: value.oidc_package_maintainer_groups,
-        }
+        })
     }
 }
 
@@ -299,6 +310,8 @@ pub struct Gitlab {
 }
 
 impl TryFrom<Gitlab> for GitlabConfig {
+    type Error = color_eyre::eyre::Error;
+
     fn try_from(value: Gitlab) -> Result<GitlabConfig> {
         let token = external_secrets::get_required(
             "BUILDBTW_GITLAB_TOKEN",
@@ -312,8 +325,6 @@ impl TryFrom<Gitlab> for GitlabConfig {
             packages_group: value.gitlab_packages_group,
         })
     }
-
-    type Error = color_eyre::eyre::Error;
 }
 
 #[derive(clap::Args, Debug)]
@@ -401,9 +412,7 @@ fn parse_ssh_host_key(s: &str) -> Result<ssh_key::known_hosts::Entry> {
 
 #[cfg(test)]
 mod tests {
-
     use clap::Parser;
-    use redact::Secret;
     use rstest::rstest;
     use url::Url;
 
@@ -468,8 +477,8 @@ mod tests {
             "cert/buildbtw.key",
             "--oidc-client-id",
             "test-client-id",
-            "--oidc-client-secret",
-            "test-client-secret",
+            "--oidc-client-secret-path",
+            "test/client-secret",
             "--oidc-issuer-url",
             "https://auth.example.com",
             "--oidc-issuer-name",
@@ -528,7 +537,10 @@ mod tests {
         // Verify OIDC config is present and has correct values
         let oidc = oidc.expect("OIDC should be present");
         assert_eq!(oidc.oidc_client_id, "test-client-id");
-        assert_eq!(oidc.oidc_client_secret, Secret::from("test-client-secret"));
+        assert_eq!(
+            oidc.oidc_client_secret_path,
+            Some("test/client-secret".into())
+        );
         assert_eq!(
             oidc.oidc_issuer_url,
             Url::parse("https://auth.example.com").unwrap()
