@@ -789,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "buildbtw"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "alpm-srcinfo",
  "alpm-types",
