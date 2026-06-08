@@ -14,7 +14,7 @@ use axum_server::{Handle, tls_rustls::RustlsConfig};
 use buildbtw::authelia;
 use buildbtw::{
     db, external_secrets, gitlab_api, graceful_shutdown::shutdown_signal, oidc, router,
-    server_state, tasks, templates, utils::remove_file_if_exists,
+    schedule_builds, server_state, tasks, templates, utils::remove_file_if_exists,
 };
 use clap::Parser;
 use color_eyre::{
@@ -207,10 +207,10 @@ async fn run_server(
         update_source_repos,
         auto_create_iterations,
         gitlab,
+        data_dir,
+        dispatch_builds_to,
         #[cfg(debug_assertions)]
             authelia_container: _,
-        data_dir,
-        dispatch_builds_to: _,
     }: args::RunArgs,
 ) -> Result<()> {
     // Shared cancellation token to signal graceful shutdown across the application.
@@ -240,9 +240,13 @@ async fn run_server(
     tasks::initialize(
         server_state.clone(),
         cancellation_token.clone(),
-        gitlab_config,
+        gitlab_config.clone(),
         update_source_repos,
         auto_create_iterations,
+        schedule_builds::Config::new(
+            dispatch_builds_to.map(schedule_builds::DispatchBuildsTo::from),
+            gitlab_config,
+        )?,
         db.clone(),
     )?;
 

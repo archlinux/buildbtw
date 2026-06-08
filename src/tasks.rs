@@ -22,7 +22,7 @@ use tracing::{debug, error, info, instrument, trace, warn};
 use crate::entities::user_roles;
 use crate::gitlab_api;
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
-use crate::{iteration_creator, storage};
+use crate::{iteration_creator, schedule_builds, storage};
 
 /// Starts background tasks.
 ///
@@ -35,12 +35,14 @@ use crate::{iteration_creator, storage};
 /// - Iteration creator for updating source repos, creating iterations and calculating build graphs
 /// - Regularly sync OIDC roles from OIDC provider
 /// - Regularly delete expired sessions
+/// - Dispatch builds to local executor or gitlab pipelines
 pub fn initialize(
     state: ServerState,
     token: CancellationToken,
     gitlab_config: Option<gitlab_api::Config>,
     update_source_repos: bool,
     auto_create_iterations: bool,
+    dispatch_builds: Option<schedule_builds::Config>,
     db: DatabaseConnection,
 ) -> Result<()> {
     // If the flag is enabled, and a gitlab config is present, tell the iteration creator to update source repos
@@ -60,12 +62,50 @@ pub fn initialize(
         token.clone(),
     );
 
+    if let Some(dispatch_config) = dispatch_builds {
+        spawn_schedule_builds(state.clone(), token.clone(), dispatch_config);
+    }
+
     spawn_invalidate_old_sessions(state.clone(), token.clone());
 
     // Run OIDC role sync if OIDC is configured
     if let Some(oidc_state) = state.oidc {
         spawn_sync_oidc_roles(state.db, oidc_state, token);
     }
+
+    Ok(())
+}
+
+fn spawn_schedule_builds(
+    state: ServerState,
+    token: CancellationToken,
+    dispatch_config: schedule_builds::Config,
+) {
+    tokio::spawn(async move {
+        let mut every_10_seconds = interval(std::time::Duration::from_secs(10));
+        every_10_seconds.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            tokio::select! {
+                _ = every_10_seconds.tick() => {
+                    if let Err(e) = schedule_all_builds(&state, &dispatch_config).await {
+                        error!(?e, "Failed to dispatch builds");
+                    }
+                }
+                // Stop gracefully when the provided [`CancellationToken`] is cancelled
+                () = token.cancelled() => {
+                    break;
+                }
+            }
+        }
+    });
+}
+
+async fn schedule_all_builds(state: &ServerState, config: &schedule_builds::Config) -> Result<()> {
+    let tx = state.db.begin().await?;
+
+    schedule_builds::schedule_pending_builds(config, &tx).await?;
+
+    tx.commit().await?;
 
     Ok(())
 }
