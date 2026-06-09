@@ -1,4 +1,4 @@
-use buildbtw::{external_secrets, gitlab::GitlabConfig};
+use buildbtw::{external_secrets, gitlab_api::GitlabConfig};
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,

@@ -20,7 +20,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, instrument, warn};
 
 use crate::entities::user_roles;
-use crate::gitlab::GitlabConfig;
+use crate::gitlab_api::GitlabConfig;
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
 use crate::{iteration_creator, storage};
 

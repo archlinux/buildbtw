@@ -2,7 +2,7 @@ use std::env;
 
 use color_eyre::{Result, eyre::OptionExt};
 
-use buildbtw::{external_secrets, gitlab::GitlabConfig, repo_updater, storage};
+use buildbtw::{external_secrets, gitlab_api::GitlabConfig, repo_updater, storage};
 use color_eyre::eyre::Context;
 
 use crate::state::State;

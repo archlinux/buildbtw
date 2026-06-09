@@ -5,7 +5,7 @@ use std::{
 };
 
 use buildbtw::external_secrets;
-use buildbtw::gitlab::GitlabConfig;
+use buildbtw::gitlab_api::GitlabConfig;
 use buildbtw::oidc::OidcConfig;
 
 use camino::Utf8PathBuf;
