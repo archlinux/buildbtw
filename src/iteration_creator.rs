@@ -36,7 +36,7 @@ use std::{
 
 use crate::{
     dependency_graph::{self, BuildGraphs},
-    gitlab_api::GitlabConfig,
+    gitlab_api,
     package::KnownArchitecture,
     repo_updater,
 };
@@ -69,7 +69,7 @@ pub struct Config {
 #[derive(Debug)]
 pub enum RepoUpdateConfig {
     DontUpdate,
-    DoUpdate(GitlabConfig),
+    DoUpdate(gitlab_api::Config),
 }
 
 impl IterationCreator {
@@ -281,7 +281,7 @@ impl IterationCreator {
     async fn update_repos(
         &self,
         gitlab_client: &AsyncGitlab,
-        gitlab_config: GitlabConfig,
+        gitlab_config: gitlab_api::Config,
     ) -> Result<()> {
         // Get the previous update cutoff timestamp
         let source_repos_last_updated = self
