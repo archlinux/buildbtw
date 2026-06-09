@@ -57,8 +57,7 @@ pub enum Command {
         iteration: Option<u32>,
 
         /// Display some non-existent builds for development. Temporary, until we have more ways to modify builds in the actual DB.
-        #[arg(long, action)]
-        #[cfg(debug_assertions)]
+        #[arg(long, action, default_value_t = false)]
         show_demo_builds: bool,
     },
 
