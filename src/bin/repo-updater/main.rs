@@ -6,7 +6,7 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-use buildbtw::{gitlab::GitlabConfig, repo_updater};
+use buildbtw::{gitlab_api::GitlabConfig, repo_updater};
 use clap::Parser;
 use color_eyre::{
     Result,
@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
             .wrap_err("Failed to create GitLab client")?;
 
             // Query changed projects
-            let projects = buildbtw::gitlab::projects::changed_since(
+            let projects = buildbtw::gitlab_api::projects::changed_since(
                 &client,
                 print_args.since,
                 &gitlab_config.packages_group,

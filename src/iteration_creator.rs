@@ -36,7 +36,7 @@ use std::{
 
 use crate::{
     dependency_graph::{self, BuildGraphs},
-    gitlab::GitlabConfig,
+    gitlab_api::GitlabConfig,
     package::KnownArchitecture,
     repo_updater,
 };
