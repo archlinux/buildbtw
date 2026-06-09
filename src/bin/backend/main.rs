@@ -231,7 +231,7 @@ async fn run_server(
     };
 
     let gitlab_config = gitlab
-        .map(buildbtw::gitlab::GitlabConfig::try_from)
+        .map(buildbtw::gitlab_api::GitlabConfig::try_from)
         .transpose()?;
     tasks::initialize(
         server_state.clone(),

@@ -95,8 +95,8 @@ pub async fn changed_since(
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    query_path = "src/gitlab/changed_projects.graphql",
-    schema_path = "src/gitlab/graphql_schema.json",
+    query_path = "src/gitlab_api/changed_projects.graphql",
+    schema_path = "src/gitlab_api/graphql_schema.json",
     variables_derives = "Debug",
     response_derives = "Debug, Eq, PartialEq, Clone"
 )]
