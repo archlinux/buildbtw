@@ -6,7 +6,7 @@ use std::{
 
 use buildbtw::external_secrets;
 use buildbtw::gitlab_api;
-use buildbtw::oidc::OidcConfig;
+use buildbtw::oidc;
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail, eyre};
@@ -243,7 +243,7 @@ pub struct Oidc {
     pub oidc_admin_groups: Vec<String>,
 }
 
-impl TryFrom<Oidc> for OidcConfig {
+impl TryFrom<Oidc> for oidc::InitConfig {
     type Error = color_eyre::eyre::Error;
 
     fn try_from(value: Oidc) -> Result<Self> {

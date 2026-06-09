@@ -1,7 +1,7 @@
 //! Single-sign-on functionality using the Open ID Connect (OIDC) standard
 //!
 //! Overview:
-//! When the server starts, [`MaybeConfig`] is initialized with an [`OidcConfig`]. If the OIDC provider is reachable and the configured
+//! When the server starts, [`MaybeConfig`] is initialized with an [`InitConfig`]. If the OIDC provider is reachable and the configured
 //! credentials are valid, [MaybeConfig::Configured] is stored in
 //! [crate::server_state::ServerState].
 //! Then, when a user visits [crate::web::oidc::StartLogin], a [LoginAttempt]
@@ -34,7 +34,7 @@ use crate::{db_fields::RedactedString, entities};
 
 /// OIDC configuration for initializing the client.
 #[derive(Debug)]
-pub struct OidcConfig {
+pub struct InitConfig {
     pub client_id: String,
     pub client_secret: Secret<String>,
     pub issuer_url: Url,
@@ -52,13 +52,13 @@ pub enum MaybeConfig {
     NotConfigured,
     /// An OIDC provider is configured and the server was able to connect to it
     /// at startup.
-    Configured(Config),
+    Configured(State),
 }
 
 impl MaybeConfig {
     /// Convenience function for turning [MaybeConfig] into a
     /// [`Result<Config>`].
-    pub fn get_config(self) -> Result<Config> {
+    pub fn get_config(self) -> Result<State> {
         match self {
             MaybeConfig::NotConfigured => Err(eyre!("OIDC client not configured")),
             MaybeConfig::Configured(config) => Ok(config),
@@ -67,7 +67,7 @@ impl MaybeConfig {
 
     /// Initialize the OIDC configuration for the given configuration.
     /// On failure, return [MaybeConfig::NotConfigured].
-    pub async fn initialize(server_url: &Url, config: Option<OidcConfig>) -> MaybeConfig {
+    pub async fn initialize(server_url: &Url, config: Option<InitConfig>) -> MaybeConfig {
         match Self::try_initialize_state(server_url, config).await {
             Ok(conf) => {
                 tracing::info!("OIDC enabled");
@@ -81,7 +81,7 @@ impl MaybeConfig {
     }
 
     /// Try to initialize an OIDC client for the given configuration.
-    async fn try_initialize_state(server_url: &Url, config: Option<OidcConfig>) -> Result<Config> {
+    async fn try_initialize_state(server_url: &Url, config: Option<InitConfig>) -> Result<State> {
         #[allow(unused_mut)]
         let mut reqwest_client_builder =
             reqwest::ClientBuilder::new().redirect(reqwest::redirect::Policy::none());
@@ -125,7 +125,7 @@ impl MaybeConfig {
             CoreClient::from_provider_metadata(provider_metadata, client_id, Some(client_secret))
                 .set_redirect_uri(RedirectUrl::from_url(redirect_url));
 
-        Ok(Config {
+        Ok(State {
             oidc_client: client,
             reqwest_client,
             issuer_name: config.issuer_name,
@@ -138,8 +138,9 @@ impl MaybeConfig {
 
 /// Everything needed at runtime to perform single-sign-on with a specific OIDC
 /// provider.
+/// Stored in [crate::server_state::ServerState].
 #[derive(Clone, Debug)]
-pub struct Config {
+pub struct State {
     /// High-level client from [openidconnect]
     pub oidc_client: ConfiguredClient,
     /// HTTP client passed to [openidconnect] functions when making requests
@@ -154,7 +155,7 @@ pub struct Config {
     pub admin_oidc_groups: Vec<String>,
 }
 
-/// Used to store a valid and ready-to-use client in [Config].
+/// Used to store a valid and ready-to-use client in [State].
 pub type ConfiguredClient = CoreClient<
     openidconnect::EndpointSet,
     openidconnect::EndpointNotSet,
@@ -170,7 +171,7 @@ pub type ConfiguredClient = CoreClient<
 /// Additionally, return a [LoginAttempt] struct which is the state we need to
 /// store, and subsequently use to verify the authorization code in
 /// [convert_authorization_code_to_user_info].
-pub fn new_login_attempt(Config { oidc_client, .. }: Config) -> (Url, LoginAttempt) {
+pub fn new_login_attempt(State { oidc_client, .. }: State) -> (Url, LoginAttempt) {
     // Generate a PKCE challenge.
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -223,7 +224,7 @@ impl LoginAttempt {
     pub fn save_in_cookie_jar(
         &self,
         jar: PrivateCookieJar,
-        oidc_config: &Config,
+        oidc_config: &State,
     ) -> Result<PrivateCookieJar> {
         let mut cookie = Cookie::new(LOGIN_ATTEMPT_COOKIE_NAME, serde_json::to_string(&self)?);
         cookie.set_same_site(same_site_from_oidc_config(Some(oidc_config)));
@@ -256,7 +257,7 @@ fn second_level_domain(url: &Url) -> Option<String> {
 ///
 /// Returns lax on cross-origin domains, strict in all other cases including no oidc.
 #[must_use]
-pub fn same_site_from_oidc_config(oidc_config: Option<&Config>) -> SameSite {
+pub fn same_site_from_oidc_config(oidc_config: Option<&State>) -> SameSite {
     let Some(oidc_config) = oidc_config else {
         return SameSite::Strict;
     };
@@ -292,11 +293,11 @@ impl AdditionalClaims for GroupClaims {}
 ///
 /// Returns the user info claims and an optional refresh token.
 pub async fn convert_authorization_code_to_user_info(
-    Config {
+    State {
         oidc_client,
         reqwest_client,
         ..
-    }: Config,
+    }: State,
     LoginAttempt {
         nonce,
         csrf_token: stored_csrf_token,
@@ -385,11 +386,11 @@ pub fn oidc_groups_to_user_roles(
 /// If the provider uses refresh token rotation, it returns a new
 /// refresh token that should replace the old one.
 pub async fn fetch_user_info_with_refresh_token(
-    Config {
+    State {
         oidc_client,
         reqwest_client,
         ..
-    }: &Config,
+    }: &State,
     refresh_token: RedactedString,
 ) -> Result<(
     UserInfoClaims<GroupClaims, CoreGenderClaim>,

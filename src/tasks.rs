@@ -91,7 +91,7 @@ fn spawn_invalidate_old_sessions(state: ServerState, token: CancellationToken) {
 
 fn spawn_sync_oidc_roles(
     db: DatabaseConnection,
-    oidc_config: crate::oidc::Config,
+    oidc_config: crate::oidc::State,
     token: CancellationToken,
 ) {
     tokio::spawn(async move {
@@ -176,7 +176,7 @@ pub async fn clear_refresh_token_if_no_sessions(
 #[instrument(skip_all)]
 pub async fn sync_user_roles_from_oidc(
     db: &DatabaseConnection,
-    oidc_config: &crate::oidc::Config,
+    oidc_config: &crate::oidc::State,
 ) -> Result<()> {
     use sea_orm::EntityTrait;
 
