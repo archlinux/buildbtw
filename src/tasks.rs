@@ -15,13 +15,14 @@ use sea_orm::{
     TransactionTrait,
 };
 use time::Duration;
+use tokio::task::JoinSet;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, instrument, warn};
 
-use crate::entities::user_roles;
-use crate::gitlab_api;
+use crate::entities::{self, user_roles};
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
+use crate::{executor, gitlab_api, package};
 use crate::{iteration_creator, schedule_builds, storage};
 
 /// Starts background tasks.
@@ -62,6 +63,7 @@ pub fn initialize(
         token.clone(),
     );
 
+    tracing::debug!(?dispatch_builds);
     if let Some(dispatch_config) = dispatch_builds {
         spawn_schedule_builds(state.clone(), token.clone(), dispatch_config);
     }
@@ -84,11 +86,16 @@ fn spawn_schedule_builds(
     tokio::spawn(async move {
         let mut every_10_seconds = interval(std::time::Duration::from_secs(10));
         every_10_seconds.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
                 _ = every_10_seconds.tick() => {
-                    if let Err(e) = dispatch_all_builds(&state, &dispatch_config).await {
+                    if let Err(e) = schedule_all_builds(&state, &dispatch_config).await {
                         tracing::error!(?e, "Failed to dispatch builds");
+                    }
+
+                    if let Err(e) = run_all_local_builds(&state, token.clone()).await {
+                        tracing::error!(?e, "Failed to run builds");
                     }
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
@@ -108,6 +115,55 @@ async fn schedule_all_builds(state: &ServerState, config: &schedule_builds::Conf
     tx.commit().await?;
 
     Ok(())
+}
+
+async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> Result<()> {
+    let mut build_tasks: JoinSet<_> = JoinSet::new();
+
+    let tx = state.db.begin().await?;
+
+    while let Some(build) = next_scheduled_build(&tx).await? {
+        // Mark build as running to exclude it from the next scheduled build query
+        queries::builds::update_build_status(build.id, package::BuildStatus::Building)
+            .exec(&tx)
+            .await?;
+
+        tracing::debug!(?build);
+        let task = executor::run_local::build(
+            state.db.clone(),
+            build.clone(),
+            state.data_dir.clone(),
+            token.clone(),
+        );
+
+        build_tasks.spawn(task);
+    }
+
+    tx.commit().await?;
+
+    // TODO limit concurrency here
+    // https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/278
+
+    // No need to check the cancellation token here: each build task takes care to check the cancellation token itself.
+    while let Some(result) = build_tasks.join_next().await {
+        let Ok(Ok(())) = result else {
+            tracing::error!("Unknown build task panicked or was aborted.");
+            continue;
+        };
+    }
+
+    Ok(())
+}
+
+async fn next_scheduled_build(
+    tx: &DatabaseTransaction,
+) -> Result<Option<entities::builds::ModelEx>> {
+    let build = queries::builds::scheduled_locally()
+        .with((entities::iterations::Entity, entities::buildspaces::Entity))
+        .one(tx)
+        .await?;
+
+    Ok(build)
 }
 
 fn spawn_invalidate_old_sessions(state: ServerState, token: CancellationToken) {

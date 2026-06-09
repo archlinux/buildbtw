@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
-    ColumnTrait, EntityLoaderTrait, EntityTrait, InsertMany, QueryFilter, QuerySelect, Select,
-    UpdateOne,
+    ColumnTrait, EntityLoaderTrait, EntityTrait, ExprTrait, InsertMany, QueryFilter, QuerySelect,
+    Select, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -164,6 +164,16 @@ pub fn pending(iteration_id: Option<Uuid>) -> Select<builds::Entity> {
     }
 
     query
+}
+
+#[must_use]
+pub fn scheduled_locally() -> builds::EntityLoader {
+    builds::Entity::load().filter(
+        builds::COLUMN
+            .status
+            .eq(package::BuildStatus::Scheduled)
+            .and(builds::COLUMN.dispatched_to.eq(builds::DispatchedTo::Local)),
+    )
 }
 
 #[must_use]

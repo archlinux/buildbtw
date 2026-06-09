@@ -3,7 +3,7 @@
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::{Result, eyre::OptionExt};
 
-use crate::xdg_dirs;
+use crate::{package, xdg_dirs};
 
 /// Return the configured buildbtw data dir, either from the `BUILDBTW_DATA_DIR` override variable,
 /// or fall back to the project XDG_DATA_HOME directory by default.
@@ -25,6 +25,13 @@ pub fn data_tmp_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathB
 /// Returns the data directory storing package source repositories.
 pub fn package_source_repos_dir(override_data_dir: &Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
     Ok(data_dir(override_data_dir)?.join("package-source-repos"))
+}
+
+pub fn package_source_dir(
+    override_data_dir: &Option<Utf8PathBuf>,
+    pkgbase: &package::BaseName,
+) -> Result<Utf8PathBuf> {
+    Ok(package_source_repos_dir(override_data_dir)?.join(pkgbase.to_string()))
 }
 
 /// Returns the data directory storing build artifacts of buildspaces and iterations.
