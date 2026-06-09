@@ -15,13 +15,14 @@ use sea_orm::{
     TransactionTrait,
 };
 use time::Duration;
+use tokio::task::JoinSet;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, instrument, warn};
 
-use crate::entities::user_roles;
-use crate::gitlab_api;
+use crate::entities::{self, user_roles};
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
+use crate::{executor, gitlab_api, package};
 use crate::{iteration_creator, schedule_builds, storage};
 
 /// Starts background tasks.
@@ -62,6 +63,7 @@ pub fn initialize(
         token.clone(),
     );
 
+    tracing::debug!(?dispatch_builds);
     if let Some(dispatch_config) = dispatch_builds {
         spawn_schedule_builds(state.clone(), token.clone(), dispatch_config);
     }
@@ -84,11 +86,16 @@ fn spawn_schedule_builds(
     tokio::spawn(async move {
         let mut every_10_seconds = interval(std::time::Duration::from_secs(10));
         every_10_seconds.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
                 _ = every_10_seconds.tick() => {
-                    if let Err(e) = dispatch_all_builds(&state, &dispatch_config).await {
+                    if let Err(e) = schedule_all_builds(&state, &dispatch_config).await {
                         tracing::error!(?e, "Failed to dispatch builds");
+                    }
+
+                    if let Err(e) = run_all_local_builds(&state, token.clone()).await {
+                        tracing::error!(?e, "Failed to run builds");
                     }
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
@@ -103,9 +110,59 @@ fn spawn_schedule_builds(
 async fn schedule_all_builds(state: &ServerState, config: &schedule_builds::Config) -> Result<()> {
     let tx = state.db.begin().await?;
 
+    // TODO configure max parallel builds
     schedule_builds::schedule_pending_builds(config, &tx).await?;
 
     tx.commit().await?;
+
+    Ok(())
+}
+
+async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> Result<()> {
+    let tx = state.db.begin().await?;
+
+    let scheduled = queries::builds::scheduled_locally()
+        .with((entities::iterations::Entity, entities::buildspaces::Entity))
+        .all(&tx)
+        .await?;
+
+    let mut build_tasks: JoinSet<Result<()>> = JoinSet::new();
+    if scheduled.is_empty() {
+        return Ok(());
+    }
+
+    tracing::debug!("Running {} builds...", scheduled.len());
+    for build in scheduled {
+        let build_cancel_token = token.clone();
+        build_tasks.spawn(async move {
+            let source_dir = camino_tempfile::Utf8TempDir::new()?;
+            let output_dir = camino_tempfile::Utf8TempDir::new()?;
+            let log_file = camino_tempfile::NamedUtf8TempFile::new()?;
+            // TODO make timeout configurable
+            executor::run::build_project_dir(
+                source_dir.path(),
+                output_dir.path(),
+                None,
+                100,
+                &executor::config::LogDestination::File(log_file.path().to_path_buf()),
+                build_cancel_token,
+            )
+            .await?;
+
+            Ok(())
+        });
+
+        queries::builds::update_build_status(build.id, package::BuildStatus::Building)
+            .exec(&tx)
+            .await?;
+    }
+
+    tx.commit().await?;
+
+    // No need to check the cancellation token here: each build task takes care to check the cancellation token itself.
+    let results = build_tasks.join_all().await;
+    let all_successful: Result<Vec<_>> = results.into_iter().collect();
+    tracing::debug!(?all_successful);
 
     Ok(())
 }
