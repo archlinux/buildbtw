@@ -20,7 +20,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, instrument, warn};
 
 use crate::entities::user_roles;
-use crate::gitlab_api::GitlabConfig;
+use crate::gitlab_api;
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
 use crate::{iteration_creator, storage};
 
@@ -38,7 +38,7 @@ use crate::{iteration_creator, storage};
 pub fn initialize(
     state: ServerState,
     token: CancellationToken,
-    gitlab_config: Option<GitlabConfig>,
+    gitlab_config: Option<gitlab_api::Config>,
     update_source_repos: bool,
     auto_create_iterations: bool,
     db: DatabaseConnection,
