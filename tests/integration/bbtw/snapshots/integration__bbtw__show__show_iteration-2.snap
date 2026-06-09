@@ -5,4 +5,4 @@ expression: output.stdout
 Showing builds for iteration #1 of buildspace target
 
 Pending builds
-  ● old_pkg (Waiting for dependencies to build)
+  ⧗ old_pkg (Waiting to be sent to executor)

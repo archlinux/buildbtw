@@ -5,5 +5,5 @@ expression: output.stdout
 Showing builds for iteration #2 of buildspace target
 
 Pending builds
-  ● new_pkg_one (Waiting for dependencies to build)
-  ● new_pkg_two (Waiting for dependencies to build)
+  ⧗ new_pkg_one (Waiting to be sent to executor)
+  ⧗ new_pkg_two (Waiting to be sent to executor)

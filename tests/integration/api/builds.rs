@@ -59,8 +59,8 @@ async fn test_list_builds_by_status_empty(
 
 /// List builds for an existing namespace
 #[rstest]
-// Only test the "blocked" status since that's what builds are created with
-#[case(Some(package::BuildStatus::Blocked))]
+// Only test the "pending" status since that's what builds get when they don't have dependencies
+#[case(Some(package::BuildStatus::Pending))]
 #[case(None)]
 #[tokio::test]
 async fn test_list_builds_by_status_and_namespace(
@@ -457,7 +457,7 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
     let tx = ctx.state.db.begin().await?;
     let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
     assert_eq!(
-        package::BuildStatus::Blocked,
+        package::BuildStatus::Pending,
         build.status,
         "build status must not be updated yet"
     );

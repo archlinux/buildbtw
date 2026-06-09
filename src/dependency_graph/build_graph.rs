@@ -73,6 +73,7 @@ impl BuildNode {
 }
 
 /// A graph of packages to be built for a specific architecture in a buildspace.
+/// Nodes point toward their dependents.
 pub type BuildGraph = Graph<BuildNode, BuildDependency, Directed>;
 
 /// Edge type for the build graph.
@@ -235,7 +236,7 @@ fn calculate_build_graph_for_architecture(
                 build_graph_node_index
             };
 
-        // Remember to visit this node's neighbors in the future
+        // Append this nodes neighbors to the visit queue
         for edge in global_graph.graph.edges(global_node_index_to_visit) {
             let edge_target_index = edge.target();
             nodes_to_visit.push_back((Some(build_graph_node_index), edge_target_index));

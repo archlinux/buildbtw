@@ -5,6 +5,6 @@ expression: output.stdout
 Showing builds for iteration #1 of buildspace target
 
 Pending builds
-  ● 0 (Waiting for dependencies to build)
-  ● 1 (Waiting for dependencies to build)
+  ⧗ 0 (Waiting to be sent to executor)
+  ⧗ 1 (Waiting to be sent to executor)
   [And 1 others]

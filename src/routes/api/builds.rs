@@ -151,6 +151,7 @@ pub async fn upload_package(
         queries::builds::update_build_status(build_id.into(), package::BuildStatus::Built)
             .exec(&tx)
             .await?;
+        // TODO: unblock builds that can now be built
         tx.commit().await?;
     }
 

@@ -296,6 +296,60 @@ async fn test_read_diff_graph_from_db(#[future(awt)] ctx: TestCtx) -> Result<()>
 
 #[rstest]
 #[tokio::test]
+async fn test_build_status_reflects_dependencies(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+
+    let mut graph = BuildGraph::new();
+
+    let _independent = graph.add_node(build_node("independent")?);
+    let root = graph.add_node(build_node("root")?);
+    let dep_a = graph.add_node(build_node("dep_a")?);
+
+    // Add dependency from dep_a to root. Root should build first
+    graph.add_edge(root, dep_a, BuildDependency {});
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            package::KnownArchitecture::X86_64,
+            &graph,
+        )?;
+
+    update_iteration.exec(&tx).await?;
+    insert_builds.exec(&tx).await?;
+    insert_deps.exec(&tx).await?;
+
+    let independent_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("independent"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'independent'");
+
+    assert_eq!(independent_build.status, package::BuildStatus::Pending);
+
+    let root_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("root"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'root'");
+
+    assert_eq!(root_build.status, package::BuildStatus::Pending);
+
+    let dep_a_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("dep_a"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'dep_a'");
+
+    assert_eq!(dep_a_build.status, package::BuildStatus::Blocked);
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
 async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 

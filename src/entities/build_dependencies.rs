@@ -2,6 +2,11 @@ use sea_orm::entity::prelude::*;
 
 use crate::{db_fields::TxtUuid, entities::builds};
 
+/// Dependency between two builds.
+///
+/// A build can only start once its dependencies have been built.
+///
+/// This is mapped 1-to-1 from package dependencies as declared in PKGBUILDS.
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "build_dependencies")]

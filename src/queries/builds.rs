@@ -65,6 +65,17 @@ pub fn insert_builds_with_dependencies(
     for node_index in build_graph.node_indices() {
         let build = build_graph[node_index].clone();
         let id = Uuid::new_v4();
+        let status = if build_graph
+            .edges_directed(node_index, petgraph::Direction::Incoming)
+            .next()
+            .is_some()
+        {
+            // Build has at least one dependency
+            package::BuildStatus::Blocked
+        } else {
+            package::BuildStatus::Pending
+        };
+
         build_models.push(builds::ActiveModel {
             id: Set(id.into()),
             created_at: Set(time::OffsetDateTime::now_utc()),
@@ -74,7 +85,7 @@ pub fn insert_builds_with_dependencies(
             pkgnames_filenames: Set(PkgnamesFilenames::from(build.package_file_names)),
             branch_name: Set(build.branch_name),
             commit_hash: Set(build.commit_hash),
-            status: Set(package::BuildStatus::Blocked),
+            status: Set(status),
             version: Set(build.version),
         });
 
