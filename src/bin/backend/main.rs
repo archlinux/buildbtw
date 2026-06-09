@@ -223,7 +223,7 @@ async fn run_server(
         db: db.clone(),
         oidc: oidc::MaybeConfig::initialize(
             &server_url,
-            oidc.map(oidc::OidcConfig::try_from).transpose()?,
+            oidc.map(oidc::InitConfig::try_from).transpose()?,
         )
         .await,
         cookie_encryption_key,

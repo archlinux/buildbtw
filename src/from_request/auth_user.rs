@@ -145,7 +145,7 @@ impl FromRequestParts<ServerState> for AuthUser {
 pub fn save_in_cookie_jar(
     session_secret_token: &RedactedString,
     cookie_jar: PrivateCookieJar,
-    oidc_config: Option<&oidc::Config>,
+    oidc_config: Option<&oidc::State>,
 ) -> PrivateCookieJar {
     let mut cookie = Cookie::new(
         SESSION_SECRET_TOKEN_COOKIE_NAME,

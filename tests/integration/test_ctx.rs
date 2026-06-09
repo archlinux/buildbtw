@@ -253,7 +253,7 @@ impl TestCtxBuilder {
             // These values are hardcoded in Authelia's `configuration.yml` and
             // `users_database.yml`.
             let authelia_port = container.port;
-            let oidc_args = oidc::OidcConfig {
+            let oidc_args = oidc::InitConfig {
                 client_id: "buildbtw-test".to_string(),
                 client_secret: Secret::from("insecure_secret"),
                 issuer_url: Url::parse(
