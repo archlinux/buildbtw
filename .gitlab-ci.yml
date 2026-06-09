@@ -102,7 +102,7 @@ test-e2e:
     - just test-e2e
 
 .build-release:
-  stage: build
+  stage: check
   extends: .with-rust
   artifacts:
     paths:
