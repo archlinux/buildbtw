@@ -169,6 +169,7 @@ ssh-key = { version = "0.6.7", default-features = false, features = [
     "std",
 ] }
 insta = "1.47.2"
+nix = { version = "0.31.3", features = ["signal"] }
 
 [dev-dependencies]
 axum-test = { version = "20.0.0", features = ["typed-routing"] }

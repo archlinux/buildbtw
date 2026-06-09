@@ -6,9 +6,13 @@
 use std::process::ExitCode;
 
 use args::{Args, Command, RunArgs, RunStage};
-use buildbtw::executor::{cleanup, prepare, run};
+use buildbtw::{
+    executor::{cleanup, prepare, run},
+    graceful_shutdown::shutdown_signal,
+};
 use clap::Parser;
 use color_eyre::Result;
+use tokio_util::sync::CancellationToken;
 
 mod args;
 
@@ -50,12 +54,19 @@ async fn execute(args: Args) -> Result<()> {
 ///
 /// <https://docs.gitlab.com/runner/executors/custom/#run>
 pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
+    let cancellation_token = CancellationToken::new();
+    tokio::spawn(shutdown_signal(cancellation_token.clone()));
     match run_args.stage.clone() {
         RunStage::GetSources(get_sources_args) => {
             run::get_sources(&run_args.script_path, get_sources_args.into()).await?;
         }
         RunStage::BuildScript(build_script_args) => {
-            run::build_script(args.ssh_timeout, build_script_args.try_into()?).await?;
+            run::build_script(
+                args.ssh_timeout,
+                build_script_args.try_into()?,
+                cancellation_token,
+            )
+            .await?;
         }
         _ => tracing::info!("Unhandled run stage: {:?}", run_args.stage),
     }
