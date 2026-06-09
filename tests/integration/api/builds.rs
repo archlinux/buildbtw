@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use buildbtw::api;
 use buildbtw::db_fields::TxtUuid;
+use buildbtw::dependency_graph;
 use buildbtw::dependency_graph::BuildNode;
 use buildbtw::entities;
 use buildbtw::package;
@@ -398,13 +399,20 @@ async fn create_split_package_build(
         version: "2.1-0".parse()?,
     };
 
-    Ok(queries::builds::insert(
-        build_node,
-        package::KnownArchitecture::X86_64,
-        iteration_id.into(),
-    )
-    .exec_with_returning(tx)
-    .await?)
+    let mut graph = dependency_graph::BuildGraph::new();
+    graph.add_node(build_node);
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration_id.into(),
+            package::KnownArchitecture::X86_64,
+            &graph,
+        )?;
+    update_iteration.exec(tx).await?;
+    let builds = insert_builds.exec_with_returning(tx).await?;
+    insert_deps.exec(tx).await?;
+
+    Ok(builds.into_iter().next().unwrap())
 }
 
 #[rstest]

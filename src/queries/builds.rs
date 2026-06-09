@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
-    ColumnTrait, EntityLoaderTrait, EntityTrait, Insert, InsertMany, QueryFilter, QuerySelect,
-    Select, UpdateOne,
+    ColumnTrait, EntityLoaderTrait, EntityTrait, InsertMany, QueryFilter, QuerySelect, Select,
+    UpdateOne,
 };
 use uuid::Uuid;
 
@@ -17,10 +17,7 @@ use crate::{
     },
     queries,
 };
-use crate::{
-    dependency_graph::{BuildGraph, BuildNode},
-    package,
-};
+use crate::{dependency_graph::BuildGraph, package};
 
 /// Return a query returning all builds, optionally filtered by status.
 #[must_use]
@@ -105,27 +102,6 @@ pub fn insert_builds_with_dependencies(
         builds::Entity::insert_many(build_models),
         build_dependencies::Entity::insert_many(build_dependency_models),
     ))
-}
-
-#[must_use]
-pub fn insert(
-    build: BuildNode,
-    architecture: package::KnownArchitecture,
-    iteration_id: Uuid,
-) -> Insert<builds::ActiveModel> {
-    let model = builds::ActiveModel {
-        id: Set(Uuid::new_v4().into()),
-        created_at: Set(time::OffsetDateTime::now_utc()),
-        architecture: Set(architecture),
-        pkgbase: Set(build.pkgbase),
-        iteration_id: Set(iteration_id.into()),
-        pkgnames_filenames: Set(PkgnamesFilenames::from(build.package_file_names)),
-        branch_name: Set(build.branch_name),
-        commit_hash: Set(build.commit_hash),
-        status: Set(package::BuildStatus::Blocked),
-        version: Set(build.version),
-    };
-    builds::Entity::insert(model)
 }
 
 /// Return a query returning a specific build by its unique uuid.
