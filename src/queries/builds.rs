@@ -95,10 +95,14 @@ pub fn insert_builds_with_dependencies(
     // Create ActiveModels for each edge in the graph using build Uuids from the previous step.
     let mut build_dependency_models = Vec::new();
     for edge in build_graph.raw_edges() {
-        let depended_on_by = node_index_to_build_uuid
+        // in the build graph, nodes point towards their *dependents*.
+        // So we map them like this:
+        // depends_on = source,
+        // depended_on_by = target.
+        let depends_on = node_index_to_build_uuid
             .get(&edge.source())
             .ok_or_eyre("Missing node for edge source")?;
-        let depends_on = node_index_to_build_uuid
+        let depended_on_by = node_index_to_build_uuid
             .get(&edge.target())
             .ok_or_eyre("Missing node for edge target")?;
         build_dependency_models.push(build_dependencies::ActiveModel {
