@@ -8,6 +8,8 @@ ignore = [
     #"RUSTSEC-0000-0000",
     # https://github.com/ramosbugs/openidconnect-rs/issues/140
     "RUSTSEC-2023-0071",
+    # https://github.com/SeaQL/sea-bae/issues/2
+    "RUSTSEC-2026-0173",
 ]
 
 # This section is considered when running `cargo deny check licenses`
