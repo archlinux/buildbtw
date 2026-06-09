@@ -38,7 +38,6 @@ async fn main() -> Result<()> {
         args::Command::Show {
             name,
             limit,
-            #[cfg(debug_assertions)]
             show_demo_builds,
             iteration,
         } => {
@@ -48,7 +47,6 @@ async fn main() -> Result<()> {
                 name,
                 iteration,
                 limit.into(),
-                #[cfg(debug_assertions)]
                 show_demo_builds,
             )
             .await

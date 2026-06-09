@@ -16,7 +16,7 @@ pub async fn show(
     buildspace_name: BuildspaceSlug,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
-    #[cfg(debug_assertions)] show_demo_data: bool,
+    show_demo_data: bool,
 ) -> Result<()> {
     let mut responses_by_status = all_builds_grouped_by_status(
         server_url,
@@ -27,7 +27,6 @@ pub async fn show(
     )
     .await?;
 
-    #[cfg(debug_assertions)]
     add_demo_data(&mut responses_by_status, show_demo_data)?;
 
     tracing::trace!(?responses_by_status);
@@ -123,7 +122,6 @@ pub async fn show(
     Ok(())
 }
 
-#[cfg(debug_assertions)]
 fn add_demo_data(
     builds: &mut HashMap<BuildStatus, ListBuildsResponse>,
     show_demo_data: bool,
