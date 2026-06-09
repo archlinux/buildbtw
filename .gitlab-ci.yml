@@ -41,32 +41,32 @@ workflow:
     CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
 
 stages:
-  - check
-  - build
+  - check-and-build
+  - push
   - deploy
 
 licenses:
-  stage: check
+  stage: check-and-build
   extends: .default-before-script
   script:
     - pacman -Syu --needed --noconfirm reuse
     - just licenses
 
 check-dependencies:
-  stage: check
+  stage: check-and-build
   extends: .with-rust
   script:
     - pacman -Syu --needed --noconfirm cargo-deny
     - just check-dependencies
 
 lint:
-  stage: check
+  stage: check-and-build
   extends: .with-rust
   script:
     - just lint
 
 er-diagram:
-  stage: check
+  stage: check-and-build
   extends: .with-rust
   variables:
     BUILDBTW_DATABASE_FILE: buildbtw_backend.sqlite
@@ -83,7 +83,7 @@ er-diagram:
 
 test:
   tags:
-  stage: check
+  stage: check-and-build
   extends: .with-rust
   script:
     - pacman -Syu --needed --noconfirm cargo-nextest
@@ -93,7 +93,7 @@ test-e2e:
   tags:
     # the test suite needs to spawn podman containers, so we run this job in a VM
     - vm
-  stage: check
+  stage: check-and-build
   extends: .with-rust
   script:
     - pacman -Syu --needed --noconfirm cargo-nextest podman geckodriver firefox
@@ -102,7 +102,7 @@ test-e2e:
     - just test-e2e
 
 .build-release:
-  stage: build
+  stage: check-and-build
   extends: .with-rust
   artifacts:
     paths:
@@ -128,7 +128,7 @@ build-release:secure:
       when: never
 
 .push-container-image:
-  stage: build
+  stage: push
   extends: .default-before-script
   script:
     - pacman -Syu --needed --noconfirm podman
