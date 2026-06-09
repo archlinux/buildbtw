@@ -1,4 +1,4 @@
-use buildbtw::{external_secrets, gitlab::GitlabConfig};
+use buildbtw::{external_secrets, gitlab_api};
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,
@@ -116,14 +116,14 @@ pub struct Gitlab {
     gitlab_packages_group: String,
 }
 
-impl TryFrom<Gitlab> for GitlabConfig {
-    fn try_from(value: Gitlab) -> Result<GitlabConfig> {
+impl TryFrom<Gitlab> for gitlab_api::Config {
+    fn try_from(value: Gitlab) -> Result<gitlab_api::Config> {
         let token = external_secrets::get_required(
             "BUILDBTW_GITLAB_TOKEN",
             value.gitlab_token_path.as_deref(),
         )?;
 
-        Ok(GitlabConfig {
+        Ok(gitlab_api::Config {
             token,
             domain: value.gitlab_domain,
             ssh_host_key: value.gitlab_ssh_host_key.public_key().clone(),

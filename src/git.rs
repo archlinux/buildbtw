@@ -17,7 +17,7 @@ use serde_with::serde_as;
 use ssh_key::PublicKey;
 use tracing::{info, trace};
 
-use crate::{gitlab::GitlabConfig, package};
+use crate::{gitlab_api, package};
 
 /// An unambiguous git commit hash.
 /// This has no validation, but serves as a type marker to differentiate from other types of Oid (e.g. tree, blob, tag)
@@ -90,8 +90,8 @@ pub struct Changeset {
 /// Any errors are gathered and returned at the end.
 pub async fn clone_or_fetch_repositories(
     target_dir: Utf8PathBuf,
-    gitlab_projects: Vec<crate::gitlab::projects::Project>,
-    gitlab_config: GitlabConfig,
+    gitlab_projects: Vec<gitlab_api::projects::Project>,
+    gitlab_config: gitlab_api::Config,
 ) -> Result<()> {
     let project_count = gitlab_projects.len();
     info!("Updating {project_count} repos");
@@ -157,8 +157,8 @@ pub async fn clone_or_fetch_repositories(
 /// Ensure a package source git repository exists and is up to date.
 fn clone_or_fetch_repository(
     target_dir: &Utf8Path,
-    gitlab_project_path: &crate::gitlab::projects::ProjectPath,
-    gitlab_config: &GitlabConfig,
+    gitlab_project_path: &gitlab_api::projects::ProjectPath,
+    gitlab_config: &gitlab_api::Config,
 ) -> Result<git2::Repository> {
     let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path));
     let repo = if let Ok(repo) = maybe_repo {
@@ -208,8 +208,8 @@ fn prepare_git_credentials(expected_host_key: &PublicKey) -> git2::RemoteCallbac
 /// Clone a package source git repository into a new folder in `target_dir`.
 fn clone_packaging_repo(
     target_dir: &Utf8Path,
-    gitlab_project_path: &crate::gitlab::projects::ProjectPath,
-    gitlab_config: &GitlabConfig,
+    gitlab_project_path: &gitlab_api::projects::ProjectPath,
+    gitlab_config: &gitlab_api::Config,
 ) -> Result<git2::Repository> {
     trace!("Cloning {gitlab_project_path}");
 
@@ -266,7 +266,7 @@ fn fetch_packaging_repo(repo: &git2::Repository, expected_host_key: &PublicKey) 
 #[must_use]
 pub fn packaging_repo_path(
     target_dir: &Utf8Path,
-    gitlab_project_path: &crate::gitlab::projects::ProjectPath,
+    gitlab_project_path: &gitlab_api::projects::ProjectPath,
 ) -> Utf8PathBuf {
     target_dir.join(gitlab_project_path.as_ref())
 }

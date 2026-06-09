@@ -6,7 +6,7 @@ use gitlab::AsyncGitlab;
 use time::{Duration, OffsetDateTime};
 use tracing::instrument;
 
-use crate::gitlab::GitlabConfig;
+use crate::gitlab_api;
 
 /// Make sure the package source repos in `target_dir` match the current state
 /// on the server by cloning all repos that don't exist locally, and fetching
@@ -20,10 +20,10 @@ pub async fn update_all_source_repos(
     target_dir: Utf8PathBuf,
     gitlab_client: &AsyncGitlab,
     mut last_fetched: Option<OffsetDateTime>,
-    gitlab_config: GitlabConfig,
+    gitlab_config: gitlab_api::Config,
 ) -> Result<Option<OffsetDateTime>> {
     // Query which projects changed
-    let changed_projects = crate::gitlab::projects::changed_since(
+    let changed_projects = gitlab_api::projects::changed_since(
         gitlab_client,
         last_fetched,
         &gitlab_config.packages_group,

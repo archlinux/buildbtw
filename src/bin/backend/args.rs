@@ -5,8 +5,8 @@ use std::{
 };
 
 use buildbtw::external_secrets;
-use buildbtw::gitlab::GitlabConfig;
-use buildbtw::oidc::OidcConfig;
+use buildbtw::gitlab_api;
+use buildbtw::oidc;
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail, eyre};
@@ -243,7 +243,7 @@ pub struct Oidc {
     pub oidc_admin_groups: Vec<String>,
 }
 
-impl TryFrom<Oidc> for OidcConfig {
+impl TryFrom<Oidc> for oidc::InitConfig {
     type Error = color_eyre::eyre::Error;
 
     fn try_from(value: Oidc) -> Result<Self> {
@@ -309,16 +309,16 @@ pub struct Gitlab {
     gitlab_packages_group: String,
 }
 
-impl TryFrom<Gitlab> for GitlabConfig {
+impl TryFrom<Gitlab> for gitlab_api::Config {
     type Error = color_eyre::eyre::Error;
 
-    fn try_from(value: Gitlab) -> Result<GitlabConfig> {
+    fn try_from(value: Gitlab) -> Result<gitlab_api::Config> {
         let token = external_secrets::get_required(
             "BUILDBTW_GITLAB_TOKEN",
             value.gitlab_token_path.as_deref(),
         )?;
 
-        Ok(GitlabConfig {
+        Ok(gitlab_api::Config {
             token,
             domain: value.gitlab_domain,
             ssh_host_key: value.gitlab_ssh_host_key.public_key().clone(),

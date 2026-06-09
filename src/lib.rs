@@ -14,7 +14,7 @@ pub mod executor;
 pub mod external_secrets;
 pub mod from_request;
 pub mod git;
-pub mod gitlab;
+pub mod gitlab_api;
 pub mod input;
 pub mod iteration_creator;
 pub mod migrations;

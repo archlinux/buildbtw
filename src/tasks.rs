@@ -20,7 +20,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, instrument, warn};
 
 use crate::entities::user_roles;
-use crate::gitlab::GitlabConfig;
+use crate::gitlab_api;
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
 use crate::{iteration_creator, storage};
 
@@ -38,7 +38,7 @@ use crate::{iteration_creator, storage};
 pub fn initialize(
     state: ServerState,
     token: CancellationToken,
-    gitlab_config: Option<GitlabConfig>,
+    gitlab_config: Option<gitlab_api::Config>,
     update_source_repos: bool,
     auto_create_iterations: bool,
     db: DatabaseConnection,
@@ -91,7 +91,7 @@ fn spawn_invalidate_old_sessions(state: ServerState, token: CancellationToken) {
 
 fn spawn_sync_oidc_roles(
     db: DatabaseConnection,
-    oidc_config: crate::oidc::Config,
+    oidc_config: crate::oidc::State,
     token: CancellationToken,
 ) {
     tokio::spawn(async move {
@@ -176,7 +176,7 @@ pub async fn clear_refresh_token_if_no_sessions(
 #[instrument(skip_all)]
 pub async fn sync_user_roles_from_oidc(
     db: &DatabaseConnection,
-    oidc_config: &crate::oidc::Config,
+    oidc_config: &crate::oidc::State,
 ) -> Result<()> {
     use sea_orm::EntityTrait;
 
