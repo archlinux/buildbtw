@@ -12,7 +12,7 @@ mod args;
 #[cfg(debug_assertions)]
 use buildbtw::authelia;
 use buildbtw::{
-    db, external_secrets, oidc, router, server_state, tasks, templates,
+    db, external_secrets, gitlab_api, oidc, router, server_state, tasks, templates,
     utils::remove_file_if_exists,
 };
 
@@ -230,9 +230,7 @@ async fn run_server(
         data_dir,
     };
 
-    let gitlab_config = gitlab
-        .map(buildbtw::gitlab_api::GitlabConfig::try_from)
-        .transpose()?;
+    let gitlab_config = gitlab.map(gitlab_api::Config::try_from).transpose()?;
     tasks::initialize(
         server_state.clone(),
         cancellation_token.clone(),
