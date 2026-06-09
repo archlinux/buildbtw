@@ -15,6 +15,7 @@ pub mod external_secrets;
 pub mod from_request;
 pub mod git;
 pub mod gitlab_api;
+pub mod graceful_shutdown;
 pub mod input;
 pub mod iteration_creator;
 pub mod migrations;

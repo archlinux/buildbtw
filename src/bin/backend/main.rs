@@ -9,14 +9,13 @@
 
 mod args;
 
+use axum_server::{Handle, tls_rustls::RustlsConfig};
 #[cfg(debug_assertions)]
 use buildbtw::authelia;
 use buildbtw::{
-    db, external_secrets, gitlab_api, oidc, router, server_state, tasks, templates,
-    utils::remove_file_if_exists,
+    db, external_secrets, gitlab_api, graceful_shutdown::shutdown_signal, oidc, router,
+    server_state, tasks, templates, utils::remove_file_if_exists,
 };
-
-use axum_server::{Handle, tls_rustls::RustlsConfig};
 use clap::Parser;
 use color_eyre::{
     Result,
@@ -26,7 +25,7 @@ use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
 #[cfg(debug_assertions)]
 use sea_orm::TransactionTrait;
-use tokio::{fs::set_permissions, net::UnixListener, signal};
+use tokio::{fs::set_permissions, net::UnixListener};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -274,39 +273,4 @@ fn spawn_shutdown_handle<A: axum_server::Address + Send + 'static>(
 async fn shutdown_gracefully<A: axum_server::Address>(token: CancellationToken, handle: Handle<A>) {
     shutdown_signal(token).await;
     handle.graceful_shutdown(None);
-}
-
-/// Handles shutdown signals for a graceful termination of the application.
-///
-/// When a signal is detected the provided [`CancellationToken`] is cancelled.
-/// This allows other parts of the application, like background workers or
-/// long-running tasks, to react on the cancellation and stop gracefully.
-async fn shutdown_signal(token: CancellationToken) {
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .wrap_err("failed to install Ctrl+C handler")?;
-        Ok::<(), color_eyre::Report>(())
-    };
-
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .wrap_err("failed to install signal handler")?
-            .recv()
-            .await;
-
-        Ok::<(), color_eyre::Report>(())
-    };
-
-    tokio::select! {
-        _ = ctrl_c => {
-            tracing::info!("Received SIGINT, shutting down...");
-        },
-        _ = terminate => {
-            tracing::info!("Received SIGTERM, shutting down...");
-        },
-    }
-
-    // Signal gracefully shutdown to the application stack, like background tasks.
-    token.cancel();
 }

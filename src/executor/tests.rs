@@ -7,6 +7,7 @@ use color_eyre::{
 };
 use rstest::*;
 use tokio::process::Command;
+use tokio_util::sync::CancellationToken;
 
 use super::run::build_project_dir;
 
@@ -54,6 +55,7 @@ pkgname = buildbtw-rocks
         None,
         120,
         &crate::executor::config::LogDestination::InheritStdio,
+        CancellationToken::new(),
     )
     .await?;
     assert!(
@@ -95,7 +97,8 @@ arch=(any)
             test_output_dir.path(),
             None,
             120,
-            &crate::executor::config::LogDestination::InheritStdio
+            &crate::executor::config::LogDestination::InheritStdio,
+            CancellationToken::new(),
         )
         .await
         .is_err(),
@@ -138,6 +141,7 @@ async fn test_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Resu
         None,
         120,
         &crate::executor::config::LogDestination::InheritStdio,
+        CancellationToken::new(),
     )
     .await?;
 
