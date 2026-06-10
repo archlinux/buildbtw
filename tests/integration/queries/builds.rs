@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use buildbtw::{
     dependency_graph::{BuildDependency, BuildGraph, BuildGraphs, BuildNode},
-    entities::{build_dependencies, builds},
+    entities::{self, build_dependencies, builds},
     package, queries,
 };
 use color_eyre::Result;
@@ -33,18 +33,23 @@ async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Setup necessary stuff for satisfying foreign keys
-    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
 
     // Create build graph
     let mut graph = BuildGraph::new();
 
-    let foo = graph.add_node(build_node("foo")?);
-    let bar = graph.add_node(build_node("bar")?);
-    let baz = graph.add_node(build_node("baz")?);
+    let root = graph.add_node(build_node("root")?);
+    let intermediate = graph.add_node(build_node("intermediate")?);
+    let leaf = graph.add_node(build_node("leaf")?);
 
-    graph.add_edge(foo, bar, BuildDependency {});
-    graph.add_edge(foo, baz, BuildDependency {});
-    graph.add_edge(bar, baz, BuildDependency {});
+    // In the build graph, nodes point towards their *dependents*:
+    // root -> intermediate
+    //  |        |
+    //  v        |
+    // leaf <----
+    graph.add_edge(root, intermediate, BuildDependency {});
+    graph.add_edge(root, leaf, BuildDependency {});
+    graph.add_edge(intermediate, leaf, BuildDependency {});
 
     // Insert into DB
     let (update_iteration, insert_builds, insert_deps) =
@@ -58,51 +63,88 @@ async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
     insert_builds.exec(&tx).await?;
     insert_deps.exec(&tx).await?;
 
-    // Check that insertion worked correctly
-    let foo_build = builds::Entity::load()
-        .with(build_dependencies::Entity)
-        .filter(builds::COLUMN.pkgbase.eq("foo"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'foo' in the database");
-
-    assert_eq!(foo_build.depends_on.len(), 2);
-    let foo_deps: HashSet<_> = foo_build
-        .depends_on
-        .into_iter()
-        .map(|model| model.pkgbase.to_string())
-        .collect();
-
-    assert_eq!(
-        foo_deps,
-        HashSet::from(["bar".to_string(), "baz".to_string()])
-    );
-
-    let baz_build = builds::Entity::load()
-        .with(build_dependencies::Entity::REVERSE)
-        .filter(builds::COLUMN.pkgbase.eq("baz"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'foo' in the database");
-
-    assert!(baz_build.depends_on.is_empty());
-
-    let baz_depended_on_by: HashSet<_> = baz_build
-        .depended_on_by
-        .into_iter()
-        .map(|model| model.pkgbase.to_string())
-        .collect();
-
-    assert_eq!(
-        baz_depended_on_by,
-        HashSet::from(["foo".to_string(), "bar".to_string()])
-    );
-
+    // Check overall numbers
     let build_count = builds::Entity::find().count(&tx).await?;
     assert_eq!(build_count, 3);
 
     let dep_count = build_dependencies::Entity::find().count(&tx).await?;
     assert_eq!(dep_count, 3);
+
+    // Check that iteration status was updated
+    let iteration = queries::iterations::by_sequence(buildspace.id, iteration.sequence)
+        .one(&tx)
+        .await?
+        .expect("Didn't find iteration");
+
+    assert_eq!(iteration.status, entities::iterations::Status::Calculated);
+
+    // Check root dependencies
+    let root_model = builds::Entity::load()
+        .with(build_dependencies::Entity)
+        .with(build_dependencies::Entity::REVERSE)
+        .filter(builds::COLUMN.pkgbase.eq("root"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'root' in the database");
+
+    assert!(root_model.depends_on.is_empty());
+
+    let root_depended_on_by: HashSet<_> = root_model
+        .depended_on_by
+        .into_iter()
+        .map(|model| model.pkgbase.to_string())
+        .collect();
+    assert_eq!(
+        root_depended_on_by,
+        HashSet::from(["intermediate".to_string(), "leaf".to_string()])
+    );
+
+    // Check leaf dependencies
+    let leaf_model = builds::Entity::load()
+        .with(build_dependencies::Entity)
+        .with(build_dependencies::Entity::REVERSE)
+        .filter(builds::COLUMN.pkgbase.eq("leaf"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'leaf' in the database");
+
+    assert!(leaf_model.depended_on_by.is_empty());
+
+    let leaf_depends_on: HashSet<_> = leaf_model
+        .depends_on
+        .into_iter()
+        .map(|model| model.pkgbase.to_string())
+        .collect();
+    assert_eq!(
+        leaf_depends_on,
+        HashSet::from(["root".to_string(), "intermediate".to_string()])
+    );
+
+    // Check intermediate dependencies
+    let intermediate_model = builds::Entity::load()
+        .with(build_dependencies::Entity)
+        .with(build_dependencies::Entity::REVERSE)
+        .filter(builds::COLUMN.pkgbase.eq("intermediate"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'intermediate' in the database");
+
+    let intermediate_depended_on_by: HashSet<_> = intermediate_model
+        .depended_on_by
+        .into_iter()
+        .map(|model| model.pkgbase.to_string())
+        .collect();
+    assert_eq!(
+        intermediate_depended_on_by,
+        HashSet::from(["leaf".to_string()])
+    );
+
+    let intermediate_depends_on: HashSet<_> = intermediate_model
+        .depends_on
+        .into_iter()
+        .map(|model| model.pkgbase.to_string())
+        .collect();
+    assert_eq!(intermediate_depends_on, HashSet::from(["root".to_string()]));
 
     Ok(())
 }
@@ -163,6 +205,7 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     let foo_index = graph.add_node(build_node("foo")?);
     let bar_index = graph.add_node(build_node("bar")?);
 
+    // bar depends on foo
     graph.add_edge(foo_index, bar_index, BuildDependency {});
 
     // Insert into DB
@@ -192,8 +235,8 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
 
     let build_dep = build_dependencies::ActiveModel {
         id: Set(Uuid::new_v4().into()),
-        depended_on_by_build_id: Set(foo_build.id),
-        depends_on_build_id: Set(bar_build.id),
+        depended_on_by_build_id: Set(bar_build.id),
+        depends_on_build_id: Set(foo_build.id),
     };
 
     // Inserting a dependency that's already in the graph fails
@@ -290,6 +333,60 @@ async fn test_read_diff_graph_from_db(#[future(awt)] ctx: TestCtx) -> Result<()>
     assert_eq!(x86_64.packages_added.len(), 1);
     assert!(x86_64.packages_modified.is_empty());
     assert!(x86_64.packages_removed.is_empty());
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_build_status_reflects_dependencies(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+
+    let mut graph = BuildGraph::new();
+
+    let _independent = graph.add_node(build_node("independent")?);
+    let root = graph.add_node(build_node("root")?);
+    let dep_a = graph.add_node(build_node("dep_a")?);
+
+    // Add dependency from dep_a to root. Root should build first
+    graph.add_edge(root, dep_a, BuildDependency {});
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            package::KnownArchitecture::X86_64,
+            &graph,
+        )?;
+
+    update_iteration.exec(&tx).await?;
+    insert_builds.exec(&tx).await?;
+    insert_deps.exec(&tx).await?;
+
+    let independent_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("independent"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'independent'");
+
+    assert_eq!(independent_build.status, package::BuildStatus::Pending);
+
+    let root_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("root"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'root'");
+
+    assert_eq!(root_build.status, package::BuildStatus::Pending);
+
+    let dep_a_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("dep_a"))
+        .one(&tx)
+        .await?
+        .expect("Expected to find build for 'dep_a'");
+
+    assert_eq!(dep_a_build.status, package::BuildStatus::Blocked);
 
     Ok(())
 }

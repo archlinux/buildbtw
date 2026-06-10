@@ -15,11 +15,11 @@ Failed builds
 
 Pending builds
   ⧗ dummy_build (Waiting for runner)
+  ⧗ 0 (Waiting to be sent to executor)
+  ⧗ 1 (Waiting to be sent to executor)
+  ⧗ 2 (Waiting to be sent to executor)
+  ⧗ 3 (Waiting to be sent to executor)
+  ⧗ 4 (Waiting to be sent to executor)
   ⧗ dummy_build (Waiting to be sent to executor)
-  ● 0 (Waiting for dependencies to build)
-  ● 1 (Waiting for dependencies to build)
-  ● 2 (Waiting for dependencies to build)
-  ● 3 (Waiting for dependencies to build)
-  ● 4 (Waiting for dependencies to build)
   ● dummy_build (Waiting for dependencies to build)
   [And 4 others]

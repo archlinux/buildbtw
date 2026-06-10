@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
-    ColumnTrait, EntityLoaderTrait, EntityTrait, Insert, InsertMany, QueryFilter, QuerySelect,
-    Select, UpdateOne,
+    ColumnTrait, EntityLoaderTrait, EntityTrait, InsertMany, QueryFilter, QuerySelect, Select,
+    UpdateOne,
 };
 use uuid::Uuid;
 
@@ -17,10 +17,7 @@ use crate::{
     },
     queries,
 };
-use crate::{
-    dependency_graph::{BuildGraph, BuildNode},
-    package,
-};
+use crate::{dependency_graph::BuildGraph, package};
 
 /// Return a query returning all builds, optionally filtered by status.
 #[must_use]
@@ -68,6 +65,17 @@ pub fn insert_builds_with_dependencies(
     for node_index in build_graph.node_indices() {
         let build = build_graph[node_index].clone();
         let id = Uuid::new_v4();
+        let status = if build_graph
+            .edges_directed(node_index, petgraph::Direction::Incoming)
+            .next()
+            .is_some()
+        {
+            // Build has at least one dependency
+            package::BuildStatus::Blocked
+        } else {
+            package::BuildStatus::Pending
+        };
+
         build_models.push(builds::ActiveModel {
             id: Set(id.into()),
             created_at: Set(time::OffsetDateTime::now_utc()),
@@ -77,7 +85,7 @@ pub fn insert_builds_with_dependencies(
             pkgnames_filenames: Set(PkgnamesFilenames::from(build.package_file_names)),
             branch_name: Set(build.branch_name),
             commit_hash: Set(build.commit_hash),
-            status: Set(package::BuildStatus::Blocked),
+            status: Set(status),
             version: Set(build.version),
         });
 
@@ -87,10 +95,14 @@ pub fn insert_builds_with_dependencies(
     // Create ActiveModels for each edge in the graph using build Uuids from the previous step.
     let mut build_dependency_models = Vec::new();
     for edge in build_graph.raw_edges() {
-        let depended_on_by = node_index_to_build_uuid
+        // in the build graph, nodes point towards their *dependents*.
+        // So we map them like this:
+        // depends_on = source,
+        // depended_on_by = target.
+        let depends_on = node_index_to_build_uuid
             .get(&edge.source())
             .ok_or_eyre("Missing node for edge source")?;
-        let depends_on = node_index_to_build_uuid
+        let depended_on_by = node_index_to_build_uuid
             .get(&edge.target())
             .ok_or_eyre("Missing node for edge target")?;
         build_dependency_models.push(build_dependencies::ActiveModel {
@@ -105,27 +117,6 @@ pub fn insert_builds_with_dependencies(
         builds::Entity::insert_many(build_models),
         build_dependencies::Entity::insert_many(build_dependency_models),
     ))
-}
-
-#[must_use]
-pub fn insert(
-    build: BuildNode,
-    architecture: package::KnownArchitecture,
-    iteration_id: Uuid,
-) -> Insert<builds::ActiveModel> {
-    let model = builds::ActiveModel {
-        id: Set(Uuid::new_v4().into()),
-        created_at: Set(time::OffsetDateTime::now_utc()),
-        architecture: Set(architecture),
-        pkgbase: Set(build.pkgbase),
-        iteration_id: Set(iteration_id.into()),
-        pkgnames_filenames: Set(PkgnamesFilenames::from(build.package_file_names)),
-        branch_name: Set(build.branch_name),
-        commit_hash: Set(build.commit_hash),
-        status: Set(package::BuildStatus::Blocked),
-        version: Set(build.version),
-    };
-    builds::Entity::insert(model)
 }
 
 /// Return a query returning a specific build by its unique uuid.
