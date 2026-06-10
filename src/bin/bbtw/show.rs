@@ -62,11 +62,12 @@ pub async fn show(
                 build.status.symbol().paint(build.status.cli_color()),
                 build.pkgbase
             );
-            if let Some(max_results) = max_results {
-                let more = response.total_build_count.saturating_sub(max_results);
-                if more > 0 {
-                    println!("[And {more} others]");
-                }
+        }
+
+        if let Some(max_results) = max_results {
+            let more = response.total_build_count.saturating_sub(max_results);
+            if more > 0 {
+                println!("[And {more} others]");
             }
         }
     }
