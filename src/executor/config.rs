@@ -38,6 +38,16 @@ pub struct RunBuildScript {
 
     /// Configuration for uploading build artifacts to the server
     pub upload_config: Option<Upload>,
+
+    pub log_destination: LogDestination,
+}
+
+#[derive(Debug, Clone)]
+pub enum LogDestination {
+    /// Stream both stdout and stderr to this file.
+    File(Utf8PathBuf),
+    /// Inherit stdout/stderr from the parent process.
+    InheritStdio,
 }
 
 #[derive(Debug, Clone)]
