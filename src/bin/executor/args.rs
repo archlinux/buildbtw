@@ -266,6 +266,8 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
             build_id,
 
             upload_config,
+            // When invoked as a standalone binary, always log to the passed file descriptors.
+            log_destination: config::LogDestination::InheritStdio,
         })
     }
 }

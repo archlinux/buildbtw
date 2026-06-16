@@ -7,7 +7,7 @@ use color_eyre::{
     eyre::{OptionExt, bail, eyre},
 };
 use tokio::{fs, process::Command};
-use tokio_util::io::ReaderStream;
+use tokio_util::{io::ReaderStream, sync::CancellationToken};
 use url::Url;
 
 use super::shell::ShellScripts;
@@ -43,6 +43,7 @@ pub async fn get_sources(
 pub async fn build_script(
     ssh_timeout: u32,
     build_script_args: config::RunBuildScript,
+    cancellation_token: CancellationToken,
 ) -> Result<()> {
     let pacman_repository_url: Option<Url> =
         match build_script_args.pacman_repository_base_url.clone() {
@@ -83,6 +84,8 @@ pub async fn build_script(
         output_dir.path(),
         pacman_repository_url,
         ssh_timeout,
+        &build_script_args.log_destination,
+        cancellation_token,
     )
     .await?;
     print_dir_content(output_dir.path()).await?;
@@ -108,6 +111,8 @@ pub async fn build_project_dir(
     output_dir: &Utf8Path,
     pacman_repo_url: Option<Url>,
     ssh_timeout: u32,
+    log_destination: &config::LogDestination,
+    cancellation_token: CancellationToken,
 ) -> Result<()> {
     let bin_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-bin-dir-")
@@ -140,16 +145,46 @@ pub async fn build_project_dir(
             .map(|url| url.to_string())
             .unwrap_or_default(),
     )
-    .stdin(Stdio::inherit())
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit());
+    .stdin(Stdio::inherit());
 
-    let child = cmd
+    match log_destination {
+        config::LogDestination::File(utf8_path_buf) => {
+            let log_file = fs::File::create(&utf8_path_buf).await?;
+            let stderr_file = log_file.try_clone().await?;
+            let log_file = log_file.into_std().await;
+            let stderr_file = stderr_file.into_std().await;
+            cmd.stdout(log_file).stderr(stderr_file);
+        }
+        config::LogDestination::InheritStdio => {
+            cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+        }
+    }
+
+    let mut child = cmd
         .spawn()
         .map_err(|e| eyre!("❌ Failed to spawn command '{:?}': {}", cmd.as_std(), e))?;
-    let output = child.wait_with_output().await?;
-    if !output.status.success() {
-        bail!("❌ Failed to run build job!");
+    let child_pid = nix::unistd::Pid::from_raw(
+        child
+            .id()
+            .ok_or_eyre("Missing PID for vmexec process")?
+            .try_into()?,
+    );
+    let output = tokio::select! {
+        output = child.wait() => {output}
+        () = cancellation_token.cancelled() => {
+            tracing::debug!("Sending SIGTERM to vmexec");
+            tokio::task::spawn_blocking(move || {
+                if let Err(err) = nix::sys::signal::kill(child_pid, nix::sys::signal::Signal::SIGTERM) {
+                    tracing::error!(?err, "Could not send SIGTERM to vmexec");
+                }
+            }).await?;
+
+            bail!("Build was cancelled.")
+        }
+    }?;
+
+    if !output.success() {
+        bail!("❌ Child exited with status: {}", output);
     }
 
     Ok(())

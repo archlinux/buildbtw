@@ -7,6 +7,7 @@ use color_eyre::{
 };
 use rstest::*;
 use tokio::process::Command;
+use tokio_util::sync::CancellationToken;
 
 use super::run::build_project_dir;
 
@@ -48,7 +49,15 @@ pkgname = buildbtw-rocks
     )
     .await?;
 
-    build_project_dir(test_project_dir.path(), test_output_dir.path(), None, 120).await?;
+    build_project_dir(
+        test_project_dir.path(),
+        test_output_dir.path(),
+        None,
+        120,
+        &crate::executor::config::LogDestination::InheritStdio,
+        CancellationToken::new(),
+    )
+    .await?;
     assert!(
         tokio::fs::try_exists(
             test_output_dir
@@ -83,9 +92,16 @@ arch=(any)
     .await?;
 
     assert!(
-        build_project_dir(test_project_dir.path(), test_output_dir.path(), None, 120)
-            .await
-            .is_err(),
+        build_project_dir(
+            test_project_dir.path(),
+            test_output_dir.path(),
+            None,
+            120,
+            &crate::executor::config::LogDestination::InheritStdio,
+            CancellationToken::new(),
+        )
+        .await
+        .is_err(),
         "Build must fail on broken pkgbuild"
     );
 
@@ -124,6 +140,8 @@ async fn test_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Resu
         test_output_dir.path(),
         None,
         120,
+        &crate::executor::config::LogDestination::InheritStdio,
+        CancellationToken::new(),
     )
     .await?;
 
