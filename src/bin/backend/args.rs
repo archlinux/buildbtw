@@ -10,6 +10,7 @@ use buildbtw::oidc;
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail, eyre};
+use openidconnect::IssuerUrl;
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -211,8 +212,8 @@ pub struct Oidc {
     pub oidc_client_secret_path: Option<Utf8PathBuf>,
 
     /// Base URL of the OIDC provider.
-    #[clap(long, env = "BUILDBTW_OIDC_ISSUER_URL", required = false)]
-    pub oidc_issuer_url: Url,
+    #[clap(long, env = "BUILDBTW_OIDC_ISSUER_URL", required = false, value_parser = parse_issuer_url)]
+    pub oidc_issuer_url: IssuerUrl,
 
     /// This will be displayed on the login page.
     #[clap(long, env = "BUILDBTW_OIDC_ISSUER_NAME", required = false)]
@@ -408,4 +409,8 @@ fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
 fn parse_ssh_host_key(s: &str) -> Result<ssh_key::known_hosts::Entry> {
     s.parse()
         .map_err(|e| eyre!("Couldn't parse SSH host key: {e}"))
+}
+
+fn parse_issuer_url(s: &str) -> Result<IssuerUrl> {
+    IssuerUrl::new(s.to_string()).map_err(|e| eyre!("Couldn't parse issuer URL: {e}"))
 }

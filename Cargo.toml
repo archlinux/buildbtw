@@ -59,6 +59,7 @@ missing_errors_doc = "allow"
 unnecessary_debug_formatting = "allow"
 implicit_hasher = "allow"
 large_enum_variant = "allow"
+used_underscore_binding = "allow"
 
 [features]
 sea-orm-debug-print = ["sea-orm/debug-print"]
