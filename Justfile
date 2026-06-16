@@ -164,7 +164,7 @@ er-diagram: (ensure-command 'sea-orm-cli')
 
 [group("dev")]
 migrate-database:
-    cargo run --bin buildbtw-backend migrate-database
+    cargo run --features sea-orm-debug-print --bin buildbtw-backend migrate-database
 
 [group("dev")]
 reset-database: && migrate-database
