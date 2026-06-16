@@ -78,7 +78,7 @@ pub async fn login(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> 
     Ok(())
 }
 
-#[instrument]
+#[instrument(skip_all)]
 pub async fn status(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> Result<()> {
     if let Some(auth_token) = bbtw::auth::Token::read(override_state_dir.clone()).await? {
         // We'll verify that we're actually logged in properly and that the session is valid.

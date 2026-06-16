@@ -26,6 +26,7 @@ pub struct HealthStatus {
 }
 
 impl HealthStatus {
+    #[must_use]
     pub fn is_healthy(&self) -> bool {
         self.database != HealthState::Unhealthy && self.oidc != HealthState::Unhealthy
     }
