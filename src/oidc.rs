@@ -40,7 +40,7 @@ use crate::{db_fields::RedactedString, entities};
 pub struct InitConfig {
     pub client_id: String,
     pub client_secret: Secret<String>,
-    pub issuer_url: Url,
+    pub issuer_url: IssuerUrl,
     pub issuer_name: String,
     pub package_maintainer_groups: Vec<String>,
     pub admin_groups: Vec<String>,
@@ -61,7 +61,7 @@ pub struct State {
     pub issuer_name: String,
 
     /// Url of the OIDC provider ("issuer")
-    pub issuer_url: Url,
+    pub issuer_url: IssuerUrl,
 
     /// Users in one these OIDC groups will be assigned the "package maintainer" role.
     pub package_maintainer_oidc_groups: Vec<String>,
@@ -96,18 +96,12 @@ impl State {
 
         let client_id = ClientId::new(config.client_id);
         let client_secret = ClientSecret::new(config.client_secret.expose_secret().clone());
-        // Custom url representation to guarantee exact match, `to_string()` adds an extra slash which throws off strict matching of some OIDC providers.
-        let issuer_url = IssuerUrl::new(format!(
-            "{}://{}",
-            config.issuer_url.scheme(),
-            config.issuer_url.authority()
-        ))
-        .wrap_err("failed to parse issuer URL")?;
 
         // Query the provider for metadata
-        let provider_metadata = CoreProviderMetadata::discover_async(issuer_url, &reqwest_client)
-            .await
-            .wrap_err("failed to discover provider")?;
+        let provider_metadata =
+            CoreProviderMetadata::discover_async(config.issuer_url.clone(), &reqwest_client)
+                .await
+                .wrap_err("failed to discover provider")?;
 
         // Create the OIDC client.
         let redirect_url = server_url.join(&web::oidc::Authorized {}.to_string())?;
@@ -239,7 +233,7 @@ pub fn same_site_from_oidc_config(oidc_config: Option<&State>) -> SameSite {
     let Some(redirect_domain) = second_level_domain(redirect_uri.url()) else {
         return SameSite::Strict;
     };
-    let Some(oidc_domain) = second_level_domain(&oidc_config.issuer_url) else {
+    let Some(oidc_domain) = second_level_domain(&oidc_config.issuer_url.clone().into()) else {
         return SameSite::Strict;
     };
 

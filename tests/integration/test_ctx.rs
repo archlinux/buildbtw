@@ -20,6 +20,7 @@ use camino::Utf8PathBuf;
 use camino_tempfile::Utf8TempDir;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
+use openidconnect::IssuerUrl;
 use redact::Secret;
 use sea_orm::DatabaseConnection;
 use thirtyfour::CapabilitiesHelper;
@@ -256,9 +257,9 @@ impl TestCtxBuilder {
             let oidc_args = oidc::InitConfig {
                 client_id: "buildbtw-test".to_string(),
                 client_secret: Secret::from("insecure_secret"),
-                issuer_url: Url::parse(
-                    format!("https://authelia.buildbtw.localhost:{authelia_port}").as_str(),
-                )
+                issuer_url: IssuerUrl::new(format!(
+                    "https://authelia.buildbtw.localhost:{authelia_port}"
+                ))
                 .unwrap(),
                 issuer_name: "Authelia Test".to_string(),
                 admin_groups: Vec::new(),
