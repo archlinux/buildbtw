@@ -167,6 +167,15 @@ migrate-database:
     cargo run --features sea-orm-debug-print --bin buildbtw-backend migrate-database
 
 [group("dev")]
+reset-seed: reset-artifacts reset-seed-database
+
+[group("dev")]
+[doc("Remove all build artifacts from the server.")]
+reset-artifacts:
+    rm -rf $BUILDBTW_DATA_DIR/artifacts
+
+[group("dev")]
+[doc("Remove the server database and create a new, empty one.")]
 reset-database: && migrate-database
     rm -f $BUILDBTW_DATABASE_FILE
 
