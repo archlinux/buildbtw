@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use buildbtw::{
     buildspace::BuildspaceSlug,
     db_fields::TxtUuid,
     dependency_graph::{self, BuildNode},
-    entities, package, queries,
+    entities, git, package, queries,
 };
+use camino::Utf8PathBuf;
 use color_eyre::Result;
 use sea_orm::DatabaseTransaction;
 
@@ -50,6 +53,39 @@ pub async fn build(
         queries::builds::insert_builds_with_dependencies(
             iteration_id.into(),
             package::KnownArchitecture::X86_64,
+            &graph,
+        )?;
+    update_iteration.exec(tx).await?;
+    let builds = insert_builds.exec_with_returning(tx).await?;
+    insert_deps.exec(tx).await?;
+
+    Ok(builds.into_iter().next().unwrap())
+}
+
+pub async fn build_with(
+    tx: &DatabaseTransaction,
+    iteration_id: TxtUuid,
+    pkgbase: &str,
+    commit_hash: git::CommitHash,
+    version: &str,
+    package_file_names: HashMap<package::Name, Utf8PathBuf>,
+    architecture: package::KnownArchitecture,
+) -> Result<entities::builds::Model> {
+    let build_node = BuildNode {
+        pkgbase: pkgbase.parse()?,
+        commit_hash,
+        branch_name: pkgbase.try_into()?,
+        package_file_names,
+        version: version.parse()?,
+    };
+
+    let mut graph = dependency_graph::BuildGraph::new();
+    graph.add_node(build_node);
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration_id.into(),
+            architecture,
             &graph,
         )?;
     update_iteration.exec(tx).await?;

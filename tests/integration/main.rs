@@ -10,6 +10,7 @@ mod geckodriver;
 mod iteration_creator;
 mod migrations;
 mod queries;
+mod run_local;
 mod tasks;
 mod templates;
 mod test_ctx;
