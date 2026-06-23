@@ -16,6 +16,7 @@ use sea_orm::TransactionTrait;
 use tokio_util::io::ReaderStream;
 use tracing::debug;
 
+use crate::pacman_repository::pacman_repo_add;
 use crate::server_state::ServerState;
 use crate::{api, entities, response_error::ResponseError};
 use crate::{builds, from_request, package, storage};
@@ -171,6 +172,16 @@ pub async fn upload_package(
     tokio::fs::rename(&temp_file, &dest)
         .await
         .wrap_err_with(|| format!("Failed to rename artifact from {temp_file:?} to {dest}"))?;
+
+    // Add build artifact to pacman database repo
+    pacman_repo_add(
+        &buildspace,
+        &iteration,
+        &build,
+        &[dest],
+        &server_state.data_dir,
+    )
+    .await?;
 
     // Update build status if all artifacts were uploaded and exist in the storage
     if builds::build_fully_uploaded(&buildspace, &iteration, &build, &server_state.data_dir) {
