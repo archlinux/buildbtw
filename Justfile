@@ -112,17 +112,17 @@ check-dependencies: (ensure-command "cargo-deny")
 [doc("Run fast tests, excluding browser-based e2e tests")]
 [group("test")]
 test *args:
-    cargo nextest run --features sea-orm-debug-print -E 'not group(e2e)' {{ args }}
+    cargo nextest run --features sea-orm-debug-print {{ args }}
 
 [doc("Run slow, browser-based end-to-end tests")]
 [group("test")]
 test-e2e *args: (ensure-command "geckodriver")
-    cargo nextest run --features sea-orm-debug-print -E 'group(e2e)' {{ args }}
+    cargo nextest run --features sea-orm-debug-print -E 'test(e2e)' --ignore-default-filter {{ args }}
 
 [doc("Run tests that take long to run or might be flaky")]
 [group("test")]
 test-flaky *args:
-    cargo nextest run --features sea-orm-debug-print --run-ignored only {{ args }}
+    cargo nextest run --features sea-orm-debug-print -E 'test(flaky)' --ignore-default-filter {{ args }}
 
 [doc("Run tests, accepting and writing any new snapshot values")]
 [group("test")]

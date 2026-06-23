@@ -8,14 +8,16 @@ use color_eyre::eyre::Context;
 use crate::state::State;
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is flaky."]
-async fn test_update_source_repos() -> Result<()> {
+async fn test_flaky_update_source_repos() -> Result<()> {
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
+
+    let ssh_known_hosts_entry: ssh_key::known_hosts::Entry =
+        env::var("BUILDBTW_GITLAB_SSH_HOST_KEY")?.parse()?;
 
     let gitlab_config = gitlab_api::Config {
         token: external_secrets::get_required("BUILDBTW_GITLAB_TOKEN", None)?,
         domain: url::Url::parse(&env::var("BUILDBTW_GITLAB_DOMAIN")?)?,
-        ssh_host_key: env::var("BUILDBTW_GITLAB_SSH_HOST_KEY")?.parse()?,
+        ssh_host_key: ssh_known_hosts_entry.public_key().clone(),
         packages_group: env::var("BUILDBTW_GITLAB_PACKAGES_GROUP")?,
     };
 

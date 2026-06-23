@@ -147,8 +147,7 @@ mod tests {
     // The test will only send read requests to the API.
     // It is specifically written for gitlab.archlinux.org, and the packaging-buildbtw-dev/packages
     // group. Run it with `just test-flaky`.
-    #[ignore = "Test depends on an external resource and can be flaky."]
-    async fn test_changed_since_integration() -> Result<()> {
+    async fn test_flaky_changed_since_integration() -> Result<()> {
         let _ = crate::tracing::init(0, false);
 
         // Read GitLab configuration from environment

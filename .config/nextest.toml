@@ -2,6 +2,7 @@
 slow-timeout = { period = "2s", terminate-after = 2 }
 # Don't fail fast so all insta snapshots update.
 fail-fast = false
+default-filter = 'not (test(e2e) or test(flaky))'
 
 [test-groups]
 e2e = { max-threads = 1 }
@@ -12,3 +13,8 @@ e2e = { max-threads = 1 }
 filter = 'test(e2e)'
 test-group = 'e2e'
 slow-timeout = { period = "20s", terminate-after = 2 }
+
+[[profile.default.overrides]]
+filter = 'test(flaky)'
+# Flaky tests often involve IO that is slow, so they need a higher timeout.
+slow-timeout = { period = "120s", terminate-after = 4 }
