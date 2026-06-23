@@ -9,11 +9,13 @@ use crate::oidc;
 pub struct ServerState {
     /// SQLite connection for storing things on disk
     pub db: DatabaseConnection,
-    /// Client configuration for logging in using a third-party OIDC
-    /// provider
-    pub oidc: oidc::MaybeConfig,
+
+    /// Client configuration for logging in using a third-party OIDC provider
+    pub oidc: Option<oidc::State>,
+
     /// Used to encrypt values stored as cookies in user's browsers
     pub cookie_encryption_key: Secret<axum_extra::extract::cookie::Key>,
+
     /// Override data storage dir used for package repos, build artifacts etc
     pub data_dir: Option<Utf8PathBuf>,
 }

@@ -25,9 +25,9 @@ pub async fn start_login(
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
-    let oidc_config = server_state.oidc.get_config()?;
-    let (url, login_attempt) = oidc::new_login_attempt(oidc_config.clone());
-    let cookie_jar = login_attempt.save_in_cookie_jar(cookie_jar, &oidc_config)?;
+    let oidc_state = server_state.oidc.wrap_err("OIDC not configured")?;
+    let (url, login_attempt) = oidc::new_login_attempt(oidc_state.clone());
+    let cookie_jar = login_attempt.save_in_cookie_jar(cookie_jar, &oidc_state)?;
     Ok((cookie_jar, Redirect::to(url.as_str())))
 }
 
@@ -39,12 +39,12 @@ pub async fn authorized(
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
-    let oidc_config = server_state.oidc.get_config()?;
-    let admin_oidc_groups = oidc_config.admin_oidc_groups.clone();
-    let package_maintainer_oidc_groups = oidc_config.package_maintainer_oidc_groups.clone();
+    let oidc_state = server_state.oidc.wrap_err("OIDC not configured")?;
+    let admin_oidc_groups = oidc_state.admin_oidc_groups.clone();
+    let package_maintainer_oidc_groups = oidc_state.package_maintainer_oidc_groups.clone();
     let login_attempt = oidc::LoginAttempt::from_cookie_jar(&cookie_jar)?;
     let (user_info, refresh_token) = oidc::convert_authorization_code_to_user_info(
-        oidc_config.clone(),
+        oidc_state.clone(),
         login_attempt,
         oidc_query.code,
         oidc_query.state,
@@ -91,7 +91,7 @@ pub async fn authorized(
     let cookie_jar = from_request::auth_user::save_in_cookie_jar(
         &session.secret_token,
         cookie_jar,
-        Some(&oidc_config),
+        Some(&oidc_state),
     );
 
     Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))

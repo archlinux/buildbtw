@@ -246,7 +246,7 @@ impl TestCtxBuilder {
         let server_url =
             Url::parse(&format!("http://buildbtw.localhost:{testserver_port}")).unwrap();
 
-        let (maybe_authelia_container, oidc_config) = if self.enable_authelia {
+        let (maybe_authelia_container, oidc_state) = if self.enable_authelia {
             let container = authelia::Container::new(None, false, &server_url)
                 .await
                 .expect("Failed to start Authelia container");
@@ -265,15 +265,13 @@ impl TestCtxBuilder {
                 package_maintainer_groups: Vec::new(),
             };
 
-            let oidc_config = oidc::MaybeConfig::initialize(&server_url, Some(oidc_args)).await;
-            assert!(
-                matches!(oidc_config, oidc::MaybeConfig::Configured(_)),
-                "Expected OIDC to be successfully configured"
-            );
+            let oidc_state = oidc::State::initialize(&server_url, oidc_args)
+                .await
+                .expect("OIDC configuration failed");
 
-            (Some(container), oidc_config)
+            (Some(container), Some(oidc_state))
         } else {
-            (None, oidc::MaybeConfig::NotConfigured)
+            (None, None)
         };
 
         let (geckodriver, thirtyfour_client) = if self.enable_geckodriver {
@@ -301,7 +299,7 @@ impl TestCtxBuilder {
 
         let state = ServerState {
             db: db.clone(),
-            oidc: oidc_config,
+            oidc: oidc_state,
             // Don't use a random value here to speed up tests
             cookie_encryption_key: Secret::new(axum_extra::extract::cookie::Key::from(
                 b"oeghai5phee4gaeti5eegheev6eefee5yu2muoV8phoChohg7aipeuh2Thahsiup",
