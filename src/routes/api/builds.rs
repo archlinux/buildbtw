@@ -1,5 +1,7 @@
 use std::os::unix::fs::PermissionsExt;
 
+use alpm_package::Package;
+use alpm_pkginfo::package_info::PackageInfo;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::extract::State;
@@ -126,13 +128,39 @@ pub async fn upload_package(
         .wrap_err_with(|| format!("Failed to create build artifact dir {dest_dir}"))?;
 
     // Write uploaded body data to temp file and atomically move to destination
-    let named_temp_file = camino_tempfile::Builder::new()
+    let named_temp_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-artifact-upload-")
-        .tempfile_in(&artifact_tmp_path)?;
-    let temp_file = named_temp_file.path();
-    crate::web::utils::stream_to_file(temp_file, request.into_body().into_data_stream())
+        .tempdir_in(&artifact_tmp_path)?;
+    let temp_file = named_temp_dir.path().join(
+        dest.file_name()
+            .ok_or_eyre("Failed to get filename from dest path")?,
+    );
+    tokio::fs::File::create(&temp_file).await?;
+    crate::web::utils::stream_to_file(&temp_file, request.into_body().into_data_stream())
         .await
         .wrap_err_with(|| format!("Failed to write artifact to {temp_file:?}"))?;
+
+    // Check uploaded file validity and metadata. Don't expect a full file validation,
+    // just checking basic expectations like the pkgname and extract version to avoid
+    // accidental uploads.
+    let package = Package::try_from(temp_file.as_std_path())?;
+    let PackageInfo::V2(pkginfo) = package.read_pkginfo()? else {
+        return Err(ResponseError::UnprocessableEntity(
+            "Unsupported PKGINFO version, expected v2".into(),
+        ))?;
+    };
+    if pkgname != package::Name::from(pkginfo.pkgname.clone()) {
+        return Err(ResponseError::UnprocessableEntity(format!(
+            "Package tarball pkgname '{}' does not match expected pkgname '{}'",
+            pkginfo.pkgname, pkgname
+        )));
+    }
+    if build.version != package::Version::from(pkginfo.pkgver.clone()) {
+        return Err(ResponseError::UnprocessableEntity(format!(
+            "Package tarball pkgver '{:?}' does not match expected pkgver '{:?}'",
+            pkginfo.pkgver, build.version
+        )));
+    }
 
     // Ensure consistent permissions as used for mirrorlist by default without relying on umask
     tokio::fs::set_permissions(&temp_file, std::fs::Permissions::from_mode(0o644))
@@ -140,7 +168,7 @@ pub async fn upload_package(
         .wrap_err_with(|| format!("Failed to set permissions for temp artifact {temp_file:?}"))?;
 
     // Rename temporary file to final destination
-    tokio::fs::rename(temp_file, &dest)
+    tokio::fs::rename(&temp_file, &dest)
         .await
         .wrap_err_with(|| format!("Failed to rename artifact from {temp_file:?} to {dest}"))?;
 

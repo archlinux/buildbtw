@@ -294,18 +294,27 @@ async fn test_list_builds_invalid_status(#[future(awt)] ctx: TestCtx) {
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, "one").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
     queries::builds::dispatch_to_local_executor(build.id)
         .exec(&tx)
         .await?;
     tx.commit().await?;
 
-    let expected_data = "IDDQD";
-    let pkgname: package::Name = "one".parse()?;
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     // Get the artifact upload response
     let response = ctx
@@ -316,7 +325,7 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
             build_id: build.id.into(),
             pkgname: pkgname.clone(),
         })
-        .bytes(expected_data.into())
+        .bytes(package_bytes.clone().into())
         .await;
 
     // Check uploaded artifact
@@ -330,8 +339,8 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
         &pkgname,
         &Some(data_dir),
     )?;
-    let content = tokio::fs::read_to_string(&dest).await?;
-    assert_eq!(expected_data, content, "uploaded bytes must match");
+    let dest_bytes = tokio::fs::read(&dest.to_path_buf()).await?;
+    assert_eq!(package_bytes, dest_bytes, "uploaded bytes must match");
 
     // Check build status update
     let tx = ctx.state.db.begin().await?;
@@ -348,14 +357,23 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, "one").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
-    let expected_data = "IDDQD";
-    let pkgname: package::Name = "one".parse()?;
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     // Get the artifact upload response
     let response = ctx
@@ -363,9 +381,9 @@ async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) ->
         .typed_post(&api::builds::UploadPackage {})
         .add_query_params(api::builds::UploadPackageQuery {
             build_id: build.id.into(),
-            pkgname: pkgname.clone(),
+            pkgname,
         })
-        .bytes(expected_data.into())
+        .bytes(package_bytes.into())
         .await;
 
     // Check uploaded artifact
@@ -377,14 +395,25 @@ async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) ->
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgbase: package::Name = "one".parse()?;
+    let pkgname: package::Name = "one-foo".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build_with_split_package(&tx, iteration.id, "one").await?;
+    let build =
+        factories::build_with_split_package(&tx, iteration.id, &pkgbase.to_string()).await?;
     tx.commit().await?;
 
-    let expected_data = "IDDQD";
-    let pkgname: package::Name = "one-foo".parse()?;
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgbase.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     // Get the artifact upload response
     let response = ctx
@@ -395,7 +424,7 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
             build_id: build.id.into(),
             pkgname: pkgname.clone(),
         })
-        .bytes(expected_data.into())
+        .bytes(package_bytes.clone().into())
         .await;
 
     // Check uploaded artifact
@@ -409,8 +438,8 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
         &pkgname,
         &Some(data_dir),
     )?;
-    let content = tokio::fs::read_to_string(&dest).await?;
-    assert_eq!(expected_data, content, "uploaded bytes must match");
+    let dest_bytes = tokio::fs::read(&dest.to_path_buf()).await?;
+    assert_eq!(package_bytes, dest_bytes, "uploaded bytes must match");
 
     // Check build status update
     let tx = ctx.state.db.begin().await?;
@@ -427,14 +456,23 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let _ = factories::build(&tx, iteration.id, "one").await?;
+    let _ = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
-    let expected_data = "IDDQD";
-    let pkgname: package::Name = "one".parse()?;
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     // Get the artifact upload response
     let response = ctx
@@ -446,7 +484,7 @@ async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx)
             build_id: Uuid::new_v4(),
             pkgname,
         })
-        .bytes(expected_data.into())
+        .bytes(package_bytes.clone().into())
         .await;
 
     // Check uploaded artifact
@@ -458,13 +496,23 @@ async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx)
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, "one").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
-    let expected_data = "IDDQD";
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     // Get the artifact upload response
     let response = ctx
@@ -476,7 +524,7 @@ async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCt
             // Request a pkgname that doesn't exist.
             pkgname: "doesnt-exist".parse()?,
         })
-        .bytes(expected_data.into())
+        .bytes(package_bytes.clone().into())
         .await;
 
     // Check uploaded artifact
@@ -488,14 +536,23 @@ async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCt
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, "one").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
-    let expected_data = "IDDQD";
-    let pkgname: package::Name = "one".parse()?;
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     // Write existing file into the storage
     let data_dir = ctx.data_dir.path().to_path_buf();
@@ -507,7 +564,7 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
         &Some(data_dir),
     )?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
-    tokio::fs::write(&dest, expected_data).await?;
+    tokio::fs::write(&dest, package_bytes.clone()).await?;
 
     // Get the artifact upload response
     let response = ctx
@@ -518,7 +575,7 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
             build_id: build.id.into(),
             pkgname,
         })
-        .bytes(expected_data.into())
+        .bytes(package_bytes.into())
         .await;
 
     // Check uploaded artifact
@@ -529,15 +586,97 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
 
 #[rstest]
 #[tokio::test]
+async fn test_upload_build_artifact_invalid_package(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Package bytes
+    let package_bytes = "IDDQD".as_bytes();
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname,
+        })
+        .bytes(package_bytes.into())
+        .await;
+
+    // Check uploaded artifact
+    response.assert_status_bad_request();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_upload_build_artifact_invalid_package_metadata(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"1.33-7".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname: pkgname.clone(),
+        })
+        .bytes(package_bytes.clone().into())
+        .await;
+
+    // Check uploaded artifact
+    response.assert_status_unprocessable_entity();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
 async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, "one").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
-    let expected_data = "IDDQD";
-    let pkgname = "one".parse()?;
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
@@ -548,7 +687,7 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
         &Some(data_dir),
     )?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
-    tokio::fs::write(&dest, expected_data).await?;
+    tokio::fs::write(&dest, package_bytes.clone()).await?;
 
     // Get the artifact download response
     let response = ctx
@@ -563,11 +702,7 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
     // Check downloaded bytes match artifact data
     response.assert_status_ok();
     let bytes = response.into_bytes();
-    assert_eq!(
-        expected_data,
-        std::str::from_utf8(&bytes)?,
-        "downloaded bytes must match"
-    );
+    assert_eq!(package_bytes, bytes.to_vec(), "downloaded bytes must match");
 
     Ok(())
 }
@@ -575,10 +710,12 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
 #[rstest]
 #[tokio::test]
 async fn test_download_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, "one").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
     // Get the artifact download response
@@ -601,10 +738,12 @@ async fn test_download_build_artifact_pkgname_not_found(#[future(awt)] ctx: Test
 #[rstest]
 #[tokio::test]
 async fn test_download_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let _ = factories::build(&tx, iteration.id, "one").await?;
+    let _ = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
     // Get the artifact download response
@@ -614,7 +753,7 @@ async fn test_download_build_artifact_build_not_found(#[future(awt)] ctx: TestCt
         .add_query_params(api::builds::DownloadPackageQuery {
             // Generate a build_id that doesn't exist.
             build_id: Uuid::new_v4(),
-            pkgname: "one".parse()?,
+            pkgname,
         })
         .await;
 

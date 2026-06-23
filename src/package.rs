@@ -236,7 +236,18 @@ impl BuildStatus {
 
 /// Provides SeaORM compatibility for ALPM package versions.
 #[nutype(
-    derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromStr, From),
+    derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Serialize,
+        Deserialize,
+        FromStr,
+        From,
+        AsRef,
+        Display,
+    ),
     derive_unchecked(sea_orm::FromJsonQueryResult)
 )]
 pub struct Version(alpm_types::FullVersion);
