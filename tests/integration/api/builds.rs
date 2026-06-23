@@ -1,16 +1,12 @@
 use std::collections::HashSet;
 
 use buildbtw::api;
-use buildbtw::db_fields::TxtUuid;
-use buildbtw::dependency_graph;
-use buildbtw::dependency_graph::BuildNode;
 use buildbtw::entities;
 use buildbtw::package;
 use buildbtw::queries;
 use color_eyre::eyre::Result;
 use reqwest::StatusCode;
 use rstest::rstest;
-use sea_orm::DatabaseTransaction;
 use sea_orm::TransactionTrait;
 use uuid::Uuid;
 
@@ -378,54 +374,13 @@ async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) ->
     Ok(())
 }
 
-async fn create_split_package_build(
-    tx: &DatabaseTransaction,
-    iteration_id: TxtUuid,
-    pkgbase: &str,
-) -> Result<entities::builds::Model> {
-    let build_node = BuildNode {
-        pkgbase: pkgbase.parse()?,
-        commit_hash: "aaaaaa".parse()?,
-        branch_name: pkgbase.try_into()?,
-        package_file_names: [
-            (
-                format!("{pkgbase}-foo").parse()?,
-                format!("{pkgbase}-foo.tar.gz").parse()?,
-            ),
-            (
-                format!("{pkgbase}-bar").parse()?,
-                format!("{pkgbase}-bar.tar.gz").parse()?,
-            ),
-        ]
-        .iter()
-        .cloned()
-        .collect(),
-        version: "2.1-0".parse()?,
-    };
-
-    let mut graph = dependency_graph::BuildGraph::new();
-    graph.add_node(build_node);
-
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration_id.into(),
-            package::KnownArchitecture::X86_64,
-            &graph,
-        )?;
-    update_iteration.exec(tx).await?;
-    let builds = insert_builds.exec_with_returning(tx).await?;
-    insert_deps.exec(tx).await?;
-
-    Ok(builds.into_iter().next().unwrap())
-}
-
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = create_split_package_build(&tx, iteration.id, "one").await?;
+    let build = factories::build_with_split_package(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
