@@ -1,4 +1,4 @@
-use std::{process::Stdio, time::Duration};
+use std::process::Stdio;
 
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use color_eyre::{
@@ -12,8 +12,7 @@ use tokio_util::sync::CancellationToken;
 use super::run::build_project_dir;
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is heavyweight."]
-async fn test_gitlab_executor_build_project_dir() -> Result<()> {
+async fn test_flaky_gitlab_executor_build_project_dir() -> Result<()> {
     let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
@@ -72,8 +71,7 @@ pkgname = buildbtw-rocks
 }
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is heavyweight."]
-async fn test_gitlab_executor_build_project_dir_fails_on_broken_pkgbuild() -> Result<()> {
+async fn test_flaky_gitlab_executor_build_project_dir_fails_on_broken_pkgbuild() -> Result<()> {
     let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
@@ -109,10 +107,8 @@ arch=(any)
 }
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is heavyweight."]
 #[rstest]
-#[timeout(Duration::from_mins(2))]
-async fn test_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Result<()> {
+async fn test_flaky_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Result<()> {
     let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;

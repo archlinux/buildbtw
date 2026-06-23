@@ -9,8 +9,7 @@ use buildbtw::{
 };
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is flaky."]
-async fn test_create_source_repo_cache() -> Result<()> {
+async fn test_flaky_create_source_repo_cache() -> Result<()> {
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let mut count = 0;
@@ -29,8 +28,7 @@ async fn test_create_source_repo_cache() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is flaky."]
-async fn test_build_buildspace_source_info_index() -> Result<()> {
+async fn test_flaky_build_buildspace_source_info_index() -> Result<()> {
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
@@ -59,8 +57,7 @@ async fn test_build_buildspace_source_info_index() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is flaky."]
-async fn test_build_global_dependency_graphs() -> Result<()> {
+async fn test_flaky_build_global_dependency_graphs() -> Result<()> {
     // prepare required data
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
@@ -102,8 +99,7 @@ async fn test_build_global_dependency_graphs() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is flaky."]
-async fn test_calculate_build_graphs() -> Result<()> {
+async fn test_flaky_calculate_build_graphs() -> Result<()> {
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
 

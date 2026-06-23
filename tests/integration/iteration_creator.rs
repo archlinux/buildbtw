@@ -28,8 +28,7 @@ async fn create_buildspace_with_iteration(
 
 /// Verifies that the iteration creator can complete a run through its loop, updating all source repos, then creating new iterations for buildspaces with new commits, and calculating build graphs for iterations that are missing them.
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is heavyweight."]
-async fn test_run() -> Result<()> {
+async fn test_flaky_run() -> Result<()> {
     let _ = buildbtw::tracing::init(0, false);
     let db = db::connect_and_migrate(db::SQLiteLocation::Memory)
         .await

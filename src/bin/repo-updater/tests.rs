@@ -8,8 +8,7 @@ use color_eyre::eyre::Context;
 use crate::state::State;
 
 #[tokio::test]
-#[ignore = "Test depends on an external resource and is flaky."]
-async fn test_update_source_repos() -> Result<()> {
+async fn test_flaky_update_source_repos() -> Result<()> {
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
 
     let gitlab_config = gitlab_api::Config {
