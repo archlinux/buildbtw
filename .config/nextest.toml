@@ -16,3 +16,5 @@ slow-timeout = { period = "20s", terminate-after = 2 }
 
 [[profile.default.overrides]]
 filter = 'test(flaky)'
+# Flaky tests often involve IO that is slow, so they need a higher timeout.
+slow-timeout = { period = "120s", terminate-after = 4 }
