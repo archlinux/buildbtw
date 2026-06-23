@@ -218,13 +218,19 @@ async fn run_server(
     let cookie_encryption_key =
         external_secrets::get_cookie_encryption_key(cookie_encryption_key_path.as_deref())?;
 
+    let oidc_state = if let Some(oidc) = oidc {
+        let oidc_init_config = oidc::InitConfig::try_from(oidc)?;
+        let oidc_state = oidc::State::initialize(&server_url, oidc_init_config)
+            .await
+            .wrap_err("OIDC configuration failed")?;
+        Some(oidc_state)
+    } else {
+        None
+    };
+
     let server_state = server_state::ServerState {
         db: db.clone(),
-        oidc: oidc::MaybeConfig::initialize(
-            &server_url,
-            oidc.map(oidc::InitConfig::try_from).transpose()?,
-        )
-        .await,
+        oidc: oidc_state,
         cookie_encryption_key,
         data_dir,
     };

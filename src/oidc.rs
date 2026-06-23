@@ -1,9 +1,9 @@
 //! Single-sign-on functionality using the Open ID Connect (OIDC) standard
 //!
 //! Overview:
-//! When the server starts, [`MaybeConfig`] is initialized with an [`InitConfig`]. If the OIDC provider is reachable and the configured
-//! credentials are valid, [MaybeConfig::Configured] is stored in
-//! [crate::server_state::ServerState].
+//! When the server starts, [`State`] is initialized with an [`InitConfig`]. If the OIDC provider is reachable and the configured
+//! credentials are valid, [`State`] is stored in
+//! [`crate::server_state::ServerState`].
 //! Then, when a user visits [crate::web::oidc::StartLogin], a [LoginAttempt]
 //! is created and stored in their session. The user is redirected to the OIDC
 //! provider to authorize our OIDC client for their account. Afterwards, they
@@ -14,8 +14,10 @@
 
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
-use color_eyre::Result;
-use color_eyre::eyre::{Context, ContextCompat, OptionExt, bail, eyre};
+use color_eyre::{
+    Result,
+    eyre::{Context, ContextCompat, OptionExt, bail},
+};
 use openidconnect::core::{
     CoreAuthenticationFlow, CoreClient, CoreGenderClaim, CoreProviderMetadata,
 };
@@ -27,6 +29,7 @@ use openidconnect::{
 use openidconnect::{PkceCodeVerifier, reqwest};
 use redact::Secret;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use url::Url;
 
 use crate::web;
@@ -43,45 +46,33 @@ pub struct InitConfig {
     pub admin_groups: Vec<String>,
 }
 
-/// State used by the http endpoints to run OIDC functionality.
-/// Stored in [super::server_state::ServerState].
+/// Everything needed at runtime to perform single-sign-on with a specific OIDC
+/// provider.
+/// Stored in [crate::server_state::ServerState].
 #[derive(Clone, Debug)]
-#[expect(clippy::large_enum_variant)]
-pub enum MaybeConfig {
-    /// OIDC is either not configured at all, or the initialization failed.
-    NotConfigured,
-    /// An OIDC provider is configured and the server was able to connect to it
-    /// at startup.
-    Configured(State),
+pub struct State {
+    /// High-level client from [openidconnect]
+    pub oidc_client: ConfiguredClient,
+
+    /// HTTP client passed to [openidconnect] functions when making requests
+    pub reqwest_client: reqwest::Client,
+
+    /// User-visible name of the OIDC provider ("issuer")
+    pub issuer_name: String,
+
+    /// Url of the OIDC provider ("issuer")
+    pub issuer_url: Url,
+
+    /// Users in one these OIDC groups will be assigned the "package maintainer" role.
+    pub package_maintainer_oidc_groups: Vec<String>,
+
+    /// Users in one these OIDC groups will be assigned the "admin" role. Takes precedence over other roles.
+    pub admin_oidc_groups: Vec<String>,
 }
 
-impl MaybeConfig {
-    /// Convenience function for turning [MaybeConfig] into a
-    /// [`Result<Config>`].
-    pub fn get_config(self) -> Result<State> {
-        match self {
-            MaybeConfig::NotConfigured => Err(eyre!("OIDC client not configured")),
-            MaybeConfig::Configured(config) => Ok(config),
-        }
-    }
-
-    /// Initialize the OIDC configuration for the given configuration.
-    /// On failure, return [MaybeConfig::NotConfigured].
-    pub async fn initialize(server_url: &Url, config: Option<InitConfig>) -> MaybeConfig {
-        match Self::try_initialize_state(server_url, config).await {
-            Ok(conf) => {
-                tracing::info!("OIDC enabled");
-                MaybeConfig::Configured(conf)
-            }
-            Err(e) => {
-                tracing::info!("OIDC disabled: {e:?}");
-                MaybeConfig::NotConfigured
-            }
-        }
-    }
-
-    /// Try to initialize an OIDC client for the given configuration.
-    async fn try_initialize_state(server_url: &Url, config: Option<InitConfig>) -> Result<State> {
+impl State {
+    /// Initialize the OIDC state
+    pub async fn initialize(server_url: &Url, config: InitConfig) -> Result<Self> {
         #[allow(unused_mut)]
         let mut reqwest_client_builder =
             reqwest::ClientBuilder::new().redirect(reqwest::redirect::Policy::none());
@@ -90,7 +81,7 @@ impl MaybeConfig {
         // client accept them.
         #[cfg(any(test, debug_assertions))]
         {
-            tracing::info!("Danger: Allowing invalid TLS certs");
+            tracing::warn!("Danger: Allowing invalid TLS certs");
             reqwest_client_builder = reqwest_client_builder
                 // .add_root_certificate(todo!())
                 // Seems like `add_root_certificate` is broken for both rustls and
@@ -103,7 +94,6 @@ impl MaybeConfig {
             .build()
             .wrap_err("Failed to build reqwest client")?;
 
-        let config = config.wrap_err("OIDC configuration is absent or incomplete.")?;
         let client_id = ClientId::new(config.client_id);
         let client_secret = ClientSecret::new(config.client_secret.expose_secret().clone());
         // Custom url representation to guarantee exact match, `to_string()` adds an extra slash which throws off strict matching of some OIDC providers.
@@ -125,6 +115,7 @@ impl MaybeConfig {
             CoreClient::from_provider_metadata(provider_metadata, client_id, Some(client_secret))
                 .set_redirect_uri(RedirectUrl::from_url(redirect_url));
 
+        info!("OIDC enabled");
         Ok(State {
             oidc_client: client,
             reqwest_client,
@@ -134,25 +125,6 @@ impl MaybeConfig {
             package_maintainer_oidc_groups: config.package_maintainer_groups,
         })
     }
-}
-
-/// Everything needed at runtime to perform single-sign-on with a specific OIDC
-/// provider.
-/// Stored in [crate::server_state::ServerState].
-#[derive(Clone, Debug)]
-pub struct State {
-    /// High-level client from [openidconnect]
-    pub oidc_client: ConfiguredClient,
-    /// HTTP client passed to [openidconnect] functions when making requests
-    pub reqwest_client: reqwest::Client,
-    /// User-visible name of the OIDC provider ("issuer")
-    pub issuer_name: String,
-    /// Url of the OIDC provider ("issuer")
-    pub issuer_url: Url,
-    /// Users in one these OIDC groups will be assigned the "package maintainer" role.
-    pub package_maintainer_oidc_groups: Vec<String>,
-    /// Users in one these OIDC groups will be assigned the "admin" role. Takes precedence over other roles.
-    pub admin_oidc_groups: Vec<String>,
 }
 
 /// Used to store a valid and ready-to-use client in [State].

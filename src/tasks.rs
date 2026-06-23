@@ -62,9 +62,9 @@ pub fn initialize(
 
     spawn_invalidate_old_sessions(state.clone(), token.clone());
 
-    // Run OIDC role sync, if OIDC is configured
-    if let crate::oidc::MaybeConfig::Configured(oidc_config) = state.oidc {
-        spawn_sync_oidc_roles(state.db, oidc_config, token);
+    // Run OIDC role sync if OIDC is configured
+    if let Some(oidc_state) = state.oidc {
+        spawn_sync_oidc_roles(state.db, oidc_state, token);
     }
 
     Ok(())
