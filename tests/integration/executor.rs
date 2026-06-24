@@ -9,7 +9,7 @@ use rstest::*;
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
-use super::run::build_project_dir;
+use buildbtw::executor::run::build_project_dir;
 
 #[tokio::test]
 async fn test_flaky_gitlab_executor_build_project_dir() -> Result<()> {
@@ -53,7 +53,7 @@ pkgname = buildbtw-rocks
         test_output_dir.path(),
         None,
         120,
-        &crate::executor::config::LogDestination::InheritStdio,
+        &buildbtw::executor::config::LogDestination::InheritStdio,
         CancellationToken::new(),
     )
     .await?;
@@ -95,7 +95,7 @@ arch=(any)
             test_output_dir.path(),
             None,
             120,
-            &crate::executor::config::LogDestination::InheritStdio,
+            &buildbtw::executor::config::LogDestination::InheritStdio,
             CancellationToken::new(),
         )
         .await
@@ -136,7 +136,7 @@ async fn test_flaky_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -
         test_output_dir.path(),
         None,
         120,
-        &crate::executor::config::LogDestination::InheritStdio,
+        &buildbtw::executor::config::LogDestination::InheritStdio,
         CancellationToken::new(),
     )
     .await?;
