@@ -9,7 +9,7 @@ use crate::utils::slugify;
 /// Wraps a [`String`] and automatically sanatizes it through [`crate::utils::slugify`].
 #[nutype(
     sanitize(with = slugify),
-    validate(not_empty),
+    validate(with = validate_buildspace_slug, error = garde::Error),
     derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom, FromStr, Display),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
@@ -17,10 +17,19 @@ use crate::utils::slugify;
 )]
 pub struct BuildspaceSlug(String);
 
+fn validate_buildspace_slug(input: &str) -> Result<(), garde::Error> {
+    if input.is_empty() {
+        return Err(garde::Error::new("May not be empty"));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     #[rstest]
     #[case("test\nit   now!", "test-it-now")]

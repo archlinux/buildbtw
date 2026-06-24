@@ -9,7 +9,7 @@ use color_eyre::{
     Result,
     eyre::{OptionExt, WrapErr, eyre},
 };
-use derive_more::{Display, From, FromStr, IntoIterator};
+use derive_more::{Display, From, FromStr};
 use nutype::nutype;
 use sea_orm::DeriveValueType;
 use serde::{Deserialize, Serialize};
@@ -44,13 +44,21 @@ pub struct CommitHash(#[serde_as(as = "serde_with::DisplayFromStr")] git2::Oid);
 /// Provides type safety when working with references to git branches.
 #[nutype(
     // TODO: add proper validation (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/216)
-    validate(not_empty),
+    validate(with = validate_branch_name, error = garde::Error),
     derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, Display, TryFrom),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
     derive_unchecked(sea_orm::DeriveValueType)
 )]
 pub struct BranchName(String);
+
+fn validate_branch_name(input: &str) -> Result<(), garde::Error> {
+    if input.is_empty() {
+        return Err(garde::Error::new("May not be empty"));
+    }
+
+    Ok(())
+}
 
 /// A collection of branches in package source repositories.
 #[derive(
@@ -62,13 +70,13 @@ pub struct BranchName(String);
     Deserialize,
     sea_orm::FromJsonQueryResult,
     Default,
-    IntoIterator,
+    derive_more::IntoIterator,
     derive_more::From,
     Display,
 )]
 #[into_iterator(ref)]
 #[display("{}", self.0.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "))]
-pub struct Changesets(Vec<Changeset>);
+pub struct Changesets(pub Vec<Changeset>);
 
 /// Represents a source repository and a git branch inside of the repo,
 /// pointing to a specific commit with build instructions.
