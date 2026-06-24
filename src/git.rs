@@ -52,6 +52,20 @@ pub struct CommitHash(#[serde_as(as = "serde_with::DisplayFromStr")] git2::Oid);
 )]
 pub struct BranchName(String);
 
+impl BranchName {
+    /// # Panics
+    ///
+    /// Panics if "main" is not a valid branch name.
+    #[must_use]
+    pub fn main() -> Self {
+        #[expect(
+            clippy::unwrap_used,
+            reason = "We know this won't fail because it's a constant value and covered in tests."
+        )]
+        "main".try_into().unwrap()
+    }
+}
+
 fn validate_branch_name(input: &str) -> Result<(), garde::Error> {
     if input.is_empty() {
         return Err(garde::Error::new("May not be empty"));

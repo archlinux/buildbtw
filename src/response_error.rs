@@ -50,6 +50,10 @@ pub enum ResponseError {
     /// User's role has insufficient permissions.
     #[error("Internal server error: {0}")]
     InternalServer(String),
+
+    /// Resource already exists.
+    #[error("Conflict: {0}")]
+    Conflict(String),
 }
 
 impl IntoResponse for ResponseError {
@@ -67,6 +71,7 @@ impl IntoResponse for ResponseError {
             ResponseError::InvalidInput(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ResponseError::NotAuthenticated => StatusCode::UNAUTHORIZED,
             ResponseError::NotPermitted(_) => StatusCode::FORBIDDEN,
+            ResponseError::Conflict(_) => StatusCode::CONFLICT,
         };
         // Send only the opaque description using the display trait, to avoid leaking
         // information
