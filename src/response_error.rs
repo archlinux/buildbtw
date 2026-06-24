@@ -64,7 +64,7 @@ impl IntoResponse for ResponseError {
             | ResponseError::InternalServer(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            ResponseError::InvalidInput(_) => StatusCode::BAD_REQUEST,
+            ResponseError::InvalidInput(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ResponseError::NotAuthenticated => StatusCode::UNAUTHORIZED,
             ResponseError::NotPermitted(_) => StatusCode::FORBIDDEN,
         };
