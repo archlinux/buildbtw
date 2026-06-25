@@ -4,6 +4,7 @@
 mod api;
 mod bbtw;
 mod dependency_graph;
+mod executor;
 mod factories;
 mod from_request;
 mod geckodriver;
