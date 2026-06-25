@@ -148,8 +148,19 @@ pub async fn build_project_dir(
     .stdin(Stdio::inherit());
 
     match log_destination {
-        config::LogDestination::File(utf8_path_buf) => {
-            let log_file = fs::File::create(&utf8_path_buf).await?;
+        config::LogDestination::File(log_path) => {
+            if let Ok(exists) = fs::try_exists(&log_path).await
+                && exists
+            {
+                bail!(
+                    "Log file {log_path} already exists. This indicates a previous build that ran for this iteration, arch and pkgbase. Running builds multiple times is not supported."
+                );
+            }
+            if let Some(log_dir) = log_path.parent() {
+                fs::create_dir_all(log_dir).await?;
+            }
+
+            let log_file = fs::File::create(&log_path).await?;
             let stderr_file = log_file.try_clone().await?;
             let log_file = log_file.into_std().await;
             let stderr_file = stderr_file.into_std().await;
