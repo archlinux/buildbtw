@@ -12,6 +12,7 @@ use reqwest::header;
 use sea_orm::PaginatorTrait;
 use sea_orm::TransactionTrait;
 use tokio_util::io::ReaderStream;
+use tracing::debug;
 
 use crate::server_state::ServerState;
 use crate::{api, entities, response_error::ResponseError};
@@ -92,9 +93,7 @@ pub async fn upload_package(
     let filename = filenames
         .get(&pkgname)
         .ok_or_else(|| ResponseError::NotFound(format!("Build package '{pkgname}'")))?;
-    tracing::debug!(
-        "Received data stream for build_id {build_id} pkgname {pkgname} filename {filename}",
-    );
+    debug!("Received data stream for build_id {build_id} pkgname {pkgname} filename {filename}",);
 
     // Abort if artifact has already been uploaded
     let dest = builds::build_artifact_path(
@@ -105,7 +104,7 @@ pub async fn upload_package(
         &server_state.data_dir,
     )?;
     if dest.exists() {
-        tracing::debug!("Build artifact {dest:#?} has already been uploaded");
+        debug!("Build artifact {dest:#?} has already been uploaded");
         return Err(ResponseError::NotPermitted(
             "Build artifact already exists".into(),
         ));
@@ -201,7 +200,7 @@ pub async fn download_package(
         .await
         .wrap_err_with(|| ResponseError::NotFound("Build artifact not found".into()))?;
     let len = file.metadata().await?.len();
-    tracing::debug!(
+    debug!(
         "Downloading {len} bytes from build-id {build_id} pkgname {pkgname} filename {filename}",
     );
 

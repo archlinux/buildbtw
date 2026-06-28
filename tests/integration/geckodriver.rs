@@ -11,6 +11,7 @@ use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, Command},
 };
+use tracing::{debug, error};
 
 /// Start geckodriver process with automatic cleanup
 pub async fn start_process() -> Result<ProcessGuard> {
@@ -33,7 +34,7 @@ pub async fn start_process() -> Result<ProcessGuard> {
     tokio::time::timeout(Duration::from_secs(5), async {
         // Wait for the log message telling us startup has finished
         while let Ok(Some(line)) = stdout_lines.next_line().await {
-            tracing::debug!(target: "geckodriver", "{line}");
+            debug!(target: "geckodriver", "{line}");
             if line.contains("Listening on") {
                 break;
             }
@@ -45,13 +46,13 @@ pub async fn start_process() -> Result<ProcessGuard> {
     // Forward all future logs to tracing
     tokio::spawn(async move {
         while let Ok(Some(line)) = stdout_lines.next_line().await {
-            tracing::debug!(target: "geckodriver", "{}", line);
+            debug!(target: "geckodriver", "{}", line);
         }
     });
 
     tokio::spawn(async move {
         while let Ok(Some(line)) = stderr_lines.next_line().await {
-            tracing::debug!(target: "geckodriver", "{}", line);
+            debug!(target: "geckodriver", "{}", line);
         }
     });
 
@@ -71,7 +72,7 @@ impl Drop for ProcessGuard {
     fn drop(&mut self) {
         // Check if the container already exited
         let Ok(maybe_status) = self.0.try_wait() else {
-            tracing::error!("Failed to check status of geckodriver process");
+            error!("Failed to check status of geckodriver process");
             return;
         };
 

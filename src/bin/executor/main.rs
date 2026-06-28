@@ -13,6 +13,7 @@ use buildbtw::{
 use clap::Parser;
 use color_eyre::Result;
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 mod args;
 
@@ -68,7 +69,7 @@ pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
             )
             .await?;
         }
-        _ => tracing::info!("Unhandled run stage: {:?}", run_args.stage),
+        _ => info!("Unhandled run stage: {:?}", run_args.stage),
     }
     Ok(())
 }

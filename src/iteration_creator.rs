@@ -45,7 +45,7 @@ use color_eyre::eyre::{OptionExt, Result};
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
-use tracing::instrument;
+use tracing::{error, info, instrument};
 
 use crate::{entities, queries};
 
@@ -94,7 +94,7 @@ impl IterationCreator {
             let run_start = Instant::now();
             let sleep_duration = if let Err(e) = self.tick().await {
                 let retry_duration = Duration::from_secs(30);
-                tracing::error!(
+                error!(
                     ?e,
                     "Failed to run iteration creator, retrying in {retry_duration:?}"
                 );
@@ -116,7 +116,7 @@ impl IterationCreator {
 
     /// Tick once: update all source repos, create pending build graphs and new iterations.
     /// TODO: check if it's safe to cancel this function, because it can hold up the shutdown process.
-    #[tracing::instrument(skip(self))]
+    #[instrument(skip(self))]
     pub async fn tick(&mut self) -> Result<()> {
         if let RepoUpdateConfig::DoUpdate(gitlab_config) = &self.config.repo_update {
             let gitlab_client = gitlab::GitlabBuilder::new(
@@ -139,7 +139,7 @@ impl IterationCreator {
         if self.config.auto_create_iterations
             && let Err(e) = self.create_new_iterations(&mut source_repo_cache).await
         {
-            tracing::error!(?e, "Failed to create new iterations");
+            error!(?e, "Failed to create new iterations");
         }
 
         // Always calculate pending build graphs, even when create_new_iterations is not called.
@@ -147,7 +147,7 @@ impl IterationCreator {
             .calculate_pending_build_graphs(&mut source_repo_cache)
             .await
         {
-            tracing::error!(?e, "Could not calculate missing build graphs");
+            error!(?e, "Could not calculate missing build graphs");
         }
 
         Ok(())
@@ -157,7 +157,7 @@ impl IterationCreator {
     ///
     /// 1. For iterations pending calculation
     /// 2. For buildspaces where a newly calculated build graph differs from the stored one
-    #[tracing::instrument(skip(self, source_repo_cache))]
+    #[instrument(skip(self, source_repo_cache))]
     async fn create_new_iterations(
         &mut self,
         source_repo_cache: &mut dependency_graph::SourceRepoCache,
@@ -169,7 +169,7 @@ impl IterationCreator {
             // We do this here to make sure their builds are dispatched as fast as possible,
             // since users are probably waiting for them.
             if let Err(e) = self.calculate_pending_build_graphs(source_repo_cache).await {
-                tracing::error!(?e, "Could not calculate missing build graphs");
+                error!(?e, "Could not calculate missing build graphs");
             }
 
             // Process one buildspace
@@ -177,7 +177,7 @@ impl IterationCreator {
                 .check_buildspace_graph(source_repo_cache, buildspace)
                 .await
             {
-                tracing::error!(?e, "Failed to check buildspace for build graph changes");
+                error!(?e, "Failed to check buildspace for build graph changes");
             }
         }
 
@@ -185,7 +185,7 @@ impl IterationCreator {
     }
 
     /// Check if this buildspace needs a new iteration because of build graph changes.
-    #[tracing::instrument(skip(self, source_repos, buildspace), fields(buildspace.name = %buildspace.name))]
+    #[instrument(skip(self, source_repos, buildspace), fields(buildspace.name = %buildspace.name))]
     async fn check_buildspace_graph(
         &self,
         source_repos: &mut dependency_graph::SourceRepoCache,
@@ -224,7 +224,7 @@ impl IterationCreator {
             return Ok(());
         }
 
-        tracing::info!(
+        info!(
             ?buildspace.name,
             "Creating new iteration due to changed build graph"
         );
@@ -242,7 +242,7 @@ impl IterationCreator {
     }
 
     /// Find iterations missing build graphs, calculate the graphs, and store them.
-    #[tracing::instrument(skip(self, source_repos))]
+    #[instrument(skip(self, source_repos))]
     async fn calculate_pending_build_graphs(
         &self,
         source_repos: &mut dependency_graph::SourceRepoCache,
@@ -277,7 +277,7 @@ impl IterationCreator {
     }
 
     /// Fetch new commits for all source repositories.
-    #[tracing::instrument(skip(self, gitlab_client, gitlab_config))]
+    #[instrument(skip(self, gitlab_client, gitlab_config))]
     async fn update_repos(
         &self,
         gitlab_client: &AsyncGitlab,

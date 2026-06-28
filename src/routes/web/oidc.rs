@@ -8,6 +8,7 @@ use axum::{
 use axum_extra::extract::PrivateCookieJar;
 use color_eyre::eyre::ContextCompat;
 use openidconnect::LocalizedClaim;
+use tracing::debug;
 
 use crate::{
     db,
@@ -50,7 +51,7 @@ pub async fn authorized(
         oidc_query.state,
     )
     .await?;
-    tracing::debug!(?user_info, "User authorized via OIDC");
+    debug!(?user_info, "User authorized via OIDC");
 
     let username = claim_to_string(user_info.nickname())
         .or(user_info.preferred_username().map(|n| n.to_string()))

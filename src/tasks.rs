@@ -17,7 +17,7 @@ use sea_orm::{
 use time::Duration;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, instrument, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::entities::user_roles;
 use crate::gitlab_api;
@@ -77,7 +77,7 @@ fn spawn_invalidate_old_sessions(state: ServerState, token: CancellationToken) {
             tokio::select! {
                 _ = every_hour.tick() => {
                     if let Err(e) = invalidate_old_sessions(&state).await {
-                        tracing::error!(?e, "Failed to invalidate old sessions");
+                        error!(?e, "Failed to invalidate old sessions");
                     }
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
@@ -102,7 +102,7 @@ fn spawn_sync_oidc_roles(
             tokio::select! {
                 _ = every_ten_minutes.tick() => {
                     if let Err(e) = sync_user_roles_from_oidc(&db, &oidc_config).await {
-                        tracing::error!(?e, "Failed to sync user roles from OIDC");
+                        error!(?e, "Failed to sync user roles from OIDC");
                     }
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
@@ -121,14 +121,14 @@ fn spawn_sync_oidc_roles(
 /// old lingering sessions.
 #[instrument(skip_all)]
 pub async fn invalidate_old_sessions(state: &ServerState) -> Result<()> {
-    tracing::debug!("Invalidating old sessions");
+    debug!("Invalidating old sessions");
     let tx = state.db.begin().await?;
 
     // Delete the old sessions
     let affected_sessions = queries::sessions::delete_old_sessions(Duration::weeks(4))
         .exec_with_returning(&tx)
         .await?;
-    tracing::info!("Invalidated {} old sessions", affected_sessions.len());
+    info!("Invalidated {} old sessions", affected_sessions.len());
 
     // For each affected user, check if they have any sessions left
     for session in affected_sessions {
@@ -160,7 +160,7 @@ pub async fn clear_refresh_token_if_no_sessions(
 
     // If no sessions remain, clear the refresh token
     if session_count == 0 {
-        tracing::debug!(user_id = %user_id, "User has no sessions, clearing refresh token");
+        debug!(user_id = %user_id, "User has no sessions, clearing refresh token");
         queries::users::clear_refresh_token(tx, user_id).await?;
     }
 
@@ -183,7 +183,7 @@ pub async fn sync_user_roles_from_oidc(
     use crate::entities::users;
     use crate::queries;
 
-    tracing::debug!("Syncing user roles from OIDC provider");
+    debug!("Syncing user roles from OIDC provider");
     let tx = db.begin().await?;
 
     // Fetch all users from database
@@ -197,7 +197,7 @@ pub async fn sync_user_roles_from_oidc(
     for user in users {
         // Skip users without refresh tokens (e.g., created before migration)
         let Some(refresh_token) = user.refresh_token else {
-            tracing::debug!(
+            debug!(
                 user_id = %user.id.0,
                 "Skipping user without refresh token"
             );
@@ -263,7 +263,7 @@ pub async fn sync_user_roles_from_oidc(
         if roles_changed {
             // Update user roles in database
             if let Err(e) = queries::user_roles::set(&tx, user.id, new_roles.clone()).await {
-                tracing::error!(
+                error!(
                     ?e,
                     user_id = %user.id.0,
                     "Failed to update user roles in database"
@@ -272,7 +272,7 @@ pub async fn sync_user_roles_from_oidc(
                 continue;
             }
 
-            tracing::debug!(
+            debug!(
                 user_id = %user.id.0,
                 ?current_roles,
                 ?new_roles,
@@ -280,7 +280,7 @@ pub async fn sync_user_roles_from_oidc(
             );
             synced_count += 1;
         } else {
-            tracing::trace!(
+            trace!(
                 user_id = %user.id.0,
                 "User roles unchanged, skipping database update"
             );
@@ -290,7 +290,7 @@ pub async fn sync_user_roles_from_oidc(
 
     tx.commit().await?;
 
-    tracing::info!(
+    info!(
         total_users,
         synced_count,
         skipped_count, // Users without refresh tokens + users with unchanged roles

@@ -17,6 +17,7 @@ use color_eyre::{
     eyre::{Context, Result},
 };
 use tokio::task::spawn_blocking;
+use tracing::debug;
 
 use crate::{git, package};
 
@@ -95,7 +96,7 @@ impl SourceRepoCache {
         })
         .await??;
 
-        tracing::debug!(
+        debug!(
             count = source_repos.len(),
             elapsed_time = ?start_time.elapsed(),
             "Opened all source repos and read .SRCINFOs in main branches"
