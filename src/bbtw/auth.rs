@@ -61,7 +61,7 @@ pub async fn delete_token(path: &Utf8Path) -> Result<()> {
 ///
 /// It doesn't guarantee that it exists, it's just the path where it would be at.
 pub fn token_path(override_state_dir: Option<Utf8PathBuf>) -> Result<Utf8PathBuf> {
-    let resolved_path = if let Some(x) = override_state_dir {
+    let resolved_dir = if let Some(x) = override_state_dir {
         x
     } else {
         let project_dir = xdg_dirs::new()?;
@@ -71,8 +71,7 @@ pub fn token_path(override_state_dir: Option<Utf8PathBuf>) -> Result<Utf8PathBuf
             .to_path_buf();
 
         Utf8PathBuf::try_from(state_dir)?
-    }
-    .join("auth_token");
+    };
 
-    Ok(resolved_path)
+    Ok(resolved_dir.join("auth_token"))
 }

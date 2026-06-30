@@ -2,6 +2,7 @@ use std::io::{self, Write};
 
 use buildbtw::bbtw;
 use camino::Utf8PathBuf;
+use camino_tempfile::Utf8TempDir;
 use color_eyre::Result;
 use colored::Colorize;
 use time::OffsetDateTime;
@@ -36,8 +37,6 @@ pub async fn login(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> 
     println!("\nYou'll need to log in first via OIDC if you haven't already.");
     println!("Then click 'Create CLI Session' and copy the generated token.\n");
 
-    let client = api::Client::new(server_url, override_state_dir.clone()).await?;
-
     let auth_token = loop {
         print!("{}", "Paste your CLI session token here: ".bold());
         io::stdout().flush()?;
@@ -58,6 +57,19 @@ pub async fn login(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> 
         };
 
         // Verify whether this is even a valid token.
+
+        // Persist the auth token temporarily
+        let tmp_token_dir = Utf8TempDir::new()?;
+        auth_token
+            .persist(&bbtw::auth::token_path(Some(
+                tmp_token_dir.path().to_path_buf(),
+            ))?)
+            .await?;
+
+        // Send a request using the token
+        let client =
+            api::Client::new(server_url.clone(), Some(tmp_token_dir.path().to_path_buf())).await?;
+
         let user = api::user::current(&client).await?;
         if let Some(user) = user {
             println!("Logged in (as {})", user.username.bold());
@@ -70,7 +82,7 @@ pub async fn login(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> 
     };
 
     auth_token
-        .persist(&bbtw::auth::token_path(override_state_dir)?)
+        .persist(&bbtw::auth::token_path(override_state_dir.clone())?)
         .await?;
 
     println!("\n{}", "Successfully logged in!".bright_green().bold());
