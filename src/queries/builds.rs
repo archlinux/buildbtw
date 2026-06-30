@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
-    ColumnTrait, EntityLoaderTrait, EntityTrait, ExprTrait, InsertMany, QueryFilter, QuerySelect,
-    Select, UpdateOne,
+    ColumnTrait, EntityLoaderTrait, EntityTrait, ExprTrait, InsertMany, JoinType, QueryFilter,
+    QuerySelect, RelationTrait, Select, SelectModel, Selector, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -132,6 +132,16 @@ pub fn load_by_id(id: TxtUuid) -> builds::EntityLoader {
     builds::Entity::load().filter_by_id(id)
 }
 
+#[must_use]
+pub fn with_iteration_and_buildspace(
+    query: Select<builds::Entity>,
+) -> Selector<SelectModel<builds::WithIterationAndBuildspace>> {
+    query
+        .inner_join(iterations::Entity)
+        .join(JoinType::InnerJoin, iterations::Relation::Buildspaces.def())
+        .into_partial_model()
+}
+
 /// Return all builds for a given iteration
 #[must_use]
 pub fn by_iteration_id(iteration_id: TxtUuid) -> Select<builds::Entity> {
@@ -167,8 +177,8 @@ pub fn pending(iteration_id: Option<Uuid>) -> Select<builds::Entity> {
 }
 
 #[must_use]
-pub fn scheduled_locally() -> builds::EntityLoader {
-    builds::Entity::load().filter(
+pub fn scheduled_locally() -> Select<builds::Entity> {
+    builds::Entity::find().filter(
         builds::COLUMN
             .status
             .eq(package::BuildStatus::Scheduled)

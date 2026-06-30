@@ -300,7 +300,7 @@ async fn test_list_builds_invalid_status(#[future(awt)] ctx: TestCtx) {
 async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, "one").await?;
     // Only dispatched builds can be set to "completed" on upload
     queries::builds::dispatch_to_local_executor(build.id)
@@ -327,18 +327,17 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     response.assert_status_ok();
 
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .unwrap();
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     let content = tokio::fs::read_to_string(&dest).await?;
     assert_eq!(expected_data, content, "uploaded bytes must match");
 
     // Check build status update
-    let tx = ctx.state.db.begin().await?;
     let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
     assert_eq!(
         package::BuildStatus::Built,
@@ -424,7 +423,7 @@ async fn create_split_package_build(
 async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = create_split_package_build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
@@ -447,18 +446,17 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
     response.assert_status_ok();
 
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .unwrap();
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     let content = tokio::fs::read_to_string(&dest).await?;
     assert_eq!(expected_data, content, "uploaded bytes must match");
 
     // Check build status update
-    let tx = ctx.state.db.begin().await?;
     let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
     assert_eq!(
         package::BuildStatus::Pending,
@@ -535,7 +533,7 @@ async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCt
 async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
@@ -544,13 +542,13 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
 
     // Write existing file into the storage
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .unwrap();
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
     tokio::fs::write(&dest, expected_data).await?;
 
@@ -577,7 +575,7 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
 async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, "one").await?;
     tx.commit().await?;
 
@@ -585,13 +583,13 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
     let pkgname = "one".parse()?;
 
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .unwrap();
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
     tokio::fs::write(&dest, expected_data).await?;
 

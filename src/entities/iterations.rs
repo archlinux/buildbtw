@@ -41,6 +41,24 @@ pub struct Model {
 
 impl ActiveModelBehavior for ActiveModel {}
 
+#[derive(Clone, Debug, PartialEq, Eq, sea_orm::DerivePartialModel)]
+#[sea_orm(entity = "Entity")]
+pub struct WithBuildspace {
+    pub id: TxtUuid,
+
+    pub created_at: time::OffsetDateTime,
+
+    /// Starts at 1.
+    pub sequence: u32,
+
+    pub changesets: git::Changesets,
+    pub reason: NewIterationReason,
+    pub status: Status,
+
+    #[sea_orm(nested)]
+    pub buildspace: super::buildspaces::Partial,
+}
+
 /// Used to distinguish iterations that contain an empty build graph
 /// from iterations that don't have a build graph yet.
 #[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]

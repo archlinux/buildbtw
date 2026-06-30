@@ -1,6 +1,6 @@
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::Result;
-use color_eyre::eyre::{Context, OptionExt, bail};
+use color_eyre::eyre::{Context, bail};
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio::fs;
 use tokio_util::sync::CancellationToken;
@@ -13,7 +13,7 @@ use crate::{package, queries, storage};
 /// Run a build locally, and update its status before and after.
 pub async fn build(
     db: DatabaseConnection,
-    build: entities::builds::ModelEx,
+    build: entities::builds::WithIterationAndBuildspace,
     data_dir: Option<Utf8PathBuf>,
     token: CancellationToken,
 ) -> Result<()> {
@@ -41,28 +41,19 @@ pub async fn build(
 /// Run the build using the executor.
 /// Return an error if it fails.
 async fn try_build(
-    build: &entities::builds::ModelEx,
+    build: &entities::builds::WithIterationAndBuildspace,
     data_dir: Option<Utf8PathBuf>,
     token: CancellationToken,
 ) -> Result<()> {
     debug!(?build.pkgbase, ?build.architecture, "Running build");
 
-    let iteration = build
-        .iteration
-        .clone()
-        .into_option()
-        .ok_or_eyre("Missing iteration")?;
-    let buildspace = iteration
-        .buildspace
-        .clone()
-        .into_option()
-        .ok_or_eyre("Buildspace for iteration was not loaded")?;
-    let log_file =
-        builds::build_log_path(&buildspace, &iteration, build, &build.pkgbase, &data_dir)?;
+    let iteration = &build.iteration;
+    let _buildspace = &iteration.buildspace;
+    let log_file = builds::build_log_path(build, &build.pkgbase, &data_dir)?;
 
     let package_source_dir = storage::package_source_dir(&data_dir, &build.pkgbase)?;
 
-    let output_dir = builds::build_repo_path(&buildspace, &iteration, build, &data_dir)?;
+    let output_dir = builds::build_repo_path(build, &data_dir)?;
     if fs::try_exists(&output_dir).await.is_ok_and(|exists| exists) {
         bail!(
             "Output directory {output_dir} already exists. This indicates a previous build that ran for this iteration, arch and pkgbase. Running builds multiple times is not supported."
@@ -103,7 +94,7 @@ async fn try_build(
 /// Copy built files from the tmpfs directory that was mounted in the
 /// vm into the server's data directory.
 async fn copy_build_artifacts(
-    build: &entities::builds::ModelEx,
+    build: &entities::builds::WithIterationAndBuildspace,
     vm_output_dir: &Utf8Path,
     target_server_dir: &Utf8Path,
 ) -> Result<()> {

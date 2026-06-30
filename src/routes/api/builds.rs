@@ -72,19 +72,12 @@ pub async fn upload_package(
     db::Tx(tx): db::Tx,
     request: Request,
 ) -> ResponseResult<()> {
-    let build = queries::builds::load_by_id(build_id.into())
-        .with((entities::iterations::Entity, entities::buildspaces::Entity))
-        .one(&tx)
-        .await?
-        .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
-
-    let iteration = build.iteration.clone().into_option().ok_or_else(|| {
-        ResponseError::InternalServer(format!("Iteration for build with id {build_id}"))
-    })?;
-
-    let buildspace = iteration.buildspace.clone().into_option().ok_or_else(|| {
-        ResponseError::InternalServer(format!("Buildspace for iteration with id {}", iteration.id))
-    })?;
+    debug!("reading");
+    let build =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
+            .one(&tx)
+            .await?
+            .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
 
     // Required database metadata has been read, commit transaction to release locks before streaming data.
     tx.commit().await?;
@@ -96,13 +89,7 @@ pub async fn upload_package(
     debug!("Received data stream for build_id {build_id} pkgname {pkgname} filename {filename}",);
 
     // Abort if artifact has already been uploaded
-    let dest = builds::build_artifact_path(
-        &buildspace,
-        &iteration,
-        &build,
-        &pkgname,
-        &server_state.data_dir,
-    )?;
+    let dest = builds::build_artifact_path(&build, &pkgname, &server_state.data_dir)?;
     if dest.exists() {
         debug!("Build artifact {dest:#?} has already been uploaded");
         return Err(ResponseError::NotPermitted(
@@ -145,7 +132,7 @@ pub async fn upload_package(
         .wrap_err_with(|| format!("Failed to rename artifact from {temp_file:?} to {dest}"))?;
 
     // Update build status if all artifacts were uploaded and exist in the storage
-    if builds::build_fully_uploaded(&buildspace, &iteration, &build, &server_state.data_dir) {
+    if builds::build_fully_uploaded(&build, &server_state.data_dir) {
         let tx = server_state.db.begin().await?;
         queries::builds::update_build_status(build_id.into(), package::BuildStatus::Built)
             .exec(&tx)
@@ -165,23 +152,11 @@ pub async fn download_package(
     State(server_state): State<ServerState>,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<Response> {
-    let build = queries::builds::load_by_id(build_id.into())
-        .with((entities::iterations::Entity, entities::buildspaces::Entity))
-        .one(&tx)
-        .await?
-        .ok_or_else(|| ResponseError::NotFound("Build job".into()))?;
-
-    let iteration = build
-        .iteration
-        .clone()
-        .into_option()
-        .ok_or_else(|| ResponseError::NotFound("Build iteration".into()))?;
-
-    let buildspace = iteration
-        .buildspace
-        .clone()
-        .into_option()
-        .ok_or_else(|| ResponseError::NotFound("Build buildspace".into()))?;
+    let build =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
+            .one(&tx)
+            .await?
+            .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
 
     let filenames = &build.pkgnames_filenames.0;
     let filename = filenames.get(&pkgname).ok_or_else(|| {
@@ -189,13 +164,7 @@ pub async fn download_package(
     })?;
 
     // Resolve and open build artifact path
-    let dest = builds::build_artifact_path(
-        &buildspace,
-        &iteration,
-        &build,
-        &pkgname,
-        &server_state.data_dir,
-    )?;
+    let dest = builds::build_artifact_path(&build, &pkgname, &server_state.data_dir)?;
     let file = tokio::fs::File::open(&dest)
         .await
         .wrap_err_with(|| ResponseError::NotFound("Build artifact not found".into()))?;

@@ -23,4 +23,13 @@ pub struct Model {
     pub iterations: HasMany<iterations::Entity>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, sea_orm::DerivePartialModel)]
+#[sea_orm(entity = "Entity")]
+pub struct Partial {
+    pub id: TxtUuid,
+    pub created_at: time::OffsetDateTime,
+
+    pub name: buildspace::BuildspaceSlug,
+}
+
 impl ActiveModelBehavior for ActiveModel {}

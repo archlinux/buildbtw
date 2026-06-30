@@ -48,6 +48,25 @@ pub struct Model {
     pub depended_on_by: HasMany<Entity>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, sea_orm::DerivePartialModel)]
+#[sea_orm(entity = "Entity")]
+pub struct WithIterationAndBuildspace {
+    pub id: TxtUuid,
+
+    pub architecture: package::KnownArchitecture,
+    pub pkgbase: package::BaseName,
+
+    pub pkgnames_filenames: PkgnamesFilenames,
+    pub branch_name: git::BranchName,
+    pub commit_hash: git::CommitHash,
+    pub status: package::BuildStatus,
+    pub dispatched_to: Option<DispatchedTo>,
+    pub version: package::Version,
+
+    #[sea_orm(nested)]
+    pub iteration: super::iterations::WithBuildspace,
+}
+
 #[derive(
     Clone,
     Debug,
