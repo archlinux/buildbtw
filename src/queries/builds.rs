@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
-    ColumnTrait, EntityLoaderTrait, EntityTrait, InsertMany, QueryFilter, QuerySelect, Select,
-    UpdateOne,
+    ColumnTrait, EntityLoaderTrait, EntityTrait, ExprTrait, InsertMany, QueryFilter, QuerySelect,
+    Select, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -87,6 +87,7 @@ pub fn insert_builds_with_dependencies(
             commit_hash: Set(build.commit_hash),
             status: Set(status),
             version: Set(build.version),
+            dispatched_to: Set(None),
         });
 
         node_index_to_build_uuid.insert(node_index, id);
@@ -146,6 +147,44 @@ pub fn update_build_status(
     let model = builds::ActiveModel {
         id: Unchanged(build_id),
         status: Set(status),
+        ..Default::default()
+    };
+    builds::Entity::update(model)
+}
+
+/// Get the set of builds that are currently pending, optionally filtered
+/// by iteration.
+#[must_use]
+pub fn pending(iteration_id: Option<Uuid>) -> Select<builds::Entity> {
+    let mut query =
+        builds::Entity::find().filter(builds::COLUMN.status.eq(package::BuildStatus::Pending));
+
+    if let Some(iteration_id) = iteration_id {
+        query = query.filter(builds::COLUMN.iteration_id.eq(iteration_id));
+    }
+
+    query
+}
+
+#[must_use]
+pub fn scheduled_locally() -> builds::EntityLoader {
+    builds::Entity::load().filter(
+        builds::COLUMN
+            .status
+            .eq(package::BuildStatus::Scheduled)
+            .and(builds::COLUMN.dispatched_to.eq(builds::DispatchedTo::Local)),
+    )
+}
+
+/// Set the build status to [package::BuildStatus::Scheduled] and `dispatched_to` to
+/// [builds::DispatchedTo::Local]. This will make the local executor pick up the build in a background
+/// task.
+#[must_use]
+pub fn dispatch_to_local_executor(build_id: TxtUuid) -> UpdateOne<builds::ActiveModel> {
+    let model = builds::ActiveModel {
+        id: Unchanged(build_id),
+        status: Set(package::BuildStatus::Scheduled),
+        dispatched_to: Set(Some(builds::DispatchedTo::Local)),
         ..Default::default()
     };
     builds::Entity::update(model)

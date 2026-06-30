@@ -238,6 +238,31 @@ fn clone_packaging_repo(
     Ok(repo)
 }
 
+/// Clone a repo from `source_dir` into `target_dir`.
+/// Only fetch the given commit.
+pub async fn shallow_clone_local_repo_for_build(
+    source_dir: Utf8PathBuf,
+    target_dir: Utf8PathBuf,
+    commit_hash: CommitHash,
+) -> Result<()> {
+    tokio::task::spawn_blocking(move || -> Result<()> {
+        git2::build::RepoBuilder::new().clone(source_dir.as_str(), target_dir.as_std_path())?;
+
+        let repo = git2::Repository::open(target_dir)?;
+
+        let commit = repo.find_commit(commit_hash.0)?;
+        let annotated_commit = repo.find_annotated_commit(commit_hash.0)?;
+        repo.checkout_tree(commit.as_object(), None)?;
+
+        repo.set_head_detached_from_annotated(annotated_commit)?;
+
+        Ok(())
+    })
+    .await??;
+
+    Ok(())
+}
+
 /// Run the equivalent of `git fetch` for an existing git repository.
 fn fetch_packaging_repo(repo: &git2::Repository, expected_host_key: &PublicKey) -> Result<()> {
     trace!("Fetching repository {:?}", repo.path());

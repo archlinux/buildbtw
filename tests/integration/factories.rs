@@ -43,6 +43,15 @@ pub async fn build(
         version: "2.1-0".parse()?,
     };
 
+    build_from_node(tx, iteration_id, build_node).await
+}
+
+/// More flexible, but less convenient way to create a build.
+pub async fn build_from_node(
+    tx: &DatabaseTransaction,
+    iteration_id: TxtUuid,
+    build_node: BuildNode,
+) -> Result<entities::builds::Model> {
     let mut graph = dependency_graph::BuildGraph::new();
     graph.add_node(build_node);
 

@@ -44,7 +44,7 @@ As such, we have some reservations towards AI tool usage:
 ## Database Interactions
 
 - Add database indexes only when they are actually used in an existing query.
-- Entity definitions and migrations are both written by hand, even though SeaORM has facilities to generate them automatically.
+- Entity definitions and migrations are both written by hand, even though SeaORM has facilities to generate them automatically:
     - Generated entities have "String" as every column type which is not precise enough.
     - Generated migrations need a copy-pasted definition of the entity inside the migration, which removes most of the benefit of auto-generation.
 - Do not use `CASCADE`. Handle deletion of related rows explicitly in request handlers instead. For some deletions, it makes sense to return a descriptive error when related rows shouldn't be deleted. Make sure to assert the deletion of all related entities in deletion tests.

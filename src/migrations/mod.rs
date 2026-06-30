@@ -25,6 +25,7 @@ mod m20260304_155758_rename_namespaces_to_buildspaces;
 mod m20260310_131158_add_global_state;
 mod m20260310_190337_add_iteration_status;
 mod m20260512_165015_add_iteration_sequence;
+mod m20260603_133139_add_build_dispatched_to;
 
 #[derive(Debug)]
 pub struct Migrator;
@@ -41,12 +42,13 @@ impl MigratorTrait for Migrator {
             Box::new(m20260224_131450_unique_builds::Migration),
             Box::new(m20260225_112639_remove_build_repository_name::Migration),
             Box::new(m20260301_032351_secret_session_token::Migration),
+            Box::new(m20260301_084400_add_session_client_type::Migration),
             Box::new(m20260304_120536_add_build_filenames::Migration),
             Box::new(m20260304_155758_rename_namespaces_to_buildspaces::Migration),
             Box::new(m20260310_131158_add_global_state::Migration),
             Box::new(m20260310_190337_add_iteration_status::Migration),
-            Box::new(m20260301_084400_add_session_client_type::Migration),
             Box::new(m20260512_165015_add_iteration_sequence::Migration),
+            Box::new(m20260603_133139_add_build_dispatched_to::Migration),
         ]
     }
 }

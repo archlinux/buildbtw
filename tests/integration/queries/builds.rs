@@ -426,3 +426,55 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     Ok(())
 }
+
+#[rstest]
+#[case(package::BuildStatus::Pending)]
+#[case(package::BuildStatus::Blocked)]
+#[tokio::test]
+async fn test_dispatched_to_check_constraint_succeeds(
+    #[future(awt)] ctx: TestCtx,
+    #[case] status: package::BuildStatus,
+) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+    let build = factories::build(&tx, iteration.id, "foo").await?;
+
+    // Verify that setting the status to anything but "blocked" or "pending" fails as long as
+    // "dispatched_to" is not set
+    let build = queries::builds::update_build_status(build.id, status)
+        .exec(&tx)
+        .await?;
+
+    assert_eq!(build.status, status);
+
+    Ok(())
+}
+
+#[rstest]
+#[case(package::BuildStatus::Scheduled)]
+#[case(package::BuildStatus::Building)]
+#[case(package::BuildStatus::Built)]
+#[case(package::BuildStatus::Failed)]
+#[tokio::test]
+async fn test_dispatched_to_check_constraint_fails(
+    #[future(awt)] ctx: TestCtx,
+    #[case] status: package::BuildStatus,
+) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+    let build = factories::build(&tx, iteration.id, "foo").await?;
+
+    // Verify that setting the status to anything but "blocked" or "pending" fails as long as
+    // "dispatched_to" is not set
+    let err = queries::builds::update_build_status(build.id, status)
+        .exec(&tx)
+        .await
+        .expect_err("Expected CHECK constraint violation when setting non-Blocked/Pending status with NULL dispatched_to");
+
+    let err_msg = err.to_string();
+    assert!(err_msg.contains("CHECK constraint"));
+
+    Ok(())
+}

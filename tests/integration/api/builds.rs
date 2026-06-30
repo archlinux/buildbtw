@@ -302,6 +302,10 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, "one").await?;
+    // Only dispatched builds can be set to "completed" on upload
+    queries::builds::dispatch_to_local_executor(build.id)
+        .exec(&tx)
+        .await?;
     tx.commit().await?;
 
     let expected_data = "IDDQD";
