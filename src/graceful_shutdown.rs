@@ -1,6 +1,7 @@
 use color_eyre::eyre::Context;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 /// Handles shutdown signals for a graceful termination of the application.
 ///
@@ -26,10 +27,10 @@ pub async fn shutdown_signal(token: CancellationToken) {
 
     tokio::select! {
         _ = ctrl_c => {
-            tracing::info!("Received SIGINT, shutting down...");
+            info!("Received SIGINT, shutting down...");
         },
         _ = terminate => {
-            tracing::info!("Received SIGTERM, shutting down...");
+            info!("Received SIGTERM, shutting down...");
         },
     }
 

@@ -4,7 +4,7 @@ use camino::Utf8PathBuf;
 use color_eyre::Result;
 use gitlab::AsyncGitlab;
 use time::{Duration, OffsetDateTime};
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::gitlab_api;
 
@@ -30,7 +30,7 @@ pub async fn update_all_source_repos(
     )
     .await?;
     if let Some(most_recently_changed_project) = changed_projects.first() {
-        tracing::info!(
+        info!(
             "{} changed source repos found (first: {:?})",
             changed_projects.len(),
             changed_projects.first()

@@ -6,7 +6,7 @@ use color_eyre::{
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tokio::fs;
-use tracing::instrument;
+use tracing::{debug, instrument};
 
 use crate::{utils, xdg_dirs};
 
@@ -22,7 +22,7 @@ impl Token {
     #[instrument]
     pub async fn read(override_state_dir: Option<Utf8PathBuf>) -> Result<Option<Token>> {
         let path = token_path(override_state_dir)?;
-        tracing::debug!(?path, "Reading token");
+        debug!(?path, "Reading token");
         if path.exists() {
             let auth_token_str = fs::read_to_string(path)
                 .await
@@ -39,7 +39,7 @@ impl Token {
     /// Writes to a file in the XDG state directory.
     pub async fn persist(&self, path: &Utf8Path) -> Result<()> {
         let token_str = serde_json::to_string(self)?;
-        tracing::debug!(?path, "Writing token");
+        debug!(?path, "Writing token");
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await?;

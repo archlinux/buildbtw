@@ -8,6 +8,7 @@ use color_eyre::{
 };
 use tokio::{fs, process::Command};
 use tokio_util::{io::ReaderStream, sync::CancellationToken};
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 use super::shell::ShellScripts;
@@ -78,7 +79,7 @@ pub async fn build_script(
         .prefix("buildbtw-output-dir-")
         .tempdir()?;
 
-    tracing::info!("🚀 Starting build job...");
+    info!("🚀 Starting build job...");
     build_project_dir(
         &build_script_args.ci_project_dir,
         output_dir.path(),
@@ -183,10 +184,10 @@ pub async fn build_project_dir(
     let output = tokio::select! {
         output = child.wait() => {output}
         () = cancellation_token.cancelled() => {
-            tracing::debug!("Sending SIGTERM to vmexec");
+            debug!("Sending SIGTERM to vmexec");
             tokio::task::spawn_blocking(move || {
                 if let Err(err) = nix::sys::signal::kill(child_pid, nix::sys::signal::Signal::SIGTERM) {
-                    tracing::error!(?err, "Could not send SIGTERM to vmexec");
+                    error!(?err, "Could not send SIGTERM to vmexec");
                 }
             }).await?;
 
@@ -210,7 +211,7 @@ async fn upload_package_artifacts(
     output_dir: &Utf8Path,
     collector_base_url: &Url,
 ) -> Result<()> {
-    tracing::info!("📡 Uploading artifacts...");
+    info!("📡 Uploading artifacts...");
     let mut read_dir = fs::read_dir(output_dir).await?;
     while let Some(entry) = read_dir.next_entry().await? {
         let file: Utf8PathBuf = entry.path().try_into()?;
@@ -225,9 +226,9 @@ async fn upload_package_artifacts(
                 collector_base_url,
             )
             .await?;
-            tracing::info!("✅ {}", filename);
+            info!("✅ {}", filename);
         } else {
-            tracing::warn!("⚠️ Skipping invalid file: {}", file);
+            warn!("⚠️ Skipping invalid file: {}", file);
         }
     }
     Ok(())
@@ -273,7 +274,7 @@ async fn upload_package_artifact(
     let stream = ReaderStream::with_capacity(artifact_file, 2 * 1024 * 1024);
     let body = reqwest::Body::wrap_stream(stream);
 
-    tracing::debug!("⬆️ Sending {artifact_bytes} bytes for {pkgname}");
+    debug!("⬆️ Sending {artifact_bytes} bytes for {pkgname}");
     let response = http_client
         .post(upload_url.clone())
         .bearer_auth(token)
@@ -297,11 +298,11 @@ async fn upload_package_artifact(
 /// Prints the passed directory listing to show all build output artifacts
 /// in the executor log.
 async fn print_dir_content(path: &Utf8Path) -> Result<()> {
-    tracing::info!("🔍 Listing build artifacts...");
+    info!("🔍 Listing build artifacts...");
     let mut read_dir = fs::read_dir(path).await?;
     while let Some(entry) = read_dir.next_entry().await? {
         let filename = entry.file_name().to_string_lossy().to_string();
-        tracing::info!("📦 {filename}");
+        info!("📦 {filename}");
     }
     Ok(())
 }

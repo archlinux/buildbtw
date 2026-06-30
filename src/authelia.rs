@@ -9,6 +9,7 @@ use color_eyre::eyre::{self, Context, OptionExt, bail};
 use color_eyre::{Result, eyre::eyre};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
+use tracing::{debug, error};
 use url::Url;
 
 use crate::utils::free_port;
@@ -139,7 +140,7 @@ impl Container {
 
         tokio::spawn(async move {
             while let Ok(Some(line)) = stderr_lines.next_line().await {
-                tracing::debug!(target: "authelia", "{line}");
+                debug!(target: "authelia", "{line}");
             }
         });
 
@@ -147,7 +148,7 @@ impl Container {
         tokio::time::timeout(Duration::from_secs(10), async {
             // Wait for the log message telling us startup has finished
             while let Ok(Some(line)) = stdout_lines.next_line().await {
-                tracing::debug!(target: "authelia", "{line}");
+                debug!(target: "authelia", "{line}");
 
                 // Check if process exited
                 if let Ok(Some(status)) = container.process.try_wait() {
@@ -172,11 +173,11 @@ impl Container {
         // Forward all future logs to tracing
         tokio::spawn(async move {
             while let Ok(Some(line)) = stdout_lines.next_line().await {
-                tracing::debug!(target: "authelia", "{line}");
+                debug!(target: "authelia", "{line}");
             }
         });
 
-        tracing::debug!(
+        debug!(
             "Authelia container '{}' is ready for connections",
             container.name
         );
@@ -189,7 +190,7 @@ impl Drop for Container {
     fn drop(&mut self) {
         // Check if the container already exited
         let Ok(maybe_status) = self.process.try_wait() else {
-            tracing::error!("Failed to check status of Authelia container process");
+            error!("Failed to check status of Authelia container process");
             return;
         };
 
@@ -200,7 +201,7 @@ impl Drop for Container {
 
         // Force remove the container to ensure cleanup (only killing the process
         // without awaiting it can result in zombie processes)
-        tracing::debug!(
+        debug!(
             "Stopping and removing authelia container '{}' ...",
             self.name
         );

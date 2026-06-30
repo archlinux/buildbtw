@@ -5,6 +5,7 @@ use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
 use sea_orm::Iterable;
+use tracing::trace;
 use url::Url;
 use yansi::Paint;
 
@@ -29,7 +30,7 @@ pub async fn show(
 
     add_demo_data(&mut responses_by_status, show_demo_data)?;
 
-    tracing::trace!(?responses_by_status);
+    trace!(?responses_by_status);
 
     let returned_sequence = responses_by_status
         .values()

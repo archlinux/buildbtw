@@ -2,6 +2,7 @@ use crate::web;
 use axum::response::{Html, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use color_eyre::eyre::{Context, eyre};
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -42,7 +43,7 @@ pub async fn logout(
 
     // Clear refresh token if user has no more sessions
     if let Err(e) = crate::tasks::clear_refresh_token_if_no_sessions(&tx, user_id).await {
-        tracing::warn!(?e, user_id = %user_id, "Failed to clear refresh token on logout");
+        warn!(?e, user_id = %user_id, "Failed to clear refresh token on logout");
     }
 
     tx.commit().await?;
@@ -78,7 +79,7 @@ pub async fn session_revoke(
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
-    tracing::debug!("Session to revoke: {:?}", params.session_id);
+    debug!("Session to revoke: {:?}", params.session_id);
     let session_to_revoke: Uuid = params
         .session_id
         .parse()
@@ -99,7 +100,7 @@ pub async fn session_revoke(
 
     // Clear refresh token if user has no more sessions
     if let Err(e) = crate::tasks::clear_refresh_token_if_no_sessions(&tx, user_id).await {
-        tracing::warn!(?e, user_id = %user_id, "Failed to clear refresh token on session revoke");
+        warn!(?e, user_id = %user_id, "Failed to clear refresh token on session revoke");
     }
 
     tx.commit().await?;

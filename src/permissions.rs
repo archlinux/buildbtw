@@ -2,6 +2,7 @@
 
 use color_eyre::eyre::Result;
 use sea_orm::{DatabaseTransaction, EntityTrait};
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -32,7 +33,7 @@ pub fn permission_ok(permission: Result<bool>) -> ResponseResult<()> {
         Ok(true) => Ok(()),
         Ok(false) => Err(ResponseError::NotPermitted("Insufficient user role".into())),
         Err(error) => {
-            tracing::error!(?error, "Could not check permissions");
+            error!(?error, "Could not check permissions");
             Err(ResponseError::InternalServer(
                 "Could not check permissions".into(),
             ))

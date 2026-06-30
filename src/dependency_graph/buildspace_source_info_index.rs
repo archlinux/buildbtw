@@ -8,6 +8,7 @@
 use std::collections::{HashMap, hash_map::Values};
 
 use color_eyre::Result;
+use tracing::{debug, trace};
 
 use crate::{
     dependency_graph::{BranchInfo, SourceRepoCache},
@@ -38,7 +39,7 @@ impl BuildspaceSourceInfoIndex<'_> {
         changesets: git::Changesets,
         source_repos: &mut SourceRepoCache,
     ) -> Result<BuildspaceSourceInfoIndex<'_>> {
-        tracing::debug!("Gathering metadata from .SRCINFO files");
+        debug!("Gathering metadata from .SRCINFO files");
         let mut pkgname_to_pkgbase = HashMap::new();
         let mut pkgbase_to_metadata = HashMap::new();
         let mut ignored_packages = 0;
@@ -70,14 +71,14 @@ impl BuildspaceSourceInfoIndex<'_> {
                     );
                 }
                 Err(e) => {
-                    tracing::trace!("Ignoring package {dir_name}: {e:#}");
+                    trace!("Ignoring package {dir_name}: {e:#}");
                     ignored_packages += 1;
                 }
             }
         }
-        tracing::debug!("Read {} .SRCINFO files", pkgbase_to_metadata.len());
-        tracing::debug!("Found {} pkgnames", pkgname_to_pkgbase.len());
-        tracing::debug!("Skipped {ignored_packages} .SRCINFO files due to errors");
+        debug!("Read {} .SRCINFO files", pkgbase_to_metadata.len());
+        debug!("Found {} pkgnames", pkgname_to_pkgbase.len());
+        debug!("Skipped {ignored_packages} .SRCINFO files due to errors");
 
         Ok(BuildspaceSourceInfoIndex {
             pkgname_to_pkgbase,
