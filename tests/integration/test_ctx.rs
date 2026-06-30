@@ -235,12 +235,14 @@ impl TestCtxBuilder {
     }
 
     pub async fn build(self) -> TestCtx {
-        // Using tracing in tests allows us to see error descriptions when tests fail.
-        let _ = buildbtw::tracing::init(0, false);
-
         let db = db::connect_and_migrate(db::SQLiteLocation::Memory)
             .await
             .unwrap();
+
+        // Using tracing in tests allows us to see error descriptions when tests fail. We init
+        // this after running migrations to reduce the logging noise in tests and debugging migrations
+        // that break should be rather rare.
+        buildbtw::tracing::init(0, false).unwrap();
 
         let (testserver_port, _startup_port_lock) =
             free_port().await.expect("Failed to find a free port");
