@@ -60,6 +60,7 @@ unnecessary_debug_formatting = "allow"
 implicit_hasher = "allow"
 large_enum_variant = "allow"
 used_underscore_binding = "allow"
+module_name_repetitions = "deny"
 
 [features]
 sea-orm-debug-print = ["sea-orm/debug-print"]
