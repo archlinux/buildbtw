@@ -1,0 +1,7 @@
+---
+source: tests/integration/bbtw/new.rs
+expression: output.stderr
+---
+error: invalid value 'libfoo/' for '<CHANGESETS>...': Branch name may not be empty
+
+For more information, try '--help'.

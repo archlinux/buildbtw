@@ -1,0 +1,7 @@
+---
+source: tests/integration/bbtw/new.rs
+expression: output.stderr
+---
+error: invalid value 'libfoo/with/extra/slashes' for '<CHANGESETS>...': Cannot have multiple slashes in a changeset
+
+For more information, try '--help'.
