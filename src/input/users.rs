@@ -10,5 +10,6 @@ pub struct Create {
     pub username: String,
 }
 
+// TODO: check if we can use garde's `Valid` type instead: https://docs.rs/garde/latest/garde/validate/struct.Valid.html
 #[nutype(derive(Into), validate(with = Create::validate, error = garde::Report))]
 pub struct ValidatedCreate(Create);

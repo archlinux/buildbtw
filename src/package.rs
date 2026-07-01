@@ -68,7 +68,7 @@ pub struct BaseName(alpm_types::PackageBaseName);
 /// references in the build system.
 #[nutype(
     // See https://docs.gitlab.com/user/reserved_names/#rules-for-usernames-project-and-group-names-and-slugs
-    validate(predicate = validate_repository_name),
+    validate(with = validate_repository_name, error = garde::Error),
     derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom, Display),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
@@ -76,14 +76,14 @@ pub struct BaseName(alpm_types::PackageBaseName);
 )]
 pub struct RepositorySlug(String);
 
-fn validate_repository_name(name: &str) -> bool {
+fn validate_repository_name(name: &str) -> Result<(), garde::Error> {
     #![expect(
         clippy::case_sensitive_file_extension_comparisons,
         reason = "Clippy doesn't recognize we've fixed this."
     )]
     let lowercase_name = name.to_ascii_lowercase();
     // set of all allowed chars, no matter the position
-    regex!("^[a-zA-Z0-9_\\.\\-\\+]+$").is_match(name)
+    let valid = regex!("^[a-zA-Z0-9_\\.\\-\\+]+$").is_match(name)
         // starts with non-special char
         && regex!("^[a-zA-Z0-9].*$").is_match(name)
         // ends with non-special char
@@ -91,7 +91,15 @@ fn validate_repository_name(name: &str) -> bool {
         // no consecutive special chars
         && !regex!("[\\-\\+\\_]{2,}").is_match(name)
         && !lowercase_name.ends_with(".git")
-        && !lowercase_name.ends_with(".atom")
+        && !lowercase_name.ends_with(".atom");
+
+    if !valid {
+        return Err(garde::Error::new(
+            "Must start and end with alphanumeric character, cannot contain consecutive special characters, and cannot end in either '.git' or '.atom'.",
+        ));
+    }
+
+    Ok(())
 }
 
 /// [`alpm_types::Architecture`], but with only the architectures buildbtw is interested in building.
