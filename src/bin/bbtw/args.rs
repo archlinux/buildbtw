@@ -1,4 +1,7 @@
-use buildbtw::buildspace::BuildspaceSlug;
+use buildbtw::{
+    buildspace::BuildspaceSlug, git::BranchName, input::buildspaces::CreateChangeset,
+    package::RepositorySlug,
+};
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand, value_parser};
 use url::Url;
@@ -12,6 +15,10 @@ pub enum Command {
         /// specified in origin changesets
         #[arg(short, long)]
         name: Option<BuildspaceSlug>,
+
+        /// Changesets to include, in the format `repo_slug` or `repo_slug@branch_name`
+        #[arg(required = true)]
+        changesets: Vec<ChangesetArg>,
     },
 
     /// Cancel a buildspace. No new iterations or builds will be created.
@@ -64,6 +71,53 @@ pub enum Command {
     /// Authenticate and check login status
     #[command(subcommand)]
     Auth(AuthCommand),
+}
+
+/// Like [git::Changeset], but with an optional branch name.
+#[derive(Debug, Clone)]
+pub struct ChangesetArg {
+    pub repo_slug: RepositorySlug,
+    pub branch_name: Option<BranchName>,
+}
+
+impl std::str::FromStr for ChangesetArg {
+    type Err = garde::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.chars().filter(|c| c == &'z').count() > 1 {
+            return Err(garde::Error::new(
+                "Cannot have multiple slashes in a changeset",
+            ));
+        }
+
+        // repo slugs cannot contain slashes, so we can easily split
+        // the two parts of the input
+        let (repo_part, branch_part) = match s.split_once('/') {
+            Some((repo, branch)) => (repo, Some(branch)),
+            None => (s, None),
+        };
+
+        let repo_slug: RepositorySlug = repo_part.try_into()?;
+
+        let branch_name: Option<BranchName> = match branch_part {
+            Some(branch) => Some(branch.try_into()?),
+            None => None,
+        };
+
+        Ok(ChangesetArg {
+            repo_slug,
+            branch_name,
+        })
+    }
+}
+
+impl From<ChangesetArg> for CreateChangeset {
+    fn from(arg: ChangesetArg) -> Self {
+        CreateChangeset {
+            repo_slug: arg.repo_slug,
+            branch_name: arg.branch_name,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
