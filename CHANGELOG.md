@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### backend
+
+- **Feature:** Add health route (`/api/v1/health`) ([!213](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/213))
+- **Feature:** Run builds locally ([!217](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/217))
+- **Feature:** Add route for creating a buildspace (`/api/v1/buildspaces`) ([!222](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/222))
+- **Fix:** Better OIDC config handling ([!218](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/218/diffs))
+
+### executor
+
+- **Feature:** Don't overwrite log files, ensure log dir exists ([!221](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/221))
+
 ## [0.0.6] - 2026-06-04
 
 ### backend
