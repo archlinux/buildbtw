@@ -5,7 +5,7 @@
 
 use std::process::ExitCode;
 
-use args::{Args, Command, RunArgs, RunStage};
+use args::{Args, Commands, Gitlab, RunArgs, RunStage};
 use buildbtw::{
     executor::{cleanup, prepare, run},
     graceful_shutdown::shutdown_signal,
@@ -38,11 +38,13 @@ async fn execute(args: Args) -> Result<()> {
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
-    match args.command.clone() {
-        Command::Config(config_args) => args::config(&config_args)?,
-        Command::Prepare => prepare::prepare(args.ssh_timeout).await?,
-        Command::Run(run_args) => run(args, run_args).await?,
-        Command::Cleanup => cleanup::cleanup().await?,
+    match args.command {
+        Commands::Gitlab(ref gitlab_args) => match &gitlab_args.command {
+            Gitlab::Config(config_args) => args::config(config_args)?,
+            Gitlab::Prepare => prepare::prepare(args.ssh_timeout).await?,
+            Gitlab::Run(run_args) => run(args.ssh_timeout, run_args).await?,
+            Gitlab::Cleanup => cleanup::cleanup().await?,
+        },
     }
 
     Ok(())
@@ -54,7 +56,7 @@ async fn execute(args: Args) -> Result<()> {
 /// STDOUT and STDERR returned from this executable prints to the job log.
 ///
 /// <https://docs.gitlab.com/runner/executors/custom/#run>
-pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
+pub async fn run(ssh_timeout: u32, run_args: &RunArgs) -> Result<()> {
     let cancellation_token = CancellationToken::new();
     tokio::spawn(shutdown_signal(cancellation_token.clone()));
     match run_args.stage.clone() {
@@ -63,7 +65,7 @@ pub async fn run(args: Args, run_args: RunArgs) -> Result<()> {
         }
         RunStage::BuildScript(build_script_args) => {
             run::build_script(
-                args.ssh_timeout,
+                ssh_timeout,
                 build_script_args.try_into()?,
                 cancellation_token,
             )
