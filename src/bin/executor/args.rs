@@ -29,17 +29,34 @@ pub struct Args {
     #[arg(long, env = "CUSTOM_ENV_SSH_TIMEOUT", default_value = "120")]
     pub ssh_timeout: u32,
 
-    /// Primary command of a custom GitLab executor implementaiton
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Commands,
 }
 
-/// Primary commands of a custom GitLab executor implementaiton.
+#[derive(Debug, Clone, clap::Subcommand)]
+pub enum Commands {
+    /// GitLab Custom executor subcommands
+    ///
+    /// These can't easily be run locally and are meant to be called by GitLab.
+    ///
+    /// See also: <https://docs.gitlab.com/runner/executors/custom/>
+    ///
+    /// This is used here: <https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/main/roles/gitlab_runner/templates/config.toml.j2?ref_type=heads#L76>
+    Gitlab(GitlabArgs),
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct GitlabArgs {
+    #[command(subcommand)]
+    pub command: Gitlab,
+}
+
+/// Primary commands of a custom GitLab executor implementation.
 ///
 /// <https://docs.gitlab.com/runner/executors/custom/>
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, clap::Subcommand)]
-pub enum Command {
+pub enum Gitlab {
     /// Config stage that returns a json configuration
     ///
     /// Sometimes you might want to set some settings during execution time.
