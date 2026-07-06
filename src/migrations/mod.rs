@@ -26,6 +26,7 @@ mod m20260310_131158_add_global_state;
 mod m20260310_190337_add_iteration_status;
 mod m20260512_165015_add_iteration_sequence;
 mod m20260603_133139_add_build_dispatched_to;
+mod m20260706_165635_separate_oidc_identity;
 
 #[derive(Debug)]
 pub struct Migrator;
@@ -49,6 +50,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260310_190337_add_iteration_status::Migration),
             Box::new(m20260512_165015_add_iteration_sequence::Migration),
             Box::new(m20260603_133139_add_build_dispatched_to::Migration),
+            Box::new(m20260706_165635_separate_oidc_identity::Migration),
         ]
     }
 }

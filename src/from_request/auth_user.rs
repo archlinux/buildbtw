@@ -8,7 +8,7 @@ use axum_extra::{
     extract::{PrivateCookieJar, cookie::Cookie},
     headers::{Authorization, authorization::Bearer},
 };
-use color_eyre::eyre::{Context, ContextCompat};
+use color_eyre::eyre::Context;
 use sea_orm::{IntoActiveModel, ModelTrait};
 use serde::Serialize;
 
@@ -109,7 +109,7 @@ impl FromRequestParts<ServerState> for AuthUser {
         };
 
         let session_with_user = queries::sessions::by_secret_token(secret_token)
-            .find_also_related(entities::users::Entity)
+            .find_both_related(entities::users::Entity)
             .one(&tx)
             .await?;
 
@@ -117,9 +117,6 @@ impl FromRequestParts<ServerState> for AuthUser {
             // Session does not exist in the database
             return Err(ResponseError::NotAuthenticated);
         };
-
-        // Can only happen on severe corruption, as the session has a foreign key on the user
-        let user = user.wrap_err("Session does not have a user")?;
 
         let roles = user
             .find_related(entities::user_roles::Entity)

@@ -3,11 +3,41 @@ use buildbtw::{
     buildspace,
     db_fields::TxtUuid,
     dependency_graph::{self, BuildNode},
-    entities, package, queries,
+    entities, input, package, queries,
 };
 use camino_tempfile::Utf8TempDir;
 use color_eyre::Result;
-use sea_orm::DatabaseTransaction;
+use sea_orm::{
+    ActiveValue::Set, ConnectionTrait, DatabaseTransaction, EntityTrait, TransactionTrait,
+};
+use uuid::Uuid;
+
+/// Create a user without an OIDC identity
+pub async fn user(db: &impl ConnectionTrait, username: &str) -> Result<entities::users::Model> {
+    let user = entities::users::ActiveModel {
+        id: Set(Uuid::new_v4().into()),
+        created_at: Set(time::OffsetDateTime::now_utc()),
+        username: Set(username.to_string()),
+    };
+    let user = entities::users::Entity::insert(user)
+        .exec_with_returning(db)
+        .await?;
+
+    Ok(user)
+}
+
+/// Create a user with an OIDC identity
+///
+/// Pretend this user has logged in via OIDC.
+pub async fn oidc_user(db: &impl TransactionTrait, username: &str) -> Result<entities::users::Model> {
+    let create = input::users::ValidatedCreate::try_new(input::users::Create {
+        oidc_id: format!("{username}-oidc-id"),
+        username: username.to_string(),
+    })?;
+    let user = queries::users::upsert_with_oidc(db, create, None).await?;
+
+    Ok(user)
+}
 
 pub async fn buildspace_with_iteration(
     tx: &DatabaseTransaction,

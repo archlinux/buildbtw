@@ -7,36 +7,27 @@ use uuid::Uuid;
 
 use buildbtw::{
     db_fields::{RedactedString, TxtUuid},
-    entities::{
-        sessions::{self, ClientType},
-        users,
-    },
+    entities::sessions::{self, ClientType},
     queries,
     tasks::invalidate_old_sessions,
 };
 
+use crate::factories;
 use crate::test_ctx::{TestCtx, ctx};
 
 #[rstest]
 #[tokio::test]
 async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()> {
-    // Create test user
-    let user_id: TxtUuid = Uuid::new_v4().into();
-    let user = users::ActiveModel {
-        id: Set(user_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id".to_string()),
-        username: Set("testuser".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user).exec(&ctx.state.db).await?;
+    // Create test user with an OIDC identity, since session invalidation
+    // clears the refresh token on the user's identity.
+    let user = factories::oidc_user(&ctx.state.db, "testuser").await?;
 
     // Create old session
     let session_id: TxtUuid = Uuid::new_v4().into();
     let session = sessions::ActiveModel {
         id: Set(session_id),
         created_at: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
-        user_id: Set(user_id),
+        user_id: Set(user.id),
         last_accessed: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
         client_type: Set(ClientType::Web),
         secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
@@ -61,23 +52,16 @@ async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()>
 #[rstest]
 #[tokio::test]
 async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCtx) -> Result<()> {
-    // Create test user
-    let user_id: TxtUuid = Uuid::new_v4().into();
-    let user = users::ActiveModel {
-        id: Set(user_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id".to_string()),
-        username: Set("testuser".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user).exec(&ctx.state.db).await?;
+    // Create test user with an OIDC identity, since session invalidation
+    // clears the refresh token on the user's identity.
+    let user = factories::oidc_user(&ctx.state.db, "testuser").await?;
 
     // Create recent session
     let session_id: TxtUuid = Uuid::new_v4().into();
     let session = sessions::ActiveModel {
         id: Set(session_id),
         created_at: Set(OffsetDateTime::now_utc()),
-        user_id: Set(user_id),
+        user_id: Set(user.id),
         last_accessed: Set(OffsetDateTime::now_utc() - Duration::weeks(2)),
         client_type: Set(ClientType::Web),
         secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),

@@ -68,9 +68,7 @@ pub async fn authorized(
     // This creates a new user record on first login or updates the existing
     // user with the latest data owned by the SSO provider, keeping user
     // information in sync across logins.
-    let user = queries::users::upsert(create, refresh_token)
-        .exec_with_returning(&tx)
-        .await?;
+    let user = queries::users::upsert_with_oidc(&tx, create, refresh_token).await?;
 
     let session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec_with_returning(&tx)
