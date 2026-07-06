@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Feature:** Add route for creating a buildspace (`/api/v1/buildspaces`) ([!222](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/222))
 - **Fix:** Better OIDC config handling ([!218](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/218/diffs))
 
+### bbtw
+
+- **Fix:** Fix login when never logged in before ([!226](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/226))
+
 ### executor
 
 - **Breaking Change:** Put executor gitlab commands under gitlab arg ([!229](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/229))

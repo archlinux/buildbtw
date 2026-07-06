@@ -29,7 +29,7 @@ pub async fn current(client: &super::Client) -> Result<Option<User>> {
             Ok(Some(user))
         }
         Err(e) if e.status() == Some(StatusCode::UNAUTHORIZED) => {
-            // If we get UNAUTHORIZEDu we probably entered an invalid secret token. That is, a secret token
+            // If we get UNAUTHORIZED we probably entered an invalid secret token. That is, a secret token
             // that can't be associated with a Session.
             return Ok(None);
         }
