@@ -35,13 +35,6 @@ pub struct Args {
 
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Commands {
-    /// GitLab Custom executor subcommands
-    ///
-    /// These can't easily be run locally and are meant to be called by GitLab.
-    ///
-    /// See also: <https://docs.gitlab.com/runner/executors/custom/>
-    ///
-    /// This is used here: <https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/main/roles/gitlab_runner/templates/config.toml.j2?ref_type=heads#L76>
     Gitlab(GitlabArgs),
 }
 
@@ -51,9 +44,13 @@ pub struct GitlabArgs {
     pub command: Gitlab,
 }
 
-/// Primary commands of a custom GitLab executor implementation.
+/// GitLab Custom executor subcommands
 ///
-/// <https://docs.gitlab.com/runner/executors/custom/>
+/// These can't easily be run locally and are meant to be called by GitLab CI.
+///
+/// See also: <https://docs.gitlab.com/runner/executors/custom/>
+///
+/// This is used here: <https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/main/roles/gitlab_runner/templates/config.toml.j2?ref_type=heads#L76>
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Gitlab {
