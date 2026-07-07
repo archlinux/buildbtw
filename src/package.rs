@@ -122,6 +122,7 @@ fn validate_repository_name(name: &str) -> Result<(), garde::Error> {
 #[non_exhaustive]
 #[sea_orm(value_type = "String")]
 #[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum KnownArchitecture {
     /// ARMv8 64-bit
     Aarch64,

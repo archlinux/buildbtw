@@ -8,6 +8,7 @@ use axum::extract::State;
 use axum::http::HeaderValue;
 use axum::response::Response;
 use axum::{Json, extract::Query};
+use camino::Utf8Path;
 use color_eyre::eyre::Context;
 use color_eyre::eyre::OptionExt;
 use reqwest::header;
@@ -245,13 +246,55 @@ pub async fn download_package(
         &pkgname,
         &server_state.data_dir,
     )?;
-    let file = tokio::fs::File::open(&dest)
+    let file = tokio::fs::File::open(&package_path)
         .await
         .map_err(|_e| ResponseError::NotFound("Build artifact not found".into()))?;
     let len = file.metadata().await?.len();
     debug!(
         "Downloading {len} bytes from build-id {build_id} pkgname {pkgname} filename {filename}",
     );
+
+    Ok(Response::builder()
+        .header(header::CONTENT_TYPE, "application/octet-stream")
+        .header(header::CONTENT_LENGTH, len)
+        .header(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&format!("attachment; filename=\"{filename:?}\""))
+                .wrap_err("Invalid filename for header value")?,
+        )
+        .body(Body::from_stream(ReaderStream::new(file)))
+        .wrap_err("Failed to build response stream")?)
+}
+
+pub async fn serve_repo_file(
+    api::builds::ServeRepoFile {
+        buildspace,
+        iteration,
+        architecture,
+        filename,
+    }: api::builds::ServeRepoFile,
+    Query(api::builds::ServeRepoFileQuery {}): Query<api::builds::ServeRepoFileQuery>,
+    State(server_state): State<ServerState>,
+    db::Tx(_tx): db::Tx,
+) -> ResponseResult<Response> {
+    // Check the repo directory has not been escaped
+    if Utf8Path::new(&filename).file_name() != Some(filename.as_str()) {
+        return Err(ResponseError::BadRequest("Invalid filename".into()));
+    }
+
+    let repo_path = builds::build_repo_path(
+        &buildspace,
+        iteration,
+        &architecture,
+        &server_state.data_dir,
+    )?
+    .join(&filename);
+    debug!("Downloading {filename} from {repo_path}");
+
+    let file = tokio::fs::File::open(&repo_path)
+        .await
+        .map_err(|_e| ResponseError::NotFound("Build artifact not found".into()))?;
+    let len = file.metadata().await?.len();
 
     Ok(Response::builder()
         .header(header::CONTENT_TYPE, "application/octet-stream")

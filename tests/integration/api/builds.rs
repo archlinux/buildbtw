@@ -1,9 +1,13 @@
 use std::collections::HashSet;
 
 use buildbtw::api;
+use buildbtw::buildspace::BuildspaceSlug;
 use buildbtw::entities;
 use buildbtw::package;
+use buildbtw::pacman_repository;
 use buildbtw::queries;
+use camino::{Utf8Path, Utf8PathBuf};
+use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::Result;
 use reqwest::StatusCode;
 use rstest::rstest;
@@ -763,6 +767,231 @@ async fn test_download_build_artifact_build_not_found(#[future(awt)] ctx: TestCt
         .await;
 
     // Check artifact not found
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_serve_build_file(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    // Only dispatched builds can be set to "completed" on upload
+    queries::builds::dispatch_to_local_executor(build.id)
+        .exec(&tx)
+        .await?;
+    tx.commit().await?;
+
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname: pkgname.clone(),
+        })
+        .bytes(package_bytes.clone().into())
+        .await;
+
+    // Check uploaded artifact
+    response.assert_status_ok();
+
+    // Get serve file response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ServeRepoFile {
+            buildspace: buildspace.name.clone(),
+            iteration: iteration.sequence,
+            architecture: build.architecture,
+            filename: Utf8Path::from_path(package.to_path_buf().as_path())
+                .ok_or_eyre("Package path is not valid UTF-8")?
+                .file_name()
+                .map(Utf8PathBuf::from)
+                .ok_or_eyre("Failed to get filename from package")?,
+        })
+        .await;
+
+    // Check return status
+    response.assert_status_ok();
+
+    let response_bytes = response.as_bytes();
+    assert_eq!(
+        package_bytes,
+        response_bytes.to_vec(),
+        "served bytes must match"
+    );
+
+    // Get serve database response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ServeRepoFile {
+            buildspace: buildspace.name.clone(),
+            iteration: iteration.sequence,
+            architecture: build.architecture,
+            filename: Utf8PathBuf::from(pacman_repository::pacman_repo_database_filename(
+                &buildspace.name,
+            )),
+        })
+        .await;
+
+    // Check return status
+    response.assert_status_ok();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_serve_build_artifact_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    // Only dispatched builds can be set to "completed" on upload
+    queries::builds::dispatch_to_local_executor(build.id)
+        .exec(&tx)
+        .await?;
+    tx.commit().await?;
+
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname: pkgname.clone(),
+        })
+        .bytes(package_bytes.clone().into())
+        .await;
+
+    // Check uploaded artifact
+    response.assert_status_ok();
+
+    // Request an invalid file
+    let invalid_package_name = "foobar.pkg.tar.zst";
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ServeRepoFile {
+            buildspace: buildspace.name,
+            iteration: iteration.sequence,
+            architecture: build.architecture,
+            filename: Utf8PathBuf::from(invalid_package_name),
+        })
+        .await;
+
+    // Check return status
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_serve_build_artifact_unknown_buildspace(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Request a file from an invalid buildspace
+    let invalid_buildspace_name = "unknown";
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ServeRepoFile {
+            buildspace: BuildspaceSlug::try_from(invalid_buildspace_name)?,
+            iteration: 1,
+            architecture: package::KnownArchitecture::X86_64,
+            filename: Utf8PathBuf::from("foobar.pkg.tar.zst"),
+        })
+        .await;
+
+    // Check return status
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_serve_build_artifact_unknown_iteration(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    // Only dispatched builds can be set to "completed" on upload
+    queries::builds::dispatch_to_local_executor(build.id)
+        .exec(&tx)
+        .await?;
+    tx.commit().await?;
+
+    // Create package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &pkgname.to_string(),
+        &"2.1-1".parse()?,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname: pkgname.clone(),
+        })
+        .bytes(package_bytes.clone().into())
+        .await;
+
+    // Check uploaded artifact
+    response.assert_status_ok();
+
+    // Get serve file response
+    let invalid_iteration = iteration.sequence + 42;
+    let response = ctx
+        .server
+        .typed_get(&api::builds::ServeRepoFile {
+            buildspace: buildspace.name,
+            iteration: invalid_iteration,
+            architecture: build.architecture,
+            filename: Utf8Path::from_path(package.to_path_buf().as_path())
+                .ok_or_eyre("Package path is not valid UTF-8")?
+                .file_name()
+                .map(Utf8PathBuf::from)
+                .ok_or_eyre("Failed to get filename from package")?,
+        })
+        .await;
+
+    // Check return status
     response.assert_status_not_found();
 
     Ok(())
