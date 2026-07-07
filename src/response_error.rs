@@ -5,6 +5,8 @@ use reqwest::StatusCode;
 use thiserror::Error;
 use tracing::debug;
 
+use crate::web;
+
 /// Result type for HTTP responses that can return a `ResponseError`.
 pub type ResponseResult<T> = Result<T, ResponseError>;
 
@@ -36,8 +38,15 @@ pub enum ResponseError {
     UnsupportedContentType(String),
 
     /// Unauthorized access.
+    ///
+    /// If the optional request path is present, browser requests (detected via
+    /// the Accept header containing `text/html`) will be redirected to the
+    /// login page with the original URL as a `next` query parameter.
     #[error("Unauthorized")]
-    NotAuthenticated,
+    NotAuthenticated {
+        accept_header: Option<String>,
+        request_path: Option<String>,
+    },
 
     /// Template error.
     #[error("Template error")]
@@ -56,26 +65,66 @@ pub enum ResponseError {
     Conflict(String),
 }
 
+impl ResponseError {
+    /// Create a `NotAuthenticated` error without browser detection.
+    #[must_use]
+    pub fn not_authenticated() -> Self {
+        ResponseError::NotAuthenticated {
+            accept_header: None,
+            request_path: None,
+        }
+    }
+}
+
 impl IntoResponse for ResponseError {
     /// Converts the error into an HTTP response with appropriate status code.
     fn into_response(self) -> Response {
         debug!("{self:?}");
-        let status = match self {
+        match &self {
+            ResponseError::NotAuthenticated {
+                accept_header,
+                request_path,
+            } => {
+                let is_browser = accept_header
+                    .as_deref()
+                    .is_some_and(|accept| accept.contains("text/html"));
+                if is_browser {
+                    let next = request_path.as_deref().unwrap_or("/");
+                    let encoded: String =
+                        url::form_urlencoded::byte_serialize(next.as_bytes()).collect();
+                    let login_url =
+                        format!("{}?next={}", web::oidc::StartLogin {}, encoded);
+                    return (
+                        StatusCode::SEE_OTHER,
+                        [("location", login_url.as_str())],
+                    )
+                        .into_response();
+                }
+                (StatusCode::UNAUTHORIZED, self.to_string()).into_response()
+            }
             ResponseError::Eyre(_)
             | ResponseError::DbError(_)
             | ResponseError::IO(_)
             | ResponseError::Tera(_)
-            | ResponseError::InternalServer(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
-            ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            ResponseError::InvalidInput(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            ResponseError::NotAuthenticated => StatusCode::UNAUTHORIZED,
-            ResponseError::NotPermitted(_) => StatusCode::FORBIDDEN,
-            ResponseError::Conflict(_) => StatusCode::CONFLICT,
-        };
-        // Send only the opaque description using the display trait, to avoid leaking
-        // information
-        (status, self.to_string()).into_response()
+            | ResponseError::InternalServer(_) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+            }
+            ResponseError::NotFound(_) => {
+                (StatusCode::NOT_FOUND, self.to_string()).into_response()
+            }
+            ResponseError::UnsupportedContentType(_) => {
+                (StatusCode::UNSUPPORTED_MEDIA_TYPE, self.to_string()).into_response()
+            }
+            ResponseError::InvalidInput(_) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()).into_response()
+            }
+            ResponseError::NotPermitted(_) => {
+                (StatusCode::FORBIDDEN, self.to_string()).into_response()
+            }
+            ResponseError::Conflict(_) => {
+                (StatusCode::CONFLICT, self.to_string()).into_response()
+            }
+        }
     }
 }
 

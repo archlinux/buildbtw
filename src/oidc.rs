@@ -137,7 +137,13 @@ pub type ConfiguredClient = CoreClient<
 /// Additionally, return a [LoginAttempt] struct which is the state we need to
 /// store, and subsequently use to verify the authorization code in
 /// [convert_authorization_code_to_user_info].
-pub fn new_login_attempt(State { oidc_client, .. }: State) -> (Url, LoginAttempt) {
+///
+/// If `next_url` is provided, it will be stored in the [LoginAttempt] and
+/// used as the redirect destination after a successful login.
+pub fn new_login_attempt(
+    State { oidc_client, .. }: State,
+    next_url: Option<String>,
+) -> (Url, LoginAttempt) {
     // Generate a PKCE challenge.
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -163,6 +169,7 @@ pub fn new_login_attempt(State { oidc_client, .. }: State) -> (Url, LoginAttempt
             nonce,
             csrf_token,
             pkce_verifier,
+            next_url,
         },
     )
 }
@@ -175,6 +182,9 @@ pub struct LoginAttempt {
     pub csrf_token: CsrfToken,
     /// Prevents CSRF and authorization code injection attacks
     pub pkce_verifier: PkceCodeVerifier,
+    /// URL to redirect to after successful login
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_url: Option<String>,
 }
 
 pub const LOGIN_ATTEMPT_COOKIE_NAME: &str = "buildbtw_oidc_login_attempt";
@@ -268,6 +278,7 @@ pub async fn convert_authorization_code_to_user_info(
         nonce,
         csrf_token: stored_csrf_token,
         pkce_verifier,
+        ..
     }: LoginAttempt,
     authorization_code: AuthorizationCode,
     received_csrf_token: CsrfToken,

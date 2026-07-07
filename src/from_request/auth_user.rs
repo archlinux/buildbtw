@@ -2,6 +2,7 @@ use axum::{
     RequestPartsExt,
     extract::{FromRequestParts, OptionalFromRequestParts},
     http::request::Parts,
+    http::header,
 };
 use axum_extra::{
     TypedHeader,
@@ -67,6 +68,10 @@ impl OptionalFromRequestParts<ServerState> for AuthUser {
 /// It first checks a session cookie and then the authorization header.
 /// If neither can be found, returns [`ResponseError::NotAuthenticated`].
 ///
+/// For browser requests (detected via the Accept header), the error response
+/// will redirect to the login page with the current URL as a `next` query
+/// parameter, enabling redirect-after-login functionality.
+///
 /// This implementation ensures that a valid authenticated user exists
 /// before the request handler is executed. If the user is not authenticated,
 /// the request is rejected with an appropriate error response.
@@ -105,7 +110,7 @@ impl FromRequestParts<ServerState> for AuthUser {
         } else if let Some(secret_token_from_header) = secret_token_from_header {
             RedactedString::from(secret_token_from_header.token().to_string())
         } else {
-            return Err(ResponseError::NotAuthenticated);
+            return Err(not_authenticated_error(parts));
         };
 
         let session_with_user = queries::sessions::by_secret_token(secret_token)
@@ -115,7 +120,7 @@ impl FromRequestParts<ServerState> for AuthUser {
 
         let Some((session, user)) = session_with_user else {
             // Session does not exist in the database
-            return Err(ResponseError::NotAuthenticated);
+            return Err(not_authenticated_error(parts));
         };
 
         // Can only happen on severe corruption, as the session has a foreign key on the user
@@ -139,6 +144,21 @@ impl FromRequestParts<ServerState> for AuthUser {
             user,
             roles,
         })
+    }
+}
+
+/// Build a [`ResponseError::NotAuthenticated`] with the Accept header and
+/// request path extracted from the request parts, enabling browser redirect.
+fn not_authenticated_error(parts: &Parts) -> ResponseError {
+    let accept_header = parts
+        .headers
+        .get(header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+    let request_path = Some(parts.uri.path().to_string());
+    ResponseError::NotAuthenticated {
+        accept_header,
+        request_path,
     }
 }
 

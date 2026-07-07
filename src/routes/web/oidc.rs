@@ -23,11 +23,12 @@ use crate::{
 /// See [web::oidc::StartLogin].
 pub async fn start_login(
     _: web::oidc::StartLogin,
+    Query(params): Query<web::oidc::StartLoginQuery>,
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_state = server_state.oidc.wrap_err("OIDC not configured")?;
-    let (url, login_attempt) = oidc::new_login_attempt(oidc_state.clone());
+    let (url, login_attempt) = oidc::new_login_attempt(oidc_state.clone(), params.next);
     let cookie_jar = login_attempt.save_in_cookie_jar(cookie_jar, &oidc_state)?;
     Ok((cookie_jar, Redirect::to(url.as_str())))
 }
@@ -44,6 +45,7 @@ pub async fn authorized(
     let admin_oidc_groups = oidc_state.admin_oidc_groups.clone();
     let package_maintainer_oidc_groups = oidc_state.package_maintainer_oidc_groups.clone();
     let login_attempt = oidc::LoginAttempt::from_cookie_jar(&cookie_jar)?;
+    let next_url = login_attempt.next_url.clone();
     let (user_info, refresh_token) = oidc::convert_authorization_code_to_user_info(
         oidc_state.clone(),
         login_attempt,
@@ -95,7 +97,10 @@ pub async fn authorized(
         Some(&oidc_state),
     );
 
-    Ok((cookie_jar, Redirect::to(&web::index::Index {}.to_string())))
+    Ok((
+        cookie_jar,
+        Redirect::to(&next_url.unwrap_or_else(|| web::index::Index {}.to_string())),
+    ))
 }
 
 /// Convert an optional [LocalizedClaim] into an optional string by taking the
