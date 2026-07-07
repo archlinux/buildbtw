@@ -333,9 +333,10 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgnames_filenames,
         &pkgname,
         &Some(data_dir),
     )?;
@@ -432,9 +433,10 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
 
     let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgnames_filenames,
         &pkgname,
         &Some(data_dir),
     )?;
@@ -557,9 +559,10 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
     // Write existing file into the storage
     let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgnames_filenames,
         &pkgname,
         &Some(data_dir),
     )?;
@@ -681,9 +684,10 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
 
     let data_dir = ctx.data_dir.path().to_path_buf();
     let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.clone().into_ex(),
-        &iteration.clone().into_ex(),
-        &build.clone().into_ex(),
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgnames_filenames,
         &pkgname,
         &Some(data_dir),
     )?;

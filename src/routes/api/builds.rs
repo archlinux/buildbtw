@@ -65,6 +65,7 @@ pub async fn list(
     }))
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn upload_package(
     _: api::builds::UploadPackage,
     Query(api::builds::UploadPackageQuery { build_id, pkgname }): Query<
@@ -92,17 +93,19 @@ pub async fn upload_package(
     // Required database metadata has been read, commit transaction to release locks before streaming data.
     tx.commit().await?;
 
-    let filenames = &build.pkgnames_filenames.0;
-    let filename = filenames
+    let filename = build
+        .pkgnames_filenames
+        .0
         .get(&pkgname)
         .ok_or_else(|| ResponseError::NotFound(format!("Build package '{pkgname}'")))?;
     debug!("Received data stream for build_id {build_id} pkgname {pkgname} filename {filename}",);
 
     // Abort if artifact has already been uploaded
     let dest = builds::build_artifact_path(
-        &buildspace,
-        &iteration,
-        &build,
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgnames_filenames,
         &pkgname,
         &server_state.data_dir,
     )?;
@@ -175,16 +178,22 @@ pub async fn upload_package(
 
     // Add build artifact to pacman database repo
     pacman_repo_add(
-        &buildspace,
-        &iteration,
-        &build,
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
         &[dest],
         &server_state.data_dir,
     )
     .await?;
 
     // Update build status if all artifacts were uploaded and exist in the storage
-    if builds::build_fully_uploaded(&buildspace, &iteration, &build, &server_state.data_dir) {
+    if builds::build_fully_uploaded(
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgnames_filenames,
+        &server_state.data_dir,
+    ) {
         let tx = server_state.db.begin().await?;
         queries::builds::update_build_status(build_id.into(), package::BuildStatus::Built)
             .exec(&tx)
@@ -228,16 +237,17 @@ pub async fn download_package(
     })?;
 
     // Resolve and open build artifact path
-    let dest = builds::build_artifact_path(
-        &buildspace,
-        &iteration,
-        &build,
+    let package_path = builds::build_artifact_path(
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgnames_filenames,
         &pkgname,
         &server_state.data_dir,
     )?;
     let file = tokio::fs::File::open(&dest)
         .await
-        .wrap_err_with(|| ResponseError::NotFound("Build artifact not found".into()))?;
+        .map_err(|_e| ResponseError::NotFound("Build artifact not found".into()))?;
     let len = file.metadata().await?.len();
     debug!(
         "Downloading {len} bytes from build-id {build_id} pkgname {pkgname} filename {filename}",

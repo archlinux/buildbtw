@@ -57,12 +57,22 @@ async fn try_build(
         .clone()
         .into_option()
         .ok_or_eyre("Buildspace for iteration was not loaded")?;
-    let log_file =
-        builds::build_log_path(&buildspace, &iteration, build, &build.pkgbase, &data_dir)?;
+    let log_file = builds::build_log_path(
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &build.pkgbase,
+        &data_dir,
+    )?;
 
     let package_source_dir = storage::package_source_dir(&data_dir, &build.pkgbase)?;
 
-    let output_dir = builds::build_repo_path(&buildspace, &iteration, build, &data_dir)?;
+    let output_dir = builds::build_repo_path(
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &data_dir,
+    )?;
     if fs::try_exists(&output_dir).await.is_ok_and(|exists| exists) {
         bail!(
             "Output directory {output_dir} already exists. This indicates a previous build that ran for this iteration, arch and pkgbase. Running builds multiple times is not supported."
