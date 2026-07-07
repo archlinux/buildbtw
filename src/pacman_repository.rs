@@ -17,36 +17,36 @@ use color_eyre::{
 use tokio::process::Command;
 use tracing::debug;
 
-use crate::{builds::build_repo_path, entities};
+use crate::{builds::build_repo_path, buildspace, package};
 
 /// Returns the filename for a pacman package database of a buildspace.
 #[must_use]
-pub fn pacman_repo_database_filename(buildspace: &entities::buildspaces::ModelEx) -> String {
-    format!("{}.db.tar.zst", buildspace.name)
+pub fn pacman_repo_database_filename(buildspace: &buildspace::BuildspaceSlug) -> String {
+    format!("{buildspace}.db.tar.zst")
 }
 
 /// Returns the pacman package database path within the artifacts data storage
 /// that belongs to a build of an iteration and buildspace.
 pub fn pacman_repo_database_path(
-    buildspace: &entities::buildspaces::ModelEx,
-    iteration: &entities::iterations::ModelEx,
-    build: &entities::builds::ModelEx,
+    buildspace: &buildspace::BuildspaceSlug,
+    iteration: u32,
+    architecture: &package::KnownArchitecture,
     override_data_dir: &Option<Utf8PathBuf>,
 ) -> Result<Utf8PathBuf> {
-    let dest_dir = build_repo_path(buildspace, iteration, build, override_data_dir)?;
+    let dest_dir = build_repo_path(buildspace, iteration, architecture, override_data_dir)?;
     let db = dest_dir.join(pacman_repo_database_filename(buildspace));
     Ok(db)
 }
 
 /// Add a package artifact to the pacman repository of a build iteration.
 pub async fn pacman_repo_add(
-    buildspace: &entities::buildspaces::ModelEx,
-    iteration: &entities::iterations::ModelEx,
-    build: &entities::builds::ModelEx,
+    buildspace: &buildspace::BuildspaceSlug,
+    iteration: u32,
+    architecture: &package::KnownArchitecture,
     packages: &[Utf8PathBuf],
     override_data_dir: &Option<Utf8PathBuf>,
 ) -> Result<()> {
-    let db = pacman_repo_database_path(buildspace, iteration, build, override_data_dir)?;
+    let db = pacman_repo_database_path(buildspace, iteration, architecture, override_data_dir)?;
 
     let mut cmd = Command::new("repo-add");
     cmd.args(["--prevent-downgrade", "--wait-for-lock", db.as_ref()]);

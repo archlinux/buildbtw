@@ -242,9 +242,9 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .into_option()
         .expect("buildspace not loaded");
     let repo_dir = builds::build_repo_path(
-        &buildspace_ex,
-        &iteration_ex,
-        &build_ex,
+        &buildspace_ex.name,
+        iteration_ex.sequence,
+        &build_ex.architecture,
         &Some(server_data_dir.path().to_path_buf()),
     )?;
     assert!(
