@@ -67,6 +67,10 @@ impl OptionalFromRequestParts<ServerState> for AuthUser {
 /// It first checks a session cookie and then the authorization header.
 /// If neither can be found, returns [`ResponseError::NotAuthenticated`].
 ///
+/// For browser requests, detected via the Accept header, the error response
+/// will redirect to the login page with the current URL as a `next` query
+/// parameter, so we can redirect users after login.
+///
 /// This implementation ensures that a valid authenticated user exists
 /// before the request handler is executed. If the user is not authenticated,
 /// the request is rejected with an appropriate error response.
@@ -105,7 +109,7 @@ impl FromRequestParts<ServerState> for AuthUser {
         } else if let Some(secret_token_from_header) = secret_token_from_header {
             RedactedString::from(secret_token_from_header.token().to_string())
         } else {
-            return Err(ResponseError::NotAuthenticated);
+            return Err(ResponseError::not_authenticated(parts));
         };
 
         let session_with_user = queries::sessions::by_secret_token(secret_token)
@@ -115,7 +119,7 @@ impl FromRequestParts<ServerState> for AuthUser {
 
         let Some((session, user)) = session_with_user else {
             // Session does not exist in the database
-            return Err(ResponseError::NotAuthenticated);
+            return Err(ResponseError::not_authenticated(parts));
         };
 
         let roles = user

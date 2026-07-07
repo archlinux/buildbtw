@@ -5,6 +5,8 @@ use reqwest::StatusCode;
 use thiserror::Error;
 use tracing::debug;
 
+use crate::web;
+
 /// Result type for HTTP responses that can return a `ResponseError`.
 pub type ResponseResult<T> = Result<T, ResponseError>;
 
@@ -48,8 +50,17 @@ pub enum ResponseError {
     UnsupportedContentType(String),
 
     /// Unauthorized access.
+    ///
+    /// If the optional request path is present, browser requests (detected via
+    /// the Accept header containing `text/html`) will be redirected to the
+    /// login page with the original URL as a `next` query parameter.
     #[error("Unauthorized")]
-    NotAuthenticated,
+    NotAuthenticated {
+        /// If true, respond with a redirect to the login page.
+        is_browser_request: bool,
+        /// Redirect to this path after login.
+        requested_path: Option<String>,
+    },
 
     /// Template error.
     #[error("Template error")]
@@ -68,11 +79,43 @@ pub enum ResponseError {
     Conflict(String),
 }
 
+impl ResponseError {
+    #[must_use]
+    pub fn not_authenticated(parts: &axum::http::request::Parts) -> Self {
+        let is_browser_request = parts
+            .headers
+            .get(axum::http::header::ACCEPT)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|accept| accept.contains("text/html"));
+        let request_path = Some(parts.uri.path().to_string());
+        ResponseError::NotAuthenticated {
+            is_browser_request,
+            requested_path: request_path,
+        }
+    }
+}
+
 impl IntoResponse for ResponseError {
     /// Converts the error into an HTTP response with appropriate status code.
     fn into_response(self) -> Response {
         debug!("{self:?}");
-        let status = match self {
+
+        // If this is a NotAuthenticated error and the request is coming from
+        // a browser, redirect to the login page.
+        if let ResponseError::NotAuthenticated {
+            is_browser_request: is_browser,
+            requested_path: request_path,
+        } = &self
+            && *is_browser
+        {
+            let next = request_path.as_deref().unwrap_or("/");
+            let encoded: String = url::form_urlencoded::byte_serialize(next.as_bytes()).collect();
+            let login_url = format!("{}?next={}", web::oidc::StartLogin {}, encoded);
+            return (StatusCode::SEE_OTHER, [("location", login_url.as_str())]).into_response();
+        }
+
+        let status = match &self {
+            ResponseError::NotAuthenticated { .. } => StatusCode::UNAUTHORIZED,
             ResponseError::Eyre(_)
             | ResponseError::DbError(_)
             | ResponseError::IO(_)
@@ -84,10 +127,10 @@ impl IntoResponse for ResponseError {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
             ResponseError::AlpmPackage(_) | ResponseError::BadRequest(_) => StatusCode::BAD_REQUEST,
-            ResponseError::NotAuthenticated => StatusCode::UNAUTHORIZED,
             ResponseError::NotPermitted(_) => StatusCode::FORBIDDEN,
             ResponseError::Conflict(_) => StatusCode::CONFLICT,
         };
+
         // Send only the opaque description using the display trait, to avoid leaking
         // information
         (status, self.to_string()).into_response()

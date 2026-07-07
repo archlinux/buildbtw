@@ -8,6 +8,13 @@ use serde::Deserialize;
 #[typed_path("/oidc/start_login")]
 pub struct StartLogin {}
 
+/// Query parameters for the login start endpoint.
+#[derive(Deserialize, Debug)]
+pub struct StartLoginQuery {
+    /// Optional URL to redirect to after successful login.
+    pub next: Option<String>,
+}
+
 /// Once the user has authorized the request with the OIDC provider, they are
 /// redirected here with an authorization code in the query string which allows
 /// us to obtain an ID token from the OIDC provider.

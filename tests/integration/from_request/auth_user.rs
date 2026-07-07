@@ -1,11 +1,10 @@
 use axum::http::Method;
 use axum_extra::routing::TypedPath;
+use buildbtw::db_fields::RedactedString;
+use buildbtw::{api, from_request, web};
 use color_eyre::Result;
 use rstest::rstest;
 use uuid::Uuid;
-
-use buildbtw::db_fields::RedactedString;
-use buildbtw::{api, from_request, web};
 
 use crate::test_ctx::{CookieJarExt, TestCtx, ctx};
 
@@ -26,6 +25,20 @@ async fn test_unauthorized_routes(
     response.assert_status_unauthorized();
     response.assert_header("content-type", "text/plain; charset=utf-8");
     response.assert_text_contains("Unauthorized");
+}
+
+/// Check that an unauthenticated browser request is redirected to the login endpoint.
+#[rstest]
+#[tokio::test]
+async fn test_unauthenticated_browser_is_redirected_to_login(#[future(awt)] ctx: TestCtx) {
+    let response = ctx
+        .server
+        .typed_get(&web::account::SessionList {})
+        .add_header("Accept", "text/html")
+        .await;
+
+    response.assert_status_see_other();
+    response.assert_header("location", "/oidc/start_login?next=%2Faccount%2Fsession");
 }
 
 #[rstest]

@@ -139,7 +139,13 @@ pub type ConfiguredClient = CoreClient<
 /// Additionally, return a [LoginAttempt] struct which is the state we need to
 /// store, and subsequently use to verify the authorization code in
 /// [convert_authorization_code_to_user_info].
-pub fn new_login_attempt(State { oidc_client, .. }: State) -> (Url, LoginAttempt) {
+///
+/// If `next_url` is provided, it will be stored in the [LoginAttempt] and
+/// used as the redirect destination after a successful login.
+pub fn new_login_attempt(
+    State { oidc_client, .. }: State,
+    next_path: Option<String>,
+) -> (Url, LoginAttempt) {
     // Generate a PKCE challenge.
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -165,6 +171,7 @@ pub fn new_login_attempt(State { oidc_client, .. }: State) -> (Url, LoginAttempt
             nonce,
             csrf_token,
             pkce_verifier,
+            next_path,
         },
     )
 }
@@ -177,6 +184,10 @@ pub struct LoginAttempt {
     pub csrf_token: CsrfToken,
     /// Prevents CSRF and authorization code injection attacks
     pub pkce_verifier: PkceCodeVerifier,
+    /// Path to redirect to after successful login.
+    /// Private to allow usage through [LoginAttempt::next_url] only
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    next_path: Option<String>,
 }
 
 pub const LOGIN_ATTEMPT_COOKIE_NAME: &str = "buildbtw_oidc_login_attempt";
@@ -208,6 +219,29 @@ impl LoginAttempt {
         cookie.set_http_only(true);
         cookie.set_secure(true);
         cookie_jar.remove(cookie)
+    }
+
+    /// Calculate the URL to redirect to after loggin in, safely.
+    /// Prevents redirections to other Origins differing from our server URL.
+    #[must_use]
+    pub fn next_url(&self, server_url: &Url) -> Url {
+        // Prepend our server URL to the redirect path to prevent open redirects
+        let next_path = match self.next_path.as_ref() {
+            Some(x) => x,
+            None => &web::index::Index {}.to_string(),
+        };
+        let result = server_url
+            .join(next_path)
+            .unwrap_or_else(|_| server_url.clone());
+
+        // Protect against scheme-relative special URLs:
+        // "//malicious.tld/exploit/path"
+        // which will replace the origin of the server URL
+        if result.origin() != server_url.origin() {
+            return server_url.clone();
+        }
+
+        result
     }
 }
 
@@ -270,6 +304,7 @@ pub async fn convert_authorization_code_to_user_info(
         nonce,
         csrf_token: stored_csrf_token,
         pkce_verifier,
+        ..
     }: LoginAttempt,
     authorization_code: AuthorizationCode,
     received_csrf_token: CsrfToken,
@@ -388,13 +423,58 @@ pub async fn fetch_user_info_with_refresh_token(
 
 #[cfg(test)]
 mod tests {
+    use openidconnect::{CsrfToken, Nonce, PkceCodeVerifier};
     use rstest::rstest;
     use url::Url;
 
     use crate::{
         entities::user_roles::Role,
-        oidc::{GroupClaims, oidc_groups_to_user_roles, second_level_domain},
+        oidc::{GroupClaims, LoginAttempt, oidc_groups_to_user_roles, second_level_domain},
     };
+
+    /// Small test helper for quickly testing the redirect URL logic.
+    fn login_attempt(next_path: Option<&str>) -> LoginAttempt {
+        LoginAttempt {
+            nonce: Nonce::new("nonce".to_string()),
+            csrf_token: CsrfToken::new("csrf token".to_string()),
+            pkce_verifier: PkceCodeVerifier::new("pkce verifier".to_string()),
+            next_path: next_path.map(String::from),
+        }
+    }
+
+    /// Check that a login attempt without a redirection path
+    /// falls back to the homepage.
+    #[test]
+    fn test_next_url_without_next_path_falls_back_to_homepage() {
+        let server_url = Url::parse("https://buildbtw.example.com/").unwrap();
+
+        let next_url = login_attempt(None).next_url(&server_url);
+        assert_eq!(next_url, server_url);
+    }
+
+    /// Check that malicious URLs, absolute or scheme-relative, get replaced
+    /// by our own homepage.
+    #[rstest]
+    #[case("http://www.malicious.tld/path")]
+    #[case("//malicious.tld/path")]
+    fn test_next_url_rejects_foreign_origin(#[case] next_path: &str) {
+        let server_url = Url::parse("https://buildbtw.example.com/").unwrap();
+
+        let next_url = login_attempt(Some(next_path)).next_url(&server_url);
+        assert_eq!(next_url, server_url);
+    }
+
+    /// Check that normal paths get appended to our server URL and returned.
+    #[test]
+    fn test_next_url_joins_benign_path() {
+        let server_url = Url::parse("https://buildbtw.example.com/").unwrap();
+
+        let next_url = login_attempt(Some("/packages/foo?bar=42")).next_url(&server_url);
+        assert_eq!(
+            next_url,
+            Url::parse("https://buildbtw.example.com/packages/foo?bar=42").unwrap()
+        );
+    }
 
     #[test]
     fn test_oidc_groups_to_user_roles() {
