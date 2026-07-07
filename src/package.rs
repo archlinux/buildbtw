@@ -89,7 +89,7 @@ fn validate_repository_name(name: &str) -> Result<(), garde::Error> {
         // ends with non-special char
         && regex!("^.*[a-zA-Z0-9]$").is_match(name)
         // no consecutive special chars
-        && !regex!("[\\-\\+\\_]{2,}").is_match(name)
+        && !regex!("[\\-\\+\\_\\.]{2,}").is_match(name)
         && !lowercase_name.ends_with(".git")
         && !lowercase_name.ends_with(".atom");
 
@@ -324,6 +324,7 @@ mod tests {
     // No consecutive special chars
     #[case("libsigc++-3.0")]
     #[case("a--b")]
+    #[case("a..b")]
     #[case("a__b")]
     #[case("a+_b")]
     fn repository_slug_invalid(#[case] slug: &str) {
