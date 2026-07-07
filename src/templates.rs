@@ -31,7 +31,7 @@ fn format_datetime(
     _: &std::collections::HashMap<String, tera::Value>,
 ) -> tera::Result<tera::Value> {
     let datetime: OffsetDateTime = serde_json::from_value(value.clone())?;
-    let format = format_description::parse(
+    let format = format_description::parse_borrowed::<3>(
         "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]",
     ).map_err(|e| tera::Error::msg(format!("failed to create format description: {e}")))?;
     Ok(tera::Value::String(datetime.format(&format).map_err(
