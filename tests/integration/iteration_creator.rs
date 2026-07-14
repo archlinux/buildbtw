@@ -63,6 +63,7 @@ async fn test_flaky_run() -> Result<()> {
             auto_create_iterations: true,
         },
         db.clone(),
+        None,
     )
     .tick()
     .await?;

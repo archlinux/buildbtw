@@ -4,6 +4,7 @@
 //!
 //! Will only run on an empty database.
 
+use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::eyre};
 use sea_orm::{ActiveValue::Set, DatabaseTransaction, EntityLoaderTrait, EntityTrait};
 use uuid::Uuid;
@@ -12,11 +13,11 @@ use crate::{
     buildspace,
     entities::{self, buildspaces},
     git::{BranchName, Changeset, Changesets},
-    package::RepositorySlug,
-    queries,
+    package::{KnownArchitecture, RepositorySlug},
+    pacman_repository, queries,
 };
 
-pub async fn seed(tx: DatabaseTransaction) -> Result<()> {
+pub async fn seed(tx: DatabaseTransaction, data_dir: &Option<Utf8PathBuf>) -> Result<()> {
     // lil' hack to work around the fact that the Entity Loader does not support counting results
     let buildspace_count = queries::buildspaces::list()
         .paginate(&tx, 5)
@@ -37,7 +38,7 @@ pub async fn seed(tx: DatabaseTransaction) -> Result<()> {
         buildspaces::Entity::insert(buildspaces::ActiveModel {
             id: Set(buildspace_id.into()),
             created_at: Set(time::OffsetDateTime::now_utc()),
-            name: Set(buildspace_slug),
+            name: Set(buildspace_slug.clone()),
         })
         .exec(&tx)
         .await?;
@@ -55,6 +56,11 @@ pub async fn seed(tx: DatabaseTransaction) -> Result<()> {
         )
         .exec(&tx)
         .await?;
+
+        // TODO: dynamic way to set architectures when creating a buildspace
+        let architectures = [KnownArchitecture::X86_64];
+        pacman_repository::ensure_pacman_repo_exists(&buildspace_slug, 1, &architectures, data_dir)
+            .await?;
     }
 
     tx.commit().await?;
