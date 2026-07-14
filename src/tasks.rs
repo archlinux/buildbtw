@@ -60,6 +60,7 @@ pub fn initialize(
             auto_create_iterations,
         },
         db,
+        state.data_dir.clone(),
         token.clone(),
     );
 

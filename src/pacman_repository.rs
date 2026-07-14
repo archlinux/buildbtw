@@ -71,3 +71,18 @@ pub async fn pacman_repo_add(
     debug!("Successfully run repo-add for {packages:?}: {:?}", output);
     Ok(())
 }
+
+/// Ensures a pacman repository exists for of a build iteration.
+pub async fn ensure_pacman_repo_exists(
+    buildspace: &buildspace::BuildspaceSlug,
+    iteration: u32,
+    architectures: &[package::KnownArchitecture],
+    override_data_dir: &Option<Utf8PathBuf>,
+) -> Result<()> {
+    for architecture in architectures {
+        let dest_dir = build_repo_path(buildspace, iteration, architecture, override_data_dir)?;
+        tokio::fs::create_dir_all(dest_dir).await?;
+        pacman_repo_add(buildspace, iteration, architecture, &[], override_data_dir).await?;
+    }
+    Ok(())
+}

@@ -4,7 +4,7 @@ use serde::Serialize;
 use url::Url;
 use uuid::Uuid;
 
-use crate::package::KnownArchitecture;
+use crate::{buildspace::BuildspaceSlug, package::KnownArchitecture};
 
 #[derive(Debug, Serialize)]
 pub struct BuildConfig {
@@ -19,7 +19,7 @@ pub struct RunBuildScript {
     pub ci_project_dir: Utf8PathBuf,
 
     /// Buildspace slug
-    pub buildspace_slug: Option<String>,
+    pub buildspace_slug: Option<BuildspaceSlug>,
 
     /// Iteration sequence-id
     pub iteration_seqid: Option<u32>,
