@@ -36,7 +36,7 @@ pub struct Model {
     pub builds: HasMany<builds::Entity>,
 
     #[sea_orm(belongs_to, from = "buildspace_id", to = "id")]
-    pub buildspace: HasOne<buildspaces::Entity>,
+    pub buildspace: BelongsTo<buildspaces::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

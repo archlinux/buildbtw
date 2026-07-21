@@ -45,7 +45,7 @@ pub struct Model {
     pub role: Role,
 
     #[sea_orm(belongs_to, from = "user_id", to = "id")]
-    pub user: HasOne<users::Entity>,
+    pub user: BelongsTo<users::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
