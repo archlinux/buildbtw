@@ -23,14 +23,14 @@ pub struct Model {
         from = "depended_on_by_build_id",
         to = "id"
     )]
-    pub depended_on_by_build: Option<builds::Entity>,
+    pub depended_on_by_build: BelongsTo<builds::Entity>,
     #[sea_orm(
         belongs_to,
         relation_enum = "DependsOnBuild",
         from = "depends_on_build_id",
         to = "id"
     )]
-    pub depends_on_build: Option<builds::Entity>,
+    pub depends_on_build: BelongsTo<builds::Entity>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

@@ -99,7 +99,7 @@ time = { version = "0.3.47", features = ["formatting", "parsing", "serde"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 url = "2.5.8"
-sea-orm = { version = "2.0.0-rc.37", features = [
+sea-orm = { version = "2.0.0", features = [
     "sqlx-sqlite",
     "runtime-tokio-rustls",
     "macros",
@@ -108,7 +108,7 @@ sea-orm = { version = "2.0.0-rc.37", features = [
     "with-uuid",
     "sqlite-use-returning-for-3_35",
 ], default-features = false }
-sea-orm-migration = { version = "2.0.0-rc.37", features = [
+sea-orm-migration = { version = "2.0.0", features = [
     "runtime-tokio-rustls",
     "sqlx-sqlite",
 ], default-features = false }
