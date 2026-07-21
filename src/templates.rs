@@ -1,6 +1,7 @@
 use camino::Utf8Path;
 use color_eyre::{Result, eyre::OptionExt};
-use tera::Tera;
+use serde::Deserialize;
+use tera::{Kwargs, State, Tera};
 use time::{OffsetDateTime, format_description};
 use tokio::sync::OnceCell;
 
@@ -21,22 +22,23 @@ pub fn initialize(root: &Utf8Path) -> Result<()> {
 }
 
 fn initialize_tera(root: &Utf8Path) -> Result<Tera> {
-    let mut tera = Tera::new(format!("{root}/{TEMPLATE_PATH}/**/*").as_str())?;
+    let mut tera = Tera::new();
+    // Filters need to be registered before loading templates since Tera
+    // validates filter usage at template compile time.
     tera.register_filter("datetime", format_datetime);
+    tera.load_from_glob(format!("{root}/{TEMPLATE_PATH}/**/*").as_str())?;
     Ok(tera)
 }
 
-fn format_datetime(
-    value: &tera::Value,
-    _: &std::collections::HashMap<String, tera::Value>,
-) -> tera::Result<tera::Value> {
-    let datetime: OffsetDateTime = serde_json::from_value(value.clone())?;
+fn format_datetime(value: tera::Value, _: Kwargs, _: &State) -> tera::TeraResult<String> {
+    let datetime = OffsetDateTime::deserialize(value)
+        .map_err(|e| tera::Error::message(format!("failed to deserialize datetime: {e}")))?;
     let format = format_description::parse_borrowed::<3>(
         "[year]-[month]-[day] [hour]:[minute]:[second] [offset_hour sign:mandatory]:[offset_minute]",
-    ).map_err(|e| tera::Error::msg(format!("failed to create format description: {e}")))?;
-    Ok(tera::Value::String(datetime.format(&format).map_err(
-        |e| tera::Error::msg(format!("failed to format datetime: {e}")),
-    )?))
+    ).map_err(|e| tera::Error::message(format!("failed to create format description: {e}")))?;
+    datetime
+        .format(&format)
+        .map_err(|e| tera::Error::message(format!("failed to format datetime: {e}")))
 }
 
 /// Helper to access the pre-compiled static Tera cell and render the passed template.
