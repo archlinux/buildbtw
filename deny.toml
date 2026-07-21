@@ -19,6 +19,7 @@ ignore = [
 version = 2
 allow = [
     "Apache-2.0",
+    "bzip2-1.0.6",
     "BSD-3-Clause",
     "CDLA-Permissive-2.0",
     "GPL-3.0-or-later",

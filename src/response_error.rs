@@ -31,6 +31,18 @@ pub enum ResponseError {
     #[error("Invalid input: {0}")]
     InvalidInput(#[from] garde::Report),
 
+    /// Unprocessable entity provided by client.
+    #[error("Unprocessable entity: {0}")]
+    UnprocessableEntity(String),
+
+    // alpm Package error.
+    #[error("alpm package error: {0}")]
+    AlpmPackage(#[from] alpm_package::Error),
+
+    /// Bad request error with message.
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+
     /// Unsupported content type requested by client.
     #[error("Unsupported content type: {0}")]
     UnsupportedContentType(String),
@@ -68,7 +80,10 @@ impl IntoResponse for ResponseError {
             | ResponseError::InternalServer(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ResponseError::NotFound(_) => StatusCode::NOT_FOUND,
             ResponseError::UnsupportedContentType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            ResponseError::InvalidInput(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            ResponseError::InvalidInput(_) | ResponseError::UnprocessableEntity(_) => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            ResponseError::AlpmPackage(_) | ResponseError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ResponseError::NotAuthenticated => StatusCode::UNAUTHORIZED,
             ResponseError::NotPermitted(_) => StatusCode::FORBIDDEN,
             ResponseError::Conflict(_) => StatusCode::CONFLICT,

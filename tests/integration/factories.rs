@@ -1,9 +1,11 @@
+use alpm_types::FullVersion;
 use buildbtw::{
     buildspace::BuildspaceSlug,
     db_fields::TxtUuid,
     dependency_graph::{self, BuildNode},
     entities, package, queries,
 };
+use camino_tempfile::Utf8TempDir;
 use color_eyre::Result;
 use sea_orm::DatabaseTransaction;
 
@@ -32,15 +34,19 @@ pub async fn build(
     iteration_id: TxtUuid,
     pkgbase: &str,
 ) -> Result<entities::builds::Model> {
+    let pkgver = "2.1-1".parse()?;
     let build_node = BuildNode {
         pkgbase: pkgbase.parse()?,
         commit_hash: "aaaaaa".parse()?,
         branch_name: pkgbase.try_into()?,
-        package_file_names: [(pkgbase.parse()?, "dummy.tar.gz".parse()?)]
-            .iter()
-            .cloned()
-            .collect(),
-        version: "2.1-0".parse()?,
+        package_file_names: [(
+            pkgbase.parse()?,
+            format!("{pkgbase}-{pkgver}-any.pkg.tar.zst").parse()?,
+        )]
+        .iter()
+        .cloned()
+        .collect(),
+        version: pkgver,
     };
 
     build_from_node(tx, iteration_id, build_node).await
@@ -66,4 +72,122 @@ pub async fn build_from_node(
     insert_deps.exec(tx).await?;
 
     Ok(builds.into_iter().next().unwrap())
+}
+
+pub async fn build_with_split_package(
+    tx: &DatabaseTransaction,
+    iteration_id: TxtUuid,
+    pkgbase: &str,
+) -> Result<entities::builds::Model> {
+    let pkgver = "2.1-1".parse()?;
+    let build_node = BuildNode {
+        pkgbase: pkgbase.parse()?,
+        commit_hash: "aaaaaa".parse()?,
+        branch_name: pkgbase.try_into()?,
+        package_file_names: [
+            (
+                format!("{pkgbase}-foo").parse()?,
+                format!("{pkgbase}-foo-{pkgver}-any.pkg.tar.zst").parse()?,
+            ),
+            (
+                format!("{pkgbase}-bar").parse()?,
+                format!("{pkgbase}-bar-{pkgver}-any.pkg.tar.zst").parse()?,
+            ),
+        ]
+        .iter()
+        .cloned()
+        .collect(),
+        version: pkgver,
+    };
+
+    let mut graph = dependency_graph::BuildGraph::new();
+    graph.add_node(build_node);
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration_id.into(),
+            package::KnownArchitecture::X86_64,
+            &graph,
+        )?;
+    update_iteration.exec(tx).await?;
+    let builds = insert_builds.exec_with_returning(tx).await?;
+    insert_deps.exec(tx).await?;
+
+    Ok(builds.into_iter().next().unwrap())
+}
+
+pub async fn package(
+    data_dir: &Utf8TempDir,
+    pkgbase: &str,
+    pkgname: &str,
+    pkgver: &FullVersion,
+) -> Result<alpm_package::Package> {
+    let tmp_storage = buildbtw::storage::data_tmp_dir(&Some(data_dir.path().to_path_buf()))?;
+    tokio::fs::create_dir_all(&tmp_storage).await?;
+
+    let input_dir = tmp_storage.join("input");
+    tokio::fs::create_dir_all(&input_dir).await?;
+    let input_dir = alpm_package::InputDir::new(input_dir.into())?;
+
+    let output_dir = tmp_storage.join("output");
+    tokio::fs::create_dir_all(&output_dir).await?;
+    let output_dir = alpm_package::OutputDir::new(output_dir.into())?;
+
+    // Create a valid, but minimal BUILDINFOv2 file.
+    tokio::fs::write(
+        input_dir.join(alpm_types::MetadataFileName::BuildInfo.as_ref()),
+        format!(
+            r"
+format = 2
+builddate = 1
+builddir = /build
+startdir = /startdir/
+buildtool = devtools
+buildtoolver = 1:1.2.1-1-any
+packager = John Doe <john@example.org>
+pkgarch = any
+pkgbase = {pkgbase}
+pkgbuild_sha256sum = b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c
+pkgname = {pkgname}
+pkgver = {pkgver}
+",
+        ),
+    )
+    .await?;
+
+    // Create a valid, but minimal PKGINFOv2 file.
+    tokio::fs::write(
+        input_dir.join(alpm_types::MetadataFileName::PackageInfo.as_ref()),
+        format!(
+            r"
+pkgname = {pkgname}
+pkgbase = {pkgbase}
+xdata = pkgtype=pkg
+pkgver = {pkgver}
+pkgdesc = A project that returns true
+url = https://example.org/
+builddate = 1
+packager = John Doe <john@example.org>
+size = 181849963
+arch = any
+license = GPL-3.0-or-later
+",
+        ),
+    )
+    .await?;
+
+    // Create a valid ALPM-MTREEv2 file from the input directory.
+    alpm_mtree::create_mtree_v2_from_input_dir(&input_dir)?;
+
+    // Create PackageInput and PackageCreationConfig.
+    let package_input: alpm_package::PackageInput = input_dir.try_into()?;
+    let config = alpm_package::PackageCreationConfig::new(
+        package_input,
+        output_dir,
+        alpm_compress::compression::CompressionSettings::default(),
+    )?;
+
+    // Create package file.
+    let package = alpm_package::Package::try_from(&config)?;
+    Ok(package)
 }

@@ -4,9 +4,9 @@ use std::{
     os::unix::{fs::PermissionsExt, net::SocketAddr as UnixSocketAddr},
 };
 
-use buildbtw::gitlab_api;
 use buildbtw::oidc;
 use buildbtw::{external_secrets, schedule_builds};
+use buildbtw::{gitlab_api, package::KnownArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail, eyre};
 use derive_more::Display;
@@ -74,7 +74,7 @@ pub enum Command {
 
     /// Add dummy data for testing and development to the database
     #[cfg(debug_assertions)]
-    Seed,
+    Seed(SeedArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -394,6 +394,20 @@ pub struct AutheliaContainer {
     /// Port the Authelia container should listen on.
     #[arg(long, env = "BUILDBTW_AUTHELIA_CONTAINER_PORT")]
     pub authelia_container_port: u16,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct SeedArgs {
+    /// Override default buildbtw storage data dir.
+    ///
+    /// Default storage location comes either from the `BUILDBTW_DATA_DIR` override variable,
+    /// or fall back to the project XDG_DATA_HOME directory by default.
+    #[arg(long, env = "BUILDBTW_DATA_DIR")]
+    pub data_dir: Option<Utf8PathBuf>,
+
+    /// Choose architectures for which pacman repos should be seeded
+    #[arg(long, env = "BUILDBTW_SEED_ARCHITECTURES", default_value = "x86_64")]
+    pub architectures: Vec<KnownArchitecture>,
 }
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP

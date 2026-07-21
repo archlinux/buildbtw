@@ -1,6 +1,7 @@
 use std::{fs::Permissions, os::unix::fs::PermissionsExt, process::Stdio};
 
 use alpm_types::PackageFileName;
+use axum_extra::routing::TypedPath;
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::{
     Result,
@@ -12,7 +13,7 @@ use tracing::{debug, error, info, warn};
 use url::Url;
 
 use super::shell::ShellScripts;
-use crate::executor::config;
+use crate::{api, executor::config};
 
 /// Prepares the Git configuration, and clone/fetch the repository.
 pub async fn get_sources(
@@ -49,27 +50,25 @@ pub async fn build_script(
     let pacman_repository_url: Option<Url> =
         match build_script_args.pacman_repository_base_url.clone() {
             Some(mut url) => {
+                let serve_repo_uri = api::builds::ServeRepoFile {
+                    buildspace: build_script_args
+                        .buildspace_slug
+                        .clone()
+                        .ok_or_eyre("Missing option: buildspace-slug")?,
+                    iteration: build_script_args
+                        .iteration_seqid
+                        .ok_or_eyre("Missing option: iteration-seqid")?,
+                    architecture: build_script_args
+                        .architecture
+                        .ok_or_eyre("Missing option: architecture")?,
+                    filename: "".into(),
+                }
+                .to_uri();
                 url.path_segments_mut()
                     .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
                     .pop_if_empty()
-                    .extend([
-                        "repo",
-                        "buildspace",
-                        &build_script_args
-                            .buildspace_slug
-                            .clone()
-                            .ok_or_eyre("Missing option: buildspace-slug")?,
-                        "iteration",
-                        &build_script_args
-                            .iteration_seqid
-                            .ok_or_eyre("Missing option: iteration-seqid")?
-                            .to_string(),
-                        "os",
-                        &build_script_args
-                            .architecture
-                            .ok_or_eyre("Missing option: architecture")?
-                            .to_string(),
-                    ]);
+                    .extend(serve_repo_uri.path().split('/'))
+                    .pop();
                 Some(url)
             }
             None => None,

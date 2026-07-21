@@ -3,6 +3,7 @@
 //! See [Build].
 
 use axum_extra::routing::TypedPath;
+use camino::Utf8PathBuf;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -92,3 +93,22 @@ pub struct DownloadPackageQuery {
     /// Pkgname of the package artifact from the build job.
     pub pkgname: package::Name,
 }
+
+/// Serve repo files of a buildspace iteration for a specific architecture.
+///
+/// This endpoint is also compatible to be used as a pacman repository to serve buildspace
+/// artifacts to build or test environments.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path(
+    "/api/v1/repo/buildspace/{buildspace}/iteration/{iteration}/os/{architecture}/{filename}"
+)]
+pub struct ServeRepoFile {
+    pub buildspace: buildspace::BuildspaceSlug,
+    pub iteration: u32,
+    pub architecture: package::KnownArchitecture,
+    pub filename: Utf8PathBuf,
+}
+
+/// Query Parameters for the [`ServeRepoFile`] endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ServeRepoFileQuery {}

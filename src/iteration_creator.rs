@@ -38,7 +38,7 @@ use crate::{
     dependency_graph::{self, BuildGraphs},
     gitlab_api,
     package::KnownArchitecture,
-    repo_updater,
+    pacman_repository, repo_updater,
 };
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{OptionExt, Result};
@@ -54,6 +54,9 @@ use crate::{entities, queries};
 pub struct IterationCreator {
     config: Config,
     db: DatabaseConnection,
+
+    /// Override data storage dir used for package repos, build artifacts etc
+    pub data_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Debug)]
@@ -75,13 +78,22 @@ pub enum RepoUpdateConfig {
 impl IterationCreator {
     /// Create a new [`IterationCreator`] but don't run it.
     #[must_use]
-    pub fn new(config: Config, db: DatabaseConnection) -> Self {
-        Self { config, db }
+    pub fn new(config: Config, db: DatabaseConnection, data_dir: Option<Utf8PathBuf>) -> Self {
+        Self {
+            config,
+            db,
+            data_dir,
+        }
     }
 
     /// Spawn a new IterationCreator task.
-    pub fn spawn(config: Config, db: DatabaseConnection, token: CancellationToken) {
-        let creator = IterationCreator::new(config, db);
+    pub fn spawn(
+        config: Config,
+        db: DatabaseConnection,
+        data_dir: Option<Utf8PathBuf>,
+        token: CancellationToken,
+    ) {
+        let creator = IterationCreator::new(config, db, data_dir);
 
         tokio::spawn(creator.run(token));
     }
@@ -229,13 +241,23 @@ impl IterationCreator {
             "Creating new iteration due to changed build graph"
         );
 
+        let next_iteration_sequence = newest_iteration.sequence + 1;
         queries::iterations::insert(
             buildspace.id.into(),
-            newest_iteration.sequence + 1,
+            next_iteration_sequence,
             newest_iteration.changesets,
             entities::iterations::NewIterationReason::BuildGraphChanged,
         )
         .exec(&self.db)
+        .await?;
+
+        // Create pacman repositories for all architectures in the new iteration
+        pacman_repository::ensure_pacman_repo_exists(
+            &buildspace.name,
+            next_iteration_sequence,
+            &diffs.keys().copied().collect::<Vec<_>>(),
+            &self.data_dir,
+        )
         .await?;
 
         Ok(())
