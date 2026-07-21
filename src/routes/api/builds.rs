@@ -47,17 +47,16 @@ pub async fn list(
     .await?
     .ok_or(ResponseError::NotFound("iteration".to_string()))?;
 
-    let query = queries::builds::list(status, iteration.id, max_results);
-
-    let builds = query
-        .clone()
+    let builds = queries::builds::list(status, iteration.id, max_results)
         .all(&tx)
         .await?
         .into_iter()
         .map(Into::into)
         .collect();
 
-    let total_build_count = query.count(&tx).await?;
+    let total_build_count = queries::builds::list(status, iteration.id, None)
+        .count(&tx)
+        .await?;
 
     Ok(Json(api::builds::ListBuildsResponse {
         total_build_count,
