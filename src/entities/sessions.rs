@@ -48,7 +48,7 @@ pub struct Model {
     pub client_type: ClientType,
 
     #[sea_orm(belongs_to, from = "user_id", to = "id")]
-    pub user: HasOne<users::Entity>,
+    pub user: BelongsTo<users::Entity>,
 
     /// Secret token used for session authentication
     //

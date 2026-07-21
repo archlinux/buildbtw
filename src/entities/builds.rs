@@ -36,7 +36,7 @@ pub struct Model {
     pub version: package::Version,
 
     #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
-    pub iteration: HasOne<iterations::Entity>,
+    pub iteration: BelongsTo<iterations::Entity>,
     #[sea_orm(
         self_ref,
         via = "build_dependencies",
