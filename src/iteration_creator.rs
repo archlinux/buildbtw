@@ -34,12 +34,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    dependency_graph::{self, BuildGraphs},
-    gitlab_api,
-    package::KnownArchitecture,
-    pacman_repository, repo_updater,
-};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{OptionExt, Result};
 use gitlab::AsyncGitlab;
@@ -47,6 +41,12 @@ use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument};
 
+use crate::{
+    dependency_graph::{self, BuildGraphs},
+    gitlab_api,
+    package::KnownArchitecture,
+    pacman_repository, repo_updater,
+};
 use crate::{entities, queries};
 
 /// State of the task.
@@ -174,9 +174,9 @@ impl IterationCreator {
         &mut self,
         source_repo_cache: &mut dependency_graph::SourceRepoCache,
     ) -> Result<()> {
-        let existing_buildspaces = queries::buildspaces::list().all(&self.db).await?;
+        let open_buildspaces = queries::buildspaces::list_open().all(&self.db).await?;
 
-        for buildspace in existing_buildspaces {
+        for buildspace in open_buildspaces {
             // First, calculate build graphs for new iterations that don't have one yet.
             // We do this here to make sure their builds are dispatched as fast as possible,
             // since users are probably waiting for them.
@@ -186,7 +186,7 @@ impl IterationCreator {
 
             // Process one buildspace
             if let Err(e) = self
-                .check_buildspace_graph(source_repo_cache, buildspace)
+                .create_new_iteration_if_needed(source_repo_cache, buildspace)
                 .await
             {
                 error!(?e, "Failed to check buildspace for build graph changes");
@@ -196,9 +196,9 @@ impl IterationCreator {
         Ok(())
     }
 
-    /// Check if this buildspace needs a new iteration because of build graph changes.
+    /// Check if this buildspace needs a new iteration because of build graph changes, and if yes, create it.
     #[instrument(skip(self, source_repos, buildspace), fields(buildspace.name = %buildspace.name))]
-    async fn check_buildspace_graph(
+    async fn create_new_iteration_if_needed(
         &self,
         source_repos: &mut dependency_graph::SourceRepoCache,
         buildspace: entities::buildspaces::ModelEx,

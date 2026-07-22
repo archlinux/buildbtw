@@ -18,6 +18,7 @@ pub struct Model {
 
     #[sea_orm(unique)]
     pub name: buildspace::Slug,
+    pub status: buildspace::Status,
 
     #[sea_orm(has_many)]
     pub iterations: HasMany<iterations::Entity>,
