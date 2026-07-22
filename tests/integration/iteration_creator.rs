@@ -1,6 +1,4 @@
-use buildbtw::{
-    buildspace::BuildspaceSlug, db, entities, git, iteration_creator, queries, storage,
-};
+use buildbtw::{buildspace, db, entities, git, iteration_creator, queries, storage};
 use color_eyre::Result;
 use sea_orm::{DatabaseTransaction, TransactionTrait};
 
@@ -10,7 +8,7 @@ async fn create_buildspace_with_iteration(
     sequence: u32,
     changesets: git::Changesets,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
-    let buildspace_slug = BuildspaceSlug::try_from("test")?;
+    let buildspace_slug = buildspace::Status::try_from("test")?;
     let buildspace = queries::buildspaces::insert(buildspace_slug)
         .exec_with_returning(tx)
         .await?;

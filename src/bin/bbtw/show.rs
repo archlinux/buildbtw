@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use buildbtw::{api::builds::ListBuildsResponse, buildspace::BuildspaceSlug, package::BuildStatus};
+use buildbtw::{api::builds::ListBuildsResponse, buildspace, package::BuildStatus};
 use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
@@ -14,7 +14,7 @@ use crate::api;
 pub async fn show(
     server_url: Url,
     override_state_dir: Option<Utf8PathBuf>,
-    buildspace_name: BuildspaceSlug,
+    buildspace_name: buildspace::Status,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
     show_demo_data: bool,
@@ -162,7 +162,7 @@ fn add_demo_data(
 async fn all_builds_grouped_by_status(
     server_url: Url,
     override_state_dir: Option<Utf8PathBuf>,
-    buildspace_name: &BuildspaceSlug,
+    buildspace_name: &buildspace::Status,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
 ) -> Result<HashMap<BuildStatus, ListBuildsResponse>> {

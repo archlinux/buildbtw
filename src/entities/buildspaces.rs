@@ -17,7 +17,7 @@ pub struct Model {
     pub created_at: time::OffsetDateTime,
 
     #[sea_orm(unique)]
-    pub name: buildspace::BuildspaceSlug,
+    pub name: buildspace::Status,
 
     #[sea_orm(has_many)]
     pub iterations: HasMany<iterations::Entity>,

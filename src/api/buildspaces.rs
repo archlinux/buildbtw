@@ -16,5 +16,5 @@ pub struct CreateBuildspace {}
 pub struct CreateBuildspaceResponse {
     pub id: Uuid,
     pub created_at: time::OffsetDateTime,
-    pub name: buildspace::BuildspaceSlug,
+    pub name: buildspace::Status,
 }

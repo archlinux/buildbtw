@@ -1,5 +1,5 @@
 use buildbtw::{
-    buildspace::BuildspaceSlug,
+    buildspace,
     git::{self, BranchName},
     package::RepositorySlug,
 };
@@ -29,7 +29,7 @@ pub enum Command {
         /// Multiple consecutive dashes or dots are invalid.
         /// Invalid characters and consecutive dashes or dots will be replaced by single dashes to produce a valid name.
         #[arg(short, long)]
-        name: Option<BuildspaceSlug>,
+        name: Option<buildspace::Status>,
 
         /// Changesets to include, in the format `repo_slug` or `repo_slug/branch_name`
         #[arg(required = true)]
@@ -40,13 +40,13 @@ pub enum Command {
     /// Existing builds will not be interrupted
     Cancel {
         #[arg()]
-        name: BuildspaceSlug,
+        name: buildspace::Status,
     },
 
     /// Resume building a cancelled buildspace
     Resume {
         #[arg()]
-        name: BuildspaceSlug,
+        name: buildspace::Status,
     },
 
     /// List all buildspaces
@@ -60,7 +60,7 @@ pub enum Command {
     /// graph and starting to build from the beginning
     Retry {
         #[arg()]
-        name: BuildspaceSlug,
+        name: buildspace::Status,
     },
 
     /// Show status and builds for the latest iteration of a buildspace
@@ -68,7 +68,7 @@ pub enum Command {
     /// Default: show builds from the latest iteration.
     Show {
         #[arg()]
-        name: BuildspaceSlug,
+        name: buildspace::Status,
 
         /// Maximum number of builds to show for each status. Pass "no" to show an unlimited number of builds.
         #[arg(long, short, default_value = "5", value_parser = parse_show_limit)]

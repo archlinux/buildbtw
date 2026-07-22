@@ -2,7 +2,7 @@ use color_eyre::Result;
 use rstest::rstest;
 use sea_orm::TransactionTrait;
 
-use buildbtw::{buildspace::BuildspaceSlug, entities, queries};
+use buildbtw::{buildspace, entities, queries};
 
 use crate::test_ctx::{TestCtx, ctx};
 
@@ -10,7 +10,7 @@ use crate::test_ctx::{TestCtx, ctx};
 #[tokio::test]
 async fn newest_iteration_for_buildspace(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
-    let buildspace_slug = BuildspaceSlug::try_from("test")?;
+    let buildspace_slug = buildspace::Status::try_from("test")?;
     let buildspace = queries::buildspaces::insert(buildspace_slug)
         .exec_with_returning(&tx)
         .await?;

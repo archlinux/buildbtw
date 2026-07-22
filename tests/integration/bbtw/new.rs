@@ -1,4 +1,4 @@
-use buildbtw::{buildspace::BuildspaceSlug, entities, git, queries};
+use buildbtw::{buildspace, entities, git, queries};
 use color_eyre::Result;
 use insta::assert_snapshot;
 use rstest::rstest;
@@ -48,7 +48,7 @@ async fn test_new(
     assert!(output.stderr.is_empty());
 
     // Check that buildspace was created
-    let expected_slug: BuildspaceSlug = name.unwrap_or("libfoo").try_into()?;
+    let expected_slug: buildspace::Status = name.unwrap_or("libfoo").try_into()?;
     let buildspace = queries::buildspaces::by_name(expected_slug)
         .one(&ctx.state.db)
         .await?
@@ -105,7 +105,7 @@ async fn test_new_multiple_changesets(#[future(awt)] ctx: TestCtx) -> Result<()>
     assert!(output.stderr.is_empty());
 
     // Check that buildspace was created with the first repo as name
-    let expected_slug: BuildspaceSlug = "libfoo".try_into()?;
+    let expected_slug: buildspace::Status = "libfoo".try_into()?;
     let buildspace = queries::buildspaces::by_name(expected_slug)
         .one(&ctx.state.db)
         .await?
@@ -319,7 +319,7 @@ async fn test_new_slugify_buildspace_name(
     assert!(output.stdout.contains("Created buildspace"));
 
     // Check that the buildspace was created with the slugified name
-    let slug: BuildspaceSlug = expected_slug.try_into()?;
+    let slug: buildspace::Status = expected_slug.try_into()?;
     let buildspace = queries::buildspaces::by_name(slug)
         .one(&ctx.state.db)
         .await?

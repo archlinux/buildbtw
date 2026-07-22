@@ -1,11 +1,11 @@
-use buildbtw::{buildspace::BuildspaceSlug, git, input};
+use buildbtw::{buildspace, git, input};
 use color_eyre::Result;
 use yansi::Paint;
 
 use crate::{api, args};
 
 pub async fn new(
-    name: Option<BuildspaceSlug>,
+    name: Option<buildspace::Status>,
     changesets: Vec<args::ChangesetArg>,
     client: api::Client,
 ) -> Result<()> {

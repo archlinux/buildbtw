@@ -1,11 +1,11 @@
 use sea_orm::{ActiveValue::Set, EntityTrait, Insert, Select};
 use uuid::Uuid;
 
-use crate::{buildspace::BuildspaceSlug, entities::buildspaces};
+use crate::{buildspace, entities::buildspaces};
 
 #[allow(dead_code)]
 #[must_use]
-pub fn insert(name: BuildspaceSlug) -> Insert<buildspaces::ActiveModel> {
+pub fn insert(name: buildspace::Status) -> Insert<buildspaces::ActiveModel> {
     let model = buildspaces::ActiveModel {
         id: Set(Uuid::new_v4().into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
@@ -21,6 +21,6 @@ pub fn list() -> buildspaces::EntityLoader {
 }
 
 #[must_use]
-pub fn by_name(name: BuildspaceSlug) -> Select<buildspaces::Entity> {
+pub fn by_name(name: buildspace::Status) -> Select<buildspaces::Entity> {
     buildspaces::Entity::find_by_name(name)
 }

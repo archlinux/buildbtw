@@ -21,7 +21,7 @@ pub struct ListByStatusQuery {
     pub status: Option<package::BuildStatus>,
 
     /// Only return builds for this buildspace.
-    pub buildspace_name: buildspace::BuildspaceSlug,
+    pub buildspace_name: buildspace::Status,
 
     /// Do not return more than this number of builds
     pub max_results: Option<u64>,

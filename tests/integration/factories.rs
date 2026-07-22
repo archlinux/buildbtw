@@ -1,6 +1,6 @@
 use alpm_types::FullVersion;
 use buildbtw::{
-    buildspace::BuildspaceSlug,
+    buildspace,
     db_fields::TxtUuid,
     dependency_graph::{self, BuildNode},
     entities, package, queries,
@@ -13,7 +13,7 @@ pub async fn buildspace_with_iteration(
     tx: &DatabaseTransaction,
     name: &str,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
-    let buildspace_slug = BuildspaceSlug::try_from(name)?;
+    let buildspace_slug = buildspace::Status::try_from(name)?;
     let buildspace = queries::buildspaces::insert(buildspace_slug)
         .exec_with_returning(tx)
         .await?;

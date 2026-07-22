@@ -38,7 +38,7 @@ pub async fn seed(
     // Use the "main" branch for the changesets.
     for pkgbase in ["libfoo", "cowfortune"] {
         let buildspace_id = Uuid::new_v4();
-        let buildspace_slug = buildspace::BuildspaceSlug::try_from(pkgbase.to_string())?;
+        let buildspace_slug = buildspace::Status::try_from(pkgbase.to_string())?;
         buildspaces::Entity::insert(buildspaces::ActiveModel {
             id: Set(buildspace_id.into()),
             created_at: Set(time::OffsetDateTime::now_utc()),

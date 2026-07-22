@@ -15,7 +15,7 @@ use crate::utils::slugify;
     // deriving a trait that would sidestep the invariants our newtype upholds
     derive_unchecked(sea_orm::DeriveValueType)
 )]
-pub struct BuildspaceSlug(String);
+pub struct Status(String);
 
 fn validate_buildspace_slug(input: &str) -> Result<(), garde::Error> {
     if input.is_empty() {
@@ -37,10 +37,10 @@ mod tests {
     #[case("foo/../../bar", "foo-bar")]
     #[case("already-a-slug", "already-a-slug")]
     fn buildspace_slug_valid(#[case] s: &str, #[case] expected: &str) {
-        let slug = BuildspaceSlug::try_new(s).unwrap();
+        let slug = Status::try_new(s).unwrap();
         assert_eq!(slug.as_ref(), expected, "'{s}' should be slugified");
         // check construction is idempotent
-        assert_eq!(BuildspaceSlug::try_new(expected).unwrap(), slug);
+        assert_eq!(Status::try_new(expected).unwrap(), slug);
     }
 
     #[rstest]
@@ -50,7 +50,7 @@ mod tests {
     #[case("Æúű")]
     fn buildspace_slug_invalid(#[case] s: &str) {
         assert!(
-            BuildspaceSlug::try_new(s).is_err(),
+            Status::try_new(s).is_err(),
             "'{s}' should be an invalid slug"
         );
     }
