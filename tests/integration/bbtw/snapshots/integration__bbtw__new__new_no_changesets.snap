@@ -1,0 +1,10 @@
+---
+source: tests/integration/bbtw/new.rs
+expression: output.stderr
+---
+error: the following required arguments were not provided:
+  <CHANGESETS>...
+
+Usage: bbtw new <CHANGESETS>...
+
+For more information, try '--help'.

@@ -3,6 +3,7 @@ use color_eyre::{Result, eyre::ContextCompat};
 use url::Url;
 
 pub mod builds;
+pub mod buildspaces;
 pub mod user;
 
 /// Configuration and state for accessing the buildbtw API over HTTP.

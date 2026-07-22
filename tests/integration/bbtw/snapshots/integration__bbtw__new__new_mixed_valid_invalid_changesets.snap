@@ -1,0 +1,7 @@
+---
+source: tests/integration/bbtw/new.rs
+expression: output.stderr
+---
+error: invalid value 'lib#bar' for '<CHANGESETS>...': Must start and end with alphanumeric character, cannot contain consecutive special characters, and cannot end in either '.git' or '.atom'.
+
+For more information, try '--help'.

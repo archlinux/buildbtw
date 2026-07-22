@@ -8,7 +8,7 @@ use crate::test_ctx::{TestCtx, ctx};
 
 fn make_create(
     name: Option<&'static str>,
-    changesets: &[(&'static str, Option<&'static str>)],
+    changesets: &[(&'static str, &'static str)],
 ) -> serde_json::Value {
     // Use json instead of a Create struct so we can send invalid data
     json!({
@@ -35,21 +35,17 @@ async fn create_buildspace(ctx: &TestCtx, request: &serde_json::Value) -> TestRe
 
 /// Verify that we can create a buildspace via the API.
 #[rstest]
-#[case(Some("buildspace"), Some("main"))]
-#[case(Some("buildspace"), None)]
-#[case(None, None)]
-#[case(None, Some("main"))]
+#[case(Some("buildspace"))]
+#[case(None)]
 #[tokio::test]
 async fn test_create_buildspace_success(
     // Specify buildspace name explicitly, or use the first pkgbase as default.
     #[case] name: Option<&'static str>,
-    // Specify "main" explicitly, or rely on the same default.
-    #[case] branch_name: Option<&'static str>,
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
     let changeset_pkgbase = "pkgbase";
-    let request = make_create(name, &[(changeset_pkgbase, branch_name)]);
+    let request = make_create(name, &[(changeset_pkgbase, "main")]);
     let response = create_buildspace(&ctx, &request).await;
 
     // Check response
@@ -91,7 +87,7 @@ async fn test_create_buildspace_success(
 #[tokio::test]
 async fn test_create_buildspace_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Send request
-    let request = make_create(Some("my-buildspace"), &[("libfoo", Some("main"))]);
+    let request = make_create(Some("my-buildspace"), &[("libfoo", "main")]);
 
     let response = ctx
         .server
@@ -124,7 +120,7 @@ async fn test_create_buildspace_empty_changesets(#[future(awt)] ctx: TestCtx) ->
 #[tokio::test]
 async fn test_create_buildspace_duplicate_name(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create existing buildspace
-    let request = make_create(Some("my-buildspace"), &[("libfoo", Some("main"))]);
+    let request = make_create(Some("my-buildspace"), &[("libfoo", "main")]);
     let response = create_buildspace(&ctx, &request).await;
     response.assert_status_ok();
 
@@ -169,7 +165,7 @@ async fn test_create_buildspace_invalid_changeset(
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
-    let request = make_create(Some("buildspace"), &[(repo_slug, Some("main"))]);
+    let request = make_create(Some("buildspace"), &[(repo_slug, "main")]);
     let response = create_buildspace(&ctx, &request).await;
 
     // Check status and error message
@@ -199,7 +195,7 @@ async fn test_create_buildspace_no_name_duplicate_changeset_slug(
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
-    let request = make_create(None, &[("libfoo", Some("main"))]);
+    let request = make_create(None, &[("libfoo", "main")]);
     let response = create_buildspace(&ctx, &request).await;
     response.assert_status_ok();
 
@@ -218,7 +214,7 @@ async fn test_create_buildspace_no_name_invalid_changeset_slug(
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
-    let request = make_create(None, &[("libfoo+++++", Some("main"))]);
+    let request = make_create(None, &[("libfoo+++++", "main")]);
     let response = create_buildspace(&ctx, &request).await;
 
     // Check status and error message

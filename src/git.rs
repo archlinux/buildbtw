@@ -68,7 +68,7 @@ impl BranchName {
 
 fn validate_branch_name(input: &str) -> Result<(), garde::Error> {
     if input.is_empty() {
-        return Err(garde::Error::new("May not be empty"));
+        return Err(garde::Error::new("Branch name may not be empty"));
     }
 
     Ok(())

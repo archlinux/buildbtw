@@ -1,4 +1,8 @@
-use buildbtw::buildspace::BuildspaceSlug;
+use buildbtw::{
+    buildspace::BuildspaceSlug,
+    git::{self, BranchName},
+    package::RepositorySlug,
+};
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand, value_parser};
 use url::Url;
@@ -7,11 +11,29 @@ use url::Url;
 #[allow(clippy::enum_variant_names)]
 pub enum Command {
     /// Create a new buildspace
+    ///
+    /// Examples:
+    ///
+    /// Create a new buildspace named "libfoo", for the package "libfoo" on the main branch:
+    ///
+    /// `bbtw new cowfortune`
+    ///
+    /// Create a new buildspace named "complicated-fix" for multiple packages on different branches:
+    ///
+    /// `bbtw new --name complicated-fix cowfortune/fix-deps botsay/fix-compilation ponysay/main`
     New {
         /// Name of the new buildspace. Default: Name of the first repository
         /// specified in origin changesets
+        ///
+        /// Valid characters are alphanumeric, dashes, and dots.
+        /// Multiple consecutive dashes or dots are invalid.
+        /// Invalid characters and consecutive dashes or dots will be replaced by single dashes to produce a valid name.
         #[arg(short, long)]
         name: Option<BuildspaceSlug>,
+
+        /// Changesets to include, in the format `repo_slug` or `repo_slug/branch_name`
+        #[arg(required = true)]
+        changesets: Vec<ChangesetArg>,
     },
 
     /// Cancel a buildspace. No new iterations or builds will be created.
@@ -64,6 +86,58 @@ pub enum Command {
     /// Authenticate and check login status
     #[command(subcommand)]
     Auth(AuthCommand),
+}
+
+/// Like [buildbtw::git::Changeset], but with an optional branch name.
+#[derive(Debug, Clone)]
+pub struct ChangesetArg {
+    pub repo_slug: RepositorySlug,
+    pub branch_name: BranchName,
+}
+
+impl From<ChangesetArg> for git::Changeset {
+    fn from(
+        ChangesetArg {
+            repo_slug,
+            branch_name,
+        }: ChangesetArg,
+    ) -> Self {
+        git::Changeset {
+            repo_slug,
+            branch_name,
+        }
+    }
+}
+
+impl std::str::FromStr for ChangesetArg {
+    type Err = garde::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.chars().filter(|c| c == &'/').count() > 1 {
+            return Err(garde::Error::new(
+                "Cannot have multiple slashes in a changeset",
+            ));
+        }
+
+        // repo slugs cannot contain slashes, so we can easily split
+        // the two parts of the input
+        let (repo_part, branch_part) = match s.split_once('/') {
+            Some((repo, branch)) => (repo, Some(branch)),
+            None => (s, None),
+        };
+
+        let repo_slug: RepositorySlug = repo_part.try_into()?;
+
+        let branch_name = match branch_part {
+            Some(branch) => branch.try_into()?,
+            None => "main".try_into()?,
+        };
+
+        Ok(ChangesetArg {
+            repo_slug,
+            branch_name,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]

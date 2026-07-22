@@ -15,6 +15,7 @@ mod args;
 mod auth;
 
 mod api;
+mod new;
 mod show;
 
 use crate::args::Args;
@@ -30,7 +31,10 @@ async fn main() -> Result<()> {
 
     #[allow(clippy::todo)]
     match args.command {
-        args::Command::New { name: _ } => todo!(),
+        args::Command::New { name, changesets } => {
+            let client = api::Client::new(args.server_url, args.state_dir).await?;
+            new::new(name, changesets, client).await
+        }
         args::Command::Cancel { name: _ } => todo!(),
         args::Command::Resume { name: _ } => todo!(),
         args::Command::List { all: _ } => todo!(),
