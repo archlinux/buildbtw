@@ -1,0 +1,5 @@
+---
+source: tests/integration/bbtw/close.rs
+expression: output.stdout
+---
+Closed buildspace my-buildspace

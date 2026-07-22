@@ -2,7 +2,7 @@ use axum::{Json, extract::State};
 use sea_orm::SelectExt;
 
 use crate::{
-    api, db, entities, from_request, input,
+    api, buildspace, db, entities, from_request, input,
     package::KnownArchitecture,
     pacman_repository, queries,
     response_error::{ResponseError, ResponseResult},
@@ -55,4 +55,28 @@ pub async fn create(
         created_at: buildspace.created_at,
         name: buildspace.name,
     }))
+}
+
+pub async fn close(
+    path: api::buildspaces::CloseBuildspace,
+    _auth: from_request::AuthUser,
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<()> {
+    let buildspace = queries::buildspaces::by_name(path.name.clone())
+        .one(&tx)
+        .await?
+        .ok_or(ResponseError::NotFound(format!(
+            r#"buildspace "{}""#,
+            path.name
+        )))?;
+
+    queries::buildspaces::update_status(buildspace.id, buildspace::Status::Stopped)
+        .exec(&tx)
+        .await?;
+
+    // TODO (addressed in a later commit): set all pending builds to "skipped"
+
+    tx.commit().await?;
+
+    Ok(())
 }

@@ -223,3 +223,75 @@ async fn test_create_buildspace_no_name_invalid_changeset_slug(
     response.assert_text_contains("special characters");
     Ok(())
 }
+
+/// Verify that we can close a buildspace via the API
+#[rstest]
+#[tokio::test]
+async fn test_close_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create buildspace
+    let tx = ctx.state.db.begin().await?;
+    let buildspace = factories::buildspace(&tx, "my-buildspace").await?;
+    tx.commit().await?;
+
+    // Close the buildspace and check response
+    let response = ctx
+        .server
+        .typed_put(&api::buildspaces::CloseBuildspace {
+            name: buildspace.name.clone(),
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .await;
+    response.assert_status_ok();
+
+    // Check that closing twice succeeds
+    let response = ctx
+        .server
+        .typed_put(&api::buildspaces::CloseBuildspace {
+            name: buildspace.name.clone(),
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .await;
+    response.assert_status_ok();
+
+    // Verify status was updated in the database
+    let buildspace = queries::buildspaces::by_name("my-buildspace".parse()?)
+        .one(&ctx.state.db)
+        .await?
+        .expect("buildspace should still exist");
+    assert_eq!(buildspace.status, buildspace::Status::Stopped);
+
+    Ok(())
+}
+
+/// Check that closing a non-existent buildspace returns 404
+#[rstest]
+#[tokio::test]
+async fn test_close_buildspace_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let response = ctx
+        .server
+        .typed_put(&api::buildspaces::CloseBuildspace {
+            name: "nonexistent".parse()?,
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .await;
+
+    response.assert_status_not_found();
+    response.assert_text_contains("Not found");
+    Ok(())
+}
+
+/// Check that we can't close a buildspace if not logged in
+#[rstest]
+#[tokio::test]
+async fn test_close_buildspace_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let response = ctx
+        .server
+        .typed_put(&api::buildspaces::CloseBuildspace {
+            name: "my-buildspace".parse()?,
+        })
+        .await;
+
+    response.assert_status_unauthorized();
+    response.assert_text_contains("Unauthorized");
+    Ok(())
+}

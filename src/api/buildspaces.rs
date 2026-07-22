@@ -18,3 +18,12 @@ pub struct CreateBuildspaceResponse {
     pub created_at: time::OffsetDateTime,
     pub name: buildspace::Slug,
 }
+
+/// A request to close a buildspace.
+///
+/// Closing an already-closed buildspace is fine and won't change anything.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/buildspaces/{name}/close")]
+pub struct CloseBuildspace {
+    pub name: buildspace::Slug,
+}
