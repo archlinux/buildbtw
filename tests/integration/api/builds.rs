@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use buildbtw::api;
-use buildbtw::buildspace::BuildspaceSlug;
+use buildbtw::buildspace;
 use buildbtw::entities;
 use buildbtw::package;
 use buildbtw::pacman_repository;
@@ -922,7 +922,7 @@ async fn test_serve_build_artifact_unknown_buildspace(#[future(awt)] ctx: TestCt
     let response = ctx
         .server
         .typed_get(&api::builds::ServeRepoFile {
-            buildspace: BuildspaceSlug::try_from(invalid_buildspace_name)?,
+            buildspace: buildspace::Slug::try_from(invalid_buildspace_name)?,
             iteration: 1,
             architecture: package::KnownArchitecture::X86_64,
             filename: Utf8PathBuf::from("foobar.pkg.tar.zst"),

@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{buildspace::BuildspaceSlug, git, input::garde_report};
+use crate::{buildspace, git, input::garde_report};
 
 /// Input for creating a new buildspace.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Create {
     /// If left out, will use the repo name of the first changeset.
-    pub name: Option<BuildspaceSlug>,
+    pub name: Option<buildspace::Slug>,
 
     pub changesets: git::Changesets,
 }
@@ -14,7 +14,7 @@ pub struct Create {
 /// Input, validated and transformed to use our newtypes.
 #[derive(Debug)]
 pub struct ValidatedCreate {
-    pub name: BuildspaceSlug,
+    pub name: buildspace::Slug,
     pub changesets: git::Changesets,
 }
 
