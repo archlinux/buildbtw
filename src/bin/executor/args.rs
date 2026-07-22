@@ -1,6 +1,4 @@
-use buildbtw::{
-    buildspace::BuildspaceSlug, executor::config, external_secrets, package::KnownArchitecture,
-};
+use buildbtw::{buildspace, executor::config, external_secrets, package::KnownArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::Context};
 use url::Url;
@@ -199,7 +197,7 @@ pub struct BuildScriptArgs {
 
     /// Buildspace slug
     #[arg(long, env = "CUSTOM_ENV_BUILDSPACE_SLUG", requires_all = ["iteration_seqid", "architecture", "pacman_repository_base_url"])]
-    pub buildspace_slug: Option<BuildspaceSlug>,
+    pub buildspace_slug: Option<buildspace::Slug>,
 
     /// Iteration sequence-id
     #[arg(long, env = "CUSTOM_ENV_ITERATION_SEQID", requires_all = ["buildspace_slug", "architecture", "pacman_repository_base_url"])]

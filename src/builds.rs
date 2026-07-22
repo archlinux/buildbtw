@@ -2,15 +2,14 @@ use camino::Utf8PathBuf;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 
-use crate::buildspace::BuildspaceSlug;
 use crate::package::KnownArchitecture;
 use crate::response_error::ResponseError;
-use crate::{entities, package, storage};
+use crate::{buildspace, entities, package, storage};
 
 /// Returns the artifact path within the artifacts data storage of a given pkgname
 /// that belongs to a build of an iteration and buildspace.
 pub fn build_artifact_path(
-    buildspace: &BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architecture: &KnownArchitecture,
     filenames: &entities::builds::PkgnamesFilenames,
@@ -30,7 +29,7 @@ pub fn build_artifact_path(
 
 /// Dir for gathering built packages in a pacman repo
 pub fn build_repo_path(
-    buildspace: &BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architecture: &KnownArchitecture,
     override_data_dir: &Option<Utf8PathBuf>,
@@ -45,7 +44,7 @@ pub fn build_repo_path(
 
 /// Returns the file that logs for the given build should be stored in.
 pub fn build_log_path(
-    buildspace: &BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architecture: &KnownArchitecture,
     pkgbase: &package::BaseName,
@@ -77,7 +76,7 @@ pub fn build_log_path(
 ///                     │       └── cowfortune.log
 ///                     ...
 pub fn build_iteration_arch_dir(
-    buildspace: &BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architecture: &KnownArchitecture,
     override_data_dir: &Option<Utf8PathBuf>,
@@ -101,7 +100,7 @@ pub fn build_iteration_arch_dir(
 /// and exist within the artifacts data storage.
 #[must_use]
 pub fn build_fully_uploaded(
-    buildspace: &BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architecture: &KnownArchitecture,
     filenames: &entities::builds::PkgnamesFilenames,

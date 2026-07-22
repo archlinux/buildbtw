@@ -21,7 +21,7 @@ pub struct ListByStatusQuery {
     pub status: Option<package::BuildStatus>,
 
     /// Only return builds for this buildspace.
-    pub buildspace_name: buildspace::BuildspaceSlug,
+    pub buildspace_name: buildspace::Slug,
 
     /// Do not return more than this number of builds
     pub max_results: Option<u64>,
@@ -103,7 +103,7 @@ pub struct DownloadPackageQuery {
     "/api/v1/repo/buildspace/{buildspace}/iteration/{iteration}/os/{architecture}/{filename}"
 )]
 pub struct ServeRepoFile {
-    pub buildspace: buildspace::BuildspaceSlug,
+    pub buildspace: buildspace::Slug,
     pub iteration: u32,
     pub architecture: package::KnownArchitecture,
     pub filename: Utf8PathBuf,

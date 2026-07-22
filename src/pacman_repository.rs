@@ -21,14 +21,14 @@ use crate::{builds::build_repo_path, buildspace, package};
 
 /// Returns the filename for a pacman package database of a buildspace.
 #[must_use]
-pub fn pacman_repo_database_filename(buildspace: &buildspace::BuildspaceSlug) -> String {
+pub fn pacman_repo_database_filename(buildspace: &buildspace::Slug) -> String {
     format!("{buildspace}.db.tar.zst")
 }
 
 /// Returns the pacman package database path within the artifacts data storage
 /// that belongs to a build of an iteration and buildspace.
 pub fn pacman_repo_database_path(
-    buildspace: &buildspace::BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architecture: &package::KnownArchitecture,
     override_data_dir: &Option<Utf8PathBuf>,
@@ -40,7 +40,7 @@ pub fn pacman_repo_database_path(
 
 /// Add a package artifact to the pacman repository of a build iteration.
 pub async fn pacman_repo_add(
-    buildspace: &buildspace::BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architecture: &package::KnownArchitecture,
     packages: &[Utf8PathBuf],
@@ -74,7 +74,7 @@ pub async fn pacman_repo_add(
 
 /// Ensures a pacman repository exists for of a build iteration.
 pub async fn ensure_pacman_repo_exists(
-    buildspace: &buildspace::BuildspaceSlug,
+    buildspace: &buildspace::Slug,
     iteration: u32,
     architectures: &[package::KnownArchitecture],
     override_data_dir: &Option<Utf8PathBuf>,
