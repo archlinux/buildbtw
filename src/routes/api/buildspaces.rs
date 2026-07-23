@@ -1,5 +1,6 @@
 use axum::{Json, extract::State};
 use sea_orm::SelectExt;
+use tracing::debug;
 
 use crate::{
     api, buildspace, db, entities, from_request, input,
@@ -95,7 +96,11 @@ pub async fn close(
         .exec(&tx)
         .await?;
 
-    // TODO (addressed in a later commit): set all pending builds to "skipped"
+    let update_result = queries::builds::skip_undispatched_builds(buildspace.id)
+        .exec(&tx)
+        .await?;
+
+    debug!(?update_result.rows_affected, "Skipped undispatched builds");
 
     tx.commit().await?;
 

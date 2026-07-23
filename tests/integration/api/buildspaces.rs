@@ -1,7 +1,7 @@
 use axum_test::TestResponse;
 use buildbtw::{
     api::{self, buildspaces::GetBuildspaceResponse},
-    buildspace, queries,
+    buildspace, package, queries,
 };
 use color_eyre::eyre::Result;
 use rstest::rstest;
@@ -298,7 +298,9 @@ async fn test_get_buildspace_unauthorized(#[future(awt)] ctx: TestCtx) -> Result
 async fn test_close_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace
     let tx = ctx.state.db.begin().await?;
-    let buildspace = factories::buildspace(&tx, "my-buildspace").await?;
+    let (buildspace, iteration) =
+        factories::buildspace_with_iteration(&tx, "my-buildspace").await?;
+    let pending_build = factories::build(&tx, iteration.id, "pending").await?;
     tx.commit().await?;
 
     // Close the buildspace and check response
@@ -327,6 +329,13 @@ async fn test_close_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()
         .await?
         .expect("buildspace should still exist");
     assert_eq!(buildspace.status, buildspace::Status::Stopped);
+
+    // Check that build was skipped
+    let build = queries::builds::by_id(pending_build.id)
+        .one(&ctx.state.db)
+        .await?
+        .unwrap();
+    assert_eq!(build.status, package::BuildStatus::Skipped);
 
     Ok(())
 }
