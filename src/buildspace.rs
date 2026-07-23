@@ -53,6 +53,16 @@ pub enum Status {
     Stopped,
 }
 
+impl Status {
+    #[must_use]
+    pub fn symbol(&self) -> &str {
+        match self {
+            Status::Started => "▶️",
+            Status::Stopped => "⏹️",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::rstest;

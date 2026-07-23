@@ -27,3 +27,19 @@ pub struct CreateBuildspaceResponse {
 pub struct CloseBuildspace {
     pub name: buildspace::Slug,
 }
+
+/// A request to read data for a buildspace.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/buildspaces/{name}")]
+pub struct GetBuildspace {
+    pub name: buildspace::Slug,
+}
+
+/// The response returned when reading a buildspace.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetBuildspaceResponse {
+    pub id: Uuid,
+    pub created_at: time::OffsetDateTime,
+    pub name: buildspace::Slug,
+    pub status: buildspace::Status,
+}

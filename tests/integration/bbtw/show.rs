@@ -1,4 +1,4 @@
-use buildbtw::{entities, queries};
+use buildbtw::{buildspace, entities, queries};
 use color_eyre::Result;
 use insta::assert_snapshot;
 use rstest::rstest;
@@ -29,6 +29,34 @@ async fn test_show(#[future(awt)] ctx: TestCtx) -> Result<()> {
     cmd.arg("show")
         .arg(buildspace.name.as_ref())
         .arg("--show-demo-builds");
+    let output = run_cmd(&mut cmd).await?;
+
+    // Snapshot output
+    insta::assert_snapshot!(output.stdout);
+    assert!(output.stderr.is_empty());
+
+    // Check that it succeeded
+    assert!(output.status.success());
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_show_closed(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create closed buildspace
+    let tx = ctx.state.db.begin().await?;
+
+    let (buildspace, _iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+    queries::buildspaces::update_status(buildspace.id, buildspace::Status::Stopped)
+        .exec(&tx)
+        .await?;
+
+    tx.commit().await?;
+
+    // Run show command
+    let mut cmd = ctx.bbtw_cmd();
+    cmd.arg("show").arg(buildspace.name.as_ref());
     let output = run_cmd(&mut cmd).await?;
 
     // Snapshot output

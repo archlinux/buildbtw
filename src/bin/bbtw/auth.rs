@@ -14,6 +14,8 @@ use crate::api;
 use crate::args::AuthCommand;
 
 #[instrument]
+// Don't pass in an api client here: the api client can't be constructed
+// without an auth token, but when this is called, we don't have the token yet.
 pub async fn login(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> Result<()> {
     if let Some(auth_token) = bbtw::auth::Token::read(override_state_dir.clone()).await? {
         eprintln!(
@@ -91,6 +93,8 @@ pub async fn login(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> 
 }
 
 #[instrument(skip_all)]
+// Don't pass in an api client here: the api client can't be constructed
+// without an auth token, but when this is called, we might not have the token yet.
 pub async fn status(server_url: Url, override_state_dir: Option<Utf8PathBuf>) -> Result<()> {
     if let Some(auth_token) = bbtw::auth::Token::read(override_state_dir.clone()).await? {
         // We'll verify that we're actually logged in properly and that the session is valid.

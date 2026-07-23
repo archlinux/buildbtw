@@ -57,6 +57,27 @@ pub async fn create(
     }))
 }
 
+pub async fn get(
+    path: api::buildspaces::GetBuildspace,
+    _auth: from_request::AuthUser,
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<Json<api::buildspaces::GetBuildspaceResponse>> {
+    let buildspace = queries::buildspaces::by_name(path.name.clone())
+        .one(&tx)
+        .await?
+        .ok_or(ResponseError::NotFound(format!(
+            r#"buildspace "{}""#,
+            path.name
+        )))?;
+
+    Ok(Json(api::buildspaces::GetBuildspaceResponse {
+        id: buildspace.id.into(),
+        created_at: buildspace.created_at,
+        name: buildspace.name,
+        status: buildspace.status,
+    }))
+}
+
 pub async fn close(
     path: api::buildspaces::CloseBuildspace,
     _auth: from_request::AuthUser,

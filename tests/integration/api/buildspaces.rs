@@ -1,10 +1,17 @@
 use axum_test::TestResponse;
-use buildbtw::{api, queries};
+use buildbtw::{
+    api::{self, buildspaces::GetBuildspaceResponse},
+    buildspace, queries,
+};
 use color_eyre::eyre::Result;
 use rstest::rstest;
+use sea_orm::TransactionTrait;
 use serde_json::json;
 
-use crate::test_ctx::{TestCtx, ctx};
+use crate::{
+    factories,
+    test_ctx::{TestCtx, ctx},
+};
 
 fn make_create(
     name: Option<&'static str>,
@@ -221,6 +228,67 @@ async fn test_create_buildspace_no_name_invalid_changeset_slug(
     response.assert_status_unprocessable_entity();
     response.assert_text_contains("changesets[0].repo_slug");
     response.assert_text_contains("special characters");
+    Ok(())
+}
+
+/// Verify that we can get a buildspace via the API
+#[rstest]
+#[tokio::test]
+async fn test_get_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create buildspace
+    let tx = ctx.state.db.begin().await?;
+    let buildspace = factories::buildspace(&tx, "buildspace").await?;
+    tx.commit().await?;
+
+    // Get the buildspace
+    let response = ctx
+        .server
+        .typed_get(&api::buildspaces::GetBuildspace {
+            name: buildspace.name.clone(),
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .await;
+
+    // Check response
+    response.assert_status_ok();
+    let body: GetBuildspaceResponse = response.json();
+    assert_eq!(body.id, buildspace.id.0);
+    assert_eq!(&body.name, &buildspace.name);
+    assert_eq!(body.status, buildspace::Status::Started);
+
+    Ok(())
+}
+
+/// Check that getting a non-existent buildspace returns 404
+#[rstest]
+#[tokio::test]
+async fn test_get_buildspace_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let response = ctx
+        .server
+        .typed_get(&api::buildspaces::GetBuildspace {
+            name: "nonexistent".parse()?,
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .await;
+
+    response.assert_status_not_found();
+    response.assert_text_contains("Not found");
+    Ok(())
+}
+
+/// Check that we can't get a buildspace if not logged in
+#[rstest]
+#[tokio::test]
+async fn test_get_buildspace_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let response = ctx
+        .server
+        .typed_get(&api::buildspaces::GetBuildspace {
+            name: "my-buildspace".parse()?,
+        })
+        .await;
+
+    response.assert_status_unauthorized();
+    response.assert_text_contains("Unauthorized");
     Ok(())
 }
 

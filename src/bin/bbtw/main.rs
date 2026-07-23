@@ -49,15 +49,8 @@ async fn main() -> Result<()> {
             show_demo_builds,
             iteration,
         } => {
-            show::show(
-                args.server_url,
-                args.state_dir,
-                name,
-                iteration,
-                limit.into(),
-                show_demo_builds,
-            )
-            .await
+            let client = api::Client::new(args.server_url, args.state_dir).await?;
+            show::show(name, iteration, limit.into(), show_demo_builds, &client).await
         }
         args::Command::Auth(auth_command) => {
             auth::auth(&auth_command, args.server_url, args.state_dir).await

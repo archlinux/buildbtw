@@ -1,32 +1,26 @@
 use std::collections::HashMap;
 
 use buildbtw::{api::builds::ListBuildsResponse, buildspace, package::BuildStatus};
-use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
 use sea_orm::Iterable;
 use tracing::trace;
-use url::Url;
 use yansi::Paint;
 
 use crate::api;
 
 pub async fn show(
-    server_url: Url,
-    override_state_dir: Option<Utf8PathBuf>,
     buildspace_name: buildspace::Slug,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
     show_demo_data: bool,
+    client: &api::Client,
 ) -> Result<()> {
-    let mut responses_by_status = all_builds_grouped_by_status(
-        server_url,
-        override_state_dir,
-        &buildspace_name,
-        iteration_sequence,
-        max_results,
-    )
-    .await?;
+    // Fetch all data
+    let buildspace = api::buildspaces::get(client, buildspace_name.clone()).await?;
+    let mut responses_by_status =
+        all_builds_grouped_by_status(client, &buildspace_name, iteration_sequence, max_results)
+            .await?;
 
     add_demo_data(&mut responses_by_status, show_demo_data)?;
 
@@ -38,9 +32,15 @@ pub async fn show(
         .ok_or_eyre("Expected to receive response for at least one status")?
         .iteration_sequence;
 
-    let iteration_description = format!("iteration #{returned_sequence}");
+    println!(
+        "Showing builds for iteration #{returned_sequence} of buildspace {}",
+        buildspace_name.bold()
+    );
 
-    println!("Showing builds for {iteration_description} of buildspace {buildspace_name}");
+    if buildspace.status == buildspace::Status::Stopped {
+        let msg = format!("{} This buildspace is closed.", buildspace.status.symbol());
+        println!("{}", msg.italic());
+    }
 
     for status in [
         BuildStatus::Building,
@@ -160,20 +160,18 @@ fn add_demo_data(
 }
 
 async fn all_builds_grouped_by_status(
-    server_url: Url,
-    override_state_dir: Option<Utf8PathBuf>,
+    client: &api::Client,
     buildspace_name: &buildspace::Slug,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
 ) -> Result<HashMap<BuildStatus, ListBuildsResponse>> {
-    let client = api::Client::new(server_url, override_state_dir).await?;
     let all_statuses: Vec<BuildStatus> = BuildStatus::iter().collect();
     let builds: HashMap<BuildStatus, ListBuildsResponse> = futures::stream::iter(all_statuses)
         .map(async |status| {
             Ok((
                 status,
                 api::builds::list(
-                    &client,
+                    client,
                     Some(status),
                     buildspace_name.clone(),
                     iteration_sequence,
