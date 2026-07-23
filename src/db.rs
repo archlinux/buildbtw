@@ -1,8 +1,8 @@
 use camino::Utf8PathBuf;
 use color_eyre::eyre::Result;
 use sea_orm::{
-    ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
-    TransactionTrait,
+    ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction, DbBackend, DbErr,
+    SqliteTransactionMode, Statement, TransactionOptions, TransactionTrait,
 };
 use sea_orm_migration::MigratorTrait;
 
@@ -67,6 +67,17 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
     Ok(db)
 }
 
+/// Begin a transaction in SQLite's IMMEDIATE mode
+///
+/// See also <https://sqlite.org/lang_transaction.html>
+pub async fn begin_immediate(db: &DatabaseConnection) -> Result<DatabaseTransaction, DbErr> {
+    db.begin_with_options(TransactionOptions {
+        sqlite_transaction_mode: Some(SqliteTransactionMode::Immediate),
+        ..Default::default()
+    })
+    .await
+}
+
 /// Extractor for per-request database transactions.
 /// SeaORM will automatically rollback the transaction on drop, which means the
 /// following will lead to a rollback:
@@ -85,3 +96,15 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
 /// committed transaction or in a rollback.
 #[derive(Debug)]
 pub struct Tx(pub DatabaseTransaction);
+
+/// Like [`Tx`] but the transaction is started in SQLite's IMMEDIATE mode,
+/// taking the write lock at the start of the request instead of on the first
+/// write statement.
+///
+/// Use this for handlers that write: it makes find-then-create sequences
+/// race-free and avoids SQLite locking issues on deferred-to-write
+/// lock upgrades.
+///
+/// The rollback-on-drop semantics of [`Tx`] apply here as well.
+#[derive(Debug)]
+pub struct TxImmediate(pub DatabaseTransaction);

@@ -8,7 +8,7 @@ use buildbtw::{
 use camino_tempfile::Utf8TempDir;
 use color_eyre::Result;
 use sea_orm::{
-    ActiveValue::Set, ConnectionTrait, DatabaseTransaction, EntityTrait, TransactionTrait,
+    ActiveValue::Set, ConnectionTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
 };
 use uuid::Uuid;
 
@@ -29,7 +29,7 @@ pub async fn user(db: &impl ConnectionTrait, username: &str) -> Result<entities:
 /// Create a user with an OIDC identity
 ///
 /// Pretend this user has logged in via OIDC.
-pub async fn oidc_user(db: &impl TransactionTrait, username: &str) -> Result<entities::users::Model> {
+pub async fn oidc_user(db: &DatabaseConnection, username: &str) -> Result<entities::users::Model> {
     let create = input::users::ValidatedCreate::try_new(input::users::Create {
         oidc_id: format!("{username}-oidc-id"),
         username: username.to_string(),

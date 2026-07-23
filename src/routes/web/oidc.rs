@@ -38,7 +38,7 @@ pub async fn authorized(
     Query(oidc_query): Query<web::oidc::LoginRedirectQuery>,
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
-    db::Tx(tx): db::Tx,
+    db::TxImmediate(tx): db::TxImmediate,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_state = server_state.oidc.wrap_err("OIDC not configured")?;
     let admin_oidc_groups = oidc_state.admin_oidc_groups.clone();

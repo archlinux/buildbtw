@@ -142,10 +142,11 @@ async fn test_e2e_account_logout() -> Result<()> {
 #[tokio::test]
 async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let db = &ctx.state.db;
-    let tx = db.begin().await?;
 
     // Create a valid user
-    let user = factories::oidc_user(&tx, "username").await?;
+    let user = factories::oidc_user(db, "username").await?;
+
+    let tx = db.begin().await?;
 
     // Create our session we use for the requests
     let session = queries::sessions::insert(user.id.into(), ClientType::Web)
