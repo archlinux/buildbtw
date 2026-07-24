@@ -38,12 +38,16 @@ macro_rules! regex {
 ///
 /// You can drop the returned lock guard once your process started listening on it and there's no chance of another process taking it.
 pub async fn free_port() -> Result<(u16, named_lock::NamedLockGuard)> {
-    Ok(tokio::task::spawn_blocking(|| {
+    // Keep the lock files in a subdirectory so they don't pollute the
+    // top-level temp dir.
+    // named-lock doesn't support cleaning them up yet: https://github.com/oblique/named-lock/issues/15
+    let lock_dir = std::env::temp_dir().join("buildbtw-test-port-locks");
+    fs::create_dir_all(&lock_dir).await?;
+    Ok(tokio::task::spawn_blocking(move || {
         loop {
             if let Some((lock, port)) = with_free_ipv4_port(|port| {
                 // We'll make the port part of the lock so that we can quickly find an unused port.
-                let lock_name = format!("buildbtw-test-port-{port}");
-                named_lock::NamedLock::create(&lock_name)?.try_lock()
+                named_lock::NamedLock::with_path(lock_dir.join(format!("{port}.lock")))?.try_lock()
             }) {
                 break (port, lock);
             }
