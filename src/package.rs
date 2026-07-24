@@ -203,7 +203,7 @@ pub enum BuildStatus {
     /// Build has succeeded
     Built,
 
-    /// Build as failed
+    /// Build has failed
     Failed,
 }
 

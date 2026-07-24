@@ -73,10 +73,15 @@ async fn try_build(
         &build.architecture,
         &data_dir,
     )?;
-    if fs::try_exists(&output_dir).await.is_ok_and(|exists| exists) {
-        bail!(
-            "Output directory {output_dir} already exists. This indicates a previous build that ran for this iteration, arch and pkgbase. Running builds multiple times is not supported."
-        );
+    for filename in build.pkgnames_filenames.0.values() {
+        if fs::try_exists(&output_dir.join(filename))
+            .await
+            .is_ok_and(|exists| exists)
+        {
+            bail!(
+                "Build artifact {filename} already exists. This indicates a previous build that ran for this iteration, arch and pkgbase. Running builds multiple times is not supported."
+            );
+        }
     }
 
     let build_dir = camino_tempfile::Utf8TempDir::new()?;
