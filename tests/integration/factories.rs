@@ -3,7 +3,7 @@ use buildbtw::{
     buildspace,
     db_fields::TxtUuid,
     dependency_graph::{self, BuildNode},
-    entities, input, package, queries,
+    entities, package, queries,
 };
 use camino_tempfile::Utf8TempDir;
 use color_eyre::Result;
@@ -30,11 +30,18 @@ pub async fn user(db: &impl ConnectionTrait, username: &str) -> Result<entities:
 ///
 /// Pretend this user has logged in via OIDC.
 pub async fn oidc_user(db: &DatabaseConnection, username: &str) -> Result<entities::users::Model> {
-    let create = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: format!("{username}-oidc-id"),
-        username: username.to_string(),
-    })?;
-    let user = queries::users::upsert_with_oidc(db, create, None).await?;
+    let user = user(db, username).await?;
+
+    let identity = entities::oidc_identity::ActiveModel {
+        id: Set(Uuid::new_v4().into()),
+        created_at: Set(time::OffsetDateTime::now_utc()),
+        user_id: Set(user.id),
+        refresh_token: Set(None),
+        oidc_id: Set(format!("{username}-oidc-id")),
+    };
+    entities::oidc_identity::Entity::insert(identity)
+        .exec(db)
+        .await?;
 
     Ok(user)
 }

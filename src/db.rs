@@ -70,12 +70,14 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
 /// Begin a transaction in SQLite's IMMEDIATE mode
 ///
 /// See also <https://sqlite.org/lang_transaction.html>
-pub async fn begin_immediate(db: &DatabaseConnection) -> Result<DatabaseTransaction, DbErr> {
-    db.begin_with_options(TransactionOptions {
-        sqlite_transaction_mode: Some(SqliteTransactionMode::Immediate),
-        ..Default::default()
-    })
-    .await
+pub async fn begin_immediate(db: &DatabaseConnection) -> Result<TxImmediate, DbErr> {
+    let tx = db
+        .begin_with_options(TransactionOptions {
+            sqlite_transaction_mode: Some(SqliteTransactionMode::Immediate),
+            ..Default::default()
+        })
+        .await?;
+    Ok(TxImmediate(tx))
 }
 
 /// Extractor for per-request database transactions.
@@ -104,6 +106,11 @@ pub struct Tx(pub DatabaseTransaction);
 /// Use this for handlers that write: it makes find-then-create sequences
 /// race-free and avoids SQLite locking issues on deferred-to-write
 /// lock upgrades.
+///
+/// Queries whose correctness depends on running inside an immediate
+/// transaction (e.g. [`crate::queries::users::upsert_with_oidc`]) take this
+/// type instead of a generic connection so the requirement is visible in the
+/// signature. Obtain one via the request extractor or [`begin_immediate`].
 ///
 /// The rollback-on-drop semantics of [`Tx`] apply here as well.
 #[derive(Debug)]

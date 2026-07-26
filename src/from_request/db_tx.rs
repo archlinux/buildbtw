@@ -35,8 +35,6 @@ impl FromRequestParts<ServerState> for db::TxImmediate {
         _parts: &mut Parts,
         state: &ServerState,
     ) -> Result<Self, Self::Rejection> {
-        let conn = db::begin_immediate(&state.db).await?;
-
-        Ok(Self(conn))
+        Ok(db::begin_immediate(&state.db).await?)
     }
 }

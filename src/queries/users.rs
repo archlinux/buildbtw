@@ -4,6 +4,7 @@ use sea_orm::{ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, Query
 use uuid::Uuid;
 
 use crate::{
+    db,
     db_fields::{RedactedString, TxtUuid},
     entities::{oidc_identity, users},
     input,
@@ -14,12 +15,11 @@ use crate::{
 /// If an OIDC identity with the given OIDC id already exists, its refresh token and the owning
 /// user's username are updated. Otherwise, a new user and OIDC identity are created.
 ///
-/// To make the find-then-create race-free, callers that may run concurrently must run this
-/// inside an immediate transaction (see [`crate::db::begin_immediate`]), which holds SQLite's
-/// only write lock for its whole span so no other transaction can commit between the select
-/// and the insert/update.
+/// This takes a [`db::TxImmediate`] instead of a generic connection because the find-then-create
+/// is only race-free inside an immediate transaction. It holds SQLite's only write lock for its
+/// whole span so no other transaction can commit between the select and the insert/update.
 pub async fn upsert_with_oidc(
-    db: &impl ConnectionTrait,
+    db::TxImmediate(db): &db::TxImmediate,
     create: input::users::ValidatedCreate,
     refresh_token: Option<RefreshToken>,
 ) -> Result<users::Model> {

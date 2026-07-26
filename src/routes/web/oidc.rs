@@ -38,7 +38,7 @@ pub async fn authorized(
     Query(oidc_query): Query<web::oidc::LoginRedirectQuery>,
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
-    db::TxImmediate(tx): db::TxImmediate,
+    tx: db::TxImmediate,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_state = server_state.oidc.wrap_err("OIDC not configured")?;
     let admin_oidc_groups = oidc_state.admin_oidc_groups.clone();
@@ -71,7 +71,7 @@ pub async fn authorized(
     let user = queries::users::upsert_with_oidc(&tx, create, refresh_token).await?;
 
     let session = queries::sessions::insert(user.id.into(), ClientType::Web)
-        .exec_with_returning(&tx)
+        .exec_with_returning(&tx.0)
         .await?;
 
     let roles = oidc_groups_to_user_roles(
@@ -80,9 +80,9 @@ pub async fn authorized(
         &package_maintainer_oidc_groups,
     );
 
-    queries::user_roles::set(&tx, user.id, roles).await?;
+    queries::user_roles::set(&tx.0, user.id, roles).await?;
 
-    tx.commit().await?;
+    tx.0.commit().await?;
 
     // Remove temporary oidc login redirect flow cookie after authentication
     let cookie_jar = oidc::LoginAttempt::remove_from_cookie_jar(cookie_jar);
