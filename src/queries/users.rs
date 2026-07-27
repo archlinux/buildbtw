@@ -19,7 +19,7 @@ use crate::{
 /// is only race-free inside an immediate transaction. It holds SQLite's only write lock for its
 /// whole span so no other transaction can commit between the select and the insert/update.
 pub async fn upsert_with_oidc(
-    db::TxImmediate(db): &db::TxImmediate,
+    tx: &db::TxImmediate,
     create: input::users::ValidatedCreate,
     refresh_token: Option<RefreshToken>,
 ) -> Result<users::Model> {
@@ -31,18 +31,18 @@ pub async fn upsert_with_oidc(
     let existing_identity = oidc_identity::Entity::find()
         .filter(oidc_identity::COLUMN.oidc_id.eq(&create.oidc_id))
         .find_both_related(users::Entity)
-        .one(db)
+        .one(tx)
         .await?;
 
     let user = if let Some((identity, user)) = existing_identity {
         // Update the user
         let mut identity: oidc_identity::ActiveModel = identity.into();
         identity.refresh_token = Set(refresh_token);
-        oidc_identity::Entity::update(identity).exec(db).await?;
+        oidc_identity::Entity::update(identity).exec(tx).await?;
 
         let mut user: users::ActiveModel = user.into();
         user.username = Set(create.username);
-        users::Entity::update(user).exec(db).await?
+        users::Entity::update(user).exec(tx).await?
     } else {
         // Create a new user and OIDC id.
         let user = users::ActiveModel {
@@ -50,7 +50,7 @@ pub async fn upsert_with_oidc(
             created_at: Set(time::OffsetDateTime::now_utc()),
             username: Set(create.username),
         };
-        let user = users::Entity::insert(user).exec_with_returning(db).await?;
+        let user = users::Entity::insert(user).exec_with_returning(tx).await?;
 
         let identity = oidc_identity::ActiveModel {
             id: Set(Uuid::new_v4().into()),
@@ -59,7 +59,7 @@ pub async fn upsert_with_oidc(
             refresh_token: Set(refresh_token),
             oidc_id: Set(create.oidc_id),
         };
-        oidc_identity::Entity::insert(identity).exec(db).await?;
+        oidc_identity::Entity::insert(identity).exec(tx).await?;
 
         user
     };

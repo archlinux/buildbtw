@@ -8,6 +8,7 @@ use axum::{
 use axum_extra::extract::PrivateCookieJar;
 use color_eyre::eyre::ContextCompat;
 use openidconnect::LocalizedClaim;
+use sea_orm::TransactionSession;
 use tracing::debug;
 
 use crate::{
@@ -71,7 +72,7 @@ pub async fn authorized(
     let user = queries::users::upsert_with_oidc(&tx, create, refresh_token).await?;
 
     let session = queries::sessions::insert(user.id.into(), ClientType::Web)
-        .exec_with_returning(&tx.0)
+        .exec_with_returning(&tx)
         .await?;
 
     let roles = oidc_groups_to_user_roles(
@@ -80,9 +81,9 @@ pub async fn authorized(
         &package_maintainer_oidc_groups,
     );
 
-    queries::user_roles::set(&tx.0, user.id, roles).await?;
+    queries::user_roles::set(&tx, user.id, roles).await?;
 
-    tx.0.commit().await?;
+    tx.commit().await?;
 
     // Remove temporary oidc login redirect flow cookie after authentication
     let cookie_jar = oidc::LoginAttempt::remove_from_cookie_jar(cookie_jar);

@@ -2,7 +2,8 @@ use camino::Utf8PathBuf;
 use color_eyre::eyre::Result;
 use sea_orm::{
     ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction, DbBackend, DbErr,
-    SqliteTransactionMode, Statement, TransactionOptions, TransactionTrait,
+    ExecResult, QueryResult, SqliteTransactionMode, Statement, TransactionOptions,
+    TransactionSession, TransactionTrait,
 };
 use sea_orm_migration::MigratorTrait;
 
@@ -115,3 +116,39 @@ pub struct Tx(pub DatabaseTransaction);
 /// The rollback-on-drop semantics of [`Tx`] apply here as well.
 #[derive(Debug)]
 pub struct TxImmediate(pub DatabaseTransaction);
+
+// Allow calling commit and rollback without taking out the inner transaction
+#[async_trait::async_trait]
+impl TransactionSession for TxImmediate {
+    async fn commit(self) -> Result<(), DbErr> {
+        self.0.commit().await
+    }
+
+    async fn rollback(self) -> Result<(), DbErr> {
+        self.0.rollback().await
+    }
+}
+
+// Allow passing TxImmediate directly to SeaOrm functions without taking out the inner transaction
+#[async_trait::async_trait]
+impl ConnectionTrait for TxImmediate {
+    fn get_database_backend(&self) -> DbBackend {
+        self.0.get_database_backend()
+    }
+
+    async fn execute_raw(&self, stmt: Statement) -> Result<ExecResult, DbErr> {
+        self.0.execute_raw(stmt).await
+    }
+
+    async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {
+        self.0.execute_unprepared(sql).await
+    }
+
+    async fn query_one_raw(&self, stmt: Statement) -> Result<Option<QueryResult>, DbErr> {
+        self.0.query_one_raw(stmt).await
+    }
+
+    async fn query_all_raw(&self, stmt: Statement) -> Result<Vec<QueryResult>, DbErr> {
+        self.0.query_all_raw(stmt).await
+    }
+}
