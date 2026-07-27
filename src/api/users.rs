@@ -22,6 +22,9 @@ pub struct CreateUser {}
 /// It gives the user different permissions.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Display, EnumString, Serialize, Deserialize)]
 pub enum Role {
+    /// Role used by bots.
+    Bot,
+
     /// Most used role, for dispatching and releasing builds.
     PackageMaintainer,
 
