@@ -11,7 +11,7 @@ use buildbtw::{
         sessions::{self, ClientType},
         user_roles,
     },
-    input, oidc, queries, router,
+    oidc, queries, router,
     server_state::ServerState,
     templates,
     utils::free_port,
@@ -187,13 +187,7 @@ impl CookieJarExt for PrivateCookieJar {
 /// Create a new user, directly accessing the database, removing the need for an existing login
 /// token.
 pub async fn make_admin_session(db: DatabaseConnection) -> Result<sessions::Model> {
-    let create_user = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: "OIDC_ID".to_string(),
-        username: "admin".to_string(),
-    })?;
-    let user = queries::users::upsert(create_user, None)
-        .exec_with_returning(&db)
-        .await?;
+    let user = crate::factories::oidc_user(&db, "admin").await?;
     queries::user_roles::set(&db, user.id, vec![user_roles::Role::Admin]).await?;
     let session = queries::sessions::insert(user.id.into(), ClientType::Cli)
         .exec_with_returning(&db)

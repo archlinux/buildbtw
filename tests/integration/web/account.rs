@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use buildbtw::from_request;
 use buildbtw::{entities::sessions::ClientType, queries, web};
-use buildbtw::{from_request, input};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
 use rstest::rstest;
@@ -9,6 +9,7 @@ use sea_orm::TransactionTrait;
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
 
+use crate::factories;
 use crate::test_ctx::{CookieJarExt, TestCtx, TestCtxBuilder, ctx};
 
 /// Test the full logout flow really invalidates the session
@@ -141,22 +142,19 @@ async fn test_e2e_account_logout() -> Result<()> {
 #[tokio::test]
 async fn test_session_list(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let db = &ctx.state.db;
-    let tx = db.begin().await?;
 
     // Create a valid user
-    let create = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: "OIDC_ID".to_string(),
-        username: "username".to_string(),
-    })?;
-    let user = queries::users::upsert(create, None).exec(&tx).await?;
+    let user = factories::oidc_user(db, "username").await?;
+
+    let tx = db.begin().await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
+    let session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec_with_returning(&tx)
         .await?;
 
     // Create another session for our user and see if it will be listed
-    let another_session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
+    let another_session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec(&tx)
         .await?;
 
@@ -191,14 +189,10 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let db = &ctx.state.db;
 
     // Create a valid user
-    let create = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: "OIDC_ID".to_string(),
-        username: "username".to_string(),
-    })?;
-    let user = queries::users::upsert(create, None).exec(db).await?;
+    let user = factories::oidc_user(db, "username").await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
+    let session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
@@ -244,19 +238,15 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     let db = &ctx.state.db;
 
     // Create a valid user
-    let create = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: "OIDC_ID".to_string(),
-        username: "test_username".to_string(),
-    })?;
-    let user = queries::users::upsert(create, None).exec(db).await?;
+    let user = factories::oidc_user(db, "test_username").await?;
 
     // Create our session we use for the requests
-    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
+    let session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create another session we want to kill
-    let other_session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
+    let other_session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec(db)
         .await?;
     let other_session_id = other_session.last_insert_id.0;
@@ -312,26 +302,18 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
     let db = &ctx.state.db;
 
     // Create user A
-    let create_user_a = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: "OIDC_ID_USER_A".to_string(),
-        username: "user_a".to_string(),
-    })?;
-    let user_a = queries::users::upsert(create_user_a, None).exec(db).await?;
+    let user_a = factories::oidc_user(db, "user_a").await?;
 
     // Create user B
-    let create_user_b = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: "OIDC_ID_USER_B".to_string(),
-        username: "user_b".to_string(),
-    })?;
-    let user_b = queries::users::upsert(create_user_b, None).exec(db).await?;
+    let user_b = factories::oidc_user(db, "user_b").await?;
 
     // Create session for user A (we'll authenticate as user A)
-    let user_a_session = queries::sessions::insert(user_a.last_insert_id.into(), ClientType::Web)
+    let user_a_session = queries::sessions::insert(user_a.id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
     // Create session for user B (we'll try to revoke this)
-    let user_b_session = queries::sessions::insert(user_b.last_insert_id.into(), ClientType::Web)
+    let user_b_session = queries::sessions::insert(user_b.id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 
@@ -373,14 +355,10 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     let db = &ctx.state.db;
 
     // Create user
-    let create_user = input::users::ValidatedCreate::try_new(input::users::Create {
-        oidc_id: "OIDC_ID_USER_A".to_string(),
-        username: "user_a".to_string(),
-    })?;
-    let user = queries::users::upsert(create_user, None).exec(db).await?;
+    let user = factories::oidc_user(db, "user_a").await?;
 
     // Create session
-    let session = queries::sessions::insert(user.last_insert_id.into(), ClientType::Web)
+    let session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec_with_returning(db)
         .await?;
 

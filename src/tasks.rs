@@ -266,9 +266,11 @@ pub async fn clear_refresh_token_if_no_sessions(
 
 /// Syncs all user roles from OIDC provider based on current group memberships.
 ///
-/// For each user in the database, fetches their current groups from the OIDC
-/// provider using their stored refresh token, and updates their roles accordingly.
-/// Continues on individual user failures to ensure all users are processed.
+/// For each OIDC identity in the database, fetches the current groups from the
+/// OIDC provider using its stored refresh token, and updates the owning user's
+/// roles accordingly.
+/// Tolerates failures to ensure all OIDC identities are processed.
+/// Users without an OIDC identity (e.g. bot users) are not affected.
 #[allow(clippy::too_many_lines)]
 #[instrument(skip_all)]
 pub async fn sync_user_roles_from_oidc(
@@ -277,25 +279,27 @@ pub async fn sync_user_roles_from_oidc(
 ) -> Result<()> {
     use sea_orm::EntityTrait;
 
-    use crate::entities::users;
+    use crate::entities::oidc_identity;
     use crate::queries;
 
     debug!("Syncing user roles from OIDC provider");
     let tx = db.begin().await?;
 
-    // Fetch all users from database
-    let users = users::Entity::find().all(&tx).await?;
+    // Fetch all OIDC identities from database
+    let oidc_identities = oidc_identity::Entity::find().all(&tx).await?;
 
-    let total_users = users.len();
+    let total_oidc_identities = oidc_identities.len();
     let mut synced_count = 0;
     let mut skipped_count = 0;
     let mut error_count = 0;
 
-    for user in users {
-        // Skip users without refresh tokens (e.g., created before migration)
-        let Some(refresh_token) = user.refresh_token else {
+    for oidc_identity in oidc_identities {
+        let user_id = oidc_identity.user_id;
+
+        // Skip identities without refresh tokens (e.g without any active sessions)
+        let Some(refresh_token) = oidc_identity.refresh_token else {
             debug!(
-                user_id = %user.id.0,
+                user_id = %user_id.0,
                 "Skipping user without refresh token"
             );
             skipped_count += 1;
@@ -311,12 +315,12 @@ pub async fn sync_user_roles_from_oidc(
                     error_count += 1;
                     warn!(
                         ?e,
-                        user_id = %user.id.0,
-                        oidc_id = %user.oidc_id,
+                        user_id = %user_id.0,
+                        oidc_id = %oidc_identity.oidc_id,
                         "Failed to fetch user info from OIDC, revoking all sessions"
                     );
 
-                    if let Err(e) = revoke_user_sessions_and_roles(&tx, user.id).await {
+                    if let Err(e) = revoke_user_sessions_and_roles(&tx, user_id).await {
                         error!(?e);
                     }
                     continue;
@@ -326,11 +330,11 @@ pub async fn sync_user_roles_from_oidc(
         // Update refresh token if a new one was provided (refresh token rotation)
         if let Some(new_token) = new_refresh_token
             && let Err(e) =
-                queries::users::update_refresh_token(&tx, user.id.0, Some(new_token)).await
+                queries::users::update_refresh_token(&tx, user_id.0, Some(new_token)).await
         {
             warn!(
                 ?e,
-                user_id = %user.id.0,
+                user_id = %user_id.0,
                 "Failed to update refresh token in database"
             );
             // Continue with role sync even if refresh token update fails
@@ -345,7 +349,7 @@ pub async fn sync_user_roles_from_oidc(
 
         // Fetch current roles from database
         let current_roles: Vec<user_roles::Role> = user_roles::Entity::find()
-            .filter(user_roles::COLUMN.user_id.eq(user.id.0))
+            .filter(user_roles::COLUMN.user_id.eq(user_id.0))
             .all(&tx)
             .await?
             .into_iter()
@@ -359,10 +363,10 @@ pub async fn sync_user_roles_from_oidc(
 
         if roles_changed {
             // Update user roles in database
-            if let Err(e) = queries::user_roles::set(&tx, user.id, new_roles.clone()).await {
+            if let Err(e) = queries::user_roles::set(&tx, user_id, new_roles.clone()).await {
                 error!(
                     ?e,
-                    user_id = %user.id.0,
+                    user_id = %user_id.0,
                     "Failed to update user roles in database"
                 );
                 error_count += 1;
@@ -370,7 +374,7 @@ pub async fn sync_user_roles_from_oidc(
             }
 
             debug!(
-                user_id = %user.id.0,
+                user_id = %user_id.0,
                 ?current_roles,
                 ?new_roles,
                 "Updated user roles"
@@ -378,7 +382,7 @@ pub async fn sync_user_roles_from_oidc(
             synced_count += 1;
         } else {
             trace!(
-                user_id = %user.id.0,
+                user_id = %user_id.0,
                 "User roles unchanged, skipping database update"
             );
             skipped_count += 1;
@@ -388,9 +392,9 @@ pub async fn sync_user_roles_from_oidc(
     tx.commit().await?;
 
     info!(
-        total_users,
+        total_oidc_identities,
         synced_count,
-        skipped_count, // Users without refresh tokens + users with unchanged roles
+        skipped_count, // OIDC identities without refresh tokens + users with unchanged roles
         error_count,
         "Completed OIDC role sync"
     );

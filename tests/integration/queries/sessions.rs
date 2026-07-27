@@ -7,10 +7,11 @@ use uuid::Uuid;
 
 use buildbtw::{
     db_fields::{RedactedString, TxtUuid},
-    entities::{sessions, users},
+    entities::sessions,
     queries,
 };
 
+use crate::factories;
 use crate::test_ctx::{TestCtx, ctx};
 
 /// Test that the `count_by_user_id` function returns the correct value when there are no sessions.
@@ -18,18 +19,10 @@ use crate::test_ctx::{TestCtx, ctx};
 #[tokio::test]
 async fn test_count_by_user_id_no_sessions(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TxtUuid = Uuid::new_v4().into();
-    let user = users::ActiveModel {
-        id: Set(user_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id".to_string()),
-        username: Set("testuser".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user).exec(&ctx.state.db).await?;
+    let user = factories::user(&ctx.state.db, "testuser").await?;
 
     // Count sessions for user with no sessions
-    let count = queries::sessions::by_user_id(user_id)
+    let count = queries::sessions::by_user_id(user.id)
         .count(&ctx.state.db)
         .await?;
     assert_eq!(count, 0, "User with no sessions should have count of 0");
@@ -42,15 +35,7 @@ async fn test_count_by_user_id_no_sessions(#[future(awt)] ctx: TestCtx) -> Resul
 #[tokio::test]
 async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TxtUuid = Uuid::new_v4().into();
-    let user = users::ActiveModel {
-        id: Set(user_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id".to_string()),
-        username: Set("testuser".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user).exec(&ctx.state.db).await?;
+    let user = factories::user(&ctx.state.db, "testuser").await?;
 
     // Create multiple sessions for the user
     for _ in 0..3 {
@@ -58,7 +43,7 @@ async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) ->
         let session = sessions::ActiveModel {
             id: Set(session_id),
             created_at: Set(OffsetDateTime::now_utc()),
-            user_id: Set(user_id),
+            user_id: Set(user.id),
             last_accessed: Set(OffsetDateTime::now_utc()),
             client_type: Set(sessions::ClientType::Web),
             secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
@@ -69,7 +54,7 @@ async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) ->
     }
 
     // Count sessions for user with multiple sessions
-    let count = queries::sessions::by_user_id(user_id)
+    let count = queries::sessions::by_user_id(user.id)
         .count(&ctx.state.db)
         .await?;
     assert_eq!(count, 3, "User with three sessions should have count of 3");
@@ -82,25 +67,8 @@ async fn test_count_by_user_id_multiple_sessions(#[future(awt)] ctx: TestCtx) ->
 #[tokio::test]
 async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create two test users
-    let user1_id: TxtUuid = Uuid::new_v4().into();
-    let user1 = users::ActiveModel {
-        id: Set(user1_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id-1".to_string()),
-        username: Set("testuser1".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user1).exec(&ctx.state.db).await?;
-
-    let user2_id: TxtUuid = Uuid::new_v4().into();
-    let user2 = users::ActiveModel {
-        id: Set(user2_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id-2".to_string()),
-        username: Set("testuser2".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user2).exec(&ctx.state.db).await?;
+    let user1 = factories::user(&ctx.state.db, "testuser1").await?;
+    let user2 = factories::user(&ctx.state.db, "testuser2").await?;
 
     // Create sessions for user1
     for _ in 0..2 {
@@ -108,7 +76,7 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
         let session = sessions::ActiveModel {
             id: Set(session_id),
             created_at: Set(OffsetDateTime::now_utc()),
-            user_id: Set(user1_id),
+            user_id: Set(user1.id),
             last_accessed: Set(OffsetDateTime::now_utc()),
             client_type: Set(sessions::ClientType::Web),
             secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
@@ -124,7 +92,7 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
         let session = sessions::ActiveModel {
             id: Set(session_id),
             created_at: Set(OffsetDateTime::now_utc()),
-            user_id: Set(user2_id),
+            user_id: Set(user2.id),
             last_accessed: Set(OffsetDateTime::now_utc()),
             client_type: Set(sessions::ClientType::Web),
             secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
@@ -135,10 +103,10 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
     }
 
     // Count sessions for each user
-    let count1 = queries::sessions::by_user_id(user1_id)
+    let count1 = queries::sessions::by_user_id(user1.id)
         .count(&ctx.state.db)
         .await?;
-    let count2 = queries::sessions::by_user_id(user2_id)
+    let count2 = queries::sessions::by_user_id(user2.id)
         .count(&ctx.state.db)
         .await?;
 
@@ -153,22 +121,14 @@ async fn test_count_by_user_id_different_users(#[future(awt)] ctx: TestCtx) -> R
 #[tokio::test]
 async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TxtUuid = Uuid::new_v4().into();
-    let user = users::ActiveModel {
-        id: Set(user_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id".to_string()),
-        username: Set("testuser".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user).exec(&ctx.state.db).await?;
+    let user = factories::user(&ctx.state.db, "testuser").await?;
 
     // Create multiple sessions for the user
     let session_id: TxtUuid = Uuid::new_v4().into();
     let session = sessions::ActiveModel {
         id: Set(session_id),
         created_at: Set(OffsetDateTime::now_utc()),
-        user_id: Set(user_id),
+        user_id: Set(user.id),
         last_accessed: Set(OffsetDateTime::now_utc()),
         client_type: Set(sessions::ClientType::Web),
         secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),

@@ -24,3 +24,17 @@ impl FromRequestParts<ServerState> for db::Tx {
         Ok(Self(conn))
     }
 }
+
+/// Extractor implementation for creating an immediate-mode database
+/// transaction. Refer to the documentation of [`db::TxImmediate`] for when to
+/// use this over [`db::Tx`].
+impl FromRequestParts<ServerState> for db::TxImmediate {
+    type Rejection = ResponseError;
+
+    async fn from_request_parts(
+        _parts: &mut Parts,
+        state: &ServerState,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(db::begin_immediate(&state.db).await?)
+    }
+}

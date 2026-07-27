@@ -8,6 +8,7 @@ use axum::{
 use axum_extra::extract::PrivateCookieJar;
 use color_eyre::eyre::ContextCompat;
 use openidconnect::LocalizedClaim;
+use sea_orm::TransactionSession;
 use tracing::debug;
 
 use crate::{
@@ -38,7 +39,7 @@ pub async fn authorized(
     Query(oidc_query): Query<web::oidc::LoginRedirectQuery>,
     State(server_state): State<ServerState>,
     cookie_jar: PrivateCookieJar,
-    db::Tx(tx): db::Tx,
+    tx: db::TxImmediate,
 ) -> ResponseResult<(PrivateCookieJar, Redirect)> {
     let oidc_state = server_state.oidc.wrap_err("OIDC not configured")?;
     let admin_oidc_groups = oidc_state.admin_oidc_groups.clone();
@@ -68,9 +69,7 @@ pub async fn authorized(
     // This creates a new user record on first login or updates the existing
     // user with the latest data owned by the SSO provider, keeping user
     // information in sync across logins.
-    let user = queries::users::upsert(create, refresh_token)
-        .exec_with_returning(&tx)
-        .await?;
+    let user = queries::users::upsert_with_oidc(&tx, create, refresh_token).await?;
 
     let session = queries::sessions::insert(user.id.into(), ClientType::Web)
         .exec_with_returning(&tx)

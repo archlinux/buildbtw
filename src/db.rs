@@ -1,8 +1,9 @@
 use camino::Utf8PathBuf;
 use color_eyre::eyre::Result;
 use sea_orm::{
-    ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
-    TransactionTrait,
+    ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction, DbBackend, DbErr,
+    ExecResult, QueryResult, SqliteTransactionMode, Statement, TransactionOptions,
+    TransactionSession, TransactionTrait,
 };
 use sea_orm_migration::MigratorTrait;
 
@@ -67,6 +68,19 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
     Ok(db)
 }
 
+/// Begin a transaction in SQLite's IMMEDIATE mode
+///
+/// See also <https://sqlite.org/lang_transaction.html>
+pub async fn begin_immediate(db: &DatabaseConnection) -> Result<TxImmediate, DbErr> {
+    let tx = db
+        .begin_with_options(TransactionOptions {
+            sqlite_transaction_mode: Some(SqliteTransactionMode::Immediate),
+            ..Default::default()
+        })
+        .await?;
+    Ok(TxImmediate(tx))
+}
+
 /// Extractor for per-request database transactions.
 /// SeaORM will automatically rollback the transaction on drop, which means the
 /// following will lead to a rollback:
@@ -85,3 +99,56 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
 /// committed transaction or in a rollback.
 #[derive(Debug)]
 pub struct Tx(pub DatabaseTransaction);
+
+/// Like [`Tx`] but the transaction is started in SQLite's IMMEDIATE mode,
+/// taking the write lock at the start of the request instead of on the first
+/// write statement.
+///
+/// Use this for handlers that write: it makes find-then-create sequences
+/// race-free and avoids SQLite locking issues on deferred-to-write
+/// lock upgrades.
+///
+/// Queries whose correctness depends on running inside an immediate
+/// transaction (e.g. [`crate::queries::users::upsert_with_oidc`]) take this
+/// type instead of a generic connection so the requirement is visible in the
+/// signature. Obtain one via the request extractor or [`begin_immediate`].
+///
+/// The rollback-on-drop semantics of [`Tx`] apply here as well.
+#[derive(Debug)]
+pub struct TxImmediate(pub DatabaseTransaction);
+
+// Allow calling commit and rollback without taking out the inner transaction
+#[async_trait::async_trait]
+impl TransactionSession for TxImmediate {
+    async fn commit(self) -> Result<(), DbErr> {
+        self.0.commit().await
+    }
+
+    async fn rollback(self) -> Result<(), DbErr> {
+        self.0.rollback().await
+    }
+}
+
+// Allow passing TxImmediate directly to SeaOrm functions without taking out the inner transaction
+#[async_trait::async_trait]
+impl ConnectionTrait for TxImmediate {
+    fn get_database_backend(&self) -> DbBackend {
+        self.0.get_database_backend()
+    }
+
+    async fn execute_raw(&self, stmt: Statement) -> Result<ExecResult, DbErr> {
+        self.0.execute_raw(stmt).await
+    }
+
+    async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult, DbErr> {
+        self.0.execute_unprepared(sql).await
+    }
+
+    async fn query_one_raw(&self, stmt: Statement) -> Result<Option<QueryResult>, DbErr> {
+        self.0.query_one_raw(stmt).await
+    }
+
+    async fn query_all_raw(&self, stmt: Statement) -> Result<Vec<QueryResult>, DbErr> {
+        self.0.query_all_raw(stmt).await
+    }
+}

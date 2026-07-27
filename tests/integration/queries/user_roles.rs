@@ -1,38 +1,17 @@
 use color_eyre::Result;
 use rstest::rstest;
-use sea_orm::{
-    ActiveValue::Set, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, TransactionTrait,
-};
-use time::OffsetDateTime;
-use uuid::Uuid;
+use sea_orm::{ModelTrait, TransactionTrait};
 
-use buildbtw::{
-    db_fields::TxtUuid,
-    entities::{user_roles, users},
-    queries,
-};
+use buildbtw::{entities::user_roles, queries};
 
+use crate::factories;
 use crate::test_ctx::{TestCtx, ctx};
 
 #[rstest]
 #[tokio::test]
 async fn test_set_user_roles(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create test user
-    let user_id: TxtUuid = Uuid::new_v4().into();
-    let user = users::ActiveModel {
-        id: Set(user_id),
-        created_at: Set(OffsetDateTime::now_utc()),
-        oidc_id: Set("test-oidc-id".to_string()),
-        username: Set("testuser".to_string()),
-        refresh_token: Set(None),
-    };
-    users::Entity::insert(user).exec(&ctx.state.db).await?;
-
-    let user_model = users::Entity::find()
-        .filter(users::COLUMN.id.eq(user_id))
-        .one(&ctx.state.db)
-        .await?
-        .expect("User not found");
+    let user_model = factories::user(&ctx.state.db, "testuser").await?;
 
     // Check that we have no roles by default
     let roles = user_model
@@ -44,7 +23,12 @@ async fn test_set_user_roles(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Check that assigning roles works
     let tx = ctx.state.db.begin().await?;
-    queries::user_roles::set(&tx, user_id, vec![user_roles::Role::PackageMaintainer]).await?;
+    queries::user_roles::set(
+        &tx,
+        user_model.id,
+        vec![user_roles::Role::PackageMaintainer],
+    )
+    .await?;
     tx.commit().await?;
 
     let roles = user_model
@@ -58,7 +42,7 @@ async fn test_set_user_roles(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Check that assigning other roles deletes previous ones
     let tx = ctx.state.db.begin().await?;
-    queries::user_roles::set(&tx, user_id, vec![user_roles::Role::Admin]).await?;
+    queries::user_roles::set(&tx, user_model.id, vec![user_roles::Role::Admin]).await?;
     tx.commit().await?;
 
     let roles = user_model
