@@ -12,8 +12,12 @@ use crate::entities::users;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Display, EnumString, DeriveValueType, Serialize)]
 #[sea_orm(value_type = "String")]
 pub enum Role {
+    /// Role used by bots.
+    Bot,
+
     /// Most used role, for dispatching and releasing builds.
     PackageMaintainer,
+
     /// Can do everything.
     Admin,
 }
@@ -21,6 +25,7 @@ pub enum Role {
 impl From<Role> for api::users::Role {
     fn from(value: Role) -> Self {
         match value {
+            Role::Bot => api::users::Role::Bot,
             Role::PackageMaintainer => api::users::Role::PackageMaintainer,
             Role::Admin => api::users::Role::Admin,
         }
