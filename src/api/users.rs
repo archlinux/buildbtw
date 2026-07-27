@@ -27,6 +27,9 @@ pub enum Role {
 
     /// Can do everything.
     Admin,
+
+    /// Role used by bots.
+    Bot,
 }
 
 /// A buildbtw user
