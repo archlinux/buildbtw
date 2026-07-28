@@ -953,6 +953,7 @@ dependencies = [
  "url",
  "uuid",
  "webbrowser",
+ "which",
  "yansi",
 ]
 

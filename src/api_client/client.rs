@@ -18,12 +18,13 @@ impl ApiClient {
         buildbtw_server_url: Url,
         override_state_dir: Option<Utf8PathBuf>,
     ) -> Result<ApiClient> {
-        // Get auth token
         let auth_token = auth::Token::read(override_state_dir)
             .await?
             .wrap_err("Please log in first.")?;
-        let auth_token = auth_token.secret_token.expose_secret();
+        Self::with_token(buildbtw_server_url, auth_token.secret_token.expose_secret())
+    }
 
+    pub fn with_token(buildbtw_server_url: Url, auth_token: &str) -> Result<ApiClient> {
         // Put token into a sensitive header value
         let header_value = format!("Bearer {auth_token}");
         let mut bearer = reqwest::header::HeaderValue::from_str(&header_value)?;
