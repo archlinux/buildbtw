@@ -45,7 +45,7 @@ pub enum Command {
     },
 
     /// Resume building a cancelled buildspace
-    Resume {
+    Start {
         #[arg()]
         name: buildspace::Slug,
     },

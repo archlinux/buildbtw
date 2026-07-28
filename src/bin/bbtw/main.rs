@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
             let client = api::Client::new(args.server_url, args.state_dir).await?;
             close::close(name, client).await
         }
-        args::Command::Resume { name: _ } => todo!(),
+        args::Command::Start { name: _ } => todo!(),
         args::Command::List { all: _ } => todo!(),
         args::Command::Retry { name: _ } => todo!(),
         args::Command::Show {
