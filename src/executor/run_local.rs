@@ -7,6 +7,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, trace};
 
 use crate::entities::{self};
+use crate::executor::run::MountPacmanRepo;
 use crate::{builds, executor, git};
 use crate::{package, queries, storage};
 
@@ -96,12 +97,17 @@ async fn try_build(
     )
     .await?;
 
+    let pacman_repo_in_vm = "/tmp/pacman_repo";
     executor::run::build_project_dir(
         build_dir.path(),
         tmp_output_dir.path(),
-        None,
+        Some(format!("file://{pacman_repo_in_vm}").parse()?),
         100,
         &executor::config::LogDestination::File(log_file),
+        Some(MountPacmanRepo {
+            outside_vm: output_dir.clone(),
+            inside_vm: pacman_repo_in_vm.into(),
+        }),
         token,
     )
     .await

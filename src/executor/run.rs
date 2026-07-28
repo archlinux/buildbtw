@@ -85,6 +85,7 @@ pub async fn build_script(
         pacman_repository_url,
         ssh_timeout,
         &build_script_args.log_destination,
+        None,
         cancellation_token,
     )
     .await?;
@@ -106,12 +107,18 @@ pub async fn build_script(
     Ok(())
 }
 
+pub struct MountPacmanRepo {
+    pub outside_vm: Utf8PathBuf,
+    pub inside_vm: Utf8PathBuf,
+}
+
 pub async fn build_project_dir(
     project_dir: &Utf8Path,
     output_dir: &Utf8Path,
     pacman_repo_url: Option<Url>,
     ssh_timeout: u32,
     log_destination: &config::LogDestination,
+    mount_pacman_repo: Option<MountPacmanRepo>,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
     let bin_dir = camino_tempfile::Builder::new()
@@ -137,15 +144,27 @@ pub async fn build_project_dir(
     .args(["--ssh-timeout", &ssh_timeout.to_string()])
     .args(["--volume", &format!("{}:/mnt/bin:ro", bin_dir.path())])
     .args(["--volume", &format!("{project_dir}:/mnt/src_repo:ro")])
-    .args(["--volume", &format!("{output_dir}:/mnt/output")])
-    .arg("--")
-    .arg(format!("/mnt/bin/{build_script_filename}"))
-    .arg(
-        pacman_repo_url
-            .map(|url| url.to_string())
-            .unwrap_or_default(),
-    )
-    .stdin(Stdio::inherit());
+    .args(["--volume", &format!("{output_dir}:/mnt/output")]);
+
+    if let Some(mount) = mount_pacman_repo {
+        cmd.args([
+            "--volume",
+            &format!(
+                "{}:{}",
+                mount.outside_vm.canonicalize_utf8()?,
+                mount.inside_vm.canonicalize_utf8()?
+            ),
+        ]);
+    }
+
+    cmd.arg("--")
+        .arg(format!("/mnt/bin/{build_script_filename}"))
+        .arg(
+            pacman_repo_url
+                .map(|url| url.to_string())
+                .unwrap_or_default(),
+        )
+        .stdin(Stdio::inherit());
 
     match log_destination {
         config::LogDestination::File(log_path) => {

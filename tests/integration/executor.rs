@@ -62,6 +62,7 @@ async fn test_flaky_gitlab_executor_build_project_dir() -> Result<()> {
         None,
         120,
         &executor::config::LogDestination::InheritStdio,
+        None,
         CancellationToken::new(),
     )
     .await?;
@@ -104,6 +105,7 @@ arch=(any)
             None,
             120,
             &executor::config::LogDestination::InheritStdio,
+            None,
             CancellationToken::new(),
         )
         .await
@@ -145,6 +147,7 @@ async fn test_flaky_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -
         None,
         120,
         &executor::config::LogDestination::InheritStdio,
+        None,
         CancellationToken::new(),
     )
     .await?;
