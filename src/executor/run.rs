@@ -13,6 +13,10 @@ use tracing::{debug, error, info, warn};
 use url::Url;
 
 use super::shell::ShellScripts;
+use crate::executor::{
+    gitlab::config::{self},
+    shell,
+};
 use crate::{api, executor::config};
 
 /// Prepares the Git configuration, and clone/fetch the repository.

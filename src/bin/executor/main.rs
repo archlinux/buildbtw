@@ -7,7 +7,10 @@ use std::process::ExitCode;
 
 use args::{Args, Commands, Gitlab, RunArgs, RunStage};
 use buildbtw::{
-    executor::{cleanup, prepare, run},
+    executor::{
+        doctor,
+        gitlab::{cleanup, prepare, run},
+    },
     graceful_shutdown::shutdown_signal,
 };
 use clap::Parser;
@@ -38,7 +41,10 @@ async fn execute(args: Args) -> Result<()> {
     buildbtw::error_handler::init(args.verbose)?;
     buildbtw::tracing::init(args.verbose, args.tokio_console_telemetry)?;
 
+    yansi::whenever(yansi::Condition::TTY_AND_COLOR);
+
     match args.command {
+        Commands::Doctor(doctor_args) => doctor::doctor(doctor_args.try_into()?).await?,
         Commands::Gitlab(ref gitlab_args) => match &gitlab_args.command {
             Gitlab::Config(config_args) => args::config(config_args)?,
             Gitlab::Prepare => prepare::prepare(args.ssh_timeout).await?,

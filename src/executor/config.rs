@@ -62,6 +62,11 @@ pub struct Upload {
 }
 
 #[derive(Debug, Clone)]
+pub struct DoctorConfig {
+    pub auth: Option<Auth>,
+}
+
+#[derive(Debug, Clone)]
 pub struct RunGetSources {
     /// Directory that stores build artifacts
     pub builds_dir: Utf8PathBuf,
