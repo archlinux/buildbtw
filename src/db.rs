@@ -1,5 +1,5 @@
 use camino::Utf8PathBuf;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Context, Result};
 use sea_orm::{
     ConnectionTrait, Database, DatabaseConnection, DatabaseTransaction, DbBackend, DbErr,
     ExecResult, QueryResult, SqliteTransactionMode, Statement, TransactionOptions,
@@ -58,11 +58,14 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
     .join("");
     // Configure for strictness, durability, ...
     db.execute_raw(Statement::from_string(DbBackend::Sqlite, settings))
-        .await?;
+        .await
+        .wrap_err("Failed to configure database connection")?;
 
     // Migrate
     let tx = db.begin().await?;
-    Migrator::up(&tx, None).await?;
+    Migrator::up(&tx, None)
+        .await
+        .wrap_err("Failed to migrate database")?;
     tx.commit().await?;
 
     Ok(db)
