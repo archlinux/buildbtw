@@ -1,5 +1,5 @@
 use axum::{Json, extract::State};
-use sea_orm::SelectExt;
+use sea_orm::{DatabaseTransaction, SelectExt};
 use tracing::debug;
 
 use crate::{
@@ -79,10 +79,11 @@ pub async fn get(
     }))
 }
 
-pub async fn close(
-    path: api::buildspaces::CloseBuildspace,
+pub async fn set_status(
+    path: api::buildspaces::SetStatus,
     _auth: from_request::AuthUser,
     db::Tx(tx): db::Tx,
+    Json(body): Json<input::buildspaces::SetStatus>,
 ) -> ResponseResult<()> {
     let buildspace = queries::buildspaces::by_name(path.name.clone())
         .one(&tx)
@@ -92,17 +93,39 @@ pub async fn close(
             path.name
         )))?;
 
-    queries::buildspaces::update_status(buildspace.id, buildspace::Status::Stopped)
-        .exec(&tx)
-        .await?;
+    if buildspace.status == body.status {
+        // Nothing to do, status is already correct
+        return Ok(());
+    }
 
-    let update_result = queries::builds::skip_undispatched_builds(buildspace.id)
-        .exec(&tx)
-        .await?;
-
-    debug!(?update_result.rows_affected, "Skipped undispatched builds");
+    match body.status {
+        buildspace::Status::Started => {
+            return Err(ResponseError::BadRequest("Not implemented yet".to_string()));
+        }
+        buildspace::Status::Stopped => {
+            stop_buildspace(&tx, body.status, &buildspace).await?;
+        }
+    }
 
     tx.commit().await?;
+
+    Ok(())
+}
+
+async fn stop_buildspace(
+    tx: &DatabaseTransaction,
+    status: buildspace::Status,
+    buildspace: &entities::buildspaces::Model,
+) -> Result<(), ResponseError> {
+    queries::buildspaces::update_status(buildspace.id, status)
+        .exec(tx)
+        .await?;
+
+    let skipped_builds = queries::builds::skip_undispatched_builds(buildspace.id)
+        .exec(tx)
+        .await?;
+
+    debug!(?skipped_builds.rows_affected, "Skipped undispatched builds");
 
     Ok(())
 }

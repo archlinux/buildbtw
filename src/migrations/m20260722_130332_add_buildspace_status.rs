@@ -15,7 +15,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table("buildspaces")
-                    .add_column(text("status").default("Open"))
+                    .add_column(text("status").default("Started"))
                     .to_owned(),
             )
             .await?;

@@ -19,12 +19,12 @@ pub struct CreateBuildspaceResponse {
     pub name: buildspace::Slug,
 }
 
-/// A request to close a buildspace.
+/// A request to set the status of a buildspace.
 ///
-/// Closing an already-closed buildspace is fine and won't change anything.
+/// Setting the same status the buildspace already has is fine and won't do anything.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/api/v1/buildspaces/{name}/close")]
-pub struct CloseBuildspace {
+#[typed_path("/api/v1/buildspaces/{name}/status")]
+pub struct SetStatus {
     pub name: buildspace::Slug,
 }
 

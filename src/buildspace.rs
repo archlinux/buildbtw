@@ -29,8 +29,8 @@ fn validate_buildspace_slug(input: &str) -> Result<(), garde::Error> {
 /// States of a buildspace
 ///
 /// This is intentionally separate from [crate::entities::iterations::Status] because:
-/// 1. Closed buildspaces don't automatically receive new iterations. Whether or not it receives new iterations is the concern of a buildspace, so it would not make sense to use the iteration status for it.
-/// 2. We don't want to erase potential graph calculation errors as those can be useful info even when a buildspace is closed
+/// 1. Stopped buildspaces don't automatically receive new iterations. Whether or not it receives new iterations is the concern of a buildspace, so it would not make sense to use the iteration status for it.
+/// 2. We don't want to erase potential graph calculation errors as those can be useful info even when a buildspace is stopped
 ///
 /// The drawback of this design is that we have lots of different statuses (buildspace, iteration, and build status) which might interact in surprising ways.
 #[derive(

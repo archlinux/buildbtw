@@ -1,0 +1,5 @@
+---
+source: tests/integration/bbtw/stop.rs
+expression: output.stdout
+---
+Stopped buildspace my-buildspace

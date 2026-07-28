@@ -43,8 +43,8 @@ async fn test_show(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
 #[rstest]
 #[tokio::test]
-async fn test_show_closed(#[future(awt)] ctx: TestCtx) -> Result<()> {
-    // Create closed buildspace
+async fn test_show_stopped(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create stopped buildspace
     let tx = ctx.state.db.begin().await?;
 
     let (buildspace, _iteration) = factories::buildspace_with_iteration(&tx, "target").await?;

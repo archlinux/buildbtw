@@ -9,18 +9,18 @@ use crate::{
     test_ctx::{TestCtx, ctx, run_cmd},
 };
 
-/// Check that we can close a buildspace
+/// Check that we can stop a buildspace
 #[rstest]
 #[tokio::test]
-async fn test_close(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_stop(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace
     let tx = ctx.state.db.begin().await?;
     let buildspace = factories::buildspace(&tx, "my-buildspace").await?;
     tx.commit().await?;
 
-    // Run close command
+    // Run stop command
     let mut cmd = ctx.bbtw_cmd();
-    cmd.arg("close").arg(buildspace.name.as_ref());
+    cmd.arg("stop").arg(buildspace.name.as_ref());
     let output = run_cmd(&mut cmd).await?;
 
     assert!(output.status.success());
@@ -29,7 +29,7 @@ async fn test_close(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Run it again and check that it works the same
     let mut cmd = ctx.bbtw_cmd();
-    cmd.arg("close").arg(buildspace.name.as_ref());
+    cmd.arg("stop").arg(buildspace.name.as_ref());
     let output_again = run_cmd(&mut cmd).await?;
 
     assert!(output_again.status.success());
@@ -46,12 +46,12 @@ async fn test_close(#[future(awt)] ctx: TestCtx) -> Result<()> {
     Ok(())
 }
 
-/// Check that we get a reasonable error description when trying to close a non-existent buildspace
+/// Check that we get a reasonable error description when trying to stop a non-existent buildspace
 #[rstest]
 #[tokio::test]
-async fn test_close_nonexistent(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_stop_nonexistent(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let mut cmd = ctx.bbtw_cmd();
-    cmd.arg("close").arg("nonexistent_buildspace");
+    cmd.arg("stop").arg("nonexistent_buildspace");
     let output = run_cmd(&mut cmd).await?;
 
     assert!(!output.status.success());

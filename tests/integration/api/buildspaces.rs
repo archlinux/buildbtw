@@ -1,7 +1,7 @@
 use axum_test::TestResponse;
 use buildbtw::{
     api::{self, buildspaces::GetBuildspaceResponse},
-    buildspace, package, queries,
+    buildspace, input, package, queries,
 };
 use color_eyre::eyre::Result;
 use rstest::rstest;
@@ -295,7 +295,7 @@ async fn test_get_buildspace_unauthorized(#[future(awt)] ctx: TestCtx) -> Result
 /// Verify that we can close a buildspace via the API
 #[rstest]
 #[tokio::test]
-async fn test_close_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_stop_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) =
@@ -303,11 +303,14 @@ async fn test_close_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()
     let pending_build = factories::build(&tx, iteration.id, "pending").await?;
     tx.commit().await?;
 
-    // Close the buildspace and check response
+    // Stop the buildspace and check response
     let response = ctx
         .server
-        .typed_put(&api::buildspaces::CloseBuildspace {
+        .typed_put(&api::buildspaces::SetStatus {
             name: buildspace.name.clone(),
+        })
+        .json(&input::buildspaces::SetStatus {
+            status: buildspace::Status::Stopped,
         })
         .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
         .await;
@@ -316,8 +319,11 @@ async fn test_close_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()
     // Check that closing twice succeeds
     let response = ctx
         .server
-        .typed_put(&api::buildspaces::CloseBuildspace {
+        .typed_put(&api::buildspaces::SetStatus {
             name: buildspace.name.clone(),
+        })
+        .json(&input::buildspaces::SetStatus {
+            status: buildspace::Status::Stopped,
         })
         .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
         .await;
@@ -343,11 +349,14 @@ async fn test_close_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()
 /// Check that closing a non-existent buildspace returns 404
 #[rstest]
 #[tokio::test]
-async fn test_close_buildspace_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_stop_buildspace_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let response = ctx
         .server
-        .typed_put(&api::buildspaces::CloseBuildspace {
+        .typed_put(&api::buildspaces::SetStatus {
             name: "nonexistent".parse()?,
+        })
+        .json(&input::buildspaces::SetStatus {
+            status: buildspace::Status::Stopped,
         })
         .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
         .await;
@@ -357,14 +366,17 @@ async fn test_close_buildspace_not_found(#[future(awt)] ctx: TestCtx) -> Result<
     Ok(())
 }
 
-/// Check that we can't close a buildspace if not logged in
+/// Check that we can't stop a buildspace if not logged in
 #[rstest]
 #[tokio::test]
-async fn test_close_buildspace_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_stop_buildspace_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let response = ctx
         .server
-        .typed_put(&api::buildspaces::CloseBuildspace {
+        .typed_put(&api::buildspaces::SetStatus {
             name: "my-buildspace".parse()?,
+        })
+        .json(&input::buildspaces::SetStatus {
+            status: buildspace::Status::Stopped,
         })
         .await;
 

@@ -206,7 +206,7 @@ pub enum BuildStatus {
     /// Build has failed
     Failed,
 
-    /// Build was skipped, e.g. because its buildspace was closed.
+    /// Build was skipped, e.g. because its buildspace was stopped.
     Skipped,
 }
 

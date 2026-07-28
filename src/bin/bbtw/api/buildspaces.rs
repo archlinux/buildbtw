@@ -60,17 +60,22 @@ pub async fn get(client: &super::Client, name: buildspace::Slug) -> Result<GetBu
 }
 
 #[instrument(skip(client))]
-pub async fn close(client: &super::Client, name: buildspace::Slug) -> Result<()> {
+pub async fn set_status(
+    client: &super::Client,
+    name: buildspace::Slug,
+    status: buildspace::Status,
+) -> Result<()> {
     let resp = client
         .reqwest_client
         .put(
             client
                 .buildbtw_server_url
-                .join(&buildspaces::CloseBuildspace { name }.to_string())?,
+                .join(&buildspaces::SetStatus { name }.to_string())?,
         )
+        .json(&input::buildspaces::SetStatus { status })
         .send()
         .await
-        .wrap_err("Couldn't close buildspace")?;
+        .wrap_err("Couldn't stop buildspace")?;
 
     if let Err(err) = resp.error_for_status_ref() {
         return Err(err).wrap_err(resp.text().await?.to_string());

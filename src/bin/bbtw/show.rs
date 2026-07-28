@@ -38,7 +38,7 @@ pub async fn show(
     );
 
     if buildspace.status == buildspace::Status::Stopped {
-        let msg = format!("{} This buildspace is closed.", buildspace.status.symbol());
+        let msg = format!("{} This buildspace is stopped.", buildspace.status.symbol());
         println!("{}", msg.italic());
     }
 
