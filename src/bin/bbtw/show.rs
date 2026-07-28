@@ -1,26 +1,33 @@
 use std::collections::HashMap;
 
-use buildbtw::{api::builds::ListBuildsResponse, buildspace, package::BuildStatus};
+use buildbtw::{
+    api::builds::ListBuildsResponse,
+    api_client::{self, ApiClient},
+    buildspace,
+    package::BuildStatus,
+};
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
 use sea_orm::Iterable;
 use tracing::trace;
 use yansi::Paint;
 
-use crate::api;
-
 pub async fn show(
     buildspace_name: buildspace::Slug,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
     show_demo_data: bool,
-    client: &api::Client,
+    api_client: &ApiClient,
 ) -> Result<()> {
     // Fetch all data
-    let buildspace = api::buildspaces::get(client, buildspace_name.clone()).await?;
-    let mut responses_by_status =
-        all_builds_grouped_by_status(client, &buildspace_name, iteration_sequence, max_results)
-            .await?;
+    let buildspace = api_client::buildspaces::get(api_client, buildspace_name.clone()).await?;
+    let mut responses_by_status = all_builds_grouped_by_status(
+        api_client,
+        &buildspace_name,
+        iteration_sequence,
+        max_results,
+    )
+    .await?;
 
     add_demo_data(&mut responses_by_status, show_demo_data)?;
 
@@ -160,7 +167,7 @@ fn add_demo_data(
 }
 
 async fn all_builds_grouped_by_status(
-    client: &api::Client,
+    api_client: &ApiClient,
     buildspace_name: &buildspace::Slug,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
@@ -170,8 +177,8 @@ async fn all_builds_grouped_by_status(
         .map(async |status| {
             Ok((
                 status,
-                api::builds::list(
-                    client,
+                api_client::builds::list(
+                    api_client,
                     Some(status),
                     buildspace_name.clone(),
                     iteration_sequence,

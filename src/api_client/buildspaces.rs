@@ -1,19 +1,20 @@
-use buildbtw::{
+use crate::{
     api::buildspaces::{self, CreateBuildspaceResponse, GetBuildspaceResponse},
+    api_client::ApiClient,
     buildspace, input,
 };
 use color_eyre::{Result, eyre::Context};
 use tracing::instrument;
 
-#[instrument(skip(client))]
+#[instrument(skip(api_client))]
 pub async fn create(
-    client: &super::Client,
+    api_client: &ApiClient,
     body: input::buildspaces::Create,
 ) -> Result<CreateBuildspaceResponse> {
-    let resp = client
+    let resp = api_client
         .reqwest_client
         .post(
-            client
+            api_client
                 .buildbtw_server_url
                 .join(&buildspaces::CreateBuildspace {}.to_string())?,
         )
@@ -34,12 +35,12 @@ pub async fn create(
     Ok(response)
 }
 
-#[instrument(skip(client))]
-pub async fn get(client: &super::Client, name: buildspace::Slug) -> Result<GetBuildspaceResponse> {
-    let resp = client
+#[instrument(skip(api_client))]
+pub async fn get(api_client: &ApiClient, name: buildspace::Slug) -> Result<GetBuildspaceResponse> {
+    let resp = api_client
         .reqwest_client
         .get(
-            client
+            api_client
                 .buildbtw_server_url
                 .join(&buildspaces::GetBuildspace { name }.to_string())?,
         )
@@ -59,16 +60,16 @@ pub async fn get(client: &super::Client, name: buildspace::Slug) -> Result<GetBu
     Ok(response)
 }
 
-#[instrument(skip(client))]
+#[instrument(skip(api_client))]
 pub async fn set_status(
-    client: &super::Client,
+    api_client: &ApiClient,
     name: buildspace::Slug,
     status: buildspace::Status,
 ) -> Result<()> {
-    let resp = client
+    let resp = api_client
         .reqwest_client
         .put(
-            client
+            api_client
                 .buildbtw_server_url
                 .join(&buildspaces::SetStatus { name }.to_string())?,
         )

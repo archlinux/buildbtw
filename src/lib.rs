@@ -1,8 +1,8 @@
 //! The buildbtw library, providing functionality for all the binaries we
 //! release.
 pub mod api;
+pub mod api_client;
 pub mod authelia;
-pub mod bbtw;
 pub mod builds;
 pub mod buildspace;
 pub mod db;

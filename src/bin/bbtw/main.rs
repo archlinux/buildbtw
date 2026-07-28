@@ -8,13 +8,13 @@
 //! The client communicates with the backend server via JSON API defined in the
 //! `api` crate.
 
+use buildbtw::api_client::ApiClient;
 use clap::Parser;
 use color_eyre::Result;
 
 mod args;
 mod auth;
 
-mod api;
 mod new;
 mod show;
 mod stop;
@@ -33,12 +33,12 @@ async fn main() -> Result<()> {
     #[allow(clippy::todo)]
     match args.command {
         args::Command::New { name, changesets } => {
-            let client = api::Client::new(args.server_url, args.state_dir).await?;
-            new::new(name, changesets, client).await
+            let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
+            new::new(name, changesets, api_client).await
         }
         args::Command::Stop { name } => {
-            let client = api::Client::new(args.server_url, args.state_dir).await?;
-            stop::stop(name, client).await
+            let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
+            stop::stop(name, api_client).await
         }
         args::Command::Start { name: _ } => todo!(),
         args::Command::List { all: _ } => todo!(),
@@ -49,8 +49,8 @@ async fn main() -> Result<()> {
             show_demo_builds,
             iteration,
         } => {
-            let client = api::Client::new(args.server_url, args.state_dir).await?;
-            show::show(name, iteration, limit.into(), show_demo_builds, &client).await
+            let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
+            show::show(name, iteration, limit.into(), show_demo_builds, &api_client).await
         }
         args::Command::Auth(auth_command) => {
             auth::auth(&auth_command, args.server_url, args.state_dir).await
