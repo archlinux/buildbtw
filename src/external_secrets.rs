@@ -32,10 +32,10 @@ pub fn get_required(name: &str, file_path: Option<&Utf8Path>) -> Result<Secret<S
             .wrap_err(format!("Could not read secret at {}", path.display()))
     });
 
-    env_value
-        .or(explicit_file_value)
-        .or(xdg_dir_file_value)
-        .map(Secret::new)
+    let value = env_value.or(explicit_file_value).or(xdg_dir_file_value)?;
+    let value = value.trim();
+
+    Ok(Secret::new(value.to_string()))
 }
 
 /// Read a secret
