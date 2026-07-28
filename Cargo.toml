@@ -36,7 +36,8 @@ similar.opt-level = 3
 # "forbid" cannot be overridden, e.g. with an inline comment.
 [lints.rust]
 unsafe_code = "deny"
-missing_debug_implementations = "warn"
+# This is intended for libraries
+missing_debug_implementations = "allow"
 single_use_lifetimes = "warn"
 trivial_casts = "warn"
 unused_lifetimes = "warn"
