@@ -1,23 +1,24 @@
-use buildbtw::{
+use crate::{
     api::builds::{self, ListBuildsResponse},
+    api_client::ApiClient,
     buildspace,
     package::BuildStatus,
 };
 use color_eyre::{Result, eyre::Context};
 use tracing::instrument;
 
-#[instrument(skip(client))]
+#[instrument(skip(api_client))]
 pub async fn list(
-    client: &super::Client,
+    api_client: &ApiClient,
     status: Option<BuildStatus>,
     buildspace_name: buildspace::Slug,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
 ) -> Result<ListBuildsResponse> {
-    let resp = client
+    let resp = api_client
         .reqwest_client
         .get(
-            client
+            api_client
                 .buildbtw_server_url
                 .join(&builds::ListByStatus {}.to_string())?,
         )

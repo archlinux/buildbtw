@@ -1,4 +1,7 @@
-use buildbtw::api::users::User;
+use crate::{
+    api::{self, users::User},
+    api_client::ApiClient,
+};
 use color_eyre::{Result, eyre::Context};
 use reqwest::StatusCode;
 use tracing::instrument;
@@ -7,14 +10,14 @@ use tracing::instrument;
 ///
 /// If successful, will return the logged-in [`User`].
 /// If we receive an UNAUTHORIZED from the server, return `None`.
-#[instrument(skip(client))]
-pub async fn current(client: &super::Client) -> Result<Option<User>> {
-    let resp = client
+#[instrument(skip(api_client))]
+pub async fn current(api_client: &ApiClient) -> Result<Option<User>> {
+    let resp = api_client
         .reqwest_client
         .get(
-            client
+            api_client
                 .buildbtw_server_url
-                .join(&buildbtw::api::users::AuthenticatedUser {}.to_string())?,
+                .join(&api::users::AuthenticatedUser {}.to_string())?,
         )
         .send()
         .await

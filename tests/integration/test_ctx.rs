@@ -4,9 +4,9 @@ use std::process::{Command, ExitStatus};
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use axum_test::TestServer;
-use buildbtw::bbtw::auth::token_path;
+use buildbtw::api_client::auth::token_path;
 use buildbtw::{
-    authelia, bbtw, db,
+    api_client, authelia, db,
     entities::{
         sessions::{self, ClientType},
         user_roles,
@@ -93,7 +93,7 @@ impl TestCtx {
     /// logging in the admin user into the CLI.
     pub async fn login_bbtw(self) -> Self {
         let secret_token = self.admin_session.secret_token.0.clone();
-        let auth_token = bbtw::auth::Token {
+        let auth_token = api_client::auth::Token {
             created_at: OffsetDateTime::now_utc(),
             secret_token,
         };
@@ -108,7 +108,7 @@ impl TestCtx {
 
     /// Remove the stored auth token.
     pub async fn logout_bbtw(&self) {
-        bbtw::auth::delete_token(&token_path(Some(self.client_state_path())).unwrap())
+        api_client::auth::delete_token(&token_path(Some(self.client_state_path())).unwrap())
             .await
             .unwrap();
     }
