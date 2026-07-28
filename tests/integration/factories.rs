@@ -46,6 +46,18 @@ pub async fn oidc_user(db: &DatabaseConnection, username: &str) -> Result<entiti
     Ok(user)
 }
 
+pub async fn buildspace(
+    tx: &DatabaseTransaction,
+    name: &str,
+) -> Result<entities::buildspaces::Model> {
+    let buildspace_slug = buildspace::Slug::try_from(name)?;
+    let buildspace = queries::buildspaces::insert(buildspace_slug)
+        .exec_with_returning(tx)
+        .await?;
+
+    Ok(buildspace)
+}
+
 pub async fn buildspace_with_iteration(
     tx: &DatabaseTransaction,
     name: &str,

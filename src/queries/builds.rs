@@ -4,7 +4,7 @@ use color_eyre::{Result, eyre::OptionExt};
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
     ColumnTrait, EntityLoaderTrait, EntityTrait, ExprTrait, InsertMany, QueryFilter, QuerySelect,
-    Select, UpdateOne,
+    QueryTrait, Select, UpdateMany, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -150,6 +150,33 @@ pub fn update_build_status(
         ..Default::default()
     };
     builds::Entity::update(model)
+}
+
+/// Sets [package::BuildStatus] to "skipped" for all builds:
+/// - from the given buildspace
+/// - that were not dispatched yet
+#[must_use]
+pub fn skip_undispatched_builds(buildspace_id: TxtUuid) -> UpdateMany<builds::Entity> {
+    let model = builds::ActiveModel {
+        status: Set(package::BuildStatus::Skipped),
+        ..Default::default()
+    };
+
+    let buildspace_id: TxtUuid = buildspace_id;
+
+    let iterations_in_buildspace = iterations::Entity::find()
+        .filter(iterations::COLUMN.buildspace_id.eq(buildspace_id))
+        .select_only()
+        .column(iterations::COLUMN.id)
+        .into_query();
+
+    builds::Entity::update_many().set(model).filter(
+        builds::COLUMN.dispatched_to.is_null().and(
+            builds::COLUMN
+                .iteration_id
+                .in_subquery(iterations_in_buildspace),
+        ),
+    )
 }
 
 /// Get the set of builds that are currently pending, optionally filtered

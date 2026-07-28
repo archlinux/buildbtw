@@ -17,6 +17,7 @@ mod auth;
 mod api;
 mod new;
 mod show;
+mod stop;
 
 use crate::args::Args;
 
@@ -35,8 +36,11 @@ async fn main() -> Result<()> {
             let client = api::Client::new(args.server_url, args.state_dir).await?;
             new::new(name, changesets, client).await
         }
-        args::Command::Cancel { name: _ } => todo!(),
-        args::Command::Resume { name: _ } => todo!(),
+        args::Command::Stop { name } => {
+            let client = api::Client::new(args.server_url, args.state_dir).await?;
+            stop::stop(name, client).await
+        }
+        args::Command::Start { name: _ } => todo!(),
         args::Command::List { all: _ } => todo!(),
         args::Command::Retry { name: _ } => todo!(),
         args::Command::Show {
@@ -45,15 +49,8 @@ async fn main() -> Result<()> {
             show_demo_builds,
             iteration,
         } => {
-            show::show(
-                args.server_url,
-                args.state_dir,
-                name,
-                iteration,
-                limit.into(),
-                show_demo_builds,
-            )
-            .await
+            let client = api::Client::new(args.server_url, args.state_dir).await?;
+            show::show(name, iteration, limit.into(), show_demo_builds, &client).await
         }
         args::Command::Auth(auth_command) => {
             auth::auth(&auth_command, args.server_url, args.state_dir).await

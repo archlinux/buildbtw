@@ -50,3 +50,8 @@ impl TryFrom<Create> for ValidatedCreate {
         })
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SetStatus {
+    pub status: buildspace::Status,
+}

@@ -36,15 +36,16 @@ pub enum Command {
         changesets: Vec<ChangesetArg>,
     },
 
-    /// Cancel a buildspace. No new iterations or builds will be created.
-    /// Existing builds will not be interrupted
-    Cancel {
+    /// Stop building a buildspace. No new iterations or builds will be created.
+    /// Running builds will not be interrupted.
+    /// Builds (from any iteration) that have not been scheduled yet will be skipped.
+    Stop {
         #[arg()]
         name: buildspace::Slug,
     },
 
     /// Resume building a cancelled buildspace
-    Resume {
+    Start {
         #[arg()]
         name: buildspace::Slug,
     },

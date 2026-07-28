@@ -205,6 +205,9 @@ pub enum BuildStatus {
 
     /// Build has failed
     Failed,
+
+    /// Build was skipped, e.g. because its buildspace was stopped.
+    Skipped,
 }
 
 impl BuildStatus {
@@ -218,6 +221,7 @@ impl BuildStatus {
             BuildStatus::Building => yansi::Color::Blue,
             BuildStatus::Built => yansi::Color::Green,
             BuildStatus::Failed => yansi::Color::Red,
+            BuildStatus::Skipped => yansi::Color::White,
         }
     }
 
@@ -231,6 +235,7 @@ impl BuildStatus {
             BuildStatus::Building => '✦',
             BuildStatus::Built => '✓',
             BuildStatus::Failed => '✗',
+            BuildStatus::Skipped => '⊘',
         }
     }
 }

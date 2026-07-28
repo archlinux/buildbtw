@@ -478,3 +478,86 @@ async fn test_dispatched_to_check_constraint_fails(
 
     Ok(())
 }
+
+#[rstest]
+#[tokio::test]
+async fn test_skip_pending_builds_skips_only_pending(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+
+    // Create a few pending builds
+    let mut builds_to_skip = Vec::new();
+    for i in 0..3 {
+        let build = factories::build(&tx, iteration.id, &i.to_string()).await?;
+        assert_eq!(build.status, package::BuildStatus::Pending);
+        builds_to_skip.push(build);
+    }
+
+    // Create a dispatched build that should not be skipped
+    let dispatched_build = factories::build(&tx, iteration.id, "dispatched").await?;
+    queries::builds::dispatch_to_local_executor(dispatched_build.id)
+        .exec(&tx)
+        .await?;
+
+    // Skip all waiting builds in this buildspace
+    let skipped_count = queries::builds::skip_undispatched_builds(buildspace.id)
+        .exec(&tx)
+        .await?;
+
+    // Check that the updated row count matches what we expect
+    assert_eq!(
+        usize::try_from(skipped_count.rows_affected)?,
+        builds_to_skip.len()
+    );
+
+    // Verify only the waiting builds were skipped
+    let dispatched_build = queries::builds::by_id(dispatched_build.id)
+        .one(&tx)
+        .await?
+        .unwrap();
+    assert_eq!(dispatched_build.status, package::BuildStatus::Scheduled);
+
+    let skipped_builds =
+        queries::builds::list(Some(package::BuildStatus::Skipped), iteration.id, None)
+            .all(&tx)
+            .await?;
+    let skipped_pkgbases: HashSet<_> = skipped_builds.iter().map(|b| &b.pkgbase).collect();
+
+    let expected_skipped_pkgbases: HashSet<_> = builds_to_skip.iter().map(|b| &b.pkgbase).collect();
+
+    assert_eq!(skipped_pkgbases, expected_skipped_pkgbases);
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_skip_pending_builds_only_affects_own_buildspace(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    // Create two buildspaces, each with one pending build
+    let (buildspace_a, iteration_a) =
+        factories::buildspace_with_iteration(&tx, "buildspace_a").await?;
+    let (_buildspace_b, iteration_b) =
+        factories::buildspace_with_iteration(&tx, "buildspace_b").await?;
+
+    let build_a = factories::build(&tx, iteration_a.id, "pkg_a").await?;
+    let build_b = factories::build(&tx, iteration_b.id, "pkg_b").await?;
+
+    // Skip pending builds in buildspace_a only
+    queries::builds::skip_undispatched_builds(buildspace_a.id)
+        .exec(&tx)
+        .await?;
+
+    // Verify only buildspace_a's build was skipped
+    let build_a = queries::builds::by_id(build_a.id).one(&tx).await?.unwrap();
+    assert_eq!(build_a.status, package::BuildStatus::Skipped);
+
+    let build_b = queries::builds::by_id(build_b.id).one(&tx).await?.unwrap();
+    assert_eq!(build_b.status, package::BuildStatus::Pending);
+
+    Ok(())
+}

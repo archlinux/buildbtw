@@ -6,7 +6,10 @@
 
 use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::bail};
-use sea_orm::{ActiveValue::Set, DatabaseTransaction, EntityLoaderTrait, EntityTrait};
+use sea_orm::{
+    ActiveValue::{NotSet, Set},
+    DatabaseTransaction, EntityLoaderTrait, EntityTrait,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -43,6 +46,8 @@ pub async fn seed(
             id: Set(buildspace_id.into()),
             created_at: Set(time::OffsetDateTime::now_utc()),
             name: Set(buildspace_slug.clone()),
+            // Use database default for status
+            status: NotSet,
         })
         .exec(&tx)
         .await?;
