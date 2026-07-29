@@ -4,3 +4,5 @@ expression: output.stdout
 ---
 Showing builds for iteration #1 of buildspace target
 ⏹️ This buildspace is stopped.
+
+The build graph for this iteration is still being calculated.

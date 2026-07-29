@@ -61,7 +61,6 @@ pub async fn list(
     Ok(Json(api::builds::ListBuildsResponse {
         total_build_count,
         builds,
-        iteration_sequence: iteration.sequence,
     }))
 }
 

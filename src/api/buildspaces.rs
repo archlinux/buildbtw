@@ -28,18 +28,29 @@ pub struct SetStatus {
     pub name: buildspace::Slug,
 }
 
-/// A request to read data for a buildspace.
+/// A request to read data for a buildspace and an iteration.
+/// Geared towards the `bbtw show` command.
 #[derive(TypedPath, Deserialize, Debug)]
-#[typed_path("/api/v1/buildspaces/{name}")]
-pub struct GetBuildspace {
+#[typed_path("/api/v1/buildspaces/{name}/iteration/latest")]
+pub struct GetBuildspaceWithLatestIteration {
     pub name: buildspace::Slug,
+}
+
+/// A request to read data for a buildspace and an iteration.
+/// Geared towards the `bbtw show` command.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/buildspaces/{name}/iteration/{iteration_seq}")]
+pub struct GetBuildspaceWithIteration {
+    pub name: buildspace::Slug,
+    pub iteration_seq: u32,
 }
 
 /// The response returned when reading a buildspace.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GetBuildspaceResponse {
+pub struct GetBuildspaceWithIterationResponse {
     pub id: Uuid,
     pub created_at: time::OffsetDateTime,
     pub name: buildspace::Slug,
     pub status: buildspace::Status,
+    pub iteration: super::iterations::Iteration,
 }

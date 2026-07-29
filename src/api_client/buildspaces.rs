@@ -1,10 +1,11 @@
+use color_eyre::{Result, eyre::Context};
+use tracing::instrument;
+
 use crate::{
-    api::buildspaces::{self, CreateBuildspaceResponse, GetBuildspaceResponse},
+    api::buildspaces::{self, CreateBuildspaceResponse, GetBuildspaceWithIterationResponse},
     api_client::ApiClient,
     buildspace, input,
 };
-use color_eyre::{Result, eyre::Context};
-use tracing::instrument;
 
 #[instrument(skip(api_client))]
 pub async fn create(
@@ -35,15 +36,27 @@ pub async fn create(
     Ok(response)
 }
 
+/// Get a buildspace with one of its iterations
+///
+/// If passed no iteration sequence, fetch the most recent iteration.
 #[instrument(skip(api_client))]
-pub async fn get(api_client: &ApiClient, name: buildspace::Slug) -> Result<GetBuildspaceResponse> {
+pub async fn get_with_iteration(
+    api_client: &ApiClient,
+    name: buildspace::Slug,
+    iteration_seq: Option<u32>,
+) -> Result<GetBuildspaceWithIterationResponse> {
+    let route = match iteration_seq {
+        Some(iteration_seq) => buildspaces::GetBuildspaceWithIteration {
+            name,
+            iteration_seq,
+        }
+        .to_string(),
+        None => buildspaces::GetBuildspaceWithLatestIteration { name }.to_string(),
+    };
+
     let resp = api_client
         .reqwest_client
-        .get(
-            api_client
-                .buildbtw_server_url
-                .join(&buildspaces::GetBuildspace { name }.to_string())?,
-        )
+        .get(api_client.buildbtw_server_url.join(&route)?)
         .send()
         .await
         .wrap_err("Couldn't read buildspace")?;
