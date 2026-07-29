@@ -63,7 +63,7 @@ pub enum ResponseError {
     #[error("Internal server error: {0}")]
     InternalServer(String),
 
-    /// Resource already exists.
+    /// Resource conflicts with current state.
     #[error("Conflict: {0}")]
     Conflict(String),
 }

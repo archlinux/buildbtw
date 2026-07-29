@@ -1,13 +1,22 @@
+use std::time::Duration;
 use std::{fs::Permissions, os::unix::fs::PermissionsExt, process::Stdio};
 
 use alpm_types::PackageFileName;
+use axum::body::Bytes;
 use camino::{Utf8Path, Utf8PathBuf};
-use color_eyre::{
-    Result,
-    eyre::{OptionExt, bail, eyre},
+use color_eyre::eyre::{Context, OptionExt, bail};
+use color_eyre::{Result, eyre::eyre};
+use tokio::{
+    fs,
+    io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    net::unix::pipe,
+    process::Command,
+    sync::mpsc,
+    task::JoinSet,
 };
-use tokio::{fs, process::Command};
-use tokio_util::{io::ReaderStream, sync::CancellationToken};
+use tokio_stream::{StreamExt, wrappers::ReceiverStream};
+use tokio_util::io::ReaderStream;
+use tokio_util::{io::StreamReader, sync::CancellationToken};
 use tracing::{debug, error, info, warn};
 
 use super::shell::ShellScripts;
@@ -125,8 +134,7 @@ async fn build_project_dir(
     .args(["--volume", &format!("{output_dir}:/mnt/output")])
     .arg("--")
     .arg(format!("/mnt/bin/{build_script_filename}"))
-    .arg(build_script_args.architecture.to_string())
-    .stdin(Stdio::inherit());
+    .arg(build_script_args.architecture.to_string());
 
     // If set, pass buildspace name and pacman repo URL for downloading
     // buildspace-specific dependency artifacts
@@ -143,31 +151,19 @@ async fn build_project_dir(
         );
     }
 
-    match &build_script_args.log_destination {
-        config::LogDestination::File(log_path) => {
-            if let Ok(exists) = fs::try_exists(&log_path).await
-                && exists
-            {
-                bail!(
-                    "Log file {log_path} already exists. This indicates a previous build that ran for this iteration, arch and pkgbase. Running builds multiple times is not supported."
-                );
-            }
-            if let Some(log_dir) = log_path.parent() {
-                fs::create_dir_all(log_dir).await?;
-            }
+    // Create a single anonymous pipe we control and pass to the process as
+    // stdout and stderr. This allows to delegate the serialization of both
+    // streams to the kernel, which synchronizes and operates on a syscall level
+    // to fill the pipe without splicing chunks inbetween writes.
+    let (pipe_reader, pipe_writer) = std::io::pipe()?;
+    let pipe_receiver = pipe::Receiver::from_owned_fd(pipe_reader.into())?;
+    cmd.stdin(Stdio::inherit())
+        .stdout(pipe_writer.try_clone()?)
+        .stderr(pipe_writer);
 
-            let log_file = fs::File::create(&log_path).await?;
-            let stderr_file = log_file.try_clone().await?;
-            let log_file = log_file.into_std().await;
-            let stderr_file = stderr_file.into_std().await;
-            cmd.stdout(log_file).stderr(stderr_file);
-        }
-        config::LogDestination::InheritStdio => {
-            cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-        }
-    }
-
+    // Spawn the process and store its pid.
     let mut child = cmd
+        .kill_on_drop(true)
         .spawn()
         .map_err(|e| eyre!("❌ Failed to spawn command '{:?}': {}", cmd.as_std(), e))?;
     let child_pid = nix::unistd::Pid::from_raw(
@@ -176,22 +172,33 @@ async fn build_project_dir(
             .ok_or_eyre("Missing PID for vmexec process")?
             .try_into()?,
     );
-    let output = tokio::select! {
-        output = child.wait() => {output}
+
+    // The Command binding still holds copies of the write pipe, drop `cmd` to ensure
+    // the pipe readers will see an EOF when the `child` exists.
+    drop(cmd);
+
+    // Tasks for all streams with an optional log upload stream via API
+    let mut stream_tasks = JoinSet::new();
+    let log_tx = spawn_upload_log(&mut stream_tasks, build_script_args.api_config.as_ref())?;
+    stream_tasks.spawn(tee_log(pipe_receiver, io::stdout(), log_tx));
+
+    // Wait for the child or for cancellation signal
+    let status = tokio::select! {
+        status = child.wait() => status?,
         () = cancellation_token.cancelled() => {
-            debug!("Sending SIGTERM to vmexec");
-            tokio::task::spawn_blocking(move || {
-                if let Err(err) = nix::sys::signal::kill(child_pid, nix::sys::signal::Signal::SIGTERM) {
-                    error!(?err, "Could not send SIGTERM to vmexec");
-                }
-            }).await?;
-
-            bail!("Build was cancelled.")
+            warn!("Build was cancelled, terminating vmexec process");
+            if let Err(err) = nix::sys::signal::kill(child_pid, nix::sys::signal::Signal::SIGTERM) {
+                error!(?err, "Could not send SIGTERM to vmexec");
+            }
+            child.wait().await?
         }
-    }?;
+    };
 
-    if !output.success() {
-        bail!("❌ Child exited with status: {}", output);
+    // Drain all streams to ensure we fully collect all logs on failure
+    drain_streams(&mut stream_tasks).await?;
+
+    if !status.success() {
+        bail!("❌ Child exited with status: {}", status);
     }
 
     print_dir_content(output_dir).await?;
@@ -221,8 +228,6 @@ async fn upload_package_artifacts(
         {
             upload_package_artifact(http_client, api_config, &file).await?;
             info!("✅ {}", filename);
-        } else {
-            warn!("⚠️ Skipping invalid file: {}", file);
         }
     }
     Ok(())
@@ -281,12 +286,104 @@ async fn upload_package_artifact(
     Ok(())
 }
 
+fn spawn_upload_log(
+    stream_tasks: &mut JoinSet<Result<()>>,
+    api_config: Option<&config::RunBuildScriptApiConfig>,
+) -> Result<Option<mpsc::Sender<Bytes>>> {
+    let Some(api_config) = api_config else {
+        return Ok(None);
+    };
+
+    let client = api_config.build_api_client()?;
+    let build_id = api_config.build_id;
+
+    // Convert Receiver into AsyncRead
+    let (tx, rx) = mpsc::channel::<Bytes>(100);
+    let stream = ReceiverStream::new(rx).map(Ok::<Bytes, std::io::Error>);
+    let reader = StreamReader::new(stream);
+
+    stream_tasks.spawn(async move {
+        api_client::builds::upload_log(&client, build_id, reader)
+            .await
+            .wrap_err("Failed to stream build log to the API")
+    });
+
+    Ok(Some(tx))
+}
+
+async fn tee_log<R, W>(mut reader: R, mut writer: W, tx: Option<mpsc::Sender<Bytes>>) -> Result<()>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    let mut buf = [0u8; 8192];
+    loop {
+        let bytes_read = reader
+            .read(&mut buf)
+            .await
+            .wrap_err("Failed to read the build output pipe")?;
+        if bytes_read == 0 {
+            break;
+        }
+
+        // Local console output
+        writer.write_all(&buf[..bytes_read]).await?;
+        writer.flush().await?;
+
+        // Optional remote transmission
+        if let Some(ref tx) = tx {
+            tx.send_timeout(
+                Bytes::copy_from_slice(&buf[..bytes_read]),
+                Duration::from_mins(2),
+            )
+            .await
+            .wrap_err("Timed out forwarding build output to the log uploader")?;
+        }
+    }
+    Ok(())
+}
+
+/// Drain log streams by joining on all tasks.
+///
+/// Report all errors from all joined tasks before bailing. This makes sure we are
+/// able to see all channel errors no matter in which order they join.
+async fn drain_streams(streams: &mut JoinSet<Result<()>>) -> Result<()> {
+    // Drain all streams and collect all errors
+    let errors = tokio::time::timeout(Duration::from_mins(2), async {
+        let mut errors = Vec::new();
+        while let Some(result) = streams.join_next().await {
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => errors.push(err),
+                Err(err) => errors.push(eyre!("Failed to join log stream task: {err}")),
+            }
+        }
+        errors
+    })
+    .await
+    .wrap_err("Timed out waiting for the build log stream tasks")?;
+
+    // Report all errors from all tasks rather just the first
+    for err in &errors {
+        error!(?err, "Draining build log stream failed");
+    }
+
+    // Bail with the first error, like join_all would
+    match errors.into_iter().next() {
+        Some(err) => Err(err),
+        None => Ok(()),
+    }
+}
+
 /// Prints the passed directory listing to show all build output artifacts
 /// in the executor log.
 async fn print_dir_content(path: &Utf8Path) -> Result<()> {
     info!("🔍 Listing build artifacts...");
     let mut read_dir = fs::read_dir(path).await?;
     while let Some(entry) = read_dir.next_entry().await? {
+        if entry.file_type().await?.is_dir() {
+            continue;
+        }
         let filename = entry.file_name().to_string_lossy().to_string();
         info!("📦 {filename}");
     }
