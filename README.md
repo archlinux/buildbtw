@@ -28,6 +28,8 @@ This is covered in great detail in the [infrastructure operations](https://gitla
 
 ## Development
 
+### Installing Dependencies
+
 - Install Rust. It's recommended to work with the stable toolchain. With rustup:
 ```
 rustup install stable
@@ -35,11 +37,23 @@ rustup default stable
 ```
 - Install `just` (`pacman -S just` or `cargo install just`)
 - Install `watchexec` (`pacman -S watchexec` or `cargo install watchexec`)
-- Install `sea-orm-cli` (~~`pacman -S sea-orm-cli`~~ for the time being, run `cargo install 'sea-orm-cli@^2.0.0-rc'` while sea-orm 2 is still in release candidate phase)
+- Install `sea-orm-cli` (`pacman -S sea-orm-cli`)
+- For building locally: Install `vmexec` (`pacman -S vmexec`)
 - For license checking: Install `reuse` (`pacman -S reuse`)
 - For security auditing: Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
 - For releasing: Install `cargo-release` (`pacman -S cargo-release` or `cargo install cargo-release`)
 - For running the tests and running a local OIDC provider: `pacman -S cargo-nextest mkcert jq podman geckodriver firefox`. See [Arch Wiki Podman Page](https://wiki.archlinux.org/title/Podman) for podman configuration. Rootless podman is recommended.
+
+### First Steps
+
+- For running the buildbtw server using TLS, generate a development certificate and install its CA into your local trust chain:
+```sh
+just gen-dev-cert
+just install-dev-ca
+```
+- Copy `.env.example` to `.env` and edit it to your liking. It's the configuration for all buildbtw components.
+- Run `git submodule update --init` to initialize submodules on disk.
+- Use `just run-server` to compile and run the server, and `just run-client` to interact with it.
 
 ## Commands
 
@@ -67,7 +81,6 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just bench` to run performance benchmarks
 - `just clean` to remove build artifacts, caches, and temporary files
 - `just run-client` to run the client
-- `just run-worker` to run the worker
 - `just run-server` to run the server
 - `just run-server --run-authelia-container` to run the server together with a container running Authelia for manually testing OIDC workflows
 - `just install-dev-ca` to install the mkcert CA to your system's trust store
