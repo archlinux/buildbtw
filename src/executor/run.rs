@@ -11,6 +11,7 @@ use tokio::{fs, process::Command};
 use tokio_util::{io::ReaderStream, sync::CancellationToken};
 use tracing::{debug, error, info, warn};
 use url::Url;
+use uuid::Uuid;
 
 use super::shell::ShellScripts;
 use crate::api;
@@ -86,33 +87,24 @@ pub async fn build_script(
         pacman_repository_url,
         ssh_timeout,
         &build_script_args.log_destination,
+        &build_script_args.build_id.ok_or_eyre("missing build-id")?,
+        build_script_args.upload_config.clone(),
         cancellation_token,
     )
     .await?;
-    print_dir_content(output_dir.path()).await?;
-
-    // Upload artifacts inside the output_dir if a collector URL has been passed
-    if let Some(upload_config) = &build_script_args.upload_config {
-        let http_client = reqwest::Client::new();
-        upload_package_artifacts(
-            upload_config,
-            &build_script_args,
-            &http_client,
-            output_dir.path(),
-            &upload_config.api_server_url,
-        )
-        .await?;
-    }
 
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn build_project_dir(
     project_dir: &Utf8Path,
     output_dir: &Utf8Path,
     pacman_repo_url: Option<Url>,
     ssh_timeout: u32,
     log_destination: &config::LogDestination,
+    build_id: &Uuid,
+    upload_config: Option<config::Upload>,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
     let bin_dir = camino_tempfile::Builder::new()
@@ -199,17 +191,24 @@ pub async fn build_project_dir(
         bail!("❌ Child exited with status: {}", output);
     }
 
+    print_dir_content(output_dir).await?;
+
+    // Upload artifacts inside the output_dir if a collector URL has been passed
+    if let Some(upload_config) = upload_config {
+        let http_client = reqwest::Client::new();
+        upload_package_artifacts(&http_client, &upload_config, build_id, output_dir).await?;
+    }
+
     Ok(())
 }
 
 /// Uploads all package artifacts inside the given build output directory to the
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
-    upload_config: &config::Upload,
-    build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
+    upload_config: &config::Upload,
+    build_id: &Uuid,
     output_dir: &Utf8Path,
-    collector_base_url: &Url,
 ) -> Result<()> {
     info!("📡 Uploading artifacts...");
     let mut read_dir = fs::read_dir(output_dir).await?;
@@ -218,14 +217,7 @@ async fn upload_package_artifacts(
         if let Some(filename) = file.file_name()
             && file.is_file()
         {
-            upload_package_artifact(
-                upload_config,
-                build_script_args,
-                http_client,
-                &file,
-                collector_base_url,
-            )
-            .await?;
+            upload_package_artifact(http_client, upload_config, build_id, &file).await?;
             info!("✅ {}", filename);
         } else {
             warn!("⚠️ Skipping invalid file: {}", file);
@@ -236,16 +228,15 @@ async fn upload_package_artifacts(
 
 /// Uploads a single passed package artifact to the buildbtw collector endpoint.
 async fn upload_package_artifact(
-    upload_config: &config::Upload,
-    build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
+    upload_config: &config::Upload,
+    build_id: &Uuid,
     artifact_path: &Utf8PathBuf,
-    collector_base_url: &Url,
 ) -> Result<()> {
     let pkgfile = PackageFileName::try_from(artifact_path.as_std_path())?;
     let pkgname = pkgfile.name();
 
-    let mut upload_url = collector_base_url.clone();
+    let mut upload_url = upload_config.api_server_url.clone();
     upload_url
         .path_segments_mut()
         .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
@@ -254,13 +245,7 @@ async fn upload_package_artifact(
 
     upload_url
         .query_pairs_mut()
-        .append_pair(
-            "build_id",
-            &build_script_args
-                .build_id
-                .ok_or_eyre("Missing option: build-id")?
-                .to_string(),
-        )
+        .append_pair("build_id", &build_id.to_string())
         .append_pair("pkgname", pkgname.as_ref());
 
     let artifact_file = fs::File::open(artifact_path).await?;

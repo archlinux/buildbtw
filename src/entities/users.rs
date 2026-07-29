@@ -4,6 +4,14 @@ use serde::Serialize;
 use crate::db_fields::TxtUuid;
 use crate::entities::{oidc_identity, sessions, user_roles};
 
+/// Random UUIDv4 of the system user.
+///
+/// The ID does not carry security properties, and is simply static so we don't
+/// need hacks around the username, which are not unique anyway.
+/// This user is only created lazily f.e. in development setups that use a local
+/// executor which speaks to the local API.
+pub const SYSTEM_USER_ID: Uuid = uuid::uuid!("2169571e-a446-4cc8-bd8d-0e035178fc11");
+
 /// A buildbtw user
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]

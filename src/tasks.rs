@@ -134,6 +134,7 @@ async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> 
             state.db.clone(),
             build.clone(),
             state.data_dir.clone(),
+            state.server_url.clone(),
             token.clone(),
         );
 

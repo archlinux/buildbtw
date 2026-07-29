@@ -302,6 +302,7 @@ impl TestCtxBuilder {
                 b"oeghai5phee4gaeti5eegheev6eefee5yu2muoV8phoChohg7aipeuh2Thahsiup",
             )),
             data_dir: Some(self.data_dir.path().to_path_buf()),
+            server_url: server_url.clone(),
         };
 
         templates::initialize("./".into()).unwrap();

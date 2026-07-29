@@ -15,6 +15,7 @@ use rstest::*;
 use sea_orm::TransactionTrait;
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 use crate::{
     factories,
@@ -62,6 +63,8 @@ async fn test_flaky_gitlab_executor_build_project_dir() -> Result<()> {
         None,
         120,
         &executor::config::LogDestination::InheritStdio,
+        &Uuid::new_v4(),
+        None,
         CancellationToken::new(),
     )
     .await?;
@@ -104,6 +107,8 @@ arch=(any)
             None,
             120,
             &executor::config::LogDestination::InheritStdio,
+            &Uuid::new_v4(),
+            None,
             CancellationToken::new(),
         )
         .await
@@ -145,6 +150,8 @@ async fn test_flaky_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -
         None,
         120,
         &executor::config::LogDestination::InheritStdio,
+        &Uuid::new_v4(),
+        None,
         CancellationToken::new(),
     )
     .await?;
@@ -218,6 +225,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
         ctx.state.db.clone(),
         build_ex.clone(),
         Some(server_data_dir.path().to_path_buf()),
+        ctx.state.server_url,
         CancellationToken::new(),
     )
     .await?;

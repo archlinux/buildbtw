@@ -1,6 +1,7 @@
 use camino::Utf8PathBuf;
 use redact::Secret;
 use sea_orm::DatabaseConnection;
+use url::Url;
 
 use crate::oidc;
 
@@ -18,6 +19,12 @@ pub struct ServerState {
 
     /// Override data storage dir used for package repos, build artifacts etc
     pub data_dir: Option<Utf8PathBuf>,
+
+    /// URL the backend server is reachable at, including protocol.
+    ///
+    /// Port can be omitted if it's the standard port.
+    /// E.g. <https://buildbtw.archlinux.org>
+    pub server_url: Url,
 }
 
 /// Allows us to use the [axum_extra::extract::cookie::PrivateCookieJar]
