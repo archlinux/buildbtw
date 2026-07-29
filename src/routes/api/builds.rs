@@ -1,4 +1,5 @@
 use std::os::unix::fs::PermissionsExt;
+use std::sync::Arc;
 
 use alpm_package::Package;
 use alpm_pkginfo::package_info::PackageInfo;
@@ -16,6 +17,7 @@ use sea_orm::PaginatorTrait;
 use sea_orm::TransactionTrait;
 use tokio_util::io::ReaderStream;
 use tracing::debug;
+use tracing::warn;
 
 use crate::input;
 use crate::pacman_repository::pacman_repo_add;
@@ -105,7 +107,6 @@ pub async fn set_status(
     Ok(())
 }
 
-#[allow(clippy::too_many_lines)]
 pub async fn upload_package(
     _: api::builds::UploadPackage,
     Query(api::builds::UploadPackageQuery { build_id, pkgname }): Query<
@@ -135,7 +136,7 @@ pub async fn upload_package(
     // Abort if artifact has already been uploaded
     let dest = builds::build_artifact_path(&build, &pkgname, &server_state.data_dir)?;
     if dest.exists() {
-        debug!("Build artifact {dest:#?} has already been uploaded");
+        warn!("Build artifact {dest:#?} has already been uploaded");
         return Err(ResponseError::NotPermitted(
             "Build artifact already exists".into(),
         ));
@@ -260,6 +261,118 @@ pub async fn download_package(
                 .wrap_err("Invalid filename for header value")?,
         )
         .body(Body::from_stream(ReaderStream::new(file)))
+        .wrap_err("Failed to build response stream")?)
+}
+
+pub async fn upload_log(
+    api::builds::UploadLog { id: build_id }: api::builds::UploadLog,
+    Query(api::builds::UploadLogQuery {}): Query<api::builds::UploadLogQuery>,
+    State(server_state): State<ServerState>,
+    _: from_request::AuthUser,
+    db::Tx(tx): db::Tx,
+    request: Request,
+) -> ResponseResult<()> {
+    let build =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
+            .one(&tx)
+            .await?
+            .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
+
+    // Required database metadata has been read, commit transaction to release locks before streaming data.
+    tx.commit().await?;
+    debug!("Received log data stream for build_id {build_id}",);
+
+    // Abort if artifact has already been uploaded
+    let dest = builds::build_log_path(&build, &server_state.data_dir)?;
+    if dest.exists() {
+        warn!("Build log {dest:#?} has already been uploaded");
+        return Err(ResponseError::NotPermitted(
+            "Build log already exists".into(),
+        ));
+    }
+
+    // Create destination directory
+    let dest_dir = &dest
+        .parent()
+        .ok_or_eyre("Failed to get parent path from build log path")?;
+    tokio::fs::create_dir_all(dest_dir)
+        .await
+        .wrap_err_with(|| format!("Failed to create build log dir {dest_dir}"))?;
+
+    // Signal concurrent downloads the real EOF after uploading finished
+    let (upload_finished_tx, upload_finished_rx) = tokio::sync::watch::channel(false);
+    server_state
+        .build_log_upload
+        .write()
+        .await
+        .insert(build.id.0, Arc::new(upload_finished_rx));
+
+    // Write uploaded body data to destination
+    tokio::fs::File::create(&dest).await?;
+    let stream_result =
+        crate::web::utils::stream_to_file(&dest, request.into_body().into_data_stream())
+            .await
+            .wrap_err_with(|| format!("Failed to write build log to {dest:?}"));
+
+    // Signal upload finished
+    upload_finished_tx.send_replace(true);
+    server_state
+        .build_log_upload
+        .write()
+        .await
+        .remove(&build.id.0);
+    stream_result?;
+
+    Ok(())
+}
+
+pub async fn download_log(
+    api::builds::DownloadLog { id: build_id }: api::builds::DownloadLog,
+    Query(api::builds::DownloadLogQuery {}): Query<api::builds::DownloadLogQuery>,
+    State(server_state): State<ServerState>,
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<Response> {
+    let build =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
+            .one(&tx)
+            .await?
+            .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
+
+    // Resolve and open build artifact path
+    let log_path = builds::build_log_path(&build, &server_state.data_dir)?;
+    let file = tokio::fs::File::open(&log_path)
+        .await
+        .map_err(|_e| ResponseError::Conflict("Build log not uploaded yet".into()))?;
+    let filename = log_path
+        .file_name()
+        .ok_or_else(|| ResponseError::InternalServer("Log file has no filename".into()))?;
+    debug!("Downloading build log from build-id {build_id}",);
+
+    // Get upload signal to indicate EOF when the log is still being uploaded
+    let upload_signal = server_state
+        .build_log_upload
+        .read()
+        .await
+        .get(&build.id.0)
+        .cloned();
+    let log_upload_finished = move || match &upload_signal {
+        // No shared signal exists, content on disk is final
+        None => true,
+        // Check for completion or closed channel
+        Some(rx) => *rx.borrow() || rx.has_changed().is_err(),
+    };
+
+    Ok(Response::builder()
+        .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+        .header(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&format!("inline; filename=\"{filename:?}\""))
+                .wrap_err("Invalid filename for header value")?,
+        )
+        .body(Body::from_stream(crate::web::utils::tail_file_stream(
+            file,
+            log_upload_finished,
+        )))
         .wrap_err("Failed to build response stream")?)
 }
 

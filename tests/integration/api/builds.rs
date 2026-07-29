@@ -1116,3 +1116,252 @@ async fn test_update_build_status_invalid_transition(
 
     Ok(())
 }
+
+#[rstest]
+#[tokio::test]
+async fn test_upload_build_log(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    // Only dispatched builds can be set to "completed" on upload
+    queries::builds::schedule_and_dispatch(build.id, entities::builds::DispatchedTo::Local)
+        .exec(&tx)
+        .await?;
+    tx.commit().await?;
+
+    // Log content
+    let log_bytes = "the cake is a lie".as_bytes();
+
+    // Get the log upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadLog {
+            id: build.id.into(),
+        })
+        .add_query_params(api::builds::UploadLogQuery {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .bytes(log_bytes.into())
+        .await;
+
+    // Check upload status
+    response.assert_status_ok();
+
+    // Check stored log file
+    let data_dir = ctx.data_dir.path().to_path_buf();
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .ok_or_eyre("Build not found")?;
+    let dest = buildbtw::builds::build_log_path(&build_with_ctx, &Some(data_dir))?;
+    let dest_bytes = tokio::fs::read(&dest.to_path_buf()).await?;
+    assert_eq!(log_bytes, dest_bytes, "uploaded bytes must match");
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_upload_build_log_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Log content
+    let log_bytes = "the cake is a lie".as_bytes();
+
+    // Get the log upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadLog {
+            id: build.id.into(),
+        })
+        .add_query_params(api::builds::UploadLogQuery {})
+        .bytes(log_bytes.into())
+        .await;
+
+    // Check uploaded status
+    response.assert_status_unauthorized();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_upload_build_log_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let _ = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Log content
+    let log_bytes = "the cake is a lie".as_bytes();
+
+    // Get the log upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadLog {
+            // Generate a build_id that doesn't exist.
+            id: Uuid::new_v4(),
+        })
+        .add_query_params(api::builds::UploadLogQuery {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .bytes(log_bytes.into())
+        .await;
+
+    // Check uploaded status
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_upload_build_log_already_exists(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Log content
+    let log_bytes = "the cake is a lie".as_bytes();
+
+    // Write existing file into the log storage
+    let data_dir = ctx.data_dir.path().to_path_buf();
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .ok_or_eyre("Build not found")?;
+    tx.rollback().await?;
+    let dest = buildbtw::builds::build_log_path(&build_with_ctx, &Some(data_dir))?;
+    tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
+    tokio::fs::write(&dest, log_bytes).await?;
+
+    // Get the log upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadLog {
+            id: build.id.into(),
+        })
+        .add_query_params(api::builds::UploadLogQuery {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .bytes(log_bytes.into())
+        .await;
+
+    // Check uploaded log
+    response.assert_status_forbidden();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_download_build_log(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Log content
+    let log_bytes = "the cake is a lie".as_bytes();
+
+    let data_dir = ctx.data_dir.path().to_path_buf();
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .ok_or_eyre("Build not found")?;
+    tx.rollback().await?;
+    let dest = buildbtw::builds::build_log_path(&build_with_ctx, &Some(data_dir))?;
+    tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
+    tokio::fs::write(&dest, log_bytes).await?;
+
+    // Get the log download response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::DownloadLog {
+            id: build.id.into(),
+        })
+        .add_query_params(api::builds::DownloadLogQuery {})
+        .await;
+
+    // Check downloaded bytes match artifact data
+    response.assert_status_ok();
+    let bytes = response.into_bytes();
+    assert_eq!(log_bytes, bytes.to_vec(), "downloaded bytes must match");
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_download_build_log_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let _ = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Get the artifact download response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::DownloadLog {
+            // Generate a build_id that doesn't exist.
+            id: Uuid::new_v4(),
+        })
+        .add_query_params(api::builds::DownloadLogQuery {})
+        .await;
+
+    // Check status
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_download_build_log_not_uploaded_yet(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Get the log download response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::DownloadLog {
+            id: build.id.into(),
+        })
+        .add_query_params(api::builds::DownloadLogQuery {})
+        .await;
+
+    // Check status
+    response.assert_status_conflict();
+
+    Ok(())
+}

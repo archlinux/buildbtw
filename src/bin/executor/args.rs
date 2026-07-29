@@ -362,8 +362,6 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
             ci_project_dir,
             pacman_repository,
             api_config,
-            // When invoked as a standalone binary, always log to the passed file descriptors.
-            log_destination: config::LogDestination::InheritStdio,
             architecture,
         })
     }
@@ -485,7 +483,6 @@ mod tests {
                 architecture: BuildArchitecture::X86_64V3,
                 pacman_repository: None,
                 api_config: None,
-                log_destination: config::LogDestination::InheritStdio,
             }
         );
 
@@ -561,7 +558,6 @@ mod tests {
                     api_token: redact::Secret::new("FOOBAR".into()),
                     build_id,
                 }),
-                log_destination: config::LogDestination::InheritStdio,
             }
         );
 

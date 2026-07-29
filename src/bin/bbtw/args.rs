@@ -6,6 +6,7 @@ use buildbtw::{
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand, value_parser};
 use url::Url;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Subcommand)]
 #[allow(clippy::enum_variant_names)]
@@ -60,6 +61,13 @@ pub enum Command {
         /// Show all buildspaces, including canceled ones. Default: false
         #[arg(short, long, action, default_value = "false")]
         all: bool,
+    },
+
+    /// Log view and download build logs
+    Log {
+        /// UUID of the build.
+        #[arg(short = 'b', long)]
+        build_id: Uuid,
     },
 
     /// Manually create a new iteration for a buildspace, recalculating the build

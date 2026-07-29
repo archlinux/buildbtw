@@ -119,3 +119,27 @@ pub struct ServeRepoFile {
 /// Query Parameters for the [`ServeRepoFile`] endpoint
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServeRepoFileQuery {}
+
+/// Upload a build log stream identitifed by its build-id.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/builds/{id}/upload_log")]
+pub struct UploadLog {
+    /// Unique build-id for which to upload the build log.
+    pub id: Uuid,
+}
+
+/// Query Parameters for the [`UploadLog`] endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UploadLogQuery {}
+
+/// Download a build log identified by its build-id.
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/builds/{id}/download_log")]
+pub struct DownloadLog {
+    /// Unique build-id for which to download the build log.
+    pub id: Uuid,
+}
+
+/// Query Parameters for the [`DownloadLog`] endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DownloadLogQuery {}
