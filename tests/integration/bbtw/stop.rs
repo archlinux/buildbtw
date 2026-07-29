@@ -15,7 +15,7 @@ use crate::{
 async fn test_stop(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace
     let tx = ctx.state.db.begin().await?;
-    let buildspace = factories::buildspace(&tx, "my-buildspace").await?;
+    let (buildspace, _) = factories::buildspace_with_iteration(&tx, "my-buildspace").await?;
     tx.commit().await?;
 
     // Run stop command

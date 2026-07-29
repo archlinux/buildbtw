@@ -46,34 +46,16 @@ pub async fn oidc_user(db: &DatabaseConnection, username: &str) -> Result<entiti
     Ok(user)
 }
 
-pub async fn buildspace(
-    tx: &DatabaseTransaction,
-    name: &str,
-) -> Result<entities::buildspaces::Model> {
-    let buildspace_slug = buildspace::Slug::try_from(name)?;
-    let buildspace = queries::buildspaces::insert(buildspace_slug)
-        .exec_with_returning(tx)
-        .await?;
-
-    Ok(buildspace)
-}
-
 pub async fn buildspace_with_iteration(
     tx: &DatabaseTransaction,
     name: &str,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
     let buildspace_slug = buildspace::Slug::try_from(name)?;
-    let buildspace = queries::buildspaces::insert(buildspace_slug)
-        .exec_with_returning(tx)
-        .await?;
-    let iteration = queries::iterations::insert(
-        buildspace.id.0,
-        1,
-        Vec::new().into(),
-        entities::iterations::NewIterationReason::FirstIteration,
-    )
-    .exec_with_returning(tx)
-    .await?;
+    let (insert_buildspace, insert_iteration) =
+        queries::buildspaces::insert(buildspace_slug, Vec::new().into());
+
+    let buildspace = insert_buildspace.exec_with_returning(tx).await?;
+    let iteration = insert_iteration.exec_with_returning(tx).await?;
 
     Ok((buildspace, iteration))
 }

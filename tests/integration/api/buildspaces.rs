@@ -237,7 +237,7 @@ async fn test_create_buildspace_no_name_invalid_changeset_slug(
 async fn test_get_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace
     let tx = ctx.state.db.begin().await?;
-    let buildspace = factories::buildspace(&tx, "buildspace").await?;
+    let (buildspace, _) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
     tx.commit().await?;
 
     // Get the buildspace

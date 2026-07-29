@@ -27,18 +27,11 @@ pub async fn create(
         return Err(ResponseError::Conflict("Buildspace already exists".into()));
     }
 
-    let buildspace = queries::buildspaces::insert(validated.name)
-        .exec_with_returning(&tx)
-        .await?;
+    let (insert_buildspace, insert_iteration) =
+        queries::buildspaces::insert(validated.name, validated.changesets);
 
-    queries::iterations::insert(
-        buildspace.id.into(),
-        1,
-        validated.changesets,
-        entities::iterations::NewIterationReason::FirstIteration,
-    )
-    .exec(&tx)
-    .await?;
+    let buildspace = insert_buildspace.exec_with_returning(&tx).await?;
+    insert_iteration.exec(&tx).await?;
 
     tx.commit().await?;
 
