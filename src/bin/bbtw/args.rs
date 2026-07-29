@@ -10,17 +10,18 @@ use url::Url;
 #[derive(Debug, Clone, Subcommand)]
 #[allow(clippy::enum_variant_names)]
 pub enum Command {
-    /// Create a new buildspace
+    /// Make a new buildspace
     ///
     /// Examples:
     ///
-    /// Create a new buildspace named "libfoo", for the package "libfoo" on the main branch:
-    ///
-    /// `bbtw new cowfortune`
-    ///
-    /// Create a new buildspace named "complicated-fix" for multiple packages on different branches:
+    /// To create a new buildspace named "complicated-fix" for multiple packages on different branches:
     ///
     /// `bbtw new --name complicated-fix cowfortune/fix-deps botsay/fix-compilation ponysay/main`
+    ///
+    /// By default, the first package name is used as the buildspace name, and the default branch for each package is "main".
+    /// E.g. to create a new buildspace named "libfoo", for the package "libfoo" on the main branch:
+    ///
+    /// `bbtw new cowfortune`
     New {
         /// Name of the new buildspace. Default: Name of the first repository
         /// specified in origin changesets
@@ -31,7 +32,7 @@ pub enum Command {
         #[arg(short, long)]
         name: Option<buildspace::Slug>,
 
-        /// Changesets to include, in the format `repo_slug` or `repo_slug/branch_name`
+        /// Changesets to include, in the format `gitlab_repo_name` or `gitlab_repo_name/branch_name`
         #[arg(required = true)]
         changesets: Vec<ChangesetArg>,
     },
