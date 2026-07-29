@@ -14,7 +14,7 @@ use color_eyre::Result;
 
 mod args;
 mod auth;
-
+mod log;
 mod new;
 mod show;
 mod stop;
@@ -32,6 +32,10 @@ async fn main() -> Result<()> {
 
     #[allow(clippy::todo)]
     match args.command {
+        args::Command::Log { build_id } => {
+            let client = ApiClient::new(args.server_url, args.state_dir).await?;
+            log::log(build_id, client).await
+        }
         args::Command::New { name, changesets } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
             new::new(name, changesets, api_client).await

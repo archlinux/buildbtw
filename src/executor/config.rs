@@ -30,8 +30,6 @@ pub struct RunBuildScript {
 
     /// API config for uploading build artifacts and updating status
     pub api_config: Option<RunBuildScriptApiConfig>,
-
-    pub log_destination: LogDestination,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,14 +53,6 @@ impl RunBuildScriptApiConfig {
             self.api_token.expose_secret(),
         )
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum LogDestination {
-    /// Stream both stdout and stderr to this file.
-    File(Utf8PathBuf),
-    /// Inherit stdout/stderr from the parent process.
-    InheritStdio,
 }
 
 #[derive(Debug, Clone, PartialEq)]

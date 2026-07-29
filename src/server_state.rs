@@ -1,7 +1,11 @@
+use std::{collections::HashMap, sync::Arc};
+
 use camino::Utf8PathBuf;
 use redact::Secret;
 use sea_orm::DatabaseConnection;
+use tokio::sync;
 use url::Url;
+use uuid::Uuid;
 
 use crate::oidc;
 
@@ -25,6 +29,11 @@ pub struct ServerState {
     /// Port can be omitted if it's the standard port.
     /// E.g. <https://buildbtw.archlinux.org>
     pub server_url: Url,
+
+    /// Signal build log upload completion while still in transit
+    ///
+    /// Acts as an EOF signal for download requests while upload has started but didn't finish yet
+    pub build_log_upload: Arc<sync::RwLock<HashMap<Uuid, Arc<sync::watch::Receiver<bool>>>>>,
 }
 
 /// Allows us to use the [axum_extra::extract::cookie::PrivateCookieJar]

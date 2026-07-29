@@ -10,6 +10,8 @@
 mod args;
 pub mod config;
 
+use std::{collections::HashMap, sync::Arc};
+
 use axum_server::{Handle, tls_rustls::RustlsConfig};
 #[cfg(debug_assertions)]
 use buildbtw::authelia;
@@ -29,6 +31,7 @@ use sea_orm::TransactionTrait;
 use tokio::{
     fs::{self, set_permissions},
     net::UnixListener,
+    sync::RwLock,
 };
 use tokio_util::sync::CancellationToken;
 use tracing::info;
@@ -218,6 +221,7 @@ async fn run_server(db: DatabaseConnection, config: Config) -> Result<()> {
         cookie_encryption_key: config.cookie_encryption_key,
         data_dir: config.data_dir,
         server_url: config.server_url.clone(),
+        build_log_upload: Arc::new(RwLock::new(HashMap::new())),
     };
 
     tasks::initialize(

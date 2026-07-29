@@ -91,7 +91,6 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
                 api_token,
                 build_id,
             }),
-            log_destination: config::LogDestination::InheritStdio,
         },
         CancellationToken::new(),
     )
@@ -99,10 +98,11 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
 
     // Check that the build was marked as successful.
     let tx = ctx.state.db.begin().await?;
-    let updated = queries::builds::by_id(build.id)
-        .one(&tx)
-        .await?
-        .expect("build row disappeared after run");
+    let updated =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
+            .one(&tx)
+            .await?
+            .expect("build row disappeared after run");
     assert_eq!(updated.status, package::BuildStatus::Built);
 
     // Check that build artifacts where copied into server data dir.
@@ -116,6 +116,22 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
     assert!(
         tokio::fs::try_exists(repo_dir.join(package_filename)).await?,
         "Expected artifact not found at {repo_dir}/{package_filename}"
+    );
+
+    // Check that build logs where copied into server data dir.
+    let log_path = builds::build_log_path(&updated, &ctx.state.data_dir)?;
+    assert!(
+        tokio::fs::try_exists(&log_path).await?,
+        "Expected log not found at {log_path}"
+    );
+    let log = tokio::fs::read_to_string(&log_path).await?;
+    assert!(
+        log.contains("Building something"),
+        "Expected log message not found"
+    );
+    assert!(
+        log.contains("Finished building buildbtw-rocks 2.1-1"),
+        "Expected log message not found"
     );
 
     Ok(())
@@ -173,7 +189,6 @@ arch=(any)
                     api_token,
                     build_id,
                 }),
-                log_destination: config::LogDestination::InheritStdio,
             },
             CancellationToken::new(),
         )
@@ -184,11 +199,21 @@ arch=(any)
 
     // Check that the build was marked as failed.
     let tx = ctx.state.db.begin().await?;
-    let updated = queries::builds::by_id(build.id)
-        .one(&tx)
-        .await?
-        .expect("build row disappeared after run");
+    let updated =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
+            .one(&tx)
+            .await?
+            .expect("build row disappeared after run");
     assert_eq!(updated.status, package::BuildStatus::Failed);
+
+    // Check that build logs where copied into server data dir.
+    let log_path = builds::build_log_path(&updated, &ctx.state.data_dir)?;
+    assert!(
+        tokio::fs::try_exists(&log_path).await?,
+        "Expected log not found at {log_path}"
+    );
+    let log = tokio::fs::read_to_string(&log_path).await?;
+    assert!(log.contains("ERROR:"), "Expected log message not found");
 
     Ok(())
 }
@@ -226,7 +251,6 @@ async fn test_flaky_gitlab_executor_build_from_pkgctl_repo_clone() -> Result<()>
             architecture: BuildArchitecture::X86_64,
             api_config: None,
             pacman_repository: None,
-            log_destination: config::LogDestination::InheritStdio,
         },
         CancellationToken::new(),
     )
@@ -313,7 +337,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Check that the build was marked as successful.
     let tx = ctx.state.db.begin().await?;
-    let updated = queries::builds::by_id(build.id)
+    let updated = queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
         .one(&tx)
         .await?
         .expect("build row disappeared after run");
@@ -329,6 +353,22 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     assert!(
         tokio::fs::try_exists(repo_dir.join(package_filename)).await?,
         "Expected artifact not found at {repo_dir}/{package_filename}"
+    );
+
+    // Check that build logs where copied into server data dir.
+    let log_path = builds::build_log_path(&updated, &server_data_dir)?;
+    assert!(
+        tokio::fs::try_exists(&log_path).await?,
+        "Expected log not found at {log_path}"
+    );
+    let log = tokio::fs::read_to_string(&log_path).await?;
+    assert!(
+        log.contains("Building something"),
+        "Expected log message not found"
+    );
+    assert!(
+        log.contains("Finished building buildbtw-rocks 2.1-1"),
+        "Expected log message not found"
     );
 
     Ok(())

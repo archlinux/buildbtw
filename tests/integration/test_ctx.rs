@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 use std::process::{Command, ExitStatus};
+use std::sync::Arc;
 
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
@@ -25,6 +27,7 @@ use redact::Secret;
 use sea_orm::DatabaseConnection;
 use thirtyfour::CapabilitiesHelper;
 use time::OffsetDateTime;
+use tokio::sync::RwLock;
 use url::Url;
 
 use crate::geckodriver::{self, ProcessGuard};
@@ -302,6 +305,7 @@ impl TestCtxBuilder {
             )),
             data_dir: Some(self.data_dir.path().to_path_buf()),
             server_url: server_url.clone(),
+            build_log_upload: Arc::new(RwLock::new(HashMap::new())),
         };
 
         templates::initialize("./".into()).unwrap();
