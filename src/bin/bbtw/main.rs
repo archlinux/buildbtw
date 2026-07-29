@@ -46,11 +46,10 @@ async fn main() -> Result<()> {
         args::Command::Show {
             name,
             limit,
-            show_demo_builds,
             iteration,
         } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
-            show::show(name, iteration, limit.into(), show_demo_builds, &api_client).await
+            show::show(name, iteration, limit.into(), &api_client).await
         }
         args::Command::Auth(auth_command) => {
             auth::auth(&auth_command, args.server_url, args.state_dir).await

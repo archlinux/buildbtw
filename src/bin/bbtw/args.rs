@@ -79,10 +79,6 @@ pub enum Command {
         /// Show builds from the iteration with this sequence number. Default: show the builds from the latest iteration.
         #[arg(long, short, value_parser = value_parser!(u32).range(1..))]
         iteration: Option<u32>,
-
-        /// Display some non-existent builds for development. Temporary, until we have more ways to modify builds in the actual DB.
-        #[arg(long, action, default_value_t = false)]
-        show_demo_builds: bool,
     },
 
     /// Authenticate and check login status

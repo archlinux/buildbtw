@@ -26,9 +26,7 @@ async fn test_show(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Run show command with demo data
     let mut cmd = ctx.bbtw_cmd();
-    cmd.arg("show")
-        .arg(buildspace.name.as_ref())
-        .arg("--show-demo-builds");
+    cmd.arg("show").arg(buildspace.name.as_ref());
     let output = run_cmd(&mut cmd).await?;
 
     // Snapshot output
