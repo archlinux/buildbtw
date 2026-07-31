@@ -1,6 +1,9 @@
 use buildbtw::{buildspace, executor::config, external_secrets, package::KnownArchitecture};
 use camino::Utf8PathBuf;
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, OptionExt},
+};
 use url::Url;
 use uuid::Uuid;
 
@@ -253,28 +256,44 @@ pub struct BuildScriptArgs {
     #[arg(long, env = "CUSTOM_ENV_CI_PROJECT_DIR")]
     pub ci_project_dir: Utf8PathBuf,
 
+    /// Base URL of the pacman repository that should be injected
+    #[clap(flatten)]
+    pacman_repository: Option<PacmanRepoArgs>,
+
+    /// API config for uploading build artifacts and updating status
+    #[clap(flatten)]
+    api_config: Option<ApiConfigArgs>,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+#[group(requires_all = ["buildspace", "iteration", "architecture", "pacman_repository_base_url"])]
+pub struct PacmanRepoArgs {
     /// Buildspace slug
-    #[arg(long, env = "CUSTOM_ENV_BUILDSPACE_SLUG", requires_all = ["iteration_seqid", "architecture", "pacman_repository_base_url"])]
-    pub buildspace_slug: Option<buildspace::Slug>,
+    #[arg(long, env = "CUSTOM_ENV_BUILDSPACE")]
+    pub buildspace: buildspace::Slug,
 
     /// Iteration sequence-id
-    #[arg(long, env = "CUSTOM_ENV_ITERATION_SEQID", requires_all = ["buildspace_slug", "architecture", "pacman_repository_base_url"])]
-    pub iteration_seqid: Option<u32>,
+    #[arg(long, env = "CUSTOM_ENV_ITERATION")]
+    pub iteration: u32,
 
     /// Build architecture
-    #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE", requires_all = ["buildspace_slug", "iteration_seqid", "pacman_repository_base_url"])]
-    pub architecture: Option<KnownArchitecture>,
+    #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE")]
+    pub architecture: KnownArchitecture,
 
     /// Base URL of the pacman repository that should be injected
     ///
     /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
     /// If no value is provided, no pacman repository will be injected into the build.
-    #[arg(long, env = "CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", requires_all = ["buildspace_slug", "iteration_seqid", "architecture"])]
-    pub pacman_repository_base_url: Option<Url>,
+    #[arg(long, env = "CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL")]
+    pub pacman_repository_base_url: Url,
+}
 
-    /// Build uuid
-    #[arg(long, env = "CUSTOM_ENV_BUILD_ID", requires_all = ["api_server_url"])]
-    pub build_id: Option<Uuid>,
+#[derive(Debug, Clone, clap::Args)]
+#[group(requires_all = ["build_id", "api_server_url"])]
+pub struct ApiConfigArgs {
+    /// Build uuid for API calls.
+    #[arg(long, env = "CUSTOM_ENV_BUILD_ID")]
+    pub build_id: Uuid,
 
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
@@ -283,8 +302,8 @@ pub struct BuildScriptArgs {
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", verbatim_doc_comment, requires_all = ["build_id", "api_token_path"])]
-    pub api_server_url: Option<Url>,
+    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", verbatim_doc_comment)]
+    pub api_server_url: Url,
 
     /// Path to a file containing the API token for authentication
     ///
@@ -298,7 +317,7 @@ pub struct BuildScriptArgs {
     /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "BUILDBTW_EXECUTOR_TOKEN_PATH", verbatim_doc_comment, requires_all = ["api_server_url"])]
+    #[arg(long, env = "BUILDBTW_EXECUTOR_TOKEN_PATH", verbatim_doc_comment)]
     api_token_path: Option<Utf8PathBuf>,
 }
 
@@ -308,38 +327,40 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
     fn try_from(
         BuildScriptArgs {
             ci_project_dir,
-            buildspace_slug,
-            iteration_seqid,
-            architecture,
-            pacman_repository_base_url,
-            build_id,
-            api_server_url,
-            api_token_path: bbtw_token_path,
+            pacman_repository,
+            api_config,
         }: BuildScriptArgs,
     ) -> Result<Self, Self::Error> {
-        let api_token =
-            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", bbtw_token_path.as_deref())?;
-
-        let mut upload_config = None;
-
-        if let Some(api_token) = api_token
-            && let Some(api_server_url) = api_server_url
-        {
-            upload_config = Some(config::Upload {
-                api_server_url,
+        let mut api = None;
+        if let Some(api_config) = api_config {
+            let api_token = external_secrets::get_optional(
+                "BUILDBTW_EXECUTOR_TOKEN",
+                api_config.api_token_path.as_deref(),
+            )?
+            .ok_or_eyre("API endpoint configured but no API token provided")?;
+            api = Some(config::ApiConfig {
+                api_server_url: api_config.api_server_url,
                 api_token,
+                build_id: api_config.build_id,
+            });
+        }
+
+        let mut pacman = None;
+        if let Some(pacman_repository) = pacman_repository {
+            pacman = Some(config::PacmanRepo {
+                buildspace: pacman_repository.buildspace,
+                iteration: pacman_repository.iteration,
+                architecture: pacman_repository.architecture,
+                pacman_repository_base_url: pacman_repository.pacman_repository_base_url,
             });
         }
 
         Ok(config::RunBuildScript {
             ci_project_dir,
-            buildspace_slug,
-            iteration_seqid,
-            architecture,
-            pacman_repository_base_url,
-            build_id,
+            pacman_repository: pacman,
 
-            upload_config,
+            api_config: api,
+
             // When invoked as a standalone binary, always log to the passed file descriptors.
             log_destination: config::LogDestination::InheritStdio,
         })

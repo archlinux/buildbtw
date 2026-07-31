@@ -9,6 +9,7 @@
 
 use std::process::Stdio;
 
+use axum_extra::routing::TypedPath;
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,
@@ -16,8 +17,9 @@ use color_eyre::{
 };
 use tokio::process::Command;
 use tracing::debug;
+use url::Url;
 
-use crate::{builds::build_repo_path, buildspace, package};
+use crate::{api, builds::build_repo_path, buildspace, package};
 
 /// Returns the filename for a pacman package database of a buildspace.
 #[must_use]
@@ -85,4 +87,31 @@ pub async fn ensure_pacman_repo_exists(
         pacman_repo_add(buildspace, iteration, architecture, &[], override_data_dir).await?;
     }
     Ok(())
+}
+
+/// Helper to return a usable pacman repository URL by taking all required
+/// arguments for the [`api::builds::ServeRepoFile`] endpoint, constructing
+/// the full URL based on the given API base URL leaving the last element
+/// for the filename popped off.
+/// The returned URL can be used by pacman as a repository.
+pub fn pacman_repository_url(
+    api_url: Url,
+    buildspace: &buildspace::Slug,
+    iteration: u32,
+    architecture: &package::KnownArchitecture,
+) -> Result<Url> {
+    let serve_repo_uri = api::builds::ServeRepoFile {
+        buildspace: buildspace.clone(),
+        iteration,
+        architecture: *architecture,
+        filename: "".into(),
+    }
+    .to_uri();
+    let mut url = api_url;
+    url.path_segments_mut()
+        .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
+        .pop_if_empty()
+        .extend(serve_repo_uri.path().split('/'))
+        .pop();
+    Ok(url)
 }

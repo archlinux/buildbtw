@@ -3,7 +3,7 @@ use std::{collections::HashMap, process::Stdio};
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use buildbtw::{
     builds, entities,
-    executor::{self, run::build_project_dir},
+    executor::{self, config},
     git, package, queries, storage,
 };
 use camino::Utf8PathBuf;
@@ -15,7 +15,6 @@ use rstest::*;
 use sea_orm::TransactionTrait;
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
-use uuid::Uuid;
 
 use crate::{
     factories,
@@ -24,8 +23,9 @@ use crate::{
 
 /// Basic PKGBUILD that should just work.
 const PKGBUILD: &[u8] = b"pkgname=buildbtw-rocks
-pkgver=1.3.3.7
-pkgrel=42
+pkgver=2.1
+pkgrel=1
+url='https://www.archlinux.org'
 arch=(any)
 
 package() {
@@ -35,19 +35,30 @@ package() {
 
 /// SRCINFO for the above PKGBUILD.
 const SRCINFO: &[u8] = b"pkgbase = buildbtw-rocks
-pkgver = 1.3.3.7
-pkgrel = 42
+pkgver = 2.1
+pkgrel = 1
 arch = any
+url = https://www.archlinux.org
 
 pkgname = buildbtw-rocks
 ";
 
+#[rstest]
 #[tokio::test]
-async fn test_flaky_gitlab_executor_build_project_dir() -> Result<()> {
+async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    let build = factories::build(&tx, iteration.id, "buildbtw-rocks").await?;
+    let build_id = build.id.0;
+    tx.commit().await?;
+
+    let api_server_url = ctx.state.server_url;
+    let api_token = executor::run_local::retrieve_system_api_token(&ctx.state.db)
+        .await?
+        .secret_token
+        .0;
+
     let test_project_dir = camino_tempfile::Builder::new()
-        .prefix("buildbtw-test-dir-")
-        .tempdir()?;
-    let test_output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
 
@@ -57,36 +68,64 @@ async fn test_flaky_gitlab_executor_build_project_dir() -> Result<()> {
     let srcinfo_path = test_project_dir.path().join(SRCINFO_FILE_NAME);
     tokio::fs::write(srcinfo_path, SRCINFO).await?;
 
-    build_project_dir(
-        test_project_dir.path(),
-        test_output_dir.path(),
-        None,
+    executor::run::build_script(
         120,
-        &executor::config::LogDestination::InheritStdio,
-        &Uuid::new_v4(),
-        None,
+        config::RunBuildScript {
+            ci_project_dir: test_project_dir.path().to_path_buf(),
+            pacman_repository: None,
+            api_config: Some(config::ApiConfig {
+                api_server_url,
+                api_token,
+                build_id,
+            }),
+            log_destination: config::LogDestination::InheritStdio,
+        },
         CancellationToken::new(),
     )
     .await?;
+
+    // Check that the build was marked as successful.
+    let tx = ctx.state.db.begin().await?;
+    let updated = queries::builds::by_id(build.id)
+        .one(&tx)
+        .await?
+        .expect("build row disappeared after run");
+    assert_eq!(updated.status, package::BuildStatus::Built);
+
+    // Check that build artifacts where copied into server data dir.
+    let package_filename = "buildbtw-rocks-1.3.3.7-42-any.pkg.tar.zst";
+    let repo_dir = builds::build_repo_path(
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &ctx.state.data_dir,
+    )?;
     assert!(
-        tokio::fs::try_exists(
-            test_output_dir
-                .path()
-                .join("buildbtw-rocks-1.3.3.7-42-any.pkg.tar.zst")
-        )
-        .await?,
-        "Cannot find expected artifact file inside the output-dir"
+        tokio::fs::try_exists(repo_dir.join(package_filename)).await?,
+        "Expected artifact not found at {repo_dir}/{package_filename}"
     );
 
     Ok(())
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_flaky_gitlab_executor_build_project_dir_fails_on_broken_pkgbuild() -> Result<()> {
+async fn test_flaky_gitlab_executor_build_fails_on_broken_pkgbuild(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    let build = factories::build(&tx, iteration.id, "git-smash").await?;
+    let build_id = build.id.0;
+    tx.commit().await?;
+
+    let api_server_url = ctx.state.server_url;
+    let api_token = executor::run_local::retrieve_system_api_token(&ctx.state.db)
+        .await?
+        .secret_token
+        .0;
+
     let test_project_dir = camino_tempfile::Builder::new()
-        .prefix("buildbtw-test-dir-")
-        .tempdir()?;
-    let test_output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
 
@@ -101,14 +140,18 @@ arch=(any)
     .await?;
 
     assert!(
-        build_project_dir(
-            test_project_dir.path(),
-            test_output_dir.path(),
-            None,
+        executor::run::build_script(
             120,
-            &executor::config::LogDestination::InheritStdio,
-            &Uuid::new_v4(),
-            None,
+            config::RunBuildScript {
+                ci_project_dir: test_project_dir.path().to_path_buf(),
+                pacman_repository: None,
+                api_config: Some(config::ApiConfig {
+                    api_server_url,
+                    api_token,
+                    build_id,
+                }),
+                log_destination: config::LogDestination::InheritStdio,
+            },
             CancellationToken::new(),
         )
         .await
@@ -116,16 +159,21 @@ arch=(any)
         "Build must fail on broken pkgbuild"
     );
 
+    // Check that the build was marked as failed.
+    let tx = ctx.state.db.begin().await?;
+    let updated = queries::builds::by_id(build.id)
+        .one(&tx)
+        .await?
+        .expect("build row disappeared after run");
+    assert_eq!(updated.status, package::BuildStatus::Failed);
+
     Ok(())
 }
 
 #[tokio::test]
 #[rstest]
-async fn test_flaky_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -> Result<()> {
+async fn test_flaky_gitlab_executor_build_from_pkgctl_repo_clone() -> Result<()> {
     let test_project_dir = camino_tempfile::Builder::new()
-        .prefix("buildbtw-test-dir-")
-        .tempdir()?;
-    let test_output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
         .tempdir()?;
 
@@ -144,20 +192,25 @@ async fn test_flaky_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -
         bail!("Failed to clone remote package repository");
     }
 
-    build_project_dir(
-        test_project_dir.path().join("git-smash").as_path(),
-        test_output_dir.path(),
-        None,
+    executor::run::build_script(
         120,
-        &executor::config::LogDestination::InheritStdio,
-        &Uuid::new_v4(),
-        None,
+        config::RunBuildScript {
+            ci_project_dir: test_project_dir
+                .path()
+                .join("git-smash")
+                .as_path()
+                .to_path_buf(),
+            api_config: None,
+            pacman_repository: None,
+            log_destination: config::LogDestination::InheritStdio,
+        },
         CancellationToken::new(),
     )
     .await?;
 
     Ok(())
 }
+
 /// Check that a full happy-path local build works.
 /// Compared to the other tests in this module, this additionally checks
 /// that the source repo is cloned correctly, the build status is updated,
@@ -166,13 +219,10 @@ async fn test_flaky_gitlab_executor_build_project_dir_from_pkgctl_repo_clone() -
 #[tokio::test]
 async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Prepare temporary working dir and source repo
-    let server_data_dir = camino_tempfile::Builder::new()
-        .prefix("buildbtw-test-run-local-")
-        .tempdir()?;
+    let server_data_dir = ctx.state.data_dir;
 
     let pkgbase: package::BaseName = "buildbtw-rocks".parse()?;
-    let source_dir =
-        storage::package_source_dir(&Some(server_data_dir.path().to_path_buf()), &pkgbase)?;
+    let source_dir = storage::package_source_dir(&server_data_dir, &pkgbase)?;
     tokio::fs::create_dir_all(source_dir.parent().ok_or_eyre("source_dir has no parent")?).await?;
 
     let source_repo = git2::Repository::init(source_dir.as_std_path())?;
@@ -224,7 +274,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     executor::run_local::build(
         ctx.state.db.clone(),
         build_ex.clone(),
-        Some(server_data_dir.path().to_path_buf()),
+        server_data_dir.clone(),
         ctx.state.server_url,
         CancellationToken::new(),
     )
@@ -253,7 +303,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
         &buildspace_ex.name,
         iteration_ex.sequence,
         &build_ex.architecture,
-        &Some(server_data_dir.path().to_path_buf()),
+        &server_data_dir,
     )?;
     assert!(
         tokio::fs::try_exists(repo_dir.join(package_filename)).await?,

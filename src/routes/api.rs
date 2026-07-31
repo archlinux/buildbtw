@@ -16,6 +16,7 @@ pub fn router() -> Router<ServerState> {
         .typed_post(builds::upload_package)
         .typed_get(builds::download_package)
         .typed_get(builds::serve_repo_file)
+        .typed_put(builds::set_status)
         .typed_post(buildspaces::create)
         .typed_get(buildspaces::get_with_iteration)
         .typed_get(buildspaces::get_with_latest_iteration)

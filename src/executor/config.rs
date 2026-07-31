@@ -18,26 +18,14 @@ pub struct RunBuildScript {
     /// Directory of the project that will be built
     pub ci_project_dir: Utf8PathBuf,
 
-    /// Buildspace slug
-    pub buildspace_slug: Option<buildspace::Slug>,
-
-    /// Iteration sequence-id
-    pub iteration_seqid: Option<u32>,
-
-    /// Build architecture
-    pub architecture: Option<KnownArchitecture>,
-
-    /// Base URL of the pacman repository that should be injected
+    /// Pacman repository that should be injected
     ///
     /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
     /// If no value is provided, no pacman repository will be injected into the build.
-    pub pacman_repository_base_url: Option<Url>,
+    pub pacman_repository: Option<PacmanRepo>,
 
-    /// Build uuid
-    pub build_id: Option<Uuid>,
-
-    /// Configuration for uploading build artifacts to the server
-    pub upload_config: Option<Upload>,
+    /// API config for uploading build artifacts and updating status
+    pub api_config: Option<ApiConfig>,
 
     pub log_destination: LogDestination,
 }
@@ -51,7 +39,25 @@ pub enum LogDestination {
 }
 
 #[derive(Debug, Clone)]
-pub struct Upload {
+pub struct PacmanRepo {
+    /// Buildspace slug
+    pub buildspace: buildspace::Slug,
+
+    /// Iteration sequence-id
+    pub iteration: u32,
+
+    /// Build architecture
+    pub architecture: KnownArchitecture,
+
+    /// Base URL of the pacman repository that should be injected
+    ///
+    /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
+    /// If no value is provided, no pacman repository will be injected into the build.
+    pub pacman_repository_base_url: Url,
+}
+
+#[derive(Debug, Clone)]
+pub struct ApiConfig {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
@@ -59,6 +65,9 @@ pub struct Upload {
     pub api_server_url: Url,
 
     pub api_token: Secret<String>,
+
+    /// Build uuid
+    pub build_id: Uuid,
 }
 
 #[derive(Debug, Clone)]

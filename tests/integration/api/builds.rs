@@ -996,3 +996,114 @@ async fn test_serve_build_artifact_unknown_iteration(#[future(awt)] ctx: TestCtx
 
     Ok(())
 }
+
+#[rstest]
+#[case(package::BuildStatus::Scheduled, package::BuildStatus::Building)]
+#[case(package::BuildStatus::Building, package::BuildStatus::Failed)]
+#[tokio::test]
+async fn test_update_build_status(
+    #[case] status_from: package::BuildStatus,
+    #[case] status_to: package::BuildStatus,
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        status_from,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
+    tx.commit().await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_put(&api::builds::SetStatus {
+            id: build.id.into(),
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::SetStatusQuery { status: status_to })
+        .await;
+
+    // Check response status
+    response.assert_status_ok();
+
+    // Check build status update
+    let tx = ctx.state.db.begin().await?;
+    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    assert_eq!(status_to, build.status, "build status must be updated");
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_update_build_status_unknown_build(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_put(&api::builds::SetStatus { id: Uuid::new_v4() })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::SetStatusQuery {
+            status: package::BuildStatus::Pending,
+        })
+        .await;
+
+    // Check build not found
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[case(package::BuildStatus::Built, package::BuildStatus::Blocked)]
+#[tokio::test]
+async fn test_update_build_status_invalid_transition(
+    #[case] status_from: package::BuildStatus,
+    #[case] status_to: package::BuildStatus,
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        status_from,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
+    tx.commit().await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_put(&api::builds::SetStatus {
+            id: build.id.into(),
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::SetStatusQuery { status: status_to })
+        .await;
+
+    // Check response status
+    response.assert_status_unprocessable_entity();
+
+    // Check build status update
+    let tx = ctx.state.db.begin().await?;
+    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    assert_eq!(
+        status_from, build.status,
+        "build status must not be updated"
+    );
+
+    Ok(())
+}
