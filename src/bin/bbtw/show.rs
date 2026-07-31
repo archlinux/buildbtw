@@ -16,20 +16,17 @@ pub async fn show(
     buildspace_name: buildspace::Slug,
     iteration_sequence: Option<u32>,
     max_results: Option<u64>,
-    show_demo_data: bool,
     api_client: &ApiClient,
 ) -> Result<()> {
     // Fetch all data
     let buildspace = api_client::buildspaces::get(api_client, buildspace_name.clone()).await?;
-    let mut responses_by_status = all_builds_grouped_by_status(
+    let responses_by_status = all_builds_grouped_by_status(
         api_client,
         &buildspace_name,
         iteration_sequence,
         max_results,
     )
     .await?;
-
-    add_demo_data(&mut responses_by_status, show_demo_data)?;
 
     trace!(?responses_by_status);
 
@@ -125,41 +122,6 @@ pub async fn show(
             if more > 0 {
                 println!("  [And {more} others]");
             }
-        }
-    }
-
-    Ok(())
-}
-
-fn add_demo_data(
-    builds: &mut HashMap<BuildStatus, ListBuildsResponse>,
-    show_demo_data: bool,
-) -> Result<(), color_eyre::eyre::Error> {
-    use buildbtw::api;
-    use uuid::Uuid;
-
-    if show_demo_data {
-        for status in BuildStatus::iter() {
-            // Create build outside of the closure below to simplify Result handling.
-
-            let proto_build = api::builds::Build {
-                id: Uuid::new_v4(),
-                iteration_id: Uuid::new_v4(),
-                created_at: time::OffsetDateTime::now_utc(),
-                pkgbase: "dummy_build".parse()?,
-                branch_name: "main".try_into()?,
-                commit_hash: "aaaaa".parse()?,
-                status,
-                version: "0.1.0-0".parse()?,
-                architecture: buildbtw::package::KnownArchitecture::X86_64,
-            };
-            builds.entry(status).and_modify(|response| {
-                response.builds.push(api::builds::Build {
-                    status,
-                    ..proto_build
-                });
-                response.total_build_count += 1;
-            });
         }
     }
 

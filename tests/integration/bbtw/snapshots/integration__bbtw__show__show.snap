@@ -4,22 +4,10 @@ expression: output.stdout
 ---
 Showing builds for iteration #1 of buildspace target
 
-Building builds
-  ✦ dummy_build
-
-Built builds
-  ✓ dummy_build
-
-Failed builds
-  ✗ dummy_build
-
 Pending builds
-  ⧗ dummy_build (Waiting for runner)
   ⧗ 0 (Waiting to be sent to executor)
   ⧗ 1 (Waiting to be sent to executor)
   ⧗ 2 (Waiting to be sent to executor)
   ⧗ 3 (Waiting to be sent to executor)
   ⧗ 4 (Waiting to be sent to executor)
-  ⧗ dummy_build (Waiting to be sent to executor)
-  ● dummy_build (Waiting for dependencies to build)
-  [And 4 others]
+  [And 1 others]
