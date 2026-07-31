@@ -45,11 +45,7 @@ pub async fn schedule_pending_builds(config: &Config, tx: &DatabaseTransaction) 
 
     for build in &pending {
         match config {
-            Config::Local => {
-                queries::builds::dispatch_to_local_executor(build.id)
-                    .exec(tx)
-                    .await?
-            }
+            Config::Local => queries::builds::schedule(build.id).exec(tx).await?,
             Config::Gitlab(_) => {
                 bail!("Dispatching builds to gitlab is not implemented yet.");
             }

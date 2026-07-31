@@ -29,6 +29,7 @@ mod m20260603_133139_add_build_dispatched_to;
 mod m20260706_165635_separate_oidc_identity;
 mod m20260722_130332_add_buildspace_status;
 mod m20260723_000000_allow_skipped_builds_dispatched_to;
+mod m20260731_000000_allow_scheduled_builds_dispatched_to;
 
 #[derive(Debug)]
 pub struct Migrator;
@@ -55,6 +56,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260706_165635_separate_oidc_identity::Migration),
             Box::new(m20260722_130332_add_buildspace_status::Migration),
             Box::new(m20260723_000000_allow_skipped_builds_dispatched_to::Migration),
+            Box::new(m20260731_000000_allow_scheduled_builds_dispatched_to::Migration),
         ]
     }
 }

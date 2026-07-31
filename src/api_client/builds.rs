@@ -6,6 +6,7 @@ use crate::{
 };
 use color_eyre::{Result, eyre::Context};
 use tracing::instrument;
+use uuid::Uuid;
 
 #[instrument(skip(api_client))]
 pub async fn list(
@@ -42,4 +43,25 @@ pub async fn list(
         .wrap_err("Couldn't deserialize response")?;
 
     Ok(response)
+}
+
+#[instrument(skip(api_client))]
+pub async fn set_status(api_client: &ApiClient, build_id: Uuid, status: BuildStatus) -> Result<()> {
+    let resp = api_client
+        .reqwest_client
+        .put(
+            api_client
+                .buildbtw_server_url
+                .join(&builds::SetStatus { id: build_id }.to_string())?,
+        )
+        .query(&builds::SetStatusQuery { status })
+        .send()
+        .await
+        .wrap_err("Couldn't set build status")?;
+
+    if let Err(err) = resp.error_for_status_ref() {
+        return Err(err).wrap_err(resp.text().await?.to_string());
+    }
+
+    Ok(())
 }

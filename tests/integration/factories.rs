@@ -83,6 +83,20 @@ pub async fn build(
     build_from_node(tx, iteration_id, build_node).await
 }
 
+pub async fn build_with_status(
+    tx: &DatabaseTransaction,
+    iteration_id: TxtUuid,
+    pkgbase: &str,
+    status: package::BuildStatus,
+    dispatched_to: Option<entities::builds::DispatchedTo>,
+) -> Result<entities::builds::Model> {
+    let build = build(tx, iteration_id, pkgbase).await?;
+    queries::builds::update_build_status_and_dispatch(build.id, status, dispatched_to)
+        .exec(tx)
+        .await?;
+    Ok(build)
+}
+
 /// More flexible, but less convenient way to create a build.
 pub async fn build_from_node(
     tx: &DatabaseTransaction,

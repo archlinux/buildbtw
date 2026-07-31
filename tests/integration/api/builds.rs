@@ -305,7 +305,7 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
+    queries::builds::schedule_and_dispatch(build.id, entities::builds::DispatchedTo::Local)
         .exec(&tx)
         .await?;
     tx.commit().await?;
@@ -780,11 +780,15 @@ async fn test_serve_build_file(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
-        .exec(&tx)
-        .await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        package::BuildStatus::Building,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
     tx.commit().await?;
 
     // Create package tarball
@@ -864,11 +868,15 @@ async fn test_serve_build_artifact_not_found(#[future(awt)] ctx: TestCtx) -> Res
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
-        .exec(&tx)
-        .await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        package::BuildStatus::Building,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
     tx.commit().await?;
 
     // Create package tarball
@@ -943,11 +951,15 @@ async fn test_serve_build_artifact_unknown_iteration(#[future(awt)] ctx: TestCtx
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
-        .exec(&tx)
-        .await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        package::BuildStatus::Building,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
     tx.commit().await?;
 
     // Create package tarball

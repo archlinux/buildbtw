@@ -2,7 +2,8 @@ use std::{collections::HashMap, process::Stdio};
 
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use buildbtw::{
-    builds, entities,
+    builds,
+    entities::{self, builds::DispatchedTo},
     executor::{self, config},
     git, package, queries, storage,
 };
@@ -48,7 +49,14 @@ pkgname = buildbtw-rocks
 async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
-    let build = factories::build(&tx, iteration.id, "buildbtw-rocks").await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        "buildbtw-rocks",
+        package::BuildStatus::Scheduled,
+        Some(DispatchedTo::Local),
+    )
+    .await?;
     let build_id = build.id.0;
     tx.commit().await?;
 
@@ -93,7 +101,7 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
     assert_eq!(updated.status, package::BuildStatus::Built);
 
     // Check that build artifacts where copied into server data dir.
-    let package_filename = "buildbtw-rocks-1.3.3.7-42-any.pkg.tar.zst";
+    let package_filename = "buildbtw-rocks-2.1-1-any.pkg.tar.zst";
     let repo_dir = builds::build_repo_path(
         &buildspace.name,
         iteration.sequence,
@@ -115,7 +123,14 @@ async fn test_flaky_gitlab_executor_build_fails_on_broken_pkgbuild(
 ) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
     let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
-    let build = factories::build(&tx, iteration.id, "git-smash").await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        "git-smash",
+        package::BuildStatus::Scheduled,
+        Some(DispatchedTo::Local),
+    )
+    .await?;
     let build_id = build.id.0;
     tx.commit().await?;
 
@@ -238,7 +253,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let (_, other_iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
 
     let mut package_file_names = HashMap::new();
-    let package_filename = "buildbtw-rocks-1.3.3.7-42-any.pkg.tar.zst";
+    let package_filename = "buildbtw-rocks-2.1-1-any.pkg.tar.zst";
     package_file_names.insert(
         "buildbtw-rocks".parse()?,
         Utf8PathBuf::from(package_filename),
@@ -251,13 +266,13 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
             commit_hash,
             branch_name: "main".try_into()?,
             package_file_names,
-            version: "1.3.3.7-42".parse()?,
+            version: "2.1-1".parse()?,
         },
     )
     .await?;
 
     // Dispatch build
-    queries::builds::dispatch_to_local_executor(build.id)
+    queries::builds::schedule_and_dispatch(build.id, DispatchedTo::Local)
         .exec(&tx)
         .await?;
 

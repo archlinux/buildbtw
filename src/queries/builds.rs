@@ -152,6 +152,39 @@ pub fn update_build_status(
     builds::Entity::update(model)
 }
 
+/// Updates the build status and dispatched_to of a build.
+///
+/// Helpful to set both in one go when the status requires
+/// dispatched_to to be set due to constraints.
+#[must_use]
+pub fn update_build_status_and_dispatch(
+    build_id: TxtUuid,
+    status: package::BuildStatus,
+    dispatched_to: Option<builds::DispatchedTo>,
+) -> UpdateOne<builds::ActiveModel> {
+    let model = builds::ActiveModel {
+        id: Unchanged(build_id),
+        status: Set(status),
+        dispatched_to: Set(dispatched_to),
+        ..Default::default()
+    };
+    builds::Entity::update(model)
+}
+
+/// Updates the dispatched to field of a build.
+#[must_use]
+pub fn update_dispatched_to(
+    build_id: TxtUuid,
+    dispatched_to: Option<builds::DispatchedTo>,
+) -> UpdateOne<builds::ActiveModel> {
+    let model = builds::ActiveModel {
+        id: Unchanged(build_id),
+        dispatched_to: Set(dispatched_to),
+        ..Default::default()
+    };
+    builds::Entity::update(model)
+}
+
 /// Sets [package::BuildStatus] to "skipped" for all builds:
 /// - from the given buildspace
 /// - that were not dispatched yet
@@ -193,25 +226,48 @@ pub fn pending(iteration_id: Option<Uuid>) -> Select<builds::Entity> {
     query
 }
 
+/// Fetch builds from the background task which is [package::BuildStatus::Scheduled]
+/// but not yet dispatched to a builder.
 #[must_use]
-pub fn scheduled_locally() -> builds::EntityLoader {
+pub fn scheduled_for_dispatch() -> builds::EntityLoader {
     builds::Entity::load().filter(
         builds::COLUMN
             .status
             .eq(package::BuildStatus::Scheduled)
-            .and(builds::COLUMN.dispatched_to.eq(builds::DispatchedTo::Local)),
+            .and(builds::COLUMN.dispatched_to.is_null()),
     )
 }
 
-/// Set the build status to [package::BuildStatus::Scheduled] and `dispatched_to` to
-/// [builds::DispatchedTo::Local]. This will make the local executor pick up the build in a background
-/// task.
+/// Set the build status to [package::BuildStatus::Scheduled]. This will make the local
+/// executor pick up the build in a background task which is responsible to set
+/// `dispatched_to` once its dispatched to a builder.
+///
+/// For local builds, `dispatched_to` can be set to [builds::DispatchedTo::Local].
 #[must_use]
-pub fn dispatch_to_local_executor(build_id: TxtUuid) -> UpdateOne<builds::ActiveModel> {
+pub fn schedule(build_id: TxtUuid) -> UpdateOne<builds::ActiveModel> {
     let model = builds::ActiveModel {
         id: Unchanged(build_id),
         status: Set(package::BuildStatus::Scheduled),
-        dispatched_to: Set(Some(builds::DispatchedTo::Local)),
+        ..Default::default()
+    };
+    builds::Entity::update(model)
+}
+
+/// Set the build status to [package::BuildStatus::Scheduled] and optionally set the
+/// `dispatched_to` field when the scheduler also dispatches the job to a builder.
+///
+/// For local setups, the executor pick up the build in a background task for all
+/// scheduled but not dispatched jobs and is responsible to set `dispatched_to` to
+/// [builds::DispatchedTo::Local] once its dispatched to a builder.
+#[must_use]
+pub fn schedule_and_dispatch(
+    build_id: TxtUuid,
+    dispatched_to: builds::DispatchedTo,
+) -> UpdateOne<builds::ActiveModel> {
+    let model = builds::ActiveModel {
+        id: Unchanged(build_id),
+        status: Set(package::BuildStatus::Scheduled),
+        dispatched_to: Set(Some(dispatched_to)),
         ..Default::default()
     };
     builds::Entity::update(model)

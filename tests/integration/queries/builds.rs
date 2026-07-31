@@ -430,6 +430,7 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
 #[rstest]
 #[case(package::BuildStatus::Pending)]
 #[case(package::BuildStatus::Blocked)]
+#[case(package::BuildStatus::Scheduled)]
 #[tokio::test]
 async fn test_dispatched_to_check_constraint_succeeds(
     #[future(awt)] ctx: TestCtx,
@@ -452,7 +453,6 @@ async fn test_dispatched_to_check_constraint_succeeds(
 }
 
 #[rstest]
-#[case(package::BuildStatus::Scheduled)]
 #[case(package::BuildStatus::Building)]
 #[case(package::BuildStatus::Built)]
 #[case(package::BuildStatus::Failed)]
@@ -496,7 +496,7 @@ async fn test_skip_pending_builds_skips_only_pending(#[future(awt)] ctx: TestCtx
 
     // Create a dispatched build that should not be skipped
     let dispatched_build = factories::build(&tx, iteration.id, "dispatched").await?;
-    queries::builds::dispatch_to_local_executor(dispatched_build.id)
+    queries::builds::schedule_and_dispatch(dispatched_build.id, builds::DispatchedTo::Local)
         .exec(&tx)
         .await?;
 

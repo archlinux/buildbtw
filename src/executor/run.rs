@@ -13,7 +13,7 @@ use url::Url;
 
 use super::shell::ShellScripts;
 use crate::{
-    api::{self},
+    api_client::{self, ApiClient},
     executor::config,
     package,
     pacman_repository::pacman_repository_url,
@@ -53,11 +53,17 @@ pub async fn build_script(
     build_script_args: config::RunBuildScript,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
+    info!("🚀 Starting build job...");
+
+    // Mark the build as building
+    if let Some(api_config) = &build_script_args.api_config {
+        set_build_status(api_config, package::BuildStatus::Building).await?;
+    }
+
     let output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-output-dir-")
         .tempdir()?;
 
-    info!("🚀 Starting build job...");
     let result = build_project_dir(
         output_dir.path(),
         ssh_timeout,
@@ -69,34 +75,12 @@ pub async fn build_script(
     if let Err(ref e) = result {
         info!(?e, "Build failed");
         // Mark the build as failed if an API config has been provided
-        if let Some(api_config) = build_script_args.api_config {
-            update_build_status(&api_config, package::BuildStatus::Failed).await?;
+        if let Some(api_config) = &build_script_args.api_config {
+            set_build_status(api_config, package::BuildStatus::Failed).await?;
         }
     }
 
     result
-}
-
-async fn update_build_status(
-    api_config: &config::ApiConfig,
-    status: package::BuildStatus,
-) -> Result<()> {
-    let http_client = reqwest::Client::new();
-    http_client
-        .put(
-            api_config
-                .api_server_url
-                .join(&api::builds::UpdateBuildStatus {}.to_string())?,
-        )
-        .query(&api::builds::UpdateBuildStatusQuery {
-            build_id: api_config.build_id,
-            status,
-        })
-        .bearer_auth(api_config.api_token.expose_secret())
-        .send()
-        .await?;
-
-    Ok(())
 }
 
 async fn build_project_dir(
@@ -105,11 +89,6 @@ async fn build_project_dir(
     build_script_args: &config::RunBuildScript,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
-    // Mark the build as building
-    if let Some(api_config) = &build_script_args.api_config {
-        update_build_status(api_config, package::BuildStatus::Building).await?;
-    }
-
     // Build the pacman repository URL for the iteration
     let pacman_repository_url: Option<Url> = match build_script_args.pacman_repository.clone() {
         Some(pacman_repository) => Some(pacman_repository_url(
@@ -303,4 +282,16 @@ async fn print_dir_content(path: &Utf8Path) -> Result<()> {
         info!("📦 {filename}");
     }
     Ok(())
+}
+
+/// Update the build status via API.
+async fn set_build_status(
+    api_config: &config::ApiConfig,
+    status: package::BuildStatus,
+) -> Result<()> {
+    let api_client = ApiClient::with_token(
+        api_config.api_server_url.clone(),
+        api_config.api_token.expose_secret(),
+    )?;
+    api_client::builds::set_status(&api_client, api_config.build_id, status).await
 }
