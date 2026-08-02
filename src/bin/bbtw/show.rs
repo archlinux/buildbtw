@@ -12,10 +12,6 @@ use sea_orm::Iterable;
 use tracing::trace;
 use yansi::Paint;
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "It's straightforward, linear code and splitting it up would make it less readable."
-)]
 pub async fn show(
     buildspace_name: buildspace::Slug,
     iteration_sequence: Option<u32>,
