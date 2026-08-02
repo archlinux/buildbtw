@@ -1,4 +1,5 @@
 use axum::{Json, extract::State};
+use color_eyre::eyre::ContextCompat;
 use sea_orm::{DatabaseTransaction, SelectExt};
 use tracing::debug;
 
@@ -26,18 +27,11 @@ pub async fn create(
         return Err(ResponseError::Conflict("Buildspace already exists".into()));
     }
 
-    let buildspace = queries::buildspaces::insert(validated.name)
-        .exec_with_returning(&tx)
-        .await?;
+    let (insert_buildspace, insert_iteration) =
+        queries::buildspaces::insert(validated.name, validated.changesets);
 
-    queries::iterations::insert(
-        buildspace.id.into(),
-        1,
-        validated.changesets,
-        entities::iterations::NewIterationReason::FirstIteration,
-    )
-    .exec(&tx)
-    .await?;
+    let buildspace = insert_buildspace.exec_with_returning(&tx).await?;
+    insert_iteration.exec(&tx).await?;
 
     tx.commit().await?;
 
@@ -58,24 +52,50 @@ pub async fn create(
     }))
 }
 
-pub async fn get(
-    path: api::buildspaces::GetBuildspace,
+pub async fn get_with_iteration(
+    path: api::buildspaces::GetBuildspaceWithIteration,
     _auth: from_request::AuthUser,
     db::Tx(tx): db::Tx,
-) -> ResponseResult<Json<api::buildspaces::GetBuildspaceResponse>> {
-    let buildspace = queries::buildspaces::by_name(path.name.clone())
+) -> ResponseResult<Json<api::buildspaces::GetBuildspaceWithIterationResponse>> {
+    get_with_iteration_inner(tx, path.name, Some(path.iteration_seq)).await
+}
+
+pub async fn get_with_latest_iteration(
+    path: api::buildspaces::GetBuildspaceWithLatestIteration,
+    _auth: from_request::AuthUser,
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<Json<api::buildspaces::GetBuildspaceWithIterationResponse>> {
+    get_with_iteration_inner(tx, path.name, None).await
+}
+
+/// Get a buildspace and one of its iterations.
+/// If passed None as the iteration_seq, return the newest iteration.
+async fn get_with_iteration_inner(
+    tx: DatabaseTransaction,
+    name: buildspace::Slug,
+    iteration_seq: Option<u32>,
+) -> ResponseResult<Json<api::buildspaces::GetBuildspaceWithIterationResponse>> {
+    let buildspace = queries::buildspaces::by_name(name.clone())
         .one(&tx)
         .await?
-        .ok_or(ResponseError::NotFound(format!(
-            r#"buildspace "{}""#,
-            path.name
-        )))?;
+        .ok_or(ResponseError::NotFound(format!(r#"buildspace "{name}""#)))?;
 
-    Ok(Json(api::buildspaces::GetBuildspaceResponse {
+    let iteration = match iteration_seq {
+        Some(iteration_seq) => queries::iterations::by_sequence(buildspace.id, iteration_seq),
+        None => queries::iterations::newest_for_buildspace(buildspace.id),
+    }
+    .one(&tx)
+    .await?
+    // Buildspaces without at least one initial iteration are not supported.
+    .wrap_err("Buildspace has no iterations")?
+    .into();
+
+    Ok(Json(api::buildspaces::GetBuildspaceWithIterationResponse {
         id: buildspace.id.into(),
         created_at: buildspace.created_at,
         name: buildspace.name,
         status: buildspace.status,
+        iteration,
     }))
 }
 

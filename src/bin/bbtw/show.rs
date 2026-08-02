@@ -19,7 +19,12 @@ pub async fn show(
     api_client: &ApiClient,
 ) -> Result<()> {
     // Fetch all data
-    let buildspace = api_client::buildspaces::get(api_client, buildspace_name.clone()).await?;
+    let buildspace = api_client::buildspaces::get_with_iteration(
+        api_client,
+        buildspace_name.clone(),
+        iteration_sequence,
+    )
+    .await?;
     let responses_by_status = all_builds_grouped_by_status(
         api_client,
         &buildspace_name,
@@ -30,20 +35,21 @@ pub async fn show(
 
     trace!(?responses_by_status);
 
-    let returned_sequence = responses_by_status
-        .values()
-        .next()
-        .ok_or_eyre("Expected to receive response for at least one status")?
-        .iteration_sequence;
-
     println!(
-        "Showing builds for iteration #{returned_sequence} of buildspace {}",
+        "Showing builds for iteration #{} of buildspace {}",
+        buildspace.iteration.sequence.bold(),
         buildspace_name.bold()
     );
 
     if buildspace.status == buildspace::Status::Stopped {
         let msg = format!("{} This buildspace is stopped.", buildspace.status.symbol());
         println!("{}", msg.italic());
+    }
+
+    if buildspace.iteration.status == buildbtw::entities::iterations::Status::PendingCalculation {
+        println!();
+
+        println!("The build graph for this iteration is still being calculated.");
     }
 
     for status in [

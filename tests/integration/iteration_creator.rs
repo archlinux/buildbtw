@@ -5,21 +5,13 @@ use sea_orm::{DatabaseTransaction, TransactionTrait};
 // Separate from existing factories because it takes other parameters only needed for tests in this module.
 async fn create_buildspace_with_iteration(
     tx: &DatabaseTransaction,
-    sequence: u32,
     changesets: git::Changesets,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
     let buildspace_slug = buildspace::Slug::try_from("test")?;
-    let buildspace = queries::buildspaces::insert(buildspace_slug)
-        .exec_with_returning(tx)
-        .await?;
-    let iteration = queries::iterations::insert(
-        buildspace.id.0,
-        sequence,
-        changesets,
-        entities::iterations::NewIterationReason::FirstIteration,
-    )
-    .exec_with_returning(tx)
-    .await?;
+    let (insert_buildspace, insert_iteration) =
+        queries::buildspaces::insert(buildspace_slug, changesets);
+    let buildspace = insert_buildspace.exec_with_returning(tx).await?;
+    let iteration = insert_iteration.exec_with_returning(tx).await?;
 
     Ok((buildspace, iteration))
 }
@@ -38,7 +30,6 @@ async fn test_flaky_run() -> Result<()> {
     let tx = db.begin().await?;
     let (buildspace, iteration) = create_buildspace_with_iteration(
         &tx,
-        1u32,
         vec![git::Changeset {
             repo_slug: "libfoo".try_into()?,
             branch_name: "main".try_into()?,

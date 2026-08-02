@@ -4,20 +4,40 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use crate::{buildspace, db_fields::TxtUuid, entities::buildspaces};
+use crate::{
+    buildspace,
+    db_fields::TxtUuid,
+    entities::{buildspaces, iterations},
+    git, queries,
+};
 
-#[allow(dead_code)]
+/// Create a new buildspace and its first iteration.
+/// Creating a buildspace without an iteration is not supported.
 #[must_use]
-pub fn insert(name: buildspace::Slug) -> Insert<buildspaces::ActiveModel> {
+pub fn insert(
+    name: buildspace::Slug,
+    changesets: git::Changesets,
+) -> (
+    Insert<buildspaces::ActiveModel>,
+    Insert<iterations::ActiveModel>,
+) {
+    let buildspace_id = Uuid::new_v4();
     let model = buildspaces::ActiveModel {
-        id: Set(Uuid::new_v4().into()),
+        id: Set(buildspace_id.into()),
         created_at: Set(time::OffsetDateTime::now_utc()),
         name: Set(name),
         // Use database default for status
         status: NotSet,
     };
 
-    buildspaces::Entity::insert(model)
+    let iteration = queries::iterations::insert(
+        buildspace_id,
+        1,
+        changesets,
+        iterations::NewIterationReason::FirstIteration,
+    );
+
+    (buildspaces::Entity::insert(model), iteration)
 }
 
 #[must_use]

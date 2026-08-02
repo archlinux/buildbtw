@@ -53,7 +53,6 @@ pub struct Build {
 pub struct ListBuildsResponse {
     pub total_build_count: u64,
     pub builds: Vec<Build>,
-    pub iteration_sequence: u32,
 }
 
 /// Upload a built package identitifed by its build-id.

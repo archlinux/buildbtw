@@ -1,8 +1,9 @@
 use derive_more::Display;
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 use strum::EnumString;
 
-use crate::git;
+use crate::{api, git};
 use crate::{
     db_fields::TxtUuid,
     entities::{builds, buildspaces},
@@ -43,7 +44,9 @@ impl ActiveModelBehavior for ActiveModel {}
 
 /// Used to distinguish iterations that contain an empty build graph
 /// from iterations that don't have a build graph yet.
-#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType, Serialize, Deserialize,
+)]
 #[sea_orm(value_type = "String")]
 pub enum Status {
     /// Does not have a build graph yet. Will be calculated by [crate::iteration_creator].
@@ -54,7 +57,9 @@ pub enum Status {
 }
 
 /// The reason why a new build iteration was created.
-#[derive(Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Display, EnumString, DeriveValueType, Serialize, Deserialize,
+)]
 #[sea_orm(value_type = "String")]
 pub enum NewIterationReason {
     /// Created along with a new buildspace
@@ -65,4 +70,27 @@ pub enum NewIterationReason {
 
     /// New commits caused a change in the builds that need to be executed
     BuildGraphChanged,
+}
+
+impl From<Model> for api::iterations::Iteration {
+    fn from(
+        Model {
+            id,
+            created_at,
+            sequence,
+            changesets,
+            reason,
+            status,
+            ..
+        }: Model,
+    ) -> Self {
+        api::iterations::Iteration {
+            id: id.0,
+            created_at,
+            sequence,
+            status,
+            reason,
+            changesets,
+        }
+    }
 }
