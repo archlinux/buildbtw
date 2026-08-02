@@ -3,7 +3,7 @@ use std::{collections::HashMap, process::Stdio};
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use buildbtw::{
     builds, entities,
-    executor::{self, run::build_project_dir},
+    executor::{self, gitlab::run::build_project_dir},
     git, package, queries, storage,
 };
 use camino::Utf8PathBuf;

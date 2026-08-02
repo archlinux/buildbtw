@@ -12,12 +12,11 @@ use tokio_util::{io::ReaderStream, sync::CancellationToken};
 use tracing::{debug, error, info, warn};
 use url::Url;
 
-use super::shell::ShellScripts;
+use crate::api;
 use crate::executor::{
-    gitlab::config::{self},
+    config::{self},
     shell,
 };
-use crate::{api, executor::config};
 
 /// Prepares the Git configuration, and clone/fetch the repository.
 pub async fn get_sources(
@@ -125,8 +124,8 @@ pub async fn build_project_dir(
     // Write build script to the filesystem to mount it into the vm
     let build_script_filename = "build-inside-vm.sh";
     let build_script_path = bin_dir.path().join(build_script_filename);
-    let build_script = ShellScripts::get(build_script_filename)
-        .ok_or_else(|| eyre!("❌ Failed to extract embedded file '{build_script_filename}'"))?;
+    let build_script = shell::ShellScripts::get(build_script_filename)
+        .ok_or_eyre("❌ Failed to extract embedded file '{build_script_filename}'")?;
     fs::write(&build_script_path, build_script.data.as_ref()).await?;
     fs::set_permissions(&build_script_path, Permissions::from_mode(0o755)).await?;
 

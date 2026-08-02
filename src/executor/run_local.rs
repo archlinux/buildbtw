@@ -38,7 +38,8 @@ pub async fn build(
     Ok(())
 }
 
-/// Run the build using the executor.
+/// Run the build using the executor
+///
 /// Return an error if it fails.
 async fn try_build(
     build: &entities::builds::ModelEx,
@@ -96,7 +97,7 @@ async fn try_build(
     )
     .await?;
 
-    executor::run::build_project_dir(
+    executor::gitlab::run::build_project_dir(
         build_dir.path(),
         tmp_output_dir.path(),
         None,
