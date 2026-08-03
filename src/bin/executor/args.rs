@@ -35,7 +35,72 @@ pub struct Args {
 
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Commands {
+    /// Check that the executor is ready to operate
+    Doctor(DoctorArgs),
+
+    /// GitLab Custom executor subcommands
+    ///
+    /// These can't easily be run locally and are meant to be called by GitLab CI.
+    ///
+    /// See also: <https://docs.gitlab.com/runner/executors/custom/>
+    ///
+    /// This is used here: <https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/main/roles/gitlab_runner/templates/config.toml.j2?ref_type=heads#L76>
     Gitlab(GitlabArgs),
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct DoctorArgs {
+    /// Base URL of the output artifacts collector endpoint that retrieves build results
+    ///
+    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
+    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires = "api_token_path")]
+    pub api_server_url: Option<Url>,
+
+    /// Path to a file containing the API token for authentication
+    ///
+    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_EXECUTOR_TOKEN` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(
+        long,
+        env = "BUILDBTW_EXECUTOR_TOKEN_PATH",
+        verbatim_doc_comment,
+        requires = "api_server_url"
+    )]
+    pub api_token_path: Option<Utf8PathBuf>,
+}
+
+impl TryFrom<DoctorArgs> for config::DoctorConfig {
+    type Error = color_eyre::eyre::Error;
+
+    fn try_from(
+        DoctorArgs {
+            api_server_url,
+            api_token_path: bbtw_token_path,
+        }: DoctorArgs,
+    ) -> Result<Self, Self::Error> {
+        let api_token =
+            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", bbtw_token_path.as_deref())?;
+
+        let mut auth_config = None;
+
+        if let Some(api_token) = api_token
+            && let Some(api_server_url) = api_server_url
+        {
+            auth_config = Some(config::Auth {
+                api_server_url,
+                api_token,
+            });
+        }
+
+        Ok(config::DoctorConfig { auth: auth_config })
+    }
 }
 
 #[derive(Debug, Clone, clap::Args)]
@@ -44,13 +109,6 @@ pub struct GitlabArgs {
     pub command: Gitlab,
 }
 
-/// GitLab Custom executor subcommands
-///
-/// These can't easily be run locally and are meant to be called by GitLab CI.
-///
-/// See also: <https://docs.gitlab.com/runner/executors/custom/>
-///
-/// This is used here: <https://gitlab.archlinux.org/archlinux/infrastructure/-/blob/main/roles/gitlab_runner/templates/config.toml.j2?ref_type=heads#L76>
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Gitlab {
@@ -223,7 +281,9 @@ pub struct BuildScriptArgs {
     /// If no value is provided, the produced output artifacts will not be uploaded.
     /// If set, requires build ID and API server URL as well.
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires_all = ["build_id", "api_token_path"])]
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", verbatim_doc_comment, requires_all = ["build_id", "api_token_path"])]
     pub api_server_url: Option<Url>,
 
     /// Path to a file containing the API token for authentication

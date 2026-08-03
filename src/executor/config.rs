@@ -62,6 +62,22 @@ pub struct Upload {
 }
 
 #[derive(Debug, Clone)]
+pub struct Auth {
+    /// Base URL of the output artifacts collector endpoint that retrieves build results
+    ///
+    /// If no value is provided, the produced output artifacts will not be uploaded.
+    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
+    pub api_server_url: Url,
+
+    pub api_token: Secret<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DoctorConfig {
+    pub auth: Option<Auth>,
+}
+
+#[derive(Debug, Clone)]
 pub struct RunGetSources {
     /// Directory that stores build artifacts
     pub builds_dir: Utf8PathBuf,
