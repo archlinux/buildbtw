@@ -26,6 +26,20 @@ pub async fn user(db: &impl ConnectionTrait, username: &str) -> Result<entities:
     Ok(user)
 }
 
+/// Create a user with the given roles and a CLI session for them
+pub async fn session_with_roles(
+    db: &DatabaseConnection,
+    username: &str,
+    roles: Vec<entities::user_roles::Role>,
+) -> Result<entities::sessions::Model> {
+    let user = user(db, username).await?;
+    queries::user_roles::set(db, user.id, roles).await?;
+    let session = queries::sessions::insert(user.id.into(), entities::sessions::ClientType::Cli)
+        .exec_with_returning(db)
+        .await?;
+    Ok(session)
+}
+
 /// Create a user with an OIDC identity
 ///
 /// Pretend this user has logged in via OIDC.

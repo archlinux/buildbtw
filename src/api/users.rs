@@ -12,6 +12,11 @@ use crate::api::sessions::Session;
 #[typed_path("/api/v1/user")]
 pub struct AuthenticatedUser {}
 
+/// Create a new user
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/users")]
+pub struct CreateUser {}
+
 /// The specific role a user has.
 ///
 /// It gives the user different permissions.

@@ -27,6 +27,11 @@ pub async fn can_revoke_session(
     Ok(is_session_owner || is_admin)
 }
 
+/// Check that this user can create new users.
+pub fn can_create_user(user: &AuthUser) -> Result<bool> {
+    Ok(user.roles.contains(&entities::user_roles::Role::Admin))
+}
+
 /// Check that the given permission is `true`. if not, return an error.
 pub fn permission_ok(permission: Result<bool>) -> ResponseResult<()> {
     match permission {
