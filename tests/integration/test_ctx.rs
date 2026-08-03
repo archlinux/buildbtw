@@ -40,7 +40,6 @@ pub struct BbtwOutput {
 /// advanced stuff.
 pub struct TestCtx {
     pub server: TestServer,
-    pub server_url: Url,
     pub state: ServerState,
     pub admin_session: sessions::Model,
 
@@ -123,7 +122,7 @@ impl TestCtx {
         let mut cmd = Command::new(Self::BBTW_BINARY);
 
         cmd.arg("--server-url")
-            .arg(self.server_url.to_string())
+            .arg(self.state.server_url.to_string())
             .arg("--state-dir")
             .arg(self.client_state_path())
             // Reset RUST_LOG to prevent tracing output polluting our snapshots
@@ -318,7 +317,6 @@ impl TestCtxBuilder {
 
         TestCtx {
             server,
-            server_url,
             state,
             admin_session,
             _authelia_container: maybe_authelia_container,

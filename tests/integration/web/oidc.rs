@@ -79,6 +79,7 @@ async fn test_e2e_authelia_login() -> Result<()> {
     // Start the login process
     c.goto(
         ctx_with_oidc
+            .state
             .server_url
             .join(&web::oidc::StartLogin {}.to_string())?
             .to_string(),
@@ -121,7 +122,7 @@ async fn test_e2e_authelia_login() -> Result<()> {
 
     let url = c.current_url().await?.to_string();
     assert!(
-        url.starts_with(ctx_with_oidc.server_url.as_str()),
+        url.starts_with(ctx_with_oidc.state.server_url.as_str()),
         "expected {url} to start with the URL of buildbtw's authorized page"
     );
 
@@ -129,6 +130,7 @@ async fn test_e2e_authelia_login() -> Result<()> {
     // OIDC login.
     c.goto(
         ctx_with_oidc
+            .state
             .server_url
             .join(&web::account::SessionList {}.to_string())?
             .to_string(),
