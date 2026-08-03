@@ -11,8 +11,8 @@ use buildbtw::{
 
 use crate::test_ctx::{TestCtx, ctx};
 
-fn create_input(oidc_id: &str, username: &str) -> Result<input::users::ValidatedCreate> {
-    let create = input::users::ValidatedCreate::try_new(input::users::Create {
+fn create_input(oidc_id: &str, username: &str) -> Result<input::users::ValidatedCreateWithOidc> {
+    let create = input::users::ValidatedCreateWithOidc::try_new(input::users::CreateWithOidc {
         oidc_id: oidc_id.to_string(),
         username: username.to_string(),
     })?;

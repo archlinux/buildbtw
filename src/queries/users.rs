@@ -1,7 +1,8 @@
 use color_eyre::{Result, eyre::ContextCompat};
 use openidconnect::RefreshToken;
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, sea_query::OnConflict,
+    ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, Insert, QueryFilter, Select,
+    sea_query::OnConflict,
 };
 use uuid::Uuid;
 
@@ -11,6 +12,20 @@ use crate::{
     entities::{oidc_identity, users},
     input,
 };
+
+#[must_use]
+pub fn by_username(username: String) -> Select<users::Entity> {
+    users::Entity::find().filter(users::COLUMN.username.eq(username))
+}
+
+#[must_use]
+pub fn insert(username: String) -> Insert<users::ActiveModel> {
+    users::Entity::insert(users::ActiveModel {
+        id: Set(Uuid::new_v4().into()),
+        created_at: Set(time::OffsetDateTime::now_utc()),
+        username: Set(username),
+    })
+}
 
 /// Create a user with the given OIDC identity, or update an existing one
 ///
@@ -22,7 +37,7 @@ use crate::{
 /// whole span so no other transaction can commit between the select and the insert/update.
 pub async fn upsert_with_oidc(
     tx: &db::TxImmediate,
-    create: input::users::ValidatedCreate,
+    create: input::users::ValidatedCreateWithOidc,
     refresh_token: Option<RefreshToken>,
 ) -> Result<users::Model> {
     let create = create.into_inner();

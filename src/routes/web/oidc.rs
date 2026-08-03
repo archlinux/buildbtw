@@ -59,7 +59,7 @@ pub async fn authorized(
         .or(claim_to_string(user_info.name()))
         .wrap_err("Neither nickname nor name provided")?;
 
-    let create = input::users::ValidatedCreate::try_new(input::users::Create {
+    let create = input::users::ValidatedCreateWithOidc::try_new(input::users::CreateWithOidc {
         oidc_id: user_info.subject().to_string(),
         username,
     })?;
