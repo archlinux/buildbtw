@@ -74,7 +74,7 @@ pub async fn build(
 
     // Upload API config
     let token = retrieve_system_api_token(&db).await?;
-    let api_config = Some(config::ApiConfig {
+    let api_config = Some(config::RunBuildScriptApiConfig {
         api_server_url: api_server_url.clone(),
         api_token: token.secret_token.0,
         build_id: build.id.0,

@@ -1,10 +1,11 @@
 use camino::Utf8PathBuf;
+use color_eyre::Result;
 use redact::Secret;
 use serde::Serialize;
 use url::Url;
 use uuid::Uuid;
 
-use crate::{buildspace, package::KnownArchitecture};
+use crate::{api_client, buildspace, package::KnownArchitecture};
 
 #[derive(Debug, Serialize)]
 pub struct BuildConfig {
@@ -13,7 +14,7 @@ pub struct BuildConfig {
     pub cache_dir: Utf8PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RunBuildScript {
     /// Directory of the project that will be built
     pub ci_project_dir: Utf8PathBuf,
@@ -25,12 +26,35 @@ pub struct RunBuildScript {
     pub pacman_repository: Option<PacmanRepo>,
 
     /// API config for uploading build artifacts and updating status
-    pub api_config: Option<ApiConfig>,
+    pub api_config: Option<RunBuildScriptApiConfig>,
 
     pub log_destination: LogDestination,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct RunBuildScriptApiConfig {
+    /// Base URL of the output artifacts collector endpoint that retrieves build results
+    ///
+    /// If no value is provided, the produced output artifacts will not be uploaded.
+    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
+    pub api_server_url: Url,
+
+    pub api_token: Secret<String>,
+
+    /// Build uuid
+    pub build_id: Uuid,
+}
+
+impl RunBuildScriptApiConfig {
+    pub fn build_api_client(&self) -> Result<api_client::ApiClient> {
+        api_client::ApiClient::with_token(
+            self.api_server_url.clone(),
+            self.api_token.expose_secret(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum LogDestination {
     /// Stream both stdout and stderr to this file.
     File(Utf8PathBuf),
@@ -38,7 +62,7 @@ pub enum LogDestination {
     InheritStdio,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PacmanRepo {
     /// Buildspace slug
     pub buildspace: buildspace::Slug,
@@ -56,7 +80,7 @@ pub struct PacmanRepo {
     pub pacman_repository_base_url: Url,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ApiConfig {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
@@ -65,29 +89,24 @@ pub struct ApiConfig {
     pub api_server_url: Url,
 
     pub api_token: Secret<String>,
-
-    /// Build uuid
-    pub build_id: Uuid,
 }
 
-#[derive(Debug, Clone)]
-pub struct Auth {
-    /// Base URL of the output artifacts collector endpoint that retrieves build results
-    ///
-    /// If no value is provided, the produced output artifacts will not be uploaded.
-    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    pub api_server_url: Url,
-
-    pub api_token: Secret<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct DoctorConfig {
-    pub auth: Option<Auth>,
+impl ApiConfig {
+    pub fn build_api_client(&self) -> Result<api_client::ApiClient> {
+        api_client::ApiClient::with_token(
+            self.api_server_url.clone(),
+            self.api_token.expose_secret(),
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct RunGetSources {
     /// Directory that stores build artifacts
     pub builds_dir: Utf8PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DoctorConfig {
+    pub api_config: Option<ApiConfig>,
 }

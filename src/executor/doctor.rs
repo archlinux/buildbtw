@@ -1,10 +1,7 @@
 use color_eyre::Result;
 use yansi::Paint;
 
-use crate::{
-    api_client::{ApiClient, user::current},
-    executor::config::DoctorConfig,
-};
+use crate::{api_client::user::current, executor::config::DoctorConfig};
 
 /// Check that the executor is ready to operate
 pub async fn doctor(config: DoctorConfig) -> Result<()> {
@@ -24,9 +21,8 @@ pub async fn doctor(config: DoctorConfig) -> Result<()> {
     }
 
     let login = "login".bold();
-    if let Some(auth) = config.auth {
-        let api_client =
-            ApiClient::with_token(auth.api_server_url.clone(), auth.api_token.expose_secret())?;
+    if let Some(auth) = config.api_config {
+        let api_client = auth.build_api_client()?;
         if let Some(user) = current(&api_client).await? {
             println!("{ok} {login}: Logged in as {}", user.username);
         } else {

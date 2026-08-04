@@ -81,7 +81,7 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
         config::RunBuildScript {
             ci_project_dir: test_project_dir.path().to_path_buf(),
             pacman_repository: None,
-            api_config: Some(config::ApiConfig {
+            api_config: Some(config::RunBuildScriptApiConfig {
                 api_server_url,
                 api_token,
                 build_id,
@@ -160,7 +160,7 @@ arch=(any)
             config::RunBuildScript {
                 ci_project_dir: test_project_dir.path().to_path_buf(),
                 pacman_repository: None,
-                api_config: Some(config::ApiConfig {
+                api_config: Some(config::RunBuildScriptApiConfig {
                     api_server_url,
                     api_token,
                     build_id,

@@ -13,7 +13,7 @@ use url::Url;
 
 use super::shell::ShellScripts;
 use crate::{
-    api_client::{self, ApiClient},
+    api_client::{self},
     executor::config,
     package,
     pacman_repository::pacman_repository_url,
@@ -57,7 +57,12 @@ pub async fn build_script(
 
     // Mark the build as building
     if let Some(api_config) = &build_script_args.api_config {
-        set_build_status(api_config, package::BuildStatus::Building).await?;
+        api_client::builds::set_status(
+            &api_config.build_api_client()?,
+            api_config.build_id,
+            package::BuildStatus::Building,
+        )
+        .await?;
     }
 
     let output_dir = camino_tempfile::Builder::new()
@@ -76,7 +81,12 @@ pub async fn build_script(
         info!(?e, "Build failed");
         // Mark the build as failed if an API config has been provided
         if let Some(api_config) = &build_script_args.api_config {
-            set_build_status(api_config, package::BuildStatus::Failed).await?;
+            api_client::builds::set_status(
+                &api_config.build_api_client()?,
+                api_config.build_id,
+                package::BuildStatus::Failed,
+            )
+            .await?;
         }
     }
 
@@ -200,7 +210,7 @@ async fn build_project_dir(
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
     http_client: &reqwest::Client,
-    api_config: &config::ApiConfig,
+    api_config: &config::RunBuildScriptApiConfig,
     output_dir: &Utf8Path,
 ) -> Result<()> {
     info!("📡 Uploading artifacts...");
@@ -222,7 +232,7 @@ async fn upload_package_artifacts(
 /// Uploads a single passed package artifact to the buildbtw collector endpoint.
 async fn upload_package_artifact(
     http_client: &reqwest::Client,
-    api_config: &config::ApiConfig,
+    api_config: &config::RunBuildScriptApiConfig,
     artifact_path: &Utf8PathBuf,
 ) -> Result<()> {
     let pkgfile = PackageFileName::try_from(artifact_path.as_std_path())?;
@@ -282,16 +292,4 @@ async fn print_dir_content(path: &Utf8Path) -> Result<()> {
         info!("📦 {filename}");
     }
     Ok(())
-}
-
-/// Update the build status via API.
-async fn set_build_status(
-    api_config: &config::ApiConfig,
-    status: package::BuildStatus,
-) -> Result<()> {
-    let api_client = ApiClient::with_token(
-        api_config.api_server_url.clone(),
-        api_config.api_token.expose_secret(),
-    )?;
-    api_client::builds::set_status(&api_client, api_config.build_id, status).await
 }
