@@ -12,6 +12,10 @@ use url::Url;
 pub enum Command {
     /// Make a new buildspace
     ///
+    /// The new buildspace will be created with an initial iteration.
+    /// Each iteration gets a build graph with packages to build, consisting of the changesets specified when making the buildspace, as well as any packages transitively depending on them.
+    /// If new commits result in a changed build graph, a new iteration with the changed build graph will be created automatically.
+    ///
     /// Examples:
     ///
     /// To create a new buildspace named "complicated-fix" for multiple packages on different branches:

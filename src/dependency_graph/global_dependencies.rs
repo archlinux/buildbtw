@@ -57,6 +57,8 @@ impl GlobalDependencies {
 /// For every architecture we can find, build a graph
 /// where nodes point towards their dependents, e.g.
 /// gzip -> sed
+/// Only looks at normal dependencies at the moment.
+/// soname-, make-, and optional dependencies are ignored.
 pub fn build_global_dependency_graphs(
     source_info_index: &BuildspaceSourceInfoIndex<'_>,
 ) -> HashMap<package::KnownArchitecture, GlobalDependencies> {
