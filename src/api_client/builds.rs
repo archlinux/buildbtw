@@ -1,7 +1,7 @@
 use crate::{
     api::builds::{self, ListBuildsResponse},
     api_client::ApiClient,
-    buildspace,
+    buildspace, input,
     package::BuildStatus,
 };
 use color_eyre::{Result, eyre::Context};
@@ -54,7 +54,7 @@ pub async fn set_status(api_client: &ApiClient, build_id: Uuid, status: BuildSta
                 .buildbtw_server_url
                 .join(&builds::SetStatus { id: build_id }.to_string())?,
         )
-        .query(&builds::SetStatusQuery { status })
+        .json(&input::builds::SetStatus { status })
         .send()
         .await
         .wrap_err("Couldn't set build status")?;

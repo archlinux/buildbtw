@@ -3,9 +3,11 @@ use std::collections::HashSet;
 use buildbtw::api;
 use buildbtw::buildspace;
 use buildbtw::entities;
+use buildbtw::input;
 use buildbtw::package;
 use buildbtw::pacman_repository;
 use buildbtw::queries;
+
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::Result;
@@ -1040,7 +1042,7 @@ async fn test_update_build_status(
             id: build.id.into(),
         })
         .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
-        .add_query_params(api::builds::SetStatusQuery { status: status_to })
+        .json(&input::builds::SetStatus { status: status_to })
         .await;
 
     // Check response status
@@ -1062,7 +1064,7 @@ async fn test_update_build_status_unknown_build(#[future(awt)] ctx: TestCtx) -> 
         .server
         .typed_put(&api::builds::SetStatus { id: Uuid::new_v4() })
         .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
-        .add_query_params(api::builds::SetStatusQuery {
+        .json(&input::builds::SetStatus {
             status: package::BuildStatus::Pending,
         })
         .await;
@@ -1103,7 +1105,7 @@ async fn test_update_build_status_invalid_transition(
             id: build.id.into(),
         })
         .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
-        .add_query_params(api::builds::SetStatusQuery { status: status_to })
+        .json(&input::builds::SetStatus { status: status_to })
         .await;
 
     // Check response status

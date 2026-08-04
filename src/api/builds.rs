@@ -63,13 +63,6 @@ pub struct SetStatus {
     pub id: Uuid,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-/// Query Parameters for the [`SetStatus`] endpoint
-pub struct SetStatusQuery {
-    /// New build status to set.
-    pub status: package::BuildStatus,
-}
-
 /// Upload a built package identitifed by its build-id.
 ///
 /// All relevant metadata like architecture, pkgbase, filename etc are pre-derived

@@ -1,3 +1,4 @@
+pub mod builds;
 pub mod buildspaces;
 pub mod users;
 

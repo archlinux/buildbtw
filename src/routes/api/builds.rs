@@ -17,6 +17,7 @@ use sea_orm::TransactionTrait;
 use tokio_util::io::ReaderStream;
 use tracing::debug;
 
+use crate::input;
 use crate::pacman_repository::pacman_repo_add;
 use crate::server_state::ServerState;
 use crate::{api, entities, response_error::ResponseError};
@@ -66,9 +67,9 @@ pub async fn list(
 
 pub async fn set_status(
     path: api::builds::SetStatus,
-    Query(api::builds::SetStatusQuery { status }): Query<api::builds::SetStatusQuery>,
     _auth: from_request::AuthUser,
     db::TxImmediate(tx): db::TxImmediate,
+    Json(body): Json<input::builds::SetStatus>,
 ) -> ResponseResult<()> {
     let build_id = path.id;
     let build = queries::builds::load_by_id(build_id.into())
@@ -78,6 +79,7 @@ pub async fn set_status(
         .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
 
     // Check build status transition
+    let status = body.status;
     let valid_transition = match build.status {
         package::BuildStatus::Scheduled => status == package::BuildStatus::Building,
         // Built is set exclusively by the artifact upload verifier
