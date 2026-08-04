@@ -3,7 +3,7 @@
 //! Graph calculation works in 4 stages:
 //! 1. Read all source repo names and cache main branch source infos in memory. This is for performance only. Implemented in [`SourceRepoCache`].
 //! 2. For each buildspace, build an index for looking up specific source infos by package name and package base. This is for looking up dependencies of any given package. Implemented in [`BuildspaceSourceInfoIndex`].
-//! 3. For each architecture in each buildspace, convert all packages from step 2 into a dependency graph. This allows us to do a graph search in the next step. Implemented in [`GlobalDependencies`].
+//! 3. For each architecture in each buildspace, convert all packages from step 2 into a dependency graph. This allows us to do a graph search in the next step. Implemented in [`GlobalDependencies`]. This step currently ignores soname-, make-, and optional dependencies.
 //! 4. For each architecture in each buildspace, check which reverse dependencies are reachable from its origin changesets by walking the global graph from step 3. This results in a graph of packages that need to be built.
 //!
 //! TLDR:
