@@ -2,7 +2,7 @@ use std::{collections::HashMap, process::Stdio};
 
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use buildbtw::{
-    builds,
+    builds, db,
     entities::{self, builds::DispatchedTo},
     executor::{self, config},
     git, package, queries, storage,
@@ -13,7 +13,7 @@ use color_eyre::{
     eyre::{OptionExt, bail, eyre},
 };
 use rstest::*;
-use sea_orm::TransactionTrait;
+use sea_orm::{TransactionSession, TransactionTrait};
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
@@ -60,11 +60,13 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
     let build_id = build.id.0;
     tx.commit().await?;
 
+    let tx = db::begin_immediate(&ctx.state.db).await?;
     let api_server_url = ctx.state.server_url;
-    let api_token = executor::run_local::retrieve_system_api_token(&ctx.state.db)
+    let api_token = queries::sessions::upsert_system_user_api_token(&tx)
         .await?
         .secret_token
         .0;
+    tx.commit().await?;
 
     let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")
@@ -134,11 +136,13 @@ async fn test_flaky_gitlab_executor_build_fails_on_broken_pkgbuild(
     let build_id = build.id.0;
     tx.commit().await?;
 
+    let tx = db::begin_immediate(&ctx.state.db).await?;
     let api_server_url = ctx.state.server_url;
-    let api_token = executor::run_local::retrieve_system_api_token(&ctx.state.db)
+    let api_token = queries::sessions::upsert_system_user_api_token(&tx)
         .await?
         .secret_token
         .0;
+    tx.0.commit().await?;
 
     let test_project_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-test-dir-")

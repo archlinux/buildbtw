@@ -93,6 +93,7 @@ pub async fn clear_refresh_token(db: &impl ConnectionTrait, user_id: Uuid) -> Re
     update_refresh_token(db, user_id, None).await
 }
 
+/// Upsert a local system user for API usage
 pub async fn upsert_system_user(tx: &db::TxImmediate) -> Result<users::Model> {
     let user = users::ActiveModel {
         id: Set(users::SYSTEM_USER_ID.into()),

@@ -1,7 +1,7 @@
 use camino::Utf8PathBuf;
 use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt};
-use sea_orm::{DatabaseConnection, IntoActiveModel};
+use sea_orm::DatabaseConnection;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 use url::Url;
@@ -10,28 +10,6 @@ use crate::entities::{self};
 use crate::executor::config::{self, LogDestination};
 use crate::{builds, executor, git};
 use crate::{queries, storage};
-
-/// Return a local system API token
-pub async fn retrieve_system_api_token(
-    db: &DatabaseConnection,
-) -> Result<entities::sessions::Model> {
-    let tx = crate::db::begin_immediate(db).await?;
-    let user = queries::users::upsert_system_user(&tx).await?;
-    let token = match queries::sessions::by_user_id(user.id).one(&tx).await? {
-        Some(session) => {
-            queries::sessions::update_last_accessed_time(session.into_active_model())
-                .exec(&tx)
-                .await?
-        }
-        None => {
-            queries::sessions::insert(user.id.0, entities::sessions::ClientType::Local)
-                .exec_with_returning(&tx)
-                .await?
-        }
-    };
-    tx.0.commit().await?;
-    Ok(token)
-}
 
 /// Run a build locally
 pub async fn build(
@@ -73,12 +51,14 @@ pub async fn build(
     .await?;
 
     // Upload API config
-    let token = retrieve_system_api_token(&db).await?;
+    let tx = crate::db::begin_immediate(&db).await?;
+    let token = queries::sessions::upsert_system_user_api_token(&tx).await?;
     let api_config = Some(config::RunBuildScriptApiConfig {
         api_server_url: api_server_url.clone(),
         api_token: token.secret_token.0,
         build_id: build.id.0,
     });
+    tx.0.commit().await?;
 
     debug!(?build.pkgbase, ?build.architecture, "Running build");
     executor::run::build_script(
