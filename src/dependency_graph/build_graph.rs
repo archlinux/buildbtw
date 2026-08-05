@@ -247,7 +247,18 @@ fn calculate_build_graph_for_architecture(
         if let Some(coming_from_node) = coming_from_node {
             // Split package dependencies can lead to a pkgbase node pointing to itself.
             // For the build logic, that's not relevant, so we skip those edges.
-            if coming_from_node != build_graph_node_index {
+            let is_self_edge = coming_from_node == build_graph_node_index;
+
+            // Because we have dependencies between pkgnames as inputs to this function, but are
+            // building a graph of pkgbases, we can encounter the same dependency twice.
+            // For example, two split packages depending on the same library will result in an
+            // identical dependency from the split packages' pkgbase to the library's pkgbase.
+            // However, we don't want duplicate dependencies and disallow them in the database, so
+            // skip those here.
+            let edge_already_exists =
+                packages_to_be_built.contains_edge(coming_from_node, build_graph_node_index);
+
+            if !is_self_edge && !edge_already_exists {
                 packages_to_be_built.add_edge(
                     coming_from_node,
                     build_graph_node_index,
