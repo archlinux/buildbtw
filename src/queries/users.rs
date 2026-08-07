@@ -1,6 +1,8 @@
 use color_eyre::{Result, eyre::ContextCompat};
 use openidconnect::RefreshToken;
-use sea_orm::{ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
+use sea_orm::{
+    ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, sea_query::OnConflict,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -89,4 +91,22 @@ pub async fn update_refresh_token(
 /// Clear the refresh token for a user's OIDC identity
 pub async fn clear_refresh_token(db: &impl ConnectionTrait, user_id: Uuid) -> Result<()> {
     update_refresh_token(db, user_id, None).await
+}
+
+/// Upsert a local system user for API usage
+pub async fn upsert_system_user(tx: &db::TxImmediate) -> Result<users::Model> {
+    let user = users::ActiveModel {
+        id: Set(users::SYSTEM_USER_ID.into()),
+        created_at: Set(time::OffsetDateTime::now_utc()),
+        username: Set("system::localhost".into()),
+    };
+
+    Ok(users::Entity::insert(user)
+        .on_conflict(
+            OnConflict::column(users::COLUMN.id)
+                .update_column(users::COLUMN.username)
+                .to_owned(),
+        )
+        .exec_with_returning(tx)
+        .await?)
 }

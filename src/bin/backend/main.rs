@@ -234,6 +234,7 @@ async fn run_server(
         oidc: oidc_state,
         cookie_encryption_key,
         data_dir,
+        server_url: server_url.clone(),
     };
 
     let gitlab_config = gitlab.map(gitlab_api::Config::try_from).transpose()?;

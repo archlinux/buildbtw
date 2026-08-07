@@ -13,6 +13,9 @@ pub enum ClientType {
 
     /// Session created via CLI
     Cli,
+
+    /// Session created for local usage
+    Local,
 }
 
 /// A user session

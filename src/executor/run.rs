@@ -1,7 +1,6 @@
 use std::{fs::Permissions, os::unix::fs::PermissionsExt, process::Stdio};
 
 use alpm_types::PackageFileName;
-use axum_extra::routing::TypedPath;
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::{
     Result,
@@ -13,8 +12,12 @@ use tracing::{debug, error, info, warn};
 use url::Url;
 
 use super::shell::ShellScripts;
-use crate::api;
-use crate::executor::config;
+use crate::{
+    api_client::{self},
+    executor::config,
+    package,
+    pacman_repository::pacman_repository_url,
+};
 
 /// Prepares the Git configuration, and clone/fetch the repository.
 pub async fn get_sources(
@@ -43,78 +46,71 @@ pub async fn get_sources(
 ///
 /// The output artifacts are published to the buildbtw collector endpoint which
 /// manages the results.
+/// The build status is updated on success by the upload endpoint and on failure
+/// by the error handling code path.
 pub async fn build_script(
     ssh_timeout: u32,
     build_script_args: config::RunBuildScript,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
-    let pacman_repository_url: Option<Url> =
-        match build_script_args.pacman_repository_base_url.clone() {
-            Some(mut url) => {
-                let serve_repo_uri = api::builds::ServeRepoFile {
-                    buildspace: build_script_args
-                        .buildspace_slug
-                        .clone()
-                        .ok_or_eyre("Missing option: buildspace-slug")?,
-                    iteration: build_script_args
-                        .iteration_seqid
-                        .ok_or_eyre("Missing option: iteration-seqid")?,
-                    architecture: build_script_args
-                        .architecture
-                        .ok_or_eyre("Missing option: architecture")?,
-                    filename: "".into(),
-                }
-                .to_uri();
-                url.path_segments_mut()
-                    .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
-                    .pop_if_empty()
-                    .extend(serve_repo_uri.path().split('/'))
-                    .pop();
-                Some(url)
-            }
-            None => None,
-        };
+    info!("🚀 Starting build job...");
+
+    // Mark the build as building
+    if let Some(api_config) = &build_script_args.api_config {
+        api_client::builds::set_status(
+            &api_config.build_api_client()?,
+            api_config.build_id,
+            package::BuildStatus::Building,
+        )
+        .await?;
+    }
 
     let output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-output-dir-")
         .tempdir()?;
 
-    info!("🚀 Starting build job...");
-    build_project_dir(
-        &build_script_args.ci_project_dir,
+    let result = build_project_dir(
         output_dir.path(),
-        pacman_repository_url,
         ssh_timeout,
-        &build_script_args.log_destination,
+        &build_script_args,
         cancellation_token,
     )
-    .await?;
-    print_dir_content(output_dir.path()).await?;
+    .await;
 
-    // Upload artifacts inside the output_dir if a collector URL has been passed
-    if let Some(upload_config) = &build_script_args.upload_config {
-        let http_client = reqwest::Client::new();
-        upload_package_artifacts(
-            upload_config,
-            &build_script_args,
-            &http_client,
-            output_dir.path(),
-            &upload_config.api_server_url,
-        )
-        .await?;
+    if let Err(ref e) = result {
+        info!(?e, "Build failed");
+        // Mark the build as failed if an API config has been provided
+        if let Some(api_config) = &build_script_args.api_config {
+            api_client::builds::set_status(
+                &api_config.build_api_client()?,
+                api_config.build_id,
+                package::BuildStatus::Failed,
+            )
+            .await?;
+        }
     }
 
-    Ok(())
+    result
 }
 
-pub async fn build_project_dir(
-    project_dir: &Utf8Path,
+async fn build_project_dir(
     output_dir: &Utf8Path,
-    pacman_repo_url: Option<Url>,
     ssh_timeout: u32,
-    log_destination: &config::LogDestination,
+    build_script_args: &config::RunBuildScript,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
+    // Build the pacman repository URL for the iteration
+    let pacman_repository_url: Option<Url> = match build_script_args.pacman_repository.clone() {
+        Some(pacman_repository) => Some(pacman_repository_url(
+            pacman_repository.pacman_repository_base_url.clone(),
+            &pacman_repository.buildspace,
+            pacman_repository.iteration,
+            &pacman_repository.architecture,
+        )?),
+        None => None,
+    };
+
+    let project_dir = build_script_args.ci_project_dir.clone();
     let bin_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-bin-dir-")
         .tempdir()?;
@@ -142,13 +138,13 @@ pub async fn build_project_dir(
     .arg("--")
     .arg(format!("/mnt/bin/{build_script_filename}"))
     .arg(
-        pacman_repo_url
+        pacman_repository_url
             .map(|url| url.to_string())
             .unwrap_or_default(),
     )
     .stdin(Stdio::inherit());
 
-    match log_destination {
+    match &build_script_args.log_destination {
         config::LogDestination::File(log_path) => {
             if let Ok(exists) = fs::try_exists(&log_path).await
                 && exists
@@ -199,17 +195,23 @@ pub async fn build_project_dir(
         bail!("❌ Child exited with status: {}", output);
     }
 
+    print_dir_content(output_dir).await?;
+
+    // Upload artifacts inside the output_dir if a collector URL has been passed
+    if let Some(api_config) = &build_script_args.api_config {
+        let http_client = reqwest::Client::new();
+        upload_package_artifacts(&http_client, api_config, output_dir).await?;
+    }
+
     Ok(())
 }
 
 /// Uploads all package artifacts inside the given build output directory to the
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
-    upload_config: &config::Upload,
-    build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
+    api_config: &config::RunBuildScriptApiConfig,
     output_dir: &Utf8Path,
-    collector_base_url: &Url,
 ) -> Result<()> {
     info!("📡 Uploading artifacts...");
     let mut read_dir = fs::read_dir(output_dir).await?;
@@ -218,14 +220,7 @@ async fn upload_package_artifacts(
         if let Some(filename) = file.file_name()
             && file.is_file()
         {
-            upload_package_artifact(
-                upload_config,
-                build_script_args,
-                http_client,
-                &file,
-                collector_base_url,
-            )
-            .await?;
+            upload_package_artifact(http_client, api_config, &file).await?;
             info!("✅ {}", filename);
         } else {
             warn!("⚠️ Skipping invalid file: {}", file);
@@ -236,16 +231,14 @@ async fn upload_package_artifacts(
 
 /// Uploads a single passed package artifact to the buildbtw collector endpoint.
 async fn upload_package_artifact(
-    upload_config: &config::Upload,
-    build_script_args: &config::RunBuildScript,
     http_client: &reqwest::Client,
+    api_config: &config::RunBuildScriptApiConfig,
     artifact_path: &Utf8PathBuf,
-    collector_base_url: &Url,
 ) -> Result<()> {
     let pkgfile = PackageFileName::try_from(artifact_path.as_std_path())?;
     let pkgname = pkgfile.name();
 
-    let mut upload_url = collector_base_url.clone();
+    let mut upload_url = api_config.api_server_url.clone();
     upload_url
         .path_segments_mut()
         .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
@@ -254,20 +247,14 @@ async fn upload_package_artifact(
 
     upload_url
         .query_pairs_mut()
-        .append_pair(
-            "build_id",
-            &build_script_args
-                .build_id
-                .ok_or_eyre("Missing option: build-id")?
-                .to_string(),
-        )
+        .append_pair("build_id", &api_config.build_id.to_string())
         .append_pair("pkgname", pkgname.as_ref());
 
     let artifact_file = fs::File::open(artifact_path).await?;
     let artifact_bytes = artifact_file.metadata().await?.len();
 
     // Extract API secret from bbtw config
-    let token = upload_config.api_token.expose_secret();
+    let token = api_config.api_token.expose_secret();
 
     // Wrap stream in 2MB chunks for chunked transfer.
     // https://docs.rs/axum/latest/axum/extract/struct.DefaultBodyLimit.html

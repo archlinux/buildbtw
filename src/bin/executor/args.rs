@@ -1,6 +1,9 @@
 use buildbtw::{buildspace, executor::config, external_secrets, package::KnownArchitecture};
 use camino::Utf8PathBuf;
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, OptionExt},
+};
 use url::Url;
 use uuid::Uuid;
 
@@ -48,32 +51,11 @@ pub enum Commands {
     Gitlab(GitlabArgs),
 }
 
-#[derive(Debug, Clone, clap::Args)]
+#[derive(Debug, Clone, clap::Args, PartialEq)]
 pub struct DoctorArgs {
-    /// Base URL of the output artifacts collector endpoint that retrieves build results
-    ///
-    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", requires = "api_token_path")]
-    pub api_server_url: Option<Url>,
-
-    /// Path to a file containing the API token for authentication
-    ///
-    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
-    ///
-    /// Precedence:
-    ///
-    /// 1. `BUILDBTW_EXECUTOR_TOKEN` env var
-    /// 2. Contents of file specified by the token path
-    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
-    //
-    // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(
-        long,
-        env = "BUILDBTW_EXECUTOR_TOKEN_PATH",
-        verbatim_doc_comment,
-        requires = "api_server_url"
-    )]
-    pub api_token_path: Option<Utf8PathBuf>,
+    /// API config for testing authentication
+    #[clap(flatten)]
+    api_config: ApiConfigArgs,
 }
 
 impl TryFrom<DoctorArgs> for config::DoctorConfig {
@@ -81,25 +63,28 @@ impl TryFrom<DoctorArgs> for config::DoctorConfig {
 
     fn try_from(
         DoctorArgs {
-            api_server_url,
-            api_token_path: bbtw_token_path,
+            api_config:
+                ApiConfigArgs {
+                    api_server_url,
+                    api_token_path,
+                },
         }: DoctorArgs,
     ) -> Result<Self, Self::Error> {
         let api_token =
-            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", bbtw_token_path.as_deref())?;
+            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", api_token_path.as_deref())?;
 
-        let mut auth_config = None;
+        let mut api_config = None;
 
         if let Some(api_token) = api_token
             && let Some(api_server_url) = api_server_url
         {
-            auth_config = Some(config::Auth {
+            api_config = Some(config::ApiConfig {
                 api_server_url,
                 api_token,
             });
         }
 
-        Ok(config::DoctorConfig { auth: auth_config })
+        Ok(config::DoctorConfig { api_config })
     }
 }
 
@@ -247,35 +232,47 @@ impl From<GetSourcesArgs> for config::RunGetSources {
     }
 }
 
-#[derive(Debug, Clone, clap::Args)]
+#[derive(Debug, Clone, clap::Args, PartialEq)]
 pub struct BuildScriptArgs {
     /// Directory of the project that will be built
     #[arg(long, env = "CUSTOM_ENV_CI_PROJECT_DIR")]
     pub ci_project_dir: Utf8PathBuf,
 
+    /// Base URL of the pacman repository that should be injected
+    #[clap(flatten)]
+    pacman_repository: Option<PacmanRepoArgs>,
+
+    /// API config for uploading build artifacts and updating status
+    #[clap(flatten)]
+    api_config: Option<BuildScriptApiConfigArgs>,
+}
+
+#[derive(Debug, Clone, clap::Args, PartialEq)]
+#[group(requires_all = ["buildspace", "iteration", "architecture", "pacman_repository_base_url"])]
+pub struct PacmanRepoArgs {
     /// Buildspace slug
-    #[arg(long, env = "CUSTOM_ENV_BUILDSPACE_SLUG", requires_all = ["iteration_seqid", "architecture", "pacman_repository_base_url"])]
-    pub buildspace_slug: Option<buildspace::Slug>,
+    #[arg(long, env = "CUSTOM_ENV_BUILDSPACE", required = false)]
+    pub buildspace: buildspace::Slug,
 
     /// Iteration sequence-id
-    #[arg(long, env = "CUSTOM_ENV_ITERATION_SEQID", requires_all = ["buildspace_slug", "architecture", "pacman_repository_base_url"])]
-    pub iteration_seqid: Option<u32>,
+    #[arg(long, env = "CUSTOM_ENV_ITERATION", required = false)]
+    pub iteration: u32,
 
     /// Build architecture
-    #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE", requires_all = ["buildspace_slug", "iteration_seqid", "pacman_repository_base_url"])]
-    pub architecture: Option<KnownArchitecture>,
+    #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE", required = false)]
+    pub architecture: KnownArchitecture,
 
     /// Base URL of the pacman repository that should be injected
     ///
     /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
     /// If no value is provided, no pacman repository will be injected into the build.
-    #[arg(long, env = "CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", requires_all = ["buildspace_slug", "iteration_seqid", "architecture"])]
-    pub pacman_repository_base_url: Option<Url>,
+    #[arg(long, env = "CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", required = false)]
+    pub pacman_repository_base_url: Url,
+}
 
-    /// Build uuid
-    #[arg(long, env = "CUSTOM_ENV_BUILD_ID", requires_all = ["api_server_url"])]
-    pub build_id: Option<Uuid>,
-
+#[derive(Debug, Clone, clap::Args, PartialEq)]
+#[group(requires_all = ["api_server_url", "build_id"])]
+pub struct BuildScriptApiConfigArgs {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
@@ -283,7 +280,50 @@ pub struct BuildScriptArgs {
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "CUSTOM_ENV_API_SERVER_URL", verbatim_doc_comment, requires_all = ["build_id", "api_token_path"])]
+    #[arg(
+        long,
+        env = "BUILDBTW_API_SERVER_URL",
+        verbatim_doc_comment,
+        required = false
+    )]
+    pub api_server_url: Url,
+
+    /// Path to a file containing the API token for authentication
+    ///
+    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
+    /// If set, requires build ID and API server URL as well.
+    ///
+    /// Precedence:
+    ///
+    /// 1. `BUILDBTW_EXECUTOR_TOKEN` env var
+    /// 2. Contents of file specified by the token path
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(
+        long,
+        env = "BUILDBTW_EXECUTOR_TOKEN_PATH",
+        verbatim_doc_comment,
+        required = false
+    )]
+    api_token_path: Option<Utf8PathBuf>,
+
+    /// Build UUID for API calls
+    #[arg(long, env = "CUSTOM_ENV_BUILD_ID", required = false)]
+    pub build_id: Uuid,
+}
+
+#[derive(Debug, Clone, clap::Args, PartialEq)]
+#[group(requires_all = ["api_server_url"])]
+pub struct ApiConfigArgs {
+    /// Base URL of the output artifacts collector endpoint that retrieves build results
+    ///
+    /// If no value is provided, the produced output artifacts will not be uploaded.
+    /// If set, requires build ID and API server URL as well.
+    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
+    //
+    // `verbatim_doc_comment` preserves newlines in the doc listing above
+    #[arg(long, env = "BUILDBTW_API_SERVER_URL", verbatim_doc_comment)]
     pub api_server_url: Option<Url>,
 
     /// Path to a file containing the API token for authentication
@@ -298,7 +338,7 @@ pub struct BuildScriptArgs {
     /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "BUILDBTW_EXECUTOR_TOKEN_PATH", verbatim_doc_comment, requires_all = ["api_server_url"])]
+    #[arg(long, env = "BUILDBTW_EXECUTOR_TOKEN_PATH", verbatim_doc_comment)]
     api_token_path: Option<Utf8PathBuf>,
 }
 
@@ -308,38 +348,53 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
     fn try_from(
         BuildScriptArgs {
             ci_project_dir,
-            buildspace_slug,
-            iteration_seqid,
-            architecture,
-            pacman_repository_base_url,
-            build_id,
-            api_server_url,
-            api_token_path: bbtw_token_path,
+            pacman_repository,
+            api_config,
         }: BuildScriptArgs,
     ) -> Result<Self, Self::Error> {
-        let api_token =
-            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", bbtw_token_path.as_deref())?;
+        let api_config = match api_config {
+            Some(api_config) => {
+                let BuildScriptApiConfigArgs {
+                    api_server_url,
+                    api_token_path,
+                    build_id,
+                } = api_config;
+                let api_token = external_secrets::get_optional(
+                    "BUILDBTW_EXECUTOR_TOKEN",
+                    api_token_path.as_deref(),
+                )?
+                .ok_or_eyre("API endpoint configured but no API token provided")?;
+                Some(config::RunBuildScriptApiConfig {
+                    api_server_url,
+                    api_token,
+                    build_id,
+                })
+            }
+            None => None,
+        };
 
-        let mut upload_config = None;
-
-        if let Some(api_token) = api_token
-            && let Some(api_server_url) = api_server_url
-        {
-            upload_config = Some(config::Upload {
-                api_server_url,
-                api_token,
-            });
-        }
+        let pacman_repository = match pacman_repository {
+            Some(pacman_repository) => {
+                let PacmanRepoArgs {
+                    buildspace,
+                    iteration,
+                    architecture,
+                    pacman_repository_base_url,
+                } = pacman_repository;
+                Some(config::PacmanRepo {
+                    buildspace,
+                    iteration,
+                    architecture,
+                    pacman_repository_base_url,
+                })
+            }
+            None => None,
+        };
 
         Ok(config::RunBuildScript {
             ci_project_dir,
-            buildspace_slug,
-            iteration_seqid,
-            architecture,
-            pacman_repository_base_url,
-            build_id,
-
-            upload_config,
+            pacman_repository,
+            api_config,
             // When invoked as a standalone binary, always log to the passed file descriptors.
             log_destination: config::LogDestination::InheritStdio,
         })
@@ -374,4 +429,328 @@ pub fn config(args: &ConfigArgs) -> Result<()> {
         serde_json::to_string_pretty(&build_config).wrap_err("Failed to serialize build config")?;
     println!("{json}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use buildbtw::executor::{self, config};
+    use clap::Parser;
+    use color_eyre::Result;
+    use color_eyre::eyre::bail;
+    use rstest::rstest;
+    use url::Url;
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn build_script_args(args: Args) -> Result<BuildScriptArgs> {
+        match args {
+            Args {
+                command:
+                    Commands::Gitlab(GitlabArgs {
+                        command:
+                            Gitlab::Run(RunArgs {
+                                script_path: _,
+                                stage: RunStage::BuildScript(build_script),
+                            }),
+                    }),
+                ..
+            } => Ok(build_script),
+            args => bail!("expected gitlab build_script, got: {args:#?}"),
+        }
+    }
+
+    fn doctor_args(args: Args) -> Result<DoctorArgs> {
+        match args {
+            Args {
+                command: Commands::Doctor(args),
+                ..
+            } => Ok(args),
+            args => bail!("expected doctor, got: {args:#?}"),
+        }
+    }
+
+    #[rstest]
+    fn test_build_script_args_minimal() -> Result<()> {
+        let argv = &[
+            "buildbtw-executor",
+            "gitlab",
+            "run",
+            "/tmp/foo",
+            "build_script",
+            "--ci-project-dir=/tmp/foo",
+        ];
+        let env = [
+            ("CUSTOM_ENV_CI_PROJECT_DIR", None::<&str>),
+            ("CUSTOM_ENV_BUILDSPACE", None::<&str>),
+            ("CUSTOM_ENV_ITERATION", None::<&str>),
+            ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
+            ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
+            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
+        ];
+
+        let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
+        let args = build_script_args(args)?;
+
+        assert_eq!(
+            args,
+            BuildScriptArgs {
+                ci_project_dir: "/tmp/foo".into(),
+                pacman_repository: None,
+                api_config: None,
+            }
+        );
+
+        let config: config::RunBuildScript = temp_env::with_vars(env, || args.try_into())?;
+
+        assert_eq!(
+            config,
+            executor::config::RunBuildScript {
+                ci_project_dir: "/tmp/foo".into(),
+                pacman_repository: None,
+                api_config: None,
+                log_destination: config::LogDestination::InheritStdio,
+            }
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_build_script_args_full() -> Result<()> {
+        let build_id = Uuid::new_v4();
+        let argv = &[
+            "buildbtw-executor",
+            "gitlab",
+            "run",
+            "/tmp/foo",
+            "build_script",
+            "--ci-project-dir=/tmp/foo",
+            "--buildspace=foospace",
+            "--iteration=1",
+            "--architecture=x86_64",
+            "--pacman-repository-base-url=https://10.0.2.2",
+            "--api-server-url=https://localhost",
+            "--build-id",
+            &build_id.to_string(),
+        ];
+        let env = [
+            ("CUSTOM_ENV_CI_PROJECT_DIR", None::<&str>),
+            ("CUSTOM_ENV_BUILDSPACE", None::<&str>),
+            ("CUSTOM_ENV_ITERATION", None::<&str>),
+            ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
+            ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
+            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN", Some("FOOBAR")),
+            ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
+        ];
+
+        let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
+        let args = build_script_args(args)?;
+
+        assert_eq!(
+            args,
+            BuildScriptArgs {
+                ci_project_dir: "/tmp/foo".into(),
+                pacman_repository: Some(PacmanRepoArgs {
+                    buildspace: buildspace::Slug::try_from("foospace".to_string())?,
+                    iteration: 1u32,
+                    architecture: KnownArchitecture::X86_64,
+                    pacman_repository_base_url: Url::from_str("https://10.0.2.2")?,
+                }),
+                api_config: Some(BuildScriptApiConfigArgs {
+                    api_server_url: Url::from_str("https://localhost")?,
+                    api_token_path: None,
+                    build_id,
+                }),
+            }
+        );
+
+        let config: config::RunBuildScript = temp_env::with_vars(env, || args.try_into())?;
+
+        assert_eq!(
+            config,
+            executor::config::RunBuildScript {
+                ci_project_dir: "/tmp/foo".into(),
+                pacman_repository: Some(executor::config::PacmanRepo {
+                    buildspace: buildspace::Slug::try_from("foospace".to_string())?,
+                    iteration: 1u32,
+                    architecture: KnownArchitecture::X86_64,
+                    pacman_repository_base_url: Url::from_str("https://10.0.2.2")?,
+                }),
+                api_config: Some(executor::config::RunBuildScriptApiConfig {
+                    api_server_url: Url::from_str("https://localhost")?,
+                    api_token: redact::Secret::new("FOOBAR".into()),
+                    build_id,
+                }),
+                log_destination: config::LogDestination::InheritStdio,
+            }
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_build_script_args_with_api_missing_build_id() {
+        let argv = &[
+            "buildbtw-executor",
+            "gitlab",
+            "run",
+            "/tmp/foo",
+            "build_script",
+            "--ci-project-dir=/tmp/foo",
+            "--api-server-url=https://localhost",
+        ];
+        let env = [
+            ("CUSTOM_ENV_CI_PROJECT_DIR", None::<&str>),
+            ("CUSTOM_ENV_BUILDSPACE", None::<&str>),
+            ("CUSTOM_ENV_ITERATION", None::<&str>),
+            ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
+            ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
+            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
+        ];
+
+        let args = temp_env::with_vars(env, || Args::try_parse_from(argv));
+        assert!(args.is_err(), "missing build-id with api-server must fail");
+    }
+
+    #[rstest]
+    fn test_build_script_args_with_pacman_repo_requires_all() {
+        let argv = &[
+            "buildbtw-executor",
+            "gitlab",
+            "run",
+            "/tmp/foo",
+            "build_script",
+            "--ci-project-dir=/tmp/foo",
+            "--pacman-repository-base-url=https://10.0.2.2",
+        ];
+        let env = [
+            ("CUSTOM_ENV_CI_PROJECT_DIR", None::<&str>),
+            ("CUSTOM_ENV_BUILDSPACE", None::<&str>),
+            ("CUSTOM_ENV_ITERATION", None::<&str>),
+            ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
+            ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
+            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
+        ];
+
+        let args = temp_env::with_vars(env, || Args::try_parse_from(argv));
+        assert!(
+            args.is_err(),
+            "missing option for pacman repository config must fail"
+        );
+    }
+
+    #[rstest]
+    fn test_doctor_args_minimal() -> Result<()> {
+        let argv = &["buildbtw-executor", "doctor"];
+        let env = [
+            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
+        ];
+
+        let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
+        let args = doctor_args(args)?;
+
+        assert_eq!(
+            args,
+            DoctorArgs {
+                api_config: ApiConfigArgs {
+                    api_server_url: None,
+                    api_token_path: None,
+                }
+            }
+        );
+
+        let config: config::DoctorConfig = args.try_into()?;
+        assert_eq!(config, executor::config::DoctorConfig { api_config: None });
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_doctor_args_with_api() -> Result<()> {
+        let argv = &[
+            "buildbtw-executor",
+            "doctor",
+            "--api-server-url",
+            "https://10.0.2.2",
+        ];
+        let env = [
+            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN", Some("FOOBAR")),
+            ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
+        ];
+
+        let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
+        let args = doctor_args(args)?;
+
+        assert_eq!(
+            args,
+            DoctorArgs {
+                api_config: ApiConfigArgs {
+                    api_server_url: Some(Url::try_from("https://10.0.2.2")?),
+                    api_token_path: None,
+                }
+            }
+        );
+
+        let config: config::DoctorConfig = temp_env::with_vars(env, || args.try_into())?;
+        assert_eq!(
+            config,
+            executor::config::DoctorConfig {
+                api_config: Some(executor::config::ApiConfig {
+                    api_server_url: Url::try_from("https://10.0.2.2")?,
+                    api_token: redact::Secret::new("FOOBAR".into()),
+                })
+            }
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_doctor_args_without_api_token() -> Result<()> {
+        let argv = &[
+            "buildbtw-executor",
+            "doctor",
+            "--api-server-url",
+            "https://10.0.2.2",
+        ];
+        let env = [
+            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_TOKEN", None::<&str>),
+            ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
+        ];
+
+        let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
+        let args = doctor_args(args)?;
+
+        assert_eq!(
+            args,
+            DoctorArgs {
+                api_config: ApiConfigArgs {
+                    api_server_url: Some(Url::try_from("https://10.0.2.2")?),
+                    api_token_path: None,
+                }
+            }
+        );
+
+        let config: config::DoctorConfig = temp_env::with_vars(env, || args.try_into())?;
+        assert_eq!(config, executor::config::DoctorConfig { api_config: None });
+
+        Ok(())
+    }
 }

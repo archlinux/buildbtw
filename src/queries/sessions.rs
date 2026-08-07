@@ -1,10 +1,13 @@
+use color_eyre::Result;
 use redact::Secret;
+use sea_orm::IntoActiveModel;
 use sea_orm::{ActiveValue::Set, DeleteMany, EntityTrait, Insert, Select, UpdateOne};
 use sea_orm::{ColumnTrait, QueryFilter, ValidatedDeleteOne};
 use uuid::Uuid;
 
 use crate::db_fields::{RedactedString, TxtUuid};
 use crate::entities::sessions::{self, ClientType};
+use crate::{db, queries};
 
 #[must_use]
 pub fn insert(user_id: Uuid, client_type: ClientType) -> Insert<sessions::ActiveModel> {
@@ -57,4 +60,22 @@ pub fn update_last_accessed_time(
 ) -> UpdateOne<sessions::ActiveModel> {
     session.last_accessed = Set(time::OffsetDateTime::now_utc());
     sessions::Entity::update(session)
+}
+
+/// Upsert a local system user API token
+pub async fn upsert_system_user_api_token(tx: &db::TxImmediate) -> Result<sessions::Model> {
+    let user = queries::users::upsert_system_user(tx).await?;
+    let token = match by_user_id(user.id).one(tx).await? {
+        Some(session) => {
+            update_last_accessed_time(session.into_active_model())
+                .exec(tx)
+                .await?
+        }
+        None => {
+            insert(user.id.0, ClientType::Local)
+                .exec_with_returning(tx)
+                .await?
+        }
+    };
+    Ok(token)
 }

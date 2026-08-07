@@ -17,6 +17,7 @@ use sea_orm::TransactionTrait;
 use tokio_util::io::ReaderStream;
 use tracing::debug;
 
+use crate::input;
 use crate::pacman_repository::pacman_repo_add;
 use crate::server_state::ServerState;
 use crate::{api, entities, response_error::ResponseError};
@@ -62,6 +63,46 @@ pub async fn list(
         total_build_count,
         builds,
     }))
+}
+
+pub async fn set_status(
+    path: api::builds::SetStatus,
+    _auth: from_request::AuthUser,
+    db::TxImmediate(tx): db::TxImmediate,
+    Json(body): Json<input::builds::SetStatus>,
+) -> ResponseResult<()> {
+    let build_id = path.id;
+    let build = queries::builds::load_by_id(build_id.into())
+        .with((entities::iterations::Entity, entities::buildspaces::Entity))
+        .one(&tx)
+        .await?
+        .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
+
+    // Check build status transition
+    let status = body.status;
+    let valid_transition = match build.status {
+        package::BuildStatus::Scheduled => status == package::BuildStatus::Building,
+        // Built is set exclusively by the artifact upload verifier
+        package::BuildStatus::Building => status == package::BuildStatus::Failed,
+        _ => false,
+    };
+    if !valid_transition {
+        let build_status = build.status;
+        return Err(ResponseError::UnprocessableEntity(
+            format!(
+                "Build status in wrong state, cannot transition from {build_status} to {status}"
+            )
+            .to_string(),
+        ));
+    }
+
+    // Update the build status.
+    queries::builds::update_build_status(build.id, status)
+        .exec(&tx)
+        .await?;
+    tx.commit().await?;
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_lines)]
@@ -197,7 +238,6 @@ pub async fn upload_package(
         queries::builds::update_build_status(build_id.into(), package::BuildStatus::Built)
             .exec(&tx)
             .await?;
-        // TODO: unblock builds that can now be built
         tx.commit().await?;
     }
 

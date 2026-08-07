@@ -3,9 +3,11 @@ use std::collections::HashSet;
 use buildbtw::api;
 use buildbtw::buildspace;
 use buildbtw::entities;
+use buildbtw::input;
 use buildbtw::package;
 use buildbtw::pacman_repository;
 use buildbtw::queries;
+
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::Result;
@@ -305,7 +307,7 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
+    queries::builds::schedule_and_dispatch(build.id, entities::builds::DispatchedTo::Local)
         .exec(&tx)
         .await?;
     tx.commit().await?;
@@ -780,11 +782,15 @@ async fn test_serve_build_file(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
-        .exec(&tx)
-        .await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        package::BuildStatus::Building,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
     tx.commit().await?;
 
     // Create package tarball
@@ -864,11 +870,15 @@ async fn test_serve_build_artifact_not_found(#[future(awt)] ctx: TestCtx) -> Res
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
-        .exec(&tx)
-        .await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        package::BuildStatus::Building,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
     tx.commit().await?;
 
     // Create package tarball
@@ -943,11 +953,15 @@ async fn test_serve_build_artifact_unknown_iteration(#[future(awt)] ctx: TestCtx
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
-    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
-    queries::builds::dispatch_to_local_executor(build.id)
-        .exec(&tx)
-        .await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        package::BuildStatus::Building,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
     tx.commit().await?;
 
     // Create package tarball
@@ -993,6 +1007,117 @@ async fn test_serve_build_artifact_unknown_iteration(#[future(awt)] ctx: TestCtx
 
     // Check return status
     response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[case(package::BuildStatus::Scheduled, package::BuildStatus::Building)]
+#[case(package::BuildStatus::Building, package::BuildStatus::Failed)]
+#[tokio::test]
+async fn test_update_build_status(
+    #[case] status_from: package::BuildStatus,
+    #[case] status_to: package::BuildStatus,
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        status_from,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
+    tx.commit().await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_put(&api::builds::SetStatus {
+            id: build.id.into(),
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .json(&input::builds::SetStatus { status: status_to })
+        .await;
+
+    // Check response status
+    response.assert_status_ok();
+
+    // Check build status update
+    let tx = ctx.state.db.begin().await?;
+    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    assert_eq!(status_to, build.status, "build status must be updated");
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_update_build_status_unknown_build(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_put(&api::builds::SetStatus { id: Uuid::new_v4() })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .json(&input::builds::SetStatus {
+            status: package::BuildStatus::Pending,
+        })
+        .await;
+
+    // Check build not found
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
+#[rstest]
+#[case(package::BuildStatus::Built, package::BuildStatus::Blocked)]
+#[tokio::test]
+async fn test_update_build_status_invalid_transition(
+    #[case] status_from: package::BuildStatus,
+    #[case] status_to: package::BuildStatus,
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build_with_status(
+        &tx,
+        iteration.id,
+        &pkgname.to_string(),
+        status_from,
+        Some(entities::builds::DispatchedTo::Local),
+    )
+    .await?;
+    tx.commit().await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_put(&api::builds::SetStatus {
+            id: build.id.into(),
+        })
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .json(&input::builds::SetStatus { status: status_to })
+        .await;
+
+    // Check response status
+    response.assert_status_unprocessable_entity();
+
+    // Check build status update
+    let tx = ctx.state.db.begin().await?;
+    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    assert_eq!(
+        status_from, build.status,
+        "build status must not be updated"
+    );
 
     Ok(())
 }

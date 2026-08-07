@@ -55,6 +55,14 @@ pub struct ListBuildsResponse {
     pub builds: Vec<Build>,
 }
 
+/// Update the build status
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/build/{id}/status")]
+pub struct SetStatus {
+    /// Unique build to update
+    pub id: Uuid,
+}
+
 /// Upload a built package identitifed by its build-id.
 ///
 /// All relevant metadata like architecture, pkgbase, filename etc are pre-derived

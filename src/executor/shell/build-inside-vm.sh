@@ -27,6 +27,15 @@ if [[ -d keys/pgp ]]; then
     sudo -u builder gpg --import keys/pgp/*.asc
 fi
 
-# Run build
+# export PACKAGER to have known identities, otherwise "Unknown Packager"
+# is the default, which is often rejected in other tooling.
+hostname=$(uname -n)
+export PACKAGER="${hostname} <${hostname}@buildbtw>"
+
+# define PKGDEST where the built output artifacts are expected
+# to reach the caller.
 export PKGDEST="/mnt/output/"
-sudo --preserve-env="PKGDEST" -u builder pkgctl build
+
+# Run build and preserve environment variables that need to be set
+# in the guest process.
+sudo --preserve-env="PKGDEST,PACKAGER" -u builder pkgctl build

@@ -22,7 +22,7 @@ use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::entities::{self, user_roles};
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
-use crate::{executor, gitlab_api, package};
+use crate::{executor, gitlab_api};
 use crate::{iteration_creator, schedule_builds, storage};
 
 /// Starts background tasks.
@@ -124,16 +124,20 @@ async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> 
     let tx = state.db.begin().await?;
 
     while let Some(build) = next_scheduled_build(&tx).await? {
-        // Mark build as running to exclude it from the next scheduled build query
-        queries::builds::update_build_status(build.id, package::BuildStatus::Building)
-            .exec(&tx)
-            .await?;
+        // Mark build as dispatched to the builder to exclude it from the next scheduled build query
+        queries::builds::update_dispatched_to(
+            build.id,
+            Some(entities::builds::DispatchedTo::Local),
+        )
+        .exec(&tx)
+        .await?;
 
         debug!(?build);
         let task = executor::run_local::build(
             state.db.clone(),
             build.clone(),
             state.data_dir.clone(),
+            state.server_url.clone(),
             token.clone(),
         );
 
@@ -159,7 +163,7 @@ async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> 
 async fn next_scheduled_build(
     tx: &DatabaseTransaction,
 ) -> Result<Option<entities::builds::ModelEx>> {
-    let build = queries::builds::scheduled_locally()
+    let build = queries::builds::scheduled_for_dispatch()
         .with((entities::iterations::Entity, entities::buildspaces::Entity))
         .one(tx)
         .await?;

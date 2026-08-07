@@ -15,6 +15,8 @@ pub enum ClientType {
     Web,
     /// Session created via CLI
     Cli,
+    /// Session created for local usage
+    Local,
 }
 
 /// Represents an active authenticated session in the application.
@@ -64,6 +66,7 @@ impl From<ClientType> for api::sessions::ClientType {
         match value {
             ClientType::Web => api::sessions::ClientType::Web,
             ClientType::Cli => api::sessions::ClientType::Cli,
+            ClientType::Local => api::sessions::ClientType::Local,
         }
     }
 }
