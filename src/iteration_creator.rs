@@ -210,6 +210,13 @@ impl IterationCreator {
         else {
             return Ok(());
         };
+
+        if newest_iteration.status == entities::iterations::Status::PendingCalculation {
+            // Don't create new iterations when the current one has no graph yet;
+            // the pending graph will be calculated later on, then we'll automatically revisit this buildspace and check for changes
+            return Ok(());
+        }
+
         let new_graph = BuildGraphs::calculate(&newest_iteration.changesets, source_repos).await?;
 
         // Fetch all builds of the old iteration and group them by architecture
