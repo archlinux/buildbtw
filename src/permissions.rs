@@ -33,7 +33,7 @@ pub fn can_create_user(user: &AuthUser) -> Result<bool> {
 }
 
 /// Check that the given permission is `true`. if not, return an error.
-pub fn permission_ok(permission: Result<bool>) -> ResponseResult<()> {
+pub fn check(permission: Result<bool>) -> ResponseResult<()> {
     match permission {
         Ok(true) => Ok(()),
         Ok(false) => Err(ResponseError::NotPermitted("Insufficient user role".into())),

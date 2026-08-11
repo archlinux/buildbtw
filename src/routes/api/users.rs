@@ -33,7 +33,7 @@ pub async fn create(
     tx: db::TxImmediate,
     Json(body): Json<input::users::CreateWithRoles>,
 ) -> ResponseResult<Json<users::User>> {
-    permissions::permission_ok(permissions::can_create_user(&auth))?;
+    permissions::check(permissions::can_create_user(&auth))?;
 
     let validated: input::users::CreateWithRoles =
         input::users::ValidatedCreateWithRoles::try_from(body)?.into();
