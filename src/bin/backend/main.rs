@@ -8,6 +8,7 @@
 //! builds in VMs.
 
 mod args;
+pub mod config;
 
 use axum_server::{Handle, tls_rustls::RustlsConfig};
 #[cfg(debug_assertions)]
@@ -195,81 +196,38 @@ async fn serve(
 }
 
 /// Create an axum service and make it listen on the given socket.
-async fn run_server(
-    db: DatabaseConnection,
-    args::RunArgs {
-        listen,
-        oidc,
-        server_url,
-        cookie_encryption_key_path,
-        web_root,
-        tls,
-        update_source_repos,
-        auto_create_iterations,
-        gitlab,
-        data_dir,
-        dispatch_builds_to,
-        #[cfg(debug_assertions)]
-            authelia_container: _,
-    }: args::RunArgs,
-) -> Result<()> {
+async fn run_server(db: DatabaseConnection, run_args: args::RunArgs) -> Result<()> {
     // Shared cancellation token to signal graceful shutdown across the application.
     let cancellation_token = CancellationToken::new();
 
-    let cookie_encryption_key =
-        external_secrets::get_cookie_encryption_key(cookie_encryption_key_path.as_deref())?;
-
-    let oidc_state = if let Some(oidc) = oidc {
-        let oidc_init_config = oidc::InitConfig::try_from(oidc)?;
-        let oidc_state = oidc::State::initialize(&server_url, oidc_init_config)
-            .await
-            .wrap_err("OIDC configuration failed")?;
-        Some(oidc_state)
-    } else {
-        None
-    };
+    let config = config::Config::try_from(run_args).await?;
 
     let server_state = server_state::ServerState {
         db: db.clone(),
-        oidc: oidc_state,
-        cookie_encryption_key,
-        data_dir,
-        server_url: server_url.clone(),
+        oidc: config.oidc_state,
+        cookie_encryption_key: config.cookie_encryption_key,
+        data_dir: config.data_dir,
+        server_url: config.server_url.clone(),
     };
 
-    let gitlab_config = gitlab.map(gitlab_api::Config::try_from).transpose()?;
     tasks::initialize(
         server_state.clone(),
         cancellation_token.clone(),
-        gitlab_config.clone(),
-        update_source_repos,
-        auto_create_iterations,
-        schedule_builds::Config::new(
-            dispatch_builds_to.map(schedule_builds::DispatchBuildsTo::from),
-            gitlab_config,
-        )?,
+        config.gitlab.clone(),
+        config.update_source_repos,
+        config.auto_create_iterations,
+        schedule_builds::Config::new(config.dispatch_builds_to, config.gitlab)?,
         db.clone(),
     )?;
 
-    templates::initialize(&web_root)?;
+    templates::initialize(&config.web_root)?;
 
-    let router = router::new(&web_root).with_state(server_state);
+    let router = router::new(&config.web_root).with_state(server_state);
 
-    info!("Server available at: {}", server_url);
-
-    // Load TLS configuration if both cert and key are provided.
-    let rustls_config = if let Some(args::Tls { tls_cert, tls_key }) = tls {
-        Some(
-            RustlsConfig::from_pem_file(tls_cert, tls_key)
-                .await
-                .wrap_err("Failed to load TLS certificate and key")?,
-        )
-    } else {
-        None
-    };
+    info!("Server available at: {}", config.server_url);
 
     // Start serving.
-    serve(cancellation_token, listen, rustls_config, router).await
+    serve(cancellation_token, config.listen, config.rustls, router).await
 }
 
 /// Create a new axum handle, spawn the graceful shutdown task, and return the handle.
