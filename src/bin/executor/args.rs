@@ -2,7 +2,7 @@ use buildbtw::{buildspace, executor::config, external_secrets, package::KnownArc
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,
-    eyre::{Context, OptionExt},
+    eyre::{Context, OptionExt, bail},
 };
 use url::Url;
 use uuid::Uuid;
@@ -55,34 +55,27 @@ pub enum Commands {
 pub struct DoctorArgs {
     /// API config for testing authentication
     #[clap(flatten)]
-    api_config: ApiConfigArgs,
+    api_config: Option<ApiConfigArgs>,
 }
 
 impl TryFrom<DoctorArgs> for config::DoctorConfig {
     type Error = color_eyre::eyre::Error;
 
-    fn try_from(
-        DoctorArgs {
-            api_config:
-                ApiConfigArgs {
-                    api_server_url,
-                    api_token_path,
-                },
-        }: DoctorArgs,
-    ) -> Result<Self, Self::Error> {
-        let api_token =
-            external_secrets::get_optional("BUILDBTW_EXECUTOR_TOKEN", api_token_path.as_deref())?;
-
-        let mut api_config = None;
-
-        if let Some(api_token) = api_token
-            && let Some(api_server_url) = api_server_url
-        {
-            api_config = Some(config::ApiConfig {
+    fn try_from(DoctorArgs { api_config }: DoctorArgs) -> Result<Self, Self::Error> {
+        let api_config = match api_config {
+            Some(ApiConfigArgs {
+                api_server_url,
+                api_token_path,
+            }) => external_secrets::get_optional(
+                "BUILDBTW_EXECUTOR_TOKEN",
+                api_token_path.as_deref(),
+            )?
+            .map(|api_token| config::ApiConfig {
                 api_server_url,
                 api_token,
-            });
-        }
+            }),
+            None => None,
+        };
 
         Ok(config::DoctorConfig { api_config })
     }
@@ -233,6 +226,11 @@ impl From<GetSourcesArgs> for config::RunGetSources {
 }
 
 #[derive(Debug, Clone, clap::Args, PartialEq)]
+// Two things of note here:
+// 1. `requires_all` names members that are not part of this struct. They are actually flattened into
+//    here from `api_config`.
+// 2. `args` so that clap is even aware that a `build_id` exists and is expected to be provided.
+#[group(requires_all = ["api_server_url", "build_id"], args = ["api_server_url", "api_token_path", "build_id"])]
 pub struct BuildScriptArgs {
     /// Directory of the project that will be built
     #[arg(long, env = "CUSTOM_ENV_CI_PROJECT_DIR")]
@@ -244,7 +242,13 @@ pub struct BuildScriptArgs {
 
     /// API config for uploading build artifacts and updating status
     #[clap(flatten)]
-    api_config: Option<BuildScriptApiConfigArgs>,
+    api_config: Option<ApiConfigArgs>,
+
+    /// Build UUID for API calls
+    ///
+    /// If set, requires the API server URL as well.
+    #[arg(long, env = "CUSTOM_ENV_BUILD_ID")]
+    build_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, clap::Args, PartialEq)]
@@ -271,12 +275,10 @@ pub struct PacmanRepoArgs {
 }
 
 #[derive(Debug, Clone, clap::Args, PartialEq)]
-#[group(requires_all = ["api_server_url", "build_id"])]
-pub struct BuildScriptApiConfigArgs {
+pub struct ApiConfigArgs {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
-    /// If set, requires build ID and API server URL as well.
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
@@ -287,44 +289,6 @@ pub struct BuildScriptApiConfigArgs {
         required = false
     )]
     pub api_server_url: Url,
-
-    /// Path to a file containing the API token for authentication
-    ///
-    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
-    /// If set, requires build ID and API server URL as well.
-    ///
-    /// Precedence:
-    ///
-    /// 1. `BUILDBTW_EXECUTOR_TOKEN` env var
-    /// 2. Contents of file specified by the token path
-    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
-    //
-    // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(
-        long,
-        env = "BUILDBTW_EXECUTOR_TOKEN_PATH",
-        verbatim_doc_comment,
-        required = false
-    )]
-    api_token_path: Option<Utf8PathBuf>,
-
-    /// Build UUID for API calls
-    #[arg(long, env = "CUSTOM_ENV_BUILD_ID", required = false)]
-    pub build_id: Uuid,
-}
-
-#[derive(Debug, Clone, clap::Args, PartialEq)]
-#[group(requires_all = ["api_server_url"])]
-pub struct ApiConfigArgs {
-    /// Base URL of the output artifacts collector endpoint that retrieves build results
-    ///
-    /// If no value is provided, the produced output artifacts will not be uploaded.
-    /// If set, requires build ID and API server URL as well.
-    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    //
-    // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "BUILDBTW_API_SERVER_URL", verbatim_doc_comment)]
-    pub api_server_url: Option<Url>,
 
     /// Path to a file containing the API token for authentication
     ///
@@ -350,15 +314,17 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
             ci_project_dir,
             pacman_repository,
             api_config,
+            build_id,
         }: BuildScriptArgs,
     ) -> Result<Self, Self::Error> {
-        let api_config = match api_config {
-            Some(api_config) => {
-                let BuildScriptApiConfigArgs {
+        let api_config = match (api_config, build_id) {
+            (
+                Some(ApiConfigArgs {
                     api_server_url,
                     api_token_path,
-                    build_id,
-                } = api_config;
+                }),
+                Some(build_id),
+            ) => {
                 let api_token = external_secrets::get_optional(
                     "BUILDBTW_EXECUTOR_TOKEN",
                     api_token_path.as_deref(),
@@ -370,7 +336,8 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
                     build_id,
                 })
             }
-            None => None,
+            (None, None) => None,
+            _ => bail!("API server URL and build ID must be provided together"),
         };
 
         let pacman_repository = match pacman_repository {
@@ -502,6 +469,7 @@ mod tests {
                 ci_project_dir: "/tmp/foo".into(),
                 pacman_repository: None,
                 api_config: None,
+                build_id: None,
             }
         );
 
@@ -563,11 +531,11 @@ mod tests {
                     architecture: KnownArchitecture::X86_64,
                     pacman_repository_base_url: Url::from_str("https://10.0.2.2")?,
                 }),
-                api_config: Some(BuildScriptApiConfigArgs {
+                api_config: Some(ApiConfigArgs {
                     api_server_url: Url::from_str("https://localhost")?,
                     api_token_path: None,
-                    build_id,
                 }),
+                build_id: Some(build_id),
             }
         );
 
@@ -662,15 +630,7 @@ mod tests {
         let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
         let args = doctor_args(args)?;
 
-        assert_eq!(
-            args,
-            DoctorArgs {
-                api_config: ApiConfigArgs {
-                    api_server_url: None,
-                    api_token_path: None,
-                }
-            }
-        );
+        assert_eq!(args, DoctorArgs { api_config: None });
 
         let config: config::DoctorConfig = args.try_into()?;
         assert_eq!(config, executor::config::DoctorConfig { api_config: None });
@@ -699,10 +659,10 @@ mod tests {
         assert_eq!(
             args,
             DoctorArgs {
-                api_config: ApiConfigArgs {
-                    api_server_url: Some(Url::try_from("https://10.0.2.2")?),
+                api_config: Some(ApiConfigArgs {
+                    api_server_url: Url::try_from("https://10.0.2.2")?,
                     api_token_path: None,
-                }
+                })
             }
         );
 
@@ -741,10 +701,10 @@ mod tests {
         assert_eq!(
             args,
             DoctorArgs {
-                api_config: ApiConfigArgs {
-                    api_server_url: Some(Url::try_from("https://10.0.2.2")?),
+                api_config: Some(ApiConfigArgs {
+                    api_server_url: Url::try_from("https://10.0.2.2")?,
                     api_token_path: None,
-                }
+                })
             }
         );
 
