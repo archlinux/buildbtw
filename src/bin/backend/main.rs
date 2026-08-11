@@ -202,6 +202,8 @@ async fn run_server(db: DatabaseConnection, run_args: args::RunArgs) -> Result<(
 
     let config = config::Config::try_from(run_args).await?;
 
+    tracing::debug!("{config:#?}");
+
     let server_state = server_state::ServerState {
         db: db.clone(),
         oidc: config.oidc_state,
