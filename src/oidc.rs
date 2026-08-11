@@ -49,12 +49,14 @@ pub struct InitConfig {
 /// Everything needed at runtime to perform single-sign-on with a specific OIDC
 /// provider.
 /// Stored in [crate::server_state::ServerState].
-#[derive(Clone, Debug)]
+#[derive(Clone, derive_more::Debug)]
 pub struct State {
     /// High-level client from [openidconnect]
+    #[debug(ignore)]
     pub oidc_client: ConfiguredClient,
 
     /// HTTP client passed to [openidconnect] functions when making requests
+    #[debug(ignore)]
     pub reqwest_client: reqwest::Client,
 
     /// User-visible name of the OIDC provider ("issuer")

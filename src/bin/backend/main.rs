@@ -14,8 +14,8 @@ use axum_server::{Handle, tls_rustls::RustlsConfig};
 #[cfg(debug_assertions)]
 use buildbtw::authelia;
 use buildbtw::{
-    db, external_secrets, gitlab_api, graceful_shutdown::shutdown_signal, oidc, router,
-    schedule_builds, server_state, tasks, templates, utils::remove_file_if_exists,
+    db, graceful_shutdown::shutdown_signal, router, schedule_builds, server_state, tasks,
+    templates, utils::remove_file_if_exists,
 };
 use clap::Parser;
 use color_eyre::{
