@@ -111,6 +111,9 @@ pub struct Gitlab {
 
     /// GitLab package group to monitor
     ///
+    /// When changing this, make sure to update remote URLs of already cloned
+    /// repositories as the repo updater does not do this for you.
+    ///
     /// E.g. `archlinux/packaging/packages`
     #[arg(long, env = "BUILDBTW_GITLAB_PACKAGES_GROUP", required = true)]
     gitlab_packages_group: String,
