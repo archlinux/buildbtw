@@ -1,12 +1,14 @@
 mod diff;
 
-use color_eyre::Result;
-use tracing::debug;
+use std::collections::HashSet;
 
 use buildbtw::{
     dependency_graph::{self, BuildGraphs},
     git, package, storage,
 };
+use color_eyre::Result;
+use petgraph::visit::EdgeRef;
+use tracing::debug;
 
 #[tokio::test]
 async fn test_flaky_create_source_repo_cache() -> Result<()> {
@@ -119,6 +121,7 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
         .expect("Missing build graph for x86_64");
 
     assert!(x86_64_graph.node_count() > 0);
+    assert_no_duplicate_deps(&graphs);
 
     // Test calculating some huge graphs
     let graphs = BuildGraphs::calculate(
@@ -136,6 +139,41 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
         .expect("Missing build graph for x86_64");
 
     assert!(x86_64_graph.node_count() > 0);
+    assert_no_duplicate_deps(&graphs);
+
+    // Test calculating a graph with parallel dependencies
+    // (ktikz -> poppler, because ktikz has split packages both depending on poppler)
+    let graphs = BuildGraphs::calculate(
+        &git::Changesets::from(vec![git::Changeset {
+            repo_slug: "poppler".try_into()?,
+            branch_name: "main".try_into()?,
+        }]),
+        &mut source_repos,
+    )
+    .await?;
+
+    assert_no_duplicate_deps(&graphs);
 
     Ok(())
+}
+
+/// Verify that none of the graphs has duplicate edges.
+fn assert_no_duplicate_deps(graphs: &BuildGraphs) {
+    for graph in graphs.values() {
+        // Remember all edges we saw
+        let mut found_deps = HashSet::new();
+
+        for dep in graph.edge_references() {
+            // Check if we saw this edge before, and at the same time, remember
+            // it for the following iterations
+            let was_newly_inserted = found_deps.insert((dep.source(), dep.target()));
+
+            // Found a duplicate: we've seen this edge before
+            if !was_newly_inserted {
+                let source_name = &graph.node_weight(dep.source()).unwrap().pkgbase;
+                let target_name = &graph.node_weight(dep.target()).unwrap().pkgbase;
+                panic!("Found duplicate edge from {source_name} to {target_name}")
+            }
+        }
+    }
 }
