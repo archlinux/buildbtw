@@ -8,16 +8,23 @@ use url::Url;
 
 use crate::args::{self, TcpSocketOrUnixSocket};
 
+#[derive(derive_more::Debug)]
 pub struct Config {
     pub oidc_state: Option<oidc::State>,
     pub gitlab: Option<gitlab_api::Config>,
+    // Prevent option from always taking three (!) lines
+    #[debug("{rustls:?}")]
     pub rustls: Option<RustlsConfig>,
+    // Prevent option from always taking three (!) lines
+    #[debug("{dispatch_builds_to:?}")]
     pub dispatch_builds_to: Option<schedule_builds::DispatchBuildsTo>,
     pub data_dir: Option<Utf8PathBuf>,
     pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
     pub listen: TcpSocketOrUnixSocket,
     pub update_source_repos: bool,
     pub auto_create_iterations: bool,
+    // Use Display instead of Debug impl for compact representation
+    #[debug("{server_url}")]
     pub server_url: Url,
     pub web_root: Utf8PathBuf,
 }
