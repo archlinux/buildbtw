@@ -69,3 +69,21 @@ impl Config {
         })
     }
 }
+
+impl std::fmt::Debug for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("oidc_state", &self.oidc_state)
+            .field("gitlab", &self.gitlab)
+            .field("rustls", &self.rustls)
+            .field("dispatch_builds_to", &self.dispatch_builds_to)
+            .field("data_dir", &self.data_dir)
+            .field("cookie_encryption_key", &self.cookie_encryption_key)
+            .field("listen", &self.listen)
+            .field("update_source_repos", &self.update_source_repos)
+            .field("auto_create_iterations", &self.auto_create_iterations)
+            .field("server_url", &self.server_url)
+            .field("web_root", &self.web_root)
+            .finish()
+    }
+}
