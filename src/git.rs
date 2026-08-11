@@ -140,7 +140,10 @@ pub async fn clone_or_fetch_repositories(
             if let Some(result) = join_set.join_next().await {
                 match result {
                     Ok(Ok(())) => {} // Success
-                    Ok(Err(e)) => errors.push(e),
+                    Ok(Err(e)) => {
+                        tracing::error!(?e, "Failed to update repo");
+                        errors.push(e);
+                    }
                     Err(join_err) => errors.push(join_err.into()),
                 }
             }
