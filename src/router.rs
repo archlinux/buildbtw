@@ -14,6 +14,7 @@ pub fn new(root: &Utf8Path) -> Router<ServerState> {
         .merge(crate::routes::api::router())
         // Web routes for the browser UI, living under /
         .merge(crate::routes::web::router(root))
+        .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer((
             // Graceful shutdown will wait for outstanding requests to complete. Add a timeout so
             // requests don't hang forever.
