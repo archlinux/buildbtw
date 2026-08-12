@@ -8,10 +8,13 @@ use url::Url;
 
 pub mod projects;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, derive_more::Debug)]
 pub struct Config {
     pub token: Secret<String>,
+    // Use Display instead of Debug impl for compact representation
+    #[debug("{domain}")]
     pub domain: Url,
+    #[debug("{}", ssh_host_key.fingerprint(Default::default()))]
     pub ssh_host_key: PublicKey,
     pub packages_group: String,
 }
