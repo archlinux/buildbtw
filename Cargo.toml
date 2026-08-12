@@ -125,6 +125,7 @@ axum = { version = "0.8.8", features = [
 tower-http = { version = "0.7.0", features = [
     "timeout",
     "fs",
+    "trace"
 ], default-features = false }
 axum-extra = { version = "0.12.5", features = [
     "routing",
