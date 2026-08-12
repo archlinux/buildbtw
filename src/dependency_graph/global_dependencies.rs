@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use color_eyre::{Result, eyre::eyre};
 use petgraph::{graph::NodeIndex, prelude::StableGraph};
 use strum::IntoEnumIterator;
-use tracing::debug;
+use tracing::trace;
 
 use crate::{dependency_graph::buildspace_source_info_index::BuildspaceSourceInfoIndex, package};
 
@@ -62,11 +62,11 @@ impl GlobalDependencies {
 pub fn build_global_dependency_graphs(
     source_info_index: &BuildspaceSourceInfoIndex<'_>,
 ) -> HashMap<package::KnownArchitecture, GlobalDependencies> {
-    debug!("Building global dependency graph");
+    trace!("Building global dependency graph");
     let mut graphs = HashMap::new();
 
     // For every package, add edges for its dependencies
-    debug!("Adding dependency edges");
+    trace!("Adding dependency edges");
     for dependent_metadata in source_info_index.all_packages() {
         let source_info = &dependent_metadata.branch_info.source_info;
         for architecture in package::KnownArchitecture::iter() {

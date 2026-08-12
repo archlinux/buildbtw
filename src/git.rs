@@ -94,9 +94,17 @@ pub struct Changesets(pub Vec<Changeset>);
 /// Represents a source repository and a git branch inside of the repo,
 /// pointing to a specific commit with build instructions.
 #[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, sea_orm::FromJsonQueryResult, Display,
+    Clone,
+    derive_more::Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    sea_orm::FromJsonQueryResult,
+    Display,
 )]
 #[display("{repo_slug}/{branch_name}")]
+#[debug("{repo_slug}/{branch_name}")]
 pub struct Changeset {
     /// Slug of the repository, as in GitLab
     pub repo_slug: package::RepositorySlug,
@@ -115,7 +123,6 @@ pub async fn clone_or_fetch_repositories(
     gitlab_config: gitlab_api::Config,
 ) -> Result<()> {
     let project_count = gitlab_projects.len();
-    info!("Updating {project_count} repos");
 
     let mut join_set = tokio::task::JoinSet::new();
     let mut errors: Vec<color_eyre::Report> = Vec::new();
