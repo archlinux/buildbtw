@@ -162,11 +162,11 @@ async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> 
 
 async fn next_scheduled_build(
     tx: &DatabaseTransaction,
-) -> Result<Option<entities::builds::ModelEx>> {
-    let build = queries::builds::scheduled_for_dispatch()
-        .with((entities::iterations::Entity, entities::buildspaces::Entity))
-        .one(tx)
-        .await?;
+) -> Result<Option<entities::builds::WithIterationAndBuildspace>> {
+    let build =
+        queries::builds::with_iteration_and_buildspace(queries::builds::scheduled_for_dispatch())
+            .one(tx)
+            .await?;
 
     Ok(build)
 }

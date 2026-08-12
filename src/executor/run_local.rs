@@ -1,6 +1,6 @@
 use camino::Utf8PathBuf;
 use color_eyre::Result;
-use color_eyre::eyre::{Context, OptionExt};
+use color_eyre::eyre::Context;
 use sea_orm::DatabaseConnection;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
@@ -14,29 +14,12 @@ use crate::{queries, storage};
 /// Run a build locally
 pub async fn build(
     db: DatabaseConnection,
-    build: entities::builds::ModelEx,
+    build: entities::builds::WithIterationAndBuildspace,
     data_dir: Option<Utf8PathBuf>,
     api_server_url: Url,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
-    // Fetch build metadata
-    let iteration = build
-        .iteration
-        .clone()
-        .into_option()
-        .ok_or_eyre("Missing iteration")?;
-    let buildspace = iteration
-        .buildspace
-        .clone()
-        .into_option()
-        .ok_or_eyre("Buildspace for iteration was not loaded")?;
-    let log_file = builds::build_log_path(
-        &buildspace.name,
-        iteration.sequence,
-        &build.architecture,
-        &build.pkgbase,
-        &data_dir,
-    )?;
+    let log_file = builds::build_log_path(&build, &data_dir)?;
 
     // Prepare project build dir
     let package_source_dir = storage::package_source_dir(&data_dir, &build.pkgbase)?;

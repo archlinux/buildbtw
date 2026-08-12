@@ -3,7 +3,7 @@ use std::{collections::HashMap, process::Stdio};
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use buildbtw::{
     builds, db,
-    entities::{self, builds::DispatchedTo},
+    entities::builds::DispatchedTo,
     executor::{self, config},
     git, package, queries, storage,
 };
@@ -280,8 +280,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .exec(&tx)
         .await?;
 
-    let build_ex = queries::builds::load_by_id(build.id)
-        .with((entities::iterations::Entity, entities::buildspaces::Entity))
+    let build_ex = queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
         .one(&tx)
         .await?
         .expect("build row disappeared");
@@ -308,19 +307,9 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     assert_eq!(updated.status, package::BuildStatus::Built);
 
     // Check that build artifacts where copied into server data dir.
-    let iteration_ex = build_ex
-        .iteration
-        .clone()
-        .into_option()
-        .expect("iteration not loaded");
-    let buildspace_ex = iteration_ex
-        .buildspace
-        .clone()
-        .into_option()
-        .expect("buildspace not loaded");
     let repo_dir = builds::build_repo_path(
-        &buildspace_ex.name,
-        iteration_ex.sequence,
+        &build_ex.iteration.buildspace.name,
+        build_ex.iteration.sequence,
         &build_ex.architecture,
         &server_data_dir,
     )?;

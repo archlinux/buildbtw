@@ -7,7 +7,6 @@ use buildbtw::input;
 use buildbtw::package;
 use buildbtw::pacman_repository;
 use buildbtw::queries;
-
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::OptionExt;
 use color_eyre::eyre::Result;
@@ -304,7 +303,7 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     // Only dispatched builds can be set to "completed" on upload
     queries::builds::schedule_and_dispatch(build.id, entities::builds::DispatchedTo::Local)
@@ -338,19 +337,17 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     response.assert_status_ok();
 
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.name,
-        iteration.sequence,
-        &build.architecture,
-        &build.pkgnames_filenames,
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .ok_or_eyre("Build not found")?;
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     let dest_bytes = tokio::fs::read(&dest.to_path_buf()).await?;
     assert_eq!(package_bytes, dest_bytes, "uploaded bytes must match");
 
     // Check build status update
-    let tx = ctx.state.db.begin().await?;
     let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
     assert_eq!(
         package::BuildStatus::Built,
@@ -407,7 +404,7 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
 
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build =
         factories::build_with_split_package(&tx, iteration.id, &pkgbase.to_string()).await?;
     tx.commit().await?;
@@ -438,19 +435,17 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
     response.assert_status_ok();
 
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.name,
-        iteration.sequence,
-        &build.architecture,
-        &build.pkgnames_filenames,
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .ok_or_eyre("Build not found")?;
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     let dest_bytes = tokio::fs::read(&dest.to_path_buf()).await?;
     assert_eq!(package_bytes, dest_bytes, "uploaded bytes must match");
 
     // Check build status update
-    let tx = ctx.state.db.begin().await?;
     let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
     assert_eq!(
         package::BuildStatus::Pending,
@@ -548,7 +543,7 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
 
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
@@ -564,14 +559,14 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
 
     // Write existing file into the storage
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.name,
-        iteration.sequence,
-        &build.architecture,
-        &build.pkgnames_filenames,
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .ok_or_eyre("Build not found")?;
+    tx.rollback().await?;
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
     tokio::fs::write(&dest, package_bytes.clone()).await?;
 
@@ -674,7 +669,7 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
 
     // Create buildspace, iteration, and builds
     let tx = ctx.state.db.begin().await?;
-    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
     let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
     tx.commit().await?;
 
@@ -689,14 +684,14 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
 
     let data_dir = ctx.data_dir.path().to_path_buf();
-    let dest = buildbtw::builds::build_artifact_path(
-        &buildspace.name,
-        iteration.sequence,
-        &build.architecture,
-        &build.pkgnames_filenames,
-        &pkgname,
-        &Some(data_dir),
-    )?;
+    let tx = ctx.state.db.begin().await?;
+    let build_with_ctx =
+        queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
+            .one(&tx)
+            .await?
+            .ok_or_eyre("Build not found")?;
+    tx.rollback().await?;
+    let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
     tokio::fs::write(&dest, package_bytes.clone()).await?;
 
