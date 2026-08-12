@@ -46,13 +46,13 @@ rustup default stable
 
 ### First Steps
 
-- For running the buildbtw server using TLS, generate a development certificate and install its CA into your local trust chain:
+- Copy `.env.example` to `.env` and edit it to your liking. It's the configuration for all buildbtw components.
+- Run `git submodule update --init` to initialize submodules on disk.
+- Optional: For running the buildbtw server using TLS, generate a development certificate and install its CA into your local trust chain. This CA is not injected into vmexec VMs, so skip this step if you want to run builds locally.
 ```sh
 just gen-dev-cert
 just install-dev-ca
 ```
-- Copy `.env.example` to `.env` and edit it to your liking. It's the configuration for all buildbtw components.
-- Run `git submodule update --init` to initialize submodules on disk.
 - Use `just run-server` to compile and run the server, and `just run-client` to interact with it.
 
 ## Commands
