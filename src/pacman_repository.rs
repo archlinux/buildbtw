@@ -109,7 +109,7 @@ pub fn pacman_repository_url(
     .to_uri();
     let mut url = api_url;
     url.path_segments_mut()
-        .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
+        .map_err(|()| eyre!("❌ Failed to get base url of buildbtw server"))?
         .pop_if_empty()
         .extend(serve_repo_uri.path().split('/'))
         .pop();
