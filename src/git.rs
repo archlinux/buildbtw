@@ -140,7 +140,10 @@ pub async fn clone_or_fetch_repositories(
             if let Some(result) = join_set.join_next().await {
                 match result {
                     Ok(Ok(())) => {} // Success
-                    Ok(Err(e)) => errors.push(e),
+                    Ok(Err(e)) => {
+                        tracing::error!(?e, "Failed to update repo");
+                        errors.push(e);
+                    }
                     Err(join_err) => errors.push(join_err.into()),
                 }
             }
@@ -203,25 +206,35 @@ fn prepare_git_credentials(expected_host_key: &PublicKey) -> git2::RemoteCallbac
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
     callbacks.certificate_check(move |cert, host| {
-        let Some(cert_hostkey) = cert.as_hostkey() else {
-            return Err(git2::Error::from_str("Expected an SSH host key but didn't get one - make sure this is an SSH endpoint and not HTTPS"));
-        };
-        let Some(raw_hostkey) = cert_hostkey.hostkey() else {
-            return Err(git2::Error::from_str(
-                "Didn't receive a host key",
-            ));
-        };
-        let server_host_key = PublicKey::from_bytes(raw_hostkey).map_err(|e| {
-            git2::Error::from_str(&format!("Failed to parse SSH host key: {e}"))
-        })?;
+        let result = {
+            let Some(cert_hostkey) = cert.as_hostkey() else {
+                return Err(git2::Error::from_str(
+                    "Expected an SSH host key but didn't get one - make \
+                sure this is an SSH endpoint and not HTTPS",
+                ));
+            };
+            let Some(raw_hostkey) = cert_hostkey.hostkey() else {
+                return Err(git2::Error::from_str("Didn't receive a host key"));
+            };
+            let server_host_key = PublicKey::from_bytes(raw_hostkey).map_err(|e| {
+                git2::Error::from_str(&format!("Failed to parse SSH host key: {e}"))
+            })?;
 
-        if server_host_key.key_data() == expected_host_key.key_data() {
-            Ok(git2::CertificateCheckStatus::CertificateOk)
-        } else {
-            Err(git2::Error::from_str(&format!(
-                "SSH host key for {host} did not match the configured host key"
-            )))
+            if server_host_key.key_data() == expected_host_key.key_data() {
+                Ok(git2::CertificateCheckStatus::CertificateOk)
+            } else {
+                Err(git2::Error::from_str(&format!(
+                    "SSH host key for {host} did not match the configured host key"
+                )))
+            }
+        };
+
+        if let Err(e) = &result {
+            // Log error here because libgit2 ignores our custom error message outside of this callback.
+            tracing::error!(?e);
         }
+
+        result
     });
 
     callbacks
