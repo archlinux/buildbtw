@@ -34,7 +34,7 @@ path = [
 [[annotations]]
 SPDX-FileCopyrightText = "buildbtw Contributors"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
-path = ["**.md", "notes/**"]
+path = ["**.md", "notes/**", "docs/**.svg"]
 precedence = "aggregate"
 
 [[annotations]]

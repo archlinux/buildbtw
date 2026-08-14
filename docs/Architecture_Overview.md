@@ -1,5 +1,7 @@
 # Architecture Overview
 
+Have a look at the [boundary diagrams](./buildbtw_boundary_diagram.excalidraw.svg) for a high-level visual overview.
+
 ## Components
 
 buildbtw follows a client-server architecture with four primary components:
