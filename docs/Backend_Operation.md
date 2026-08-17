@@ -20,3 +20,10 @@ This is a comma-separated list of group names.
 When a user logs in, buildbtw also receives the groups they are part of, as configured in your OIDC provider.
 Using buildbtw's options, you can now map multiple of these OIDC groups to a specific buildbtw role.
 Buildbtw will periodically re-fetch the groups from the OIDC provider and update assigned roles accordingly.
+
+### Using the container
+
+When running the backend via `podman`, it's important to set `BUILDBTW_GITLAB_SSH_HOST_KEY` to the SSH public key of your GitLab instance.
+For instance, for Arch Linux, this is `gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy`.
+The container will write the public key to `/etc/ssh/known_hosts` on startup.
+You can retrieve this key using `ssh-keyscan -t ed25519 gitlab.archlinux.org`.
