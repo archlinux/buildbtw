@@ -69,9 +69,10 @@ build-release *args:
 [group("build")]
 build-release-container-image:
     # Put the backend into an OCI artifact
-    podman build -f Containerfile --tag buildbtw-backend
+    podman build -f container/Containerfile --tag buildbtw-backend .
+
     # Sanity check to see whether the binary will even launch
-    podman run --rm localhost/buildbtw-backend --version
+    podman run --rm -e "BUILDBTW_GITLAB_SSH_HOST_KEY=$BUILDBTW_GITLAB_SSH_HOST_KEY" localhost/buildbtw-backend --version
 
 [doc("Run a sequence of recipes that resemble CI")]
 [group("check")]
