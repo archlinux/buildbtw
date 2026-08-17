@@ -40,6 +40,24 @@ pub struct Model {
     pub buildspace: BelongsTo<buildspaces::Entity>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, sea_orm::DerivePartialModel)]
+#[sea_orm(entity = "Entity")]
+pub struct WithBuildspace {
+    pub id: TxtUuid,
+
+    pub created_at: time::OffsetDateTime,
+
+    /// Starts at 1.
+    pub sequence: u32,
+
+    pub changesets: git::Changesets,
+    pub reason: NewIterationReason,
+    pub status: Status,
+
+    #[sea_orm(nested)]
+    pub buildspace: super::buildspaces::Model,
+}
+
 impl ActiveModelBehavior for ActiveModel {}
 
 /// Used to distinguish iterations that contain an empty build graph
