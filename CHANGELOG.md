@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### backend
 
+- **Breaking Change:** Remove the `--gitlab-ssh-host-key` CLI option. For deploying the backend using the container image, the `BUILDBTW_GITLAB_SSH_HOST_KEY` environment variable will now write its value to `/etc/ssh/known_hosts` inside the container on startup. ([!268](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/268))
 - **Feature:** Manage and serve pacman repos of a buildspace ([!222](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/225))
 - **Feature:** Add health route (`/api/v1/health`) ([!213](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/213))
 - **Feature:** Run builds locally ([!217](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/217))

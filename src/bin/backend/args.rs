@@ -286,7 +286,7 @@ impl TryFrom<Oidc> for oidc::InitConfig {
 }
 
 #[derive(clap::Args, Debug, Clone)]
-#[group(requires_all = ["gitlab_domain", "gitlab_ssh_host_key", "gitlab_packages_group"])]
+#[group(requires_all = ["gitlab_domain", "gitlab_packages_group"])]
 #[expect(
     clippy::struct_field_names,
     reason = "The field names are converted to command line options and clap does not support adding a prefix automatically."
@@ -314,16 +314,6 @@ pub struct Gitlab {
     #[arg(long, env = "BUILDBTW_GITLAB_DOMAIN", required = true)]
     gitlab_domain: Url,
 
-    /// GitLab SSH host public key
-    ///
-    /// Retrieve this using `ssh-keyscan -q -t ecdsa gitlab.archlinux.org`
-    ///
-    /// Note: A local SSH known_hosts file will not be used.
-    ///
-    /// E.g. `gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy`
-    #[arg(long, env = "BUILDBTW_GITLAB_SSH_HOST_KEY", required = true, value_parser = parse_ssh_host_key)]
-    gitlab_ssh_host_key: ssh_key::known_hosts::Entry,
-
     /// GitLab package group to monitor
     ///
     /// E.g. `archlinux/packaging/packages`
@@ -343,7 +333,6 @@ impl TryFrom<Gitlab> for gitlab_api::Config {
         Ok(gitlab_api::Config {
             token,
             domain: value.gitlab_domain,
-            ssh_host_key: value.gitlab_ssh_host_key.public_key().clone(),
             packages_group: value.gitlab_packages_group,
         })
     }
@@ -439,11 +428,6 @@ fn parse_listen(src: &str) -> Result<TcpSocketOrUnixSocket> {
         let socket = src.parse::<TcpSocketAddr>()?;
         Ok(TcpSocketOrUnixSocket::Tcp(socket))
     }
-}
-
-fn parse_ssh_host_key(s: &str) -> Result<ssh_key::known_hosts::Entry> {
-    s.parse()
-        .map_err(|e| eyre!("Couldn't parse SSH host key: {e}"))
 }
 
 fn parse_issuer_url(s: &str) -> Result<IssuerUrl> {
