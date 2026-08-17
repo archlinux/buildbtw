@@ -14,7 +14,6 @@ use nutype::nutype;
 use sea_orm::DeriveValueType;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use ssh_key::PublicKey;
 use tracing::{info, trace};
 
 use crate::{gitlab_api, package};
@@ -187,7 +186,7 @@ fn clone_or_fetch_repository(
 ) -> Result<git2::Repository> {
     let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path));
     let repo = if let Ok(repo) = maybe_repo {
-        fetch_packaging_repo(&repo, &gitlab_config.ssh_host_key)?;
+        fetch_packaging_repo(&repo)?;
         repo
     } else {
         clone_packaging_repo(target_dir, gitlab_project_path, gitlab_config)?
@@ -195,48 +194,10 @@ fn clone_or_fetch_repository(
     Ok(repo)
 }
 
-/// Build git remote callbacks that authenticate via the SSH agent and verify
-/// the server's SSH host key against `expected_host_key`.
-///
-/// TODO: Consider going agent-less since we're already explicitly getting the SSH key, might as
-/// well pass the private key as well.
-/// TODO: Consider making the host key check optional. git2 has `CertificateCheckStatus::CertificatePassthrough`
-/// to allow for a fallback to the native verification (that is, the caling user's known_hosts file)
-fn prepare_git_credentials(expected_host_key: &PublicKey) -> git2::RemoteCallbacks<'_> {
+/// Build git remote callbacks that authenticate via the SSH agent.
+fn prepare_git_credentials<'a>() -> git2::RemoteCallbacks<'a> {
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(|_, _, _| git2::Cred::ssh_key_from_agent("git"));
-    callbacks.certificate_check(move |cert, host| {
-        let result = {
-            let Some(cert_hostkey) = cert.as_hostkey() else {
-                return Err(git2::Error::from_str(
-                    "Expected an SSH host key but didn't get one - make \
-                sure this is an SSH endpoint and not HTTPS",
-                ));
-            };
-            let Some(raw_hostkey) = cert_hostkey.hostkey() else {
-                return Err(git2::Error::from_str("Didn't receive a host key"));
-            };
-            let server_host_key = PublicKey::from_bytes(raw_hostkey).map_err(|e| {
-                git2::Error::from_str(&format!("Failed to parse SSH host key: {e}"))
-            })?;
-
-            if server_host_key.key_data() == expected_host_key.key_data() {
-                Ok(git2::CertificateCheckStatus::CertificateOk)
-            } else {
-                Err(git2::Error::from_str(&format!(
-                    "SSH host key for {host} did not match the configured host key"
-                )))
-            }
-        };
-
-        if let Err(e) = &result {
-            // Log error here because libgit2 ignores our custom error message outside of this callback.
-            tracing::error!(?e);
-        }
-
-        result
-    });
-
     callbacks
 }
 
@@ -249,7 +210,7 @@ fn clone_packaging_repo(
     trace!("Cloning {gitlab_project_path}");
 
     // Set up the callbacks to use SSH credentials and verify the host key
-    let callbacks = prepare_git_credentials(&gitlab_config.ssh_host_key);
+    let callbacks = prepare_git_credentials();
 
     // Configure fetch options to use the callbacks
     let mut fetch_options = git2::FetchOptions::new();
@@ -299,10 +260,10 @@ pub async fn shallow_clone_local_repo_for_build(
 }
 
 /// Run the equivalent of `git fetch` for an existing git repository.
-fn fetch_packaging_repo(repo: &git2::Repository, expected_host_key: &PublicKey) -> Result<()> {
+fn fetch_packaging_repo(repo: &git2::Repository) -> Result<()> {
     trace!("Fetching repository {:?}", repo.path());
 
-    let callbacks = prepare_git_credentials(expected_host_key);
+    let callbacks = prepare_git_credentials();
 
     // Configure fetch options to use the callbacks and download tags
     let mut fetch_options = git2::FetchOptions::new();
