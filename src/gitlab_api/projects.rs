@@ -34,13 +34,13 @@ pub struct Project {
 
 /// Get all projects that changed since the given timestamp, ordered by most
 /// recent activity first.
-#[instrument(skip(client, package_group))]
+#[instrument(name = "query_projects", skip(client, package_group))]
 pub async fn changed_since(
     client: &AsyncGitlab,
     last_fetched: Option<OffsetDateTime>,
     package_group: &str,
 ) -> Result<Vec<Project>> {
-    info!("Querying changed projects since {last_fetched:?}");
+    info!("Querying changed projects");
     let mut end_of_last_query = None;
     let mut results = Vec::new();
     // Loop over pages received from the API, until
@@ -60,7 +60,7 @@ pub async fn changed_since(
             .into_iter()
             .flatten();
 
-        debug!("Fetched {} projects", projects.clone().count());
+        debug!("Queried {} projects", projects.clone().count());
 
         // For each project, check if it's older than `last_fetched` and break if so
         // Otherwise, add it to the results list of changed projects

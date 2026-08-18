@@ -12,7 +12,7 @@ use color_eyre::{
 };
 use nutype::nutype;
 use petgraph::{Directed, Graph, graph::NodeIndex, visit::EdgeRef};
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, trace};
 
 use crate::{
     dependency_graph::{
@@ -88,12 +88,12 @@ pub struct BuildGraphs(HashMap<package::KnownArchitecture, BuildGraph>);
 
 impl BuildGraphs {
     /// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
-    #[instrument(skip(changesets, source_repos))]
+    #[instrument(name = "calculate_graph", skip(changesets, source_repos))]
     pub async fn calculate(
         changesets: &git::Changesets,
         source_repos: &mut SourceRepoCache,
     ) -> Result<Self> {
-        debug!("Calculating packages to be built for changesets: {changesets}");
+        trace!(?changesets, "Calculating build graph");
         let start_time = Instant::now();
 
         let packages_metadata = BuildspaceSourceInfoIndex::build(changesets.clone(), source_repos)
@@ -101,9 +101,10 @@ impl BuildGraphs {
             .wrap_err("Error mapping package names to srcinfo")?;
         let global_graphs = build_global_dependency_graphs(&packages_metadata);
 
-        debug!("Calculating build set graph");
+        trace!("Walking dependents for each architecture");
 
         let mut graphs = HashMap::new();
+        let mut jobs_per_architecture = HashMap::new();
         for (architecture, graph) in global_graphs {
             let packages_to_build = calculate_build_graph_for_architecture(
                 changesets,
@@ -114,17 +115,19 @@ impl BuildGraphs {
 
             // Skip architectures with empty build graphs
             if packages_to_build.node_count() > 0 {
-                debug!(
-                    "{architecture:?}: {} build jobs",
-                    packages_to_build.node_count()
-                );
+                jobs_per_architecture.insert(architecture, packages_to_build.node_count());
 
                 graphs.insert(architecture, packages_to_build);
             }
         }
 
-        let elapsed_time = start_time.elapsed();
-        debug!(?elapsed_time, "Build set graph calculated");
+        let elapsed_ms = start_time.elapsed().as_millis();
+        debug!(
+            ?elapsed_ms,
+            ?jobs_per_architecture,
+            ?changesets,
+            "Build graph calculated"
+        );
 
         Ok(BuildGraphs::new(graphs))
     }

@@ -15,7 +15,10 @@ use crate::gitlab_api;
 /// that date.
 ///
 /// Returns the most recent date of activity we observed, which can be passed as `last_fetched` on the next call to this function.
-#[instrument(skip(target_dir, gitlab_client, gitlab_config))]
+#[instrument(
+    name = "update_repos",
+    skip(target_dir, gitlab_client, gitlab_config, last_fetched)
+)]
 pub async fn update_all_source_repos(
     target_dir: Utf8PathBuf,
     gitlab_client: &AsyncGitlab,
@@ -31,9 +34,9 @@ pub async fn update_all_source_repos(
     .await?;
     if let Some(most_recently_changed_project) = changed_projects.first() {
         info!(
-            "{} changed source repos found (first: {:?})",
+            first = ?changed_projects.first(),
+            "Updating {} changed source repos",
             changed_projects.len(),
-            changed_projects.first()
         );
         last_fetched = most_recently_changed_project
             .last_activity_at

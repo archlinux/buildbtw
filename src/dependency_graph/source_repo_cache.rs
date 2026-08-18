@@ -98,8 +98,8 @@ impl SourceRepoCache {
 
         debug!(
             count = source_repos.len(),
-            elapsed_time = ?start_time.elapsed(),
-            "Opened all source repos and read .SRCINFOs in main branches"
+            elapsed_ms = ?start_time.elapsed().as_millis(),
+            "Read .SRCINFOs in all main branches"
         );
 
         Ok(SourceRepoCache { source_repos })

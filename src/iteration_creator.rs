@@ -39,7 +39,7 @@ use color_eyre::eyre::{OptionExt, Result};
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, instrument};
+use tracing::{debug, error, info, instrument};
 
 use crate::{
     dependency_graph::{self, BuildGraphs},
@@ -100,7 +100,7 @@ impl IterationCreator {
 
     /// Continuously run the whole process in a loop.
     /// Check the module description for an overview.
-    #[instrument(name = "iteration_creator", skip_all)]
+    #[instrument(name = "ic", skip_all)]
     pub async fn run(mut self, token: CancellationToken) {
         while !token.is_cancelled() {
             let run_start = Instant::now();
@@ -176,6 +176,7 @@ impl IterationCreator {
     ) -> Result<()> {
         let open_buildspaces = queries::buildspaces::list_open().all(&self.db).await?;
 
+        let buildspace_count = open_buildspaces.len();
         for buildspace in open_buildspaces {
             // First, calculate build graphs for new iterations that don't have one yet.
             // We do this here to make sure their builds are dispatched as fast as possible,
@@ -193,11 +194,14 @@ impl IterationCreator {
             }
         }
 
+        if buildspace_count > 0 {
+            debug!("Checked {buildspace_count} build graphs for changes",);
+        }
+
         Ok(())
     }
 
     /// Check if this buildspace needs a new iteration because of build graph changes, and if yes, create it.
-    #[instrument(skip(self, source_repos, buildspace), fields(buildspace.name = %buildspace.name))]
     async fn create_new_iteration_if_needed(
         &self,
         source_repos: &mut dependency_graph::SourceRepoCache,
@@ -280,6 +284,7 @@ impl IterationCreator {
             .all(&self.db)
             .await?;
 
+        let iteration_count = iterations.len();
         for iteration in iterations {
             // Calculate graphs for all architectures
             let graphs = BuildGraphs::calculate(&iteration.changesets, source_repos).await?;
@@ -302,11 +307,14 @@ impl IterationCreator {
             tx.commit().await?;
         }
 
+        if iteration_count > 0 {
+            info!("Calculated {iteration_count} pending build graphs");
+        }
+
         Ok(())
     }
 
     /// Fetch new commits for all source repositories.
-    #[instrument(skip(self, gitlab_client, gitlab_config))]
     async fn update_repos(
         &self,
         gitlab_client: &AsyncGitlab,
