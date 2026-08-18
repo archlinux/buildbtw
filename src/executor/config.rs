@@ -76,7 +76,6 @@ pub struct PacmanRepo {
     /// Base URL of the pacman repository that should be injected
     ///
     /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
-    /// If no value is provided, no pacman repository will be injected into the build.
     pub pacman_repository_base_url: Url,
 }
 
