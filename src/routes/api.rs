@@ -22,5 +22,6 @@ pub fn router() -> Router<ServerState> {
         .typed_get(buildspaces::get_with_latest_iteration)
         .typed_put(buildspaces::set_status)
         .typed_get(users::user)
+        .typed_post(users::create)
         .typed_get(health::health)
 }
