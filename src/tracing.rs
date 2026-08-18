@@ -1,6 +1,7 @@
 //! Configuration for tracing functionality
 
 use color_eyre::Result;
+use time::macros::format_description;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -34,6 +35,11 @@ pub fn init(verbose: u8, use_tokio_console: bool) -> Result<()> {
         EnvFilter::from("info")
     });
     let env_layer = tracing_subscriber::fmt::layer()
+        .with_timer(tracing_subscriber::fmt::time::UtcTime::new(
+            format_description!(
+                "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z"
+            ),
+        ))
         .with_writer(std::io::stderr)
         .with_filter(env_filter);
 

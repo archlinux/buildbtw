@@ -96,9 +96,9 @@ tokio = { version = "1.50.0", features = [
 ] }
 tokio-util = "0.7.18"
 toml = "1.1.0"
-time = { version = "0.3.47", features = ["formatting", "parsing", "serde"] }
+time = { version = "0.3.47", features = ["formatting", "macros", "parsing", "serde"] }
 tracing = "0.1.44"
-tracing-subscriber = "0.3.23"
+tracing-subscriber = { version = "0.3.23", features = ["time"] }
 url = "2.5.8"
 sea-orm = { version = "2.0.0", features = [
     "sqlx-sqlite",
