@@ -1,10 +1,13 @@
 variables:
   # Set Gitlab's cache compression to tar+zstd for better performance.
   CACHE_COMPRESSION_FORMAT: tarzstd
+
   # Enable timestamps in Gitlab's job logs.
   FF_TIMESTAMPS: true
+
   # We use submodules
   GIT_SUBMODULE_STRATEGY: recursive
+
   # Force cargo colors
   CARGO_TERM_COLOR: always
 
@@ -27,6 +30,7 @@ workflow:
     - pacman -Syu --needed --noconfirm rust just gcc pkgconf
   variables:
     RUST_LOG: debug
+    CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
   cache:
     key: ${CI_COMMIT_REF_SLUG}-${CI_JOB_NAME}
     paths:
@@ -37,8 +41,6 @@ workflow:
       - target/debug/build
       - target/release/deps
       - target/release/build
-  variables:
-    CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
 
 stages:
   - check-and-build
@@ -130,6 +132,10 @@ build-release:secure:
 .push-container-image:
   stage: push
   extends: .default-before-script
+  variables:
+    # These vars are required for the smoketests of `just build-release-container-image`
+    BUILDBTW_GITLAB_SSH_HOST_KEY: gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy
+    BUILDBTW_GITLAB_DOMAIN: https://gitlab.archlinux.org
   script:
     - pacman -Syu --needed --noconfirm podman
     - just build-release-container-image
