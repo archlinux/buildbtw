@@ -68,11 +68,24 @@ build-release *args:
 [doc("Build release container image")]
 [group("build")]
 build-release-container-image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
     # Put the backend into an OCI artifact
     podman build -f container/Containerfile --tag buildbtw-backend .
 
+    # Generate a throwaway SSH private key for testing
+    ssh_dir=$(mktemp -d)
+    trap 'rm -rf "$ssh_dir"' EXIT
+    ssh-keygen -q -t ed25519 -N "" -C "buildbtw container throwaway" -f "$ssh_dir/id_ed25519"
+
     # Sanity check to see whether the binary will even launch
-    podman run --rm -e "BUILDBTW_GITLAB_SSH_HOST_KEY=$BUILDBTW_GITLAB_SSH_HOST_KEY" localhost/buildbtw-backend --version
+    podman run \
+        --rm \
+        -e "BUILDBTW_GITLAB_SSH_HOST_KEY=$BUILDBTW_GITLAB_SSH_HOST_KEY" \
+        -e "BUILDBTW_GITLAB_DOMAIN" \
+        -v "$ssh_dir/id_ed25519:/etc/ssh/id_ed25519:ro" \
+        localhost/buildbtw-backend --version
 
 [doc("Run a sequence of recipes that resemble CI")]
 [group("check")]
@@ -82,6 +95,7 @@ ci-dev:
     just check-dependencies
     just build-release -q
     just test --hide-progress-bar --cargo-quiet --status-level fail
+    just build-release-container-image
 
 [doc("Check whether all files have a license")]
 [group("check")]

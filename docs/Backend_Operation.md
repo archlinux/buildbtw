@@ -25,5 +25,9 @@ Buildbtw will periodically re-fetch the groups from the OIDC provider and update
 
 When running the backend via `podman`, it's important to set `BUILDBTW_GITLAB_SSH_HOST_KEY` to the SSH public key of your GitLab instance.
 For instance, for Arch Linux, this is `gitlab.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICjT2SuA0k/xc5Cbyp+eBY5uN3bRL2K7GdpNtltOK6vy`.
-The container will write the public key to `/etc/ssh/known_hosts` on startup.
+The container will write the public key to `/etc/ssh/ssh_known_hosts` on startup.
 You can retrieve this key using `ssh-keyscan -t ed25519 gitlab.archlinux.org`.
+
+We also expect an SSH private key for cloning the repositories from GitLab to get mounted to `/etc/ssh/id_ed25519` inside the container.
+This key is shared amongst all containers and should be mounted read-only.
+The container launches an agent that looks for a key at that location. If the key isn't present, the container will not launch.
