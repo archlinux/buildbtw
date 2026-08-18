@@ -10,7 +10,7 @@ use crate::{
     db_fields::TxtUuid,
     entities::sessions,
     from_request::{self},
-    permissions::{can_revoke_session, permission_ok},
+    permissions::{can_revoke_session, check},
     queries,
     response_error::ResponseResult,
     templates,
@@ -85,7 +85,7 @@ pub async fn session_revoke(
         .parse()
         .wrap_err("Could not parse UUID from cookie")?;
 
-    permission_ok(can_revoke_session(&tx, &session, session_to_revoke).await)?;
+    check(can_revoke_session(&tx, &session, session_to_revoke).await)?;
 
     // Get the user_id before deleting the session
     let session_model = queries::sessions::by_id(session_to_revoke)
