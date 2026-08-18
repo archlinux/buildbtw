@@ -22,6 +22,10 @@ async fn main() -> ExitCode {
     let args = Args::parse();
 
     if let Err(error) = execute(args.clone()).await {
+        if matches!(args.command, Commands::Doctor(_)) {
+            // Doctor prints its own per-check results and don't want the eyre errors here
+            return ExitCode::FAILURE;
+        }
         eprintln!("{error:?}");
         // Always fail with GitLab runner provided exit code
         // <https://docs.gitlab.com/runner/executors/custom/#build-failure>

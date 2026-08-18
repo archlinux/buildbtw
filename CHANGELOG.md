@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking Change:** Put executor gitlab commands under gitlab arg ([!229](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/229))
 - **Feature:** Don't overwrite log files, ensure log dir exists ([!221](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/221))
+- **Fix:** Make `doctor` exit non-zero if any check fails ([#272](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/272))
 
 ## [0.0.6] - 2026-06-04
 
