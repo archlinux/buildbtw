@@ -34,6 +34,7 @@ pub struct Model {
     pub status: package::BuildStatus,
     pub dispatched_to: Option<DispatchedTo>,
     pub version: package::Version,
+    pub gitlab_pipeline_id: Option<TxtUuid>,
 
     #[sea_orm(belongs_to, from = "iteration_id", to = "id")]
     pub iteration: BelongsTo<iterations::Entity>,
@@ -80,6 +81,7 @@ pub struct WithIterationAndBuildspace {
 pub enum DispatchedTo {
     /// The local executor will query the database and pick up builds with this value and the `Scheduled` status.
     Local,
+    Gitlab,
 }
 
 impl From<Model> for api::builds::Build {

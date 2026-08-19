@@ -88,6 +88,7 @@ pub fn insert_builds_with_dependencies(
             status: Set(status),
             version: Set(build.version),
             dispatched_to: Set(None),
+            gitlab_pipeline_id: Set(None),
         });
 
         node_index_to_build_uuid.insert(node_index, id);
