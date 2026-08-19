@@ -83,7 +83,7 @@ pub async fn build(
     let build_node = BuildNode {
         pkgbase: pkgbase.parse()?,
         commit_hash: "aaaaaa".parse()?,
-        branch_name: pkgbase.try_into()?,
+        branch_name: "main".try_into()?,
         package_file_names: [(
             pkgbase.parse()?,
             format!("{pkgbase}-{pkgver}-any.pkg.tar.zst").parse()?,

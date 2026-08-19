@@ -149,6 +149,20 @@ pub fn by_iteration_id(iteration_id: TxtUuid) -> Select<builds::Entity> {
     builds::Entity::find().filter(builds::COLUMN.iteration_id.eq(iteration_id))
 }
 
+/// Updates the associated gitlab pipeline of a build.
+#[must_use]
+pub fn update_gitlab_pipeline(
+    build_id: TxtUuid,
+    pipeline_id: TxtUuid,
+) -> UpdateOne<builds::ActiveModel> {
+    let model = builds::ActiveModel {
+        id: Unchanged(build_id),
+        gitlab_pipeline_id: Set(Some(pipeline_id)),
+        ..Default::default()
+    };
+    builds::Entity::update(model)
+}
+
 /// Updates the build status of a build.
 #[must_use]
 pub fn update_build_status(

@@ -91,7 +91,7 @@ fn spawn_schedule_builds(
         loop {
             tokio::select! {
                 _ = every_10_seconds.tick() => {
-                    if let Err(e) = schedule_all_builds(&state, &dispatch_config).await {
+                    if let Err(e) = schedule_builds::schedule_pending_builds(&dispatch_config, &state.db, &state.server_url).await {
                         error!(?e, "Failed to dispatch builds");
                     }
 
@@ -106,16 +106,6 @@ fn spawn_schedule_builds(
             }
         }
     });
-}
-
-async fn schedule_all_builds(state: &ServerState, config: &schedule_builds::Config) -> Result<()> {
-    let tx = state.db.begin().await?;
-
-    schedule_builds::schedule_pending_builds(config, &tx).await?;
-
-    tx.commit().await?;
-
-    Ok(())
 }
 
 async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> Result<()> {

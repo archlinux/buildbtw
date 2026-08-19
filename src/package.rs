@@ -179,6 +179,9 @@ pub enum BuildStatus {
     Pending,
 
     /// Sent to the worker to build
+    /// If `dispatched_to` is `None`, the worker has not yet acknowledged receiving the build yet
+    /// If `dispatched_to` is `Some`, the worker has acknowledged the build
+    /// and will set the status to `Building` once it starts
     Scheduled,
 
     /// Worker has started building
