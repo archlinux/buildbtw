@@ -35,7 +35,7 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use color_eyre::eyre::{OptionExt, Result};
+use color_eyre::eyre::Result;
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
@@ -131,15 +131,7 @@ impl IterationCreator {
     #[instrument(skip(self))]
     pub async fn tick(&mut self) -> Result<()> {
         if let RepoUpdateConfig::DoUpdate(gitlab_config) = &self.config.repo_update {
-            let gitlab_client = gitlab::GitlabBuilder::new(
-                gitlab_config
-                    .domain
-                    .host_str()
-                    .ok_or_eyre("GitLab domain URL has no host")?,
-                gitlab_config.token.clone().expose_secret(),
-            )
-            .build_async()
-            .await?;
+            let gitlab_client = gitlab_api::client(gitlab_config).await?;
 
             self.update_repos(&gitlab_client, gitlab_config.clone())
                 .await?;

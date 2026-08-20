@@ -1,8 +1,7 @@
 use std::env;
 
 use buildbtw::{external_secrets, gitlab_api, repo_updater, storage};
-use color_eyre::eyre::Context;
-use color_eyre::{Result, eyre::OptionExt};
+use color_eyre::Result;
 
 use crate::state::State;
 
@@ -16,16 +15,7 @@ async fn test_flaky_update_source_repos() -> Result<()> {
         packages_group: env::var("BUILDBTW_GITLAB_PACKAGES_GROUP")?,
     };
 
-    let gitlab_client = gitlab::GitlabBuilder::new(
-        gitlab_config
-            .domain
-            .host_str()
-            .ok_or_eyre("GitLab domain URL has no host")?,
-        gitlab_config.token.clone().expose_secret(),
-    )
-    .build_async()
-    .await
-    .wrap_err("Failed to create GitLab client")?;
+    let gitlab_client = gitlab_api::client(&gitlab_config).await?;
 
     // Create target dir if it doesn't exist.
     tokio::fs::create_dir_all(&source_repo_dir).await?;
