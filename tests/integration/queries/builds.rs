@@ -286,7 +286,7 @@ async fn test_read_diff_graph_from_db(#[future(awt)] ctx: TestCtx) -> Result<()>
     let (update_iteration, insert_builds, insert_deps) =
         queries::builds::insert_builds_with_dependencies(
             iteration.id.0,
-            package::KnownArchitecture::Aarch64,
+            package::KnownArchitecture::X86_64V3,
             &old_graph,
         )?;
 
@@ -294,7 +294,7 @@ async fn test_read_diff_graph_from_db(#[future(awt)] ctx: TestCtx) -> Result<()>
     insert_builds.exec(&tx).await?;
     insert_deps.exec(&tx).await?;
 
-    // Create a second graph that has a new package for X86_64
+    // Create a second graph that has a new package for second architecture
     let mut new_graph = old_graph.clone();
     new_graph.add_node(build_node("baz")?);
 
@@ -321,11 +321,11 @@ async fn test_read_diff_graph_from_db(#[future(awt)] ctx: TestCtx) -> Result<()>
     // Diff old and new graphs
     let diffs = new_graphs.diff(old_builds_by_architecture);
 
-    // Check that Aarch64 is marked as removed because we didn't add it to the new graphs
-    let aarch64 = diffs.get(&package::KnownArchitecture::Aarch64).unwrap();
-    assert!(aarch64.packages_added.is_empty());
-    assert!(aarch64.packages_modified.is_empty());
-    assert_eq!(aarch64.packages_removed.len(), 2);
+    // Check that first arch is marked as removed because we didn't add it to the new graphs
+    let removed_arch_diff = diffs.get(&package::KnownArchitecture::X86_64V3).unwrap();
+    assert!(removed_arch_diff.packages_added.is_empty());
+    assert!(removed_arch_diff.packages_modified.is_empty());
+    assert_eq!(removed_arch_diff.packages_removed.len(), 2);
 
     // Check that X86_64 has an added package and no other changes
     let x86_64 = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
