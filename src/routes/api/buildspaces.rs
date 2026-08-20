@@ -4,9 +4,7 @@ use sea_orm::{DatabaseTransaction, SelectExt};
 use tracing::debug;
 
 use crate::{
-    api, buildspace, db, entities, from_request, input,
-    package::KnownArchitecture,
-    pacman_repository, queries,
+    api, buildspace, db, entities, from_request, input, queries,
     response_error::{ResponseError, ResponseResult},
     server_state::ServerState,
 };
@@ -15,7 +13,7 @@ pub async fn create(
     _: api::buildspaces::CreateBuildspace,
     _auth: from_request::AuthUser,
     db::Tx(tx): db::Tx,
-    State(server_state): State<ServerState>,
+    State(_server_state): State<ServerState>,
     Json(body): Json<input::buildspaces::Create>,
 ) -> ResponseResult<Json<api::buildspaces::CreateBuildspaceResponse>> {
     let validated = input::buildspaces::ValidatedCreate::try_from(body)?;
@@ -34,16 +32,6 @@ pub async fn create(
     insert_iteration.exec(&tx).await?;
 
     tx.commit().await?;
-
-    // TODO: dynamic way to set architectures when creating a buildspace
-    let architectures = [KnownArchitecture::X86_64];
-    pacman_repository::ensure_pacman_repo_exists(
-        &buildspace.name,
-        1,
-        &architectures,
-        &server_state.data_dir,
-    )
-    .await?;
 
     Ok(Json(api::buildspaces::CreateBuildspaceResponse {
         id: buildspace.id.into(),

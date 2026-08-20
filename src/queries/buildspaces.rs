@@ -68,3 +68,8 @@ pub fn list_open() -> buildspaces::EntityLoader {
 pub fn by_name(name: buildspace::Slug) -> Select<buildspaces::Entity> {
     buildspaces::Entity::find_by_name(name)
 }
+
+#[must_use]
+pub fn by_id(id: TxtUuid) -> Select<buildspaces::Entity> {
+    buildspaces::Entity::find_by_id(id)
+}
