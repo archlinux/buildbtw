@@ -8,10 +8,7 @@ mod tests;
 
 use buildbtw::{gitlab_api, repo_updater};
 use clap::Parser;
-use color_eyre::{
-    Result,
-    eyre::{Context, OptionExt},
-};
+use color_eyre::Result;
 
 use crate::{
     args::{Args, Command},
@@ -29,20 +26,10 @@ async fn main() -> Result<()> {
 
     match args.command {
         Command::PrintChanged(print_args) => {
-            let client = gitlab::GitlabBuilder::new(
-                gitlab_config
-                    .domain
-                    .host_str()
-                    .ok_or_eyre("GitLab domain URL has no host")?,
-                gitlab_config.token.expose_secret(),
-            )
-            .build_async()
-            .await
-            .wrap_err("Failed to create GitLab client")?;
-
+            let gitlab_client = gitlab_api::client(&gitlab_config).await?;
             // Query changed projects
             let projects = gitlab_api::projects::changed_since(
-                &client,
+                &gitlab_client,
                 print_args.since,
                 &gitlab_config.packages_group,
             )
@@ -55,16 +42,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Command::Update(update_args) => {
-            let gitlab_client = gitlab::GitlabBuilder::new(
-                gitlab_config
-                    .domain
-                    .host_str()
-                    .ok_or_else(|| color_eyre::eyre::eyre!("GitLab domain URL has no host"))?,
-                gitlab_config.token.clone().expose_secret(),
-            )
-            .build_async()
-            .await
-            .wrap_err("Failed to create GitLab client")?;
+            let gitlab_client = gitlab_api::client(&gitlab_config).await?;
 
             // Create target dir if it doesn't exist.
             tokio::fs::create_dir_all(&update_args.target_dir).await?;
