@@ -1,8 +1,9 @@
 #!/usr/bin/bash
 set -o nounset -o pipefail -o xtrace -o errexit
 
-REPO_NAME=${1:-}
-REPO_URL=${2:-}
+ARCHITECTURE=${1:-}
+REPO_NAME=${2:-}
+REPO_URL=${3:-}
 
 echo "Installing devtools..."
 pacman --noconfirm -Syu devtools
@@ -39,4 +40,5 @@ export PKGDEST="/mnt/output/"
 
 # Run build and preserve environment variables that need to be set
 # in the guest process.
-sudo --preserve-env="PKGDEST,PACKAGER" -u builder pkgctl build
+sudo --preserve-env="PKGDEST,PACKAGER" -u builder -- \
+    pkgctl build --arch "${ARCHITECTURE}"

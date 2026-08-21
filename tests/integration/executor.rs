@@ -84,6 +84,7 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
         120,
         config::RunBuildScript {
             ci_project_dir: test_project_dir.path().to_path_buf(),
+            architecture: KnownArchitecture::X86_64,
             pacman_repository: None,
             api_config: Some(config::RunBuildScriptApiConfig {
                 api_server_url,
@@ -165,6 +166,7 @@ arch=(any)
             120,
             config::RunBuildScript {
                 ci_project_dir: test_project_dir.path().to_path_buf(),
+                architecture: KnownArchitecture::X86_64,
                 pacman_repository: None,
                 api_config: Some(config::RunBuildScriptApiConfig {
                     api_server_url,
@@ -221,6 +223,7 @@ async fn test_flaky_gitlab_executor_build_from_pkgctl_repo_clone() -> Result<()>
                 .join("git-smash")
                 .as_path()
                 .to_path_buf(),
+            architecture: KnownArchitecture::X86_64,
             api_config: None,
             pacman_repository: None,
             log_destination: config::LogDestination::InheritStdio,

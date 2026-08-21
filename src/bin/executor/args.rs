@@ -236,6 +236,10 @@ pub struct BuildScriptArgs {
     #[arg(long, env = "CUSTOM_ENV_CI_PROJECT_DIR")]
     pub ci_project_dir: Utf8PathBuf,
 
+    /// Architecture to build for
+    #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE")]
+    pub architecture: KnownArchitecture,
+
     /// Base URL of the pacman repository that should be injected
     #[clap(flatten)]
     pacman_repository: Option<PacmanRepoArgs>,
@@ -261,10 +265,6 @@ pub struct PacmanRepoArgs {
     /// Iteration sequence-id
     #[arg(long, env = "CUSTOM_ENV_ITERATION", required = false)]
     pub iteration: u32,
-
-    /// Build architecture
-    #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE", required = false)]
-    pub architecture: KnownArchitecture,
 
     /// Base URL of the pacman repository that should be injected
     ///
@@ -315,6 +315,7 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
             pacman_repository,
             api_config,
             build_id,
+            architecture,
         }: BuildScriptArgs,
     ) -> Result<Self, Self::Error> {
         let api_config = match (api_config, build_id) {
@@ -345,7 +346,6 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
                 let PacmanRepoArgs {
                     buildspace,
                     iteration,
-                    architecture,
                     pacman_repository_base_url,
                 } = pacman_repository;
                 Some(config::PacmanRepo {
@@ -364,6 +364,7 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
             api_config,
             // When invoked as a standalone binary, always log to the passed file descriptors.
             log_destination: config::LogDestination::InheritStdio,
+            architecture,
         })
     }
 }
@@ -448,6 +449,7 @@ mod tests {
             "/tmp/foo",
             "build_script",
             "--ci-project-dir=/tmp/foo",
+            "--architecture=x86_64_v3",
         ];
         let env = [
             ("CUSTOM_ENV_CI_PROJECT_DIR", None::<&str>),
@@ -467,6 +469,7 @@ mod tests {
             args,
             BuildScriptArgs {
                 ci_project_dir: "/tmp/foo".into(),
+                architecture: KnownArchitecture::X86_64V3,
                 pacman_repository: None,
                 api_config: None,
                 build_id: None,
@@ -479,6 +482,7 @@ mod tests {
             config,
             executor::config::RunBuildScript {
                 ci_project_dir: "/tmp/foo".into(),
+                architecture: KnownArchitecture::X86_64V3,
                 pacman_repository: None,
                 api_config: None,
                 log_destination: config::LogDestination::InheritStdio,
@@ -498,9 +502,9 @@ mod tests {
             "/tmp/foo",
             "build_script",
             "--ci-project-dir=/tmp/foo",
+            "--architecture=x86_64",
             "--buildspace=foospace",
             "--iteration=1",
-            "--architecture=x86_64",
             "--pacman-repository-base-url=https://10.0.2.2",
             "--api-server-url=https://localhost",
             "--build-id",
@@ -525,6 +529,7 @@ mod tests {
             args,
             BuildScriptArgs {
                 ci_project_dir: "/tmp/foo".into(),
+                architecture: KnownArchitecture::X86_64,
                 pacman_repository: Some(PacmanRepoArgs {
                     buildspace: buildspace::Slug::try_from("foospace".to_string())?,
                     iteration: 1u32,
@@ -545,6 +550,7 @@ mod tests {
             config,
             executor::config::RunBuildScript {
                 ci_project_dir: "/tmp/foo".into(),
+                architecture: KnownArchitecture::X86_64,
                 pacman_repository: Some(executor::config::PacmanRepo {
                     buildspace: buildspace::Slug::try_from("foospace".to_string())?,
                     iteration: 1u32,

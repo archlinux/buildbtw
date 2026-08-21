@@ -19,6 +19,9 @@ pub struct RunBuildScript {
     /// Directory of the project that will be built
     pub ci_project_dir: Utf8PathBuf,
 
+    /// Architecture to build for
+    pub architecture: KnownArchitecture,
+
     /// Pacman repository that should be injected
     ///
     /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
