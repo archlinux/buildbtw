@@ -36,16 +36,16 @@ fn test_diff_added_node() -> Result<()> {
 
     // diff
     let old_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         old_graph,
     )]));
     let new_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         new_graph,
     )]));
     let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
     assert_eq!(diffs.len(), 1);
-    let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+    let diff = diffs.get(&package::BuildArchitecture::X86_64).unwrap();
 
     // Check that only the new node is in the diff
     assert!(!diff.is_empty());
@@ -72,17 +72,17 @@ fn test_diff_removed_node() -> Result<()> {
 
     // diff
     let old_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         old_graph,
     )]));
     let new_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         new_graph,
     )]));
     let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
-    let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+    let diff = diffs.get(&package::BuildArchitecture::X86_64).unwrap();
 
     // Check that only the removed node is in the diff
     assert!(!diff.is_empty());
@@ -107,17 +107,17 @@ fn test_diff_modified_node() -> Result<()> {
 
     // diff
     let old_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         old_graph,
     )]));
     let new_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         new_graph,
     )]));
     let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
-    let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+    let diff = diffs.get(&package::BuildArchitecture::X86_64).unwrap();
 
     // Check that only the modified node is in the diff
     assert!(!diff.is_empty());
@@ -144,17 +144,17 @@ fn test_diff_same_graphs() -> Result<()> {
 
     // diff
     let old_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         old_graph,
     )]));
     let new_build_graphs = BuildGraphs::new(HashMap::from([(
-        package::KnownArchitecture::X86_64,
+        package::BuildArchitecture::X86_64,
         new_graph,
     )]));
     let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
-    let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+    let diff = diffs.get(&package::BuildArchitecture::X86_64).unwrap();
 
     // There should be no difference between both graphs
     assert!(diff.is_empty());
@@ -180,12 +180,12 @@ fn test_diff_added_architecture() -> Result<()> {
 
     let old_build_graphs = BuildGraphs::new(HashMap::new());
     let new_build_graphs =
-        BuildGraphs::new(HashMap::from([(package::KnownArchitecture::X86_64, graph)]));
+        BuildGraphs::new(HashMap::from([(package::BuildArchitecture::X86_64, graph)]));
     let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
 
-    let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+    let diff = diffs.get(&package::BuildArchitecture::X86_64).unwrap();
 
     assert_eq!(diff.packages_added, HashSet::from([build_node.into()]));
     assert!(diff.packages_modified.is_empty());
@@ -202,13 +202,13 @@ fn test_diff_removed_architecture() -> Result<()> {
     graph.add_node(build_node.clone());
 
     let old_build_graphs =
-        BuildGraphs::new(HashMap::from([(package::KnownArchitecture::X86_64, graph)]));
+        BuildGraphs::new(HashMap::from([(package::BuildArchitecture::X86_64, graph)]));
     let new_build_graphs = BuildGraphs::new(HashMap::new());
     let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 1);
 
-    let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+    let diff = diffs.get(&package::BuildArchitecture::X86_64).unwrap();
 
     assert_eq!(diff.packages_removed, HashSet::from([build_node.into()]));
     assert!(diff.packages_modified.is_empty());
@@ -244,25 +244,25 @@ fn test_diff_multiple_architectures() -> Result<()> {
 
     // Run the diff
     let old_build_graphs = BuildGraphs::new(HashMap::from([
-        (package::KnownArchitecture::X86_64V3, old_graph.clone()),
-        (package::KnownArchitecture::X86_64, old_graph.clone()),
+        (package::BuildArchitecture::X86_64V3, old_graph.clone()),
+        (package::BuildArchitecture::X86_64, old_graph.clone()),
     ]));
     let new_build_graphs = BuildGraphs::new(HashMap::from([
         // old arch is unchanged
-        (package::KnownArchitecture::X86_64V3, old_graph),
+        (package::BuildArchitecture::X86_64V3, old_graph),
         // X86_64 has the changed graph
-        (package::KnownArchitecture::X86_64, new_graph.clone()),
+        (package::BuildArchitecture::X86_64, new_graph.clone()),
     ]));
     let diffs = new_build_graphs.diff(old_build_graphs.into_build_nodes());
 
     assert_eq!(diffs.len(), 2);
 
     // Check that old arch diff is empty
-    let empty_new_arch_diff = diffs.get(&package::KnownArchitecture::X86_64V3).unwrap();
+    let empty_new_arch_diff = diffs.get(&package::BuildArchitecture::X86_64V3).unwrap();
     assert!(empty_new_arch_diff.is_empty());
 
     // Check that X86_64 diff contains the correct changes
-    let diff = diffs.get(&package::KnownArchitecture::X86_64).unwrap();
+    let diff = diffs.get(&package::BuildArchitecture::X86_64).unwrap();
     assert_eq!(diff.packages_removed, HashSet::from([removed_node.into()]));
     assert_eq!(
         diff.packages_modified,

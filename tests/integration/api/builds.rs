@@ -929,7 +929,7 @@ async fn test_serve_build_artifact_unknown_buildspace(#[future(awt)] ctx: TestCt
         .typed_get(&api::builds::ServeRepoFile {
             buildspace: buildspace::Slug::try_from(invalid_buildspace_name)?,
             iteration: 1,
-            architecture: package::KnownArchitecture::X86_64,
+            architecture: package::BuildArchitecture::X86_64,
             filename: Utf8PathBuf::from("foobar.pkg.tar.zst"),
         })
         .await;

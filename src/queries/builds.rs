@@ -46,7 +46,7 @@ pub fn list(
 #[allow(dead_code)]
 pub fn insert_builds_with_dependencies(
     iteration_id: Uuid,
-    architecture: package::KnownArchitecture,
+    architecture: package::BuildArchitecture,
     build_graph: &BuildGraph,
 ) -> Result<(
     UpdateOne<iterations::ActiveModel>,

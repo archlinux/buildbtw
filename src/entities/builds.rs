@@ -22,7 +22,7 @@ pub struct Model {
 
     // For each architecture in an iteration, build a pkgbase at most once.
     #[sea_orm(unique_key = "unique_builds")]
-    pub architecture: package::KnownArchitecture,
+    pub architecture: package::BuildArchitecture,
     #[sea_orm(unique_key = "unique_builds")]
     pub pkgbase: package::BaseName,
     #[sea_orm(unique_key = "unique_builds")]
@@ -53,7 +53,7 @@ pub struct Model {
 pub struct WithIterationAndBuildspace {
     pub id: TxtUuid,
 
-    pub architecture: package::KnownArchitecture,
+    pub architecture: package::BuildArchitecture,
     pub pkgbase: package::BaseName,
 
     pub pkgnames_filenames: PkgnamesFilenames,

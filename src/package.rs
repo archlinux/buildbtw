@@ -123,7 +123,7 @@ fn validate_repository_name(name: &str) -> Result<(), garde::Error> {
 #[sea_orm(value_type = "String")]
 #[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
-pub enum KnownArchitecture {
+pub enum BuildArchitecture {
     /// ARMv8 64-bit
     // We almost support this, but still need to provision ARM runners
     // and route builds based on architecture
@@ -135,22 +135,22 @@ pub enum KnownArchitecture {
     X86_64V3,
 }
 
-impl AsRef<Architecture> for KnownArchitecture {
+impl AsRef<Architecture> for BuildArchitecture {
     fn as_ref(&self) -> &Architecture {
         match self {
-            // KnownArchitecture::Aarch64 => &Architecture::Some(SystemArchitecture::Aarch64),
-            KnownArchitecture::X86_64 => &Architecture::Some(SystemArchitecture::X86_64),
-            KnownArchitecture::X86_64V3 => &Architecture::Some(SystemArchitecture::X86_64V3),
+            // BuildArchitecture::Aarch64 => &Architecture::Some(SystemArchitecture::Aarch64),
+            BuildArchitecture::X86_64 => &Architecture::Some(SystemArchitecture::X86_64),
+            BuildArchitecture::X86_64V3 => &Architecture::Some(SystemArchitecture::X86_64V3),
         }
     }
 }
 
-impl From<KnownArchitecture> for Architecture {
-    fn from(value: KnownArchitecture) -> Self {
+impl From<BuildArchitecture> for Architecture {
+    fn from(value: BuildArchitecture) -> Self {
         match value {
-            // KnownArchitecture::Aarch64 => Architecture::Some(SystemArchitecture::Aarch64),
-            KnownArchitecture::X86_64 => Architecture::Some(SystemArchitecture::X86_64),
-            KnownArchitecture::X86_64V3 => Architecture::Some(SystemArchitecture::X86_64V3),
+            // BuildArchitecture::Aarch64 => Architecture::Some(SystemArchitecture::Aarch64),
+            BuildArchitecture::X86_64 => Architecture::Some(SystemArchitecture::X86_64),
+            BuildArchitecture::X86_64V3 => Architecture::Some(SystemArchitecture::X86_64V3),
         }
     }
 }

@@ -123,7 +123,7 @@ pub async fn build_from_node(
     let (update_iteration, insert_builds, insert_deps) =
         queries::builds::insert_builds_with_dependencies(
             iteration_id.into(),
-            package::KnownArchitecture::X86_64,
+            package::BuildArchitecture::X86_64,
             &graph,
         )?;
     update_iteration.exec(tx).await?;
@@ -165,7 +165,7 @@ pub async fn build_with_split_package(
     let (update_iteration, insert_builds, insert_deps) =
         queries::builds::insert_builds_with_dependencies(
             iteration_id.into(),
-            package::KnownArchitecture::X86_64,
+            package::BuildArchitecture::X86_64,
             &graph,
         )?;
     update_iteration.exec(tx).await?;

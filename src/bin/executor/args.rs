@@ -1,4 +1,4 @@
-use buildbtw::{buildspace, executor::config, external_secrets, package::KnownArchitecture};
+use buildbtw::{buildspace, executor::config, external_secrets, package::BuildArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,
@@ -238,7 +238,7 @@ pub struct BuildScriptArgs {
 
     /// Architecture to build for
     #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE")]
-    pub architecture: KnownArchitecture,
+    pub architecture: BuildArchitecture,
 
     /// Base URL of the pacman repository that should be injected
     #[clap(flatten)]
@@ -469,7 +469,7 @@ mod tests {
             args,
             BuildScriptArgs {
                 ci_project_dir: "/tmp/foo".into(),
-                architecture: KnownArchitecture::X86_64V3,
+                architecture: BuildArchitecture::X86_64V3,
                 pacman_repository: None,
                 api_config: None,
                 build_id: None,
@@ -482,7 +482,7 @@ mod tests {
             config,
             executor::config::RunBuildScript {
                 ci_project_dir: "/tmp/foo".into(),
-                architecture: KnownArchitecture::X86_64V3,
+                architecture: BuildArchitecture::X86_64V3,
                 pacman_repository: None,
                 api_config: None,
                 log_destination: config::LogDestination::InheritStdio,
@@ -529,11 +529,10 @@ mod tests {
             args,
             BuildScriptArgs {
                 ci_project_dir: "/tmp/foo".into(),
-                architecture: KnownArchitecture::X86_64,
+                architecture: BuildArchitecture::X86_64,
                 pacman_repository: Some(PacmanRepoArgs {
                     buildspace: buildspace::Slug::try_from("foospace".to_string())?,
                     iteration: 1u32,
-                    architecture: KnownArchitecture::X86_64,
                     pacman_repository_base_url: Url::from_str("https://10.0.2.2")?,
                 }),
                 api_config: Some(ApiConfigArgs {
@@ -550,11 +549,11 @@ mod tests {
             config,
             executor::config::RunBuildScript {
                 ci_project_dir: "/tmp/foo".into(),
-                architecture: KnownArchitecture::X86_64,
+                architecture: BuildArchitecture::X86_64,
                 pacman_repository: Some(executor::config::PacmanRepo {
                     buildspace: buildspace::Slug::try_from("foospace".to_string())?,
                     iteration: 1u32,
-                    architecture: KnownArchitecture::X86_64,
+                    architecture: BuildArchitecture::X86_64,
                     pacman_repository_base_url: Url::from_str("https://10.0.2.2")?,
                 }),
                 api_config: Some(executor::config::RunBuildScriptApiConfig {

@@ -49,7 +49,7 @@ impl BuildNode {
             branch_info,
             ..
         }: &PackageMetadata,
-        architecture: package::KnownArchitecture,
+        architecture: package::BuildArchitecture,
     ) -> Result<BuildNode> {
         let source_info = &branch_info.source_info;
         let package_file_names = source_info
@@ -84,7 +84,7 @@ pub struct BuildDependency {}
 
 /// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
 #[nutype(derive(Debug, AsRef, Deref))]
-pub struct BuildGraphs(HashMap<package::KnownArchitecture, BuildGraph>);
+pub struct BuildGraphs(HashMap<package::BuildArchitecture, BuildGraph>);
 
 impl BuildGraphs {
     /// A group of buildgraphs for an iteration, one for each architecture that contains any builds to run.
@@ -136,15 +136,15 @@ impl BuildGraphs {
     #[must_use]
     pub fn diff(
         self,
-        old: HashMap<package::KnownArchitecture, Vec<BuildNode>>,
-    ) -> HashMap<package::KnownArchitecture, super::Diff> {
+        old: HashMap<package::BuildArchitecture, Vec<BuildNode>>,
+    ) -> HashMap<package::BuildArchitecture, super::Diff> {
         diff_architectures(old, self.into_build_nodes())
     }
 
     /// Discard edges and return a vector of only graph node weights for each architecture.
     /// Used as input to [`Self::diff`].
     #[must_use]
-    pub fn into_build_nodes(self) -> HashMap<package::KnownArchitecture, Vec<BuildNode>> {
+    pub fn into_build_nodes(self) -> HashMap<package::BuildArchitecture, Vec<BuildNode>> {
         self.into_inner()
             .into_iter()
             .map(|(arch, graph)| {
@@ -166,7 +166,7 @@ impl BuildGraphs {
 fn calculate_build_graph_for_architecture(
     changesets: &git::Changesets,
     global_graph: &GlobalDependencies,
-    architecture: package::KnownArchitecture,
+    architecture: package::BuildArchitecture,
     packages_metadata: &BuildspaceSourceInfoIndex<'_>,
 ) -> Result<BuildGraph> {
     // TODO: use a topological visitor for this (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/224)

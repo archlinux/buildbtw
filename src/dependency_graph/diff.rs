@@ -37,7 +37,7 @@ impl From<BuildNode> for DiffPackage {
 #[derive(Debug, Clone)]
 pub struct Diff {
     /// Architecture that both build graphs are intended to be built for.
-    pub architecture: package::KnownArchitecture,
+    pub architecture: package::BuildArchitecture,
     /// Packages present in the new graph but not in the old one.
     pub packages_added: HashSet<DiffPackage>,
     /// Packages present in both graphs, but with different commit hashes.
@@ -59,9 +59,9 @@ impl Diff {
 /// Compute diff between two graphs.
 #[must_use]
 pub fn diff_architectures(
-    old: HashMap<package::KnownArchitecture, Vec<BuildNode>>,
-    mut new: HashMap<package::KnownArchitecture, Vec<BuildNode>>,
-) -> HashMap<package::KnownArchitecture, Diff> {
+    old: HashMap<package::BuildArchitecture, Vec<BuildNode>>,
+    mut new: HashMap<package::BuildArchitecture, Vec<BuildNode>>,
+) -> HashMap<package::BuildArchitecture, Diff> {
     let mut diffs = HashMap::new();
 
     // Diff all architectures that are present in `old`.
@@ -88,7 +88,7 @@ pub fn diff_architectures(
 }
 
 fn diff_architecture(
-    architecture: package::KnownArchitecture,
+    architecture: package::BuildArchitecture,
     old_builds: Vec<BuildNode>,
     new_builds: Vec<BuildNode>,
 ) -> Diff {

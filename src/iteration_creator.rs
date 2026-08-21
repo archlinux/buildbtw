@@ -44,7 +44,7 @@ use tracing::{debug, error, info, instrument};
 use crate::{
     dependency_graph::{self, BuildGraphs},
     gitlab_api,
-    package::KnownArchitecture,
+    package::BuildArchitecture,
     pacman_repository, repo_updater,
 };
 use crate::{entities, queries};
@@ -221,7 +221,7 @@ impl IterationCreator {
             .await?;
 
         let mut old_builds_by_architecture: HashMap<
-            KnownArchitecture,
+            BuildArchitecture,
             Vec<dependency_graph::BuildNode>,
         > = HashMap::new();
 
