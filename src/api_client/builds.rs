@@ -4,12 +4,14 @@ use crate::{
     buildspace, input,
     package::BuildStatus,
 };
+use alpm_types::PackageFileName;
 use axum::body::Bytes;
+use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::Context};
-use tokio::io::AsyncRead;
+use tokio::{fs, io::AsyncRead};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::io::ReaderStream;
-use tracing::instrument;
+use tracing::{debug, instrument};
 use uuid::Uuid;
 
 #[instrument(skip(api_client))]
@@ -62,6 +64,44 @@ pub async fn set_status(api_client: &ApiClient, build_id: Uuid, status: BuildSta
         .send()
         .await
         .wrap_err("Couldn't set build status")?;
+
+    if let Err(err) = resp.error_for_status_ref() {
+        return Err(err).wrap_err(resp.text().await?.to_string());
+    }
+
+    Ok(())
+}
+
+#[instrument(skip(client))]
+pub async fn upload_package(
+    client: &ApiClient,
+    build_id: Uuid,
+    artifact: &Utf8PathBuf,
+) -> Result<()> {
+    let pkgfile = PackageFileName::try_from(artifact.as_std_path())?;
+    let pkgname = pkgfile.name().clone().into();
+
+    let artifact_file = fs::File::open(artifact).await?;
+    let artifact_bytes = artifact_file.metadata().await?.len();
+
+    // Wrap stream in 2MB chunks for chunked transfer.
+    // https://docs.rs/axum/latest/axum/extract/struct.DefaultBodyLimit.html
+    let chunked_stream = ReaderStream::with_capacity(artifact_file, 2 * 1024 * 1024);
+    let body = reqwest::Body::wrap_stream(chunked_stream);
+
+    debug!("⬆️ Sending {artifact_bytes} bytes for {pkgname}");
+    let resp = client
+        .reqwest_client
+        .post(
+            client
+                .buildbtw_server_url
+                .join(&builds::UploadPackage {}.to_string())?,
+        )
+        .query(&builds::UploadPackageQuery { build_id, pkgname })
+        .body(body)
+        .send()
+        .await
+        .wrap_err("Couldn't upload package file")?;
 
     if let Err(err) = resp.error_for_status_ref() {
         return Err(err).wrap_err(resp.text().await?.to_string());
