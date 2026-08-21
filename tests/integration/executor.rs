@@ -5,7 +5,9 @@ use buildbtw::{
     builds, db,
     entities::builds::DispatchedTo,
     executor::{self, config},
-    git, package, queries, storage,
+    git,
+    package::{self, KnownArchitecture},
+    pacman_repository, queries, storage,
 };
 use camino::Utf8PathBuf;
 use color_eyre::{
@@ -254,7 +256,15 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Create buildspace, iteration and builds
     let tx = ctx.state.db.begin().await?;
-    let (_, other_iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+
+    pacman_repository::ensure_pacman_repo_exists(
+        &buildspace.name,
+        iteration.sequence,
+        &[KnownArchitecture::X86_64],
+        &server_data_dir,
+    )
+    .await?;
 
     let mut package_file_names = HashMap::new();
     let package_filename = "buildbtw-rocks-2.1-1-any.pkg.tar.zst";
@@ -264,7 +274,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     );
     let build = factories::build_from_node(
         &tx,
-        other_iteration.id,
+        iteration.id,
         buildbtw::dependency_graph::BuildNode {
             pkgbase,
             commit_hash,

@@ -286,11 +286,11 @@ pub async fn serve_repo_file(
         &server_state.data_dir,
     )?
     .join(&filename);
-    debug!("Downloading {filename} from {repo_path}");
+    debug!("Opening {filename} at {repo_path}");
 
     let file = tokio::fs::File::open(&repo_path)
         .await
-        .map_err(|_e| ResponseError::NotFound("Build artifact not found".into()))?;
+        .map_err(|_e| ResponseError::NotFound("Pacman repo DB not found".into()))?;
     let len = file.metadata().await?.len();
 
     Ok(Response::builder()

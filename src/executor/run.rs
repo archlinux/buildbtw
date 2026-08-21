@@ -9,7 +9,6 @@ use color_eyre::{
 use tokio::{fs, process::Command};
 use tokio_util::{io::ReaderStream, sync::CancellationToken};
 use tracing::{debug, error, info, warn};
-use url::Url;
 
 use super::shell::ShellScripts;
 use crate::{
@@ -99,17 +98,6 @@ async fn build_project_dir(
     build_script_args: &config::RunBuildScript,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
-    // Build the pacman repository URL for the iteration
-    let pacman_repository_url: Option<Url> = match build_script_args.pacman_repository.clone() {
-        Some(pacman_repository) => Some(pacman_repository_url(
-            pacman_repository.pacman_repository_base_url.clone(),
-            &pacman_repository.buildspace,
-            pacman_repository.iteration,
-            &pacman_repository.architecture,
-        )?),
-        None => None,
-    };
-
     let project_dir = build_script_args.ci_project_dir.clone();
     let bin_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-bin-dir-")
@@ -137,12 +125,22 @@ async fn build_project_dir(
     .args(["--volume", &format!("{output_dir}:/mnt/output")])
     .arg("--")
     .arg(format!("/mnt/bin/{build_script_filename}"))
-    .arg(
-        pacman_repository_url
-            .map(|url| url.to_string())
-            .unwrap_or_default(),
-    )
     .stdin(Stdio::inherit());
+
+    // If set, pass buildspace name and pacman repo URL for downloading
+    // buildspace-specific dependency artifacts
+    if let Some(pacman_repository) = build_script_args.pacman_repository.clone() {
+        cmd.arg(pacman_repository.buildspace.to_string());
+        cmd.arg(
+            pacman_repository_url(
+                pacman_repository.pacman_repository_base_url.clone(),
+                &pacman_repository.buildspace,
+                pacman_repository.iteration,
+                &pacman_repository.architecture,
+            )?
+            .to_string(),
+        );
+    }
 
     match &build_script_args.log_destination {
         config::LogDestination::File(log_path) => {

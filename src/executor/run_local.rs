@@ -1,13 +1,15 @@
+use std::net::{IpAddr, Ipv4Addr};
+
 use camino::Utf8PathBuf;
 use color_eyre::Result;
-use color_eyre::eyre::Context;
+use color_eyre::eyre::{Context, eyre};
 use sea_orm::DatabaseConnection;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 use url::Url;
 
 use crate::entities::{self};
-use crate::executor::config::{self, LogDestination};
+use crate::executor::config::{self, LogDestination, PacmanRepo};
 use crate::{builds, executor, git};
 use crate::{queries, storage};
 
@@ -44,11 +46,20 @@ pub async fn build(
     tx.0.commit().await?;
 
     debug!(?build.pkgbase, ?build.architecture, "Running build");
+    let mut server_url_in_vm = api_server_url.clone();
+    server_url_in_vm
+        .set_ip_host(IpAddr::V4(Ipv4Addr::new(10, 0, 2, 2)))
+        .map_err(|()| eyre!("Cannot set host of base URL"))?;
     executor::run::build_script(
         100,
         config::RunBuildScript {
             ci_project_dir: build_dir.path().to_path_buf(),
-            pacman_repository: None,
+            pacman_repository: Some(PacmanRepo {
+                buildspace: build.iteration.buildspace.name,
+                iteration: build.iteration.sequence,
+                architecture: build.architecture,
+                pacman_repository_base_url: server_url_in_vm,
+            }),
             api_config,
             log_destination: LogDestination::File(log_file),
         },

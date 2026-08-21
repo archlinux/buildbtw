@@ -1,15 +1,16 @@
 #!/usr/bin/bash
 set -o nounset -o pipefail -o xtrace -o errexit
 
-REPO_URL=${1:-}
+REPO_NAME=${1:-}
+REPO_URL=${2:-}
 
 echo "Installing devtools..."
 pacman --noconfirm -Syu devtools
 
 # Add buildbtw repo for this namespace
-if [[ -n ${REPO_URL} ]]; then
-    echo "Adding buildbtw pacman repository ${REPO_URL}..."
-    sed -i "$ a [buildbtw-namespace]\nServer = $REPO_URL" /usr/share/devtools/pacman.conf.d/*
+if [[ -n ${REPO_NAME} && -n ${REPO_URL} ]]; then
+    echo "Adding buildbtw pacman repository ${REPO_NAME} at ${REPO_URL}..."
+    sed -i "$ a [${REPO_NAME}]\nServer = $REPO_URL" /usr/share/devtools/pacman.conf.d/*
 fi
 
 # Create user to run the build as non-root

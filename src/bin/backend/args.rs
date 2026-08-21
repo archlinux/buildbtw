@@ -186,6 +186,8 @@ pub struct RunArgs {
     /// Which platform to dispatch builds to.
     ///
     /// If not specified, builds will not be dispatched.
+    /// For `local-vmexec`, you need to disable TLS if using self-signed certificates
+    /// since we don't inject the self-signing CA into the VM.
     #[arg(long, env = "BUILDBTW_DISPATCH_BUILDS_TO", value_enum)]
     pub dispatch_builds_to: Option<DispatchBuildsTo>,
 }
