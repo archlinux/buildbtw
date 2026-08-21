@@ -61,7 +61,7 @@ impl GlobalDependencies {
 /// soname-, make-, and optional dependencies are ignored.
 pub fn build_global_dependency_graphs(
     source_info_index: &BuildspaceSourceInfoIndex<'_>,
-) -> HashMap<package::KnownArchitecture, GlobalDependencies> {
+) -> HashMap<package::BuildArchitecture, GlobalDependencies> {
     trace!("Building global dependency graph");
     let mut graphs = HashMap::new();
 
@@ -69,7 +69,7 @@ pub fn build_global_dependency_graphs(
     trace!("Adding dependency edges");
     for dependent_metadata in source_info_index.all_packages() {
         let source_info = &dependent_metadata.branch_info.source_info;
-        for architecture in package::KnownArchitecture::iter() {
+        for architecture in package::BuildArchitecture::iter() {
             // Note: `packages_for_architecture` also returns packages with
             // the `Any` architecture which is very convenient here.
             for dependent_package in source_info.packages_for_architecture(architecture) {

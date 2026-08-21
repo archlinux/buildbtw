@@ -35,7 +35,7 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{ContextCompat, Result};
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
@@ -44,7 +44,7 @@ use tracing::{debug, error, info, instrument};
 use crate::{
     dependency_graph::{self, BuildGraphs},
     gitlab_api,
-    package::KnownArchitecture,
+    package::BuildArchitecture,
     pacman_repository, repo_updater,
 };
 use crate::{entities, queries};
@@ -221,7 +221,7 @@ impl IterationCreator {
             .await?;
 
         let mut old_builds_by_architecture: HashMap<
-            KnownArchitecture,
+            BuildArchitecture,
             Vec<dependency_graph::BuildNode>,
         > = HashMap::new();
 
@@ -283,12 +283,12 @@ impl IterationCreator {
 
             // Insert the graphs
             let tx = self.db.begin().await?;
-            for (arch, graph) in graphs.into_inner() {
+            for (arch, graph) in graphs.iter() {
                 let (update_iteration, insert_builds, insert_dependencies) =
                     queries::builds::insert_builds_with_dependencies(
                         iteration.id.into(),
-                        arch,
-                        &graph,
+                        *arch,
+                        graph,
                     )?;
 
                 update_iteration.exec(&tx).await?;
@@ -296,7 +296,22 @@ impl IterationCreator {
                 insert_dependencies.exec(&tx).await?;
             }
 
+            let buildspace = queries::buildspaces::by_id(iteration.buildspace_id)
+                .one(&tx)
+                .await?
+                .wrap_err("Missing buildspace for iteration")?;
+
             tx.commit().await?;
+
+            // Create pacman repositories for all architectures in the new iteration
+            let architectures = graphs.keys().copied().collect::<Vec<_>>();
+            pacman_repository::ensure_pacman_repo_exists(
+                &buildspace.name,
+                iteration.sequence,
+                &architectures,
+                &self.data_dir,
+            )
+            .await?;
         }
 
         if iteration_count > 0 {

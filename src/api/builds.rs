@@ -45,7 +45,7 @@ pub struct Build {
     pub commit_hash: git::CommitHash,
     pub status: package::BuildStatus,
     pub version: package::Version,
-    pub architecture: package::KnownArchitecture,
+    pub architecture: package::BuildArchitecture,
 }
 
 /// Response of the [ListByStatus] endpoint.
@@ -112,7 +112,7 @@ pub struct DownloadPackageQuery {
 pub struct ServeRepoFile {
     pub buildspace: buildspace::Slug,
     pub iteration: u32,
-    pub architecture: package::KnownArchitecture,
+    pub architecture: package::BuildArchitecture,
     pub filename: Utf8PathBuf,
 }
 

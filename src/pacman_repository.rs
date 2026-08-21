@@ -32,7 +32,7 @@ pub fn pacman_repo_database_filename(buildspace: &buildspace::Slug) -> String {
 pub fn pacman_repo_database_path(
     buildspace: &buildspace::Slug,
     iteration: u32,
-    architecture: &package::KnownArchitecture,
+    architecture: &package::BuildArchitecture,
     override_data_dir: &Option<Utf8PathBuf>,
 ) -> Result<Utf8PathBuf> {
     let dest_dir = build_repo_path(buildspace, iteration, architecture, override_data_dir)?;
@@ -44,7 +44,7 @@ pub fn pacman_repo_database_path(
 pub async fn pacman_repo_add(
     buildspace: &buildspace::Slug,
     iteration: u32,
-    architecture: &package::KnownArchitecture,
+    architecture: &package::BuildArchitecture,
     packages: &[Utf8PathBuf],
     override_data_dir: &Option<Utf8PathBuf>,
 ) -> Result<()> {
@@ -78,7 +78,7 @@ pub async fn pacman_repo_add(
 pub async fn ensure_pacman_repo_exists(
     buildspace: &buildspace::Slug,
     iteration: u32,
-    architectures: &[package::KnownArchitecture],
+    architectures: &[package::BuildArchitecture],
     override_data_dir: &Option<Utf8PathBuf>,
 ) -> Result<()> {
     for architecture in architectures {
@@ -98,7 +98,7 @@ pub fn pacman_repository_url(
     api_url: Url,
     buildspace: &buildspace::Slug,
     iteration: u32,
-    architecture: &package::KnownArchitecture,
+    architecture: &package::BuildArchitecture,
 ) -> Result<Url> {
     let serve_repo_uri = api::builds::ServeRepoFile {
         buildspace: buildspace.clone(),

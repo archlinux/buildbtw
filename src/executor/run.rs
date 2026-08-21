@@ -125,6 +125,7 @@ async fn build_project_dir(
     .args(["--volume", &format!("{output_dir}:/mnt/output")])
     .arg("--")
     .arg(format!("/mnt/bin/{build_script_filename}"))
+    .arg(build_script_args.architecture.to_string())
     .stdin(Stdio::inherit());
 
     // If set, pass buildspace name and pacman repo URL for downloading

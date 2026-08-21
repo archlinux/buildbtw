@@ -16,14 +16,14 @@ use crate::{
     buildspace,
     entities::{self, buildspaces},
     git::{BranchName, Changeset, Changesets},
-    package::{KnownArchitecture, RepositorySlug},
+    package::{BuildArchitecture, RepositorySlug},
     pacman_repository, queries,
 };
 
 pub async fn seed(
     tx: DatabaseTransaction,
     data_dir: &Option<Utf8PathBuf>,
-    architectures: &[KnownArchitecture],
+    architectures: &[BuildArchitecture],
 ) -> Result<()> {
     // lil' hack to work around the fact that the Entity Loader does not support counting results
     let buildspace_count = queries::buildspaces::list()

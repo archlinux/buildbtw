@@ -2,7 +2,7 @@ use camino::Utf8PathBuf;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 
-use crate::package::KnownArchitecture;
+use crate::package::BuildArchitecture;
 use crate::response_error::ResponseError;
 use crate::{buildspace, entities, package, storage};
 
@@ -33,7 +33,7 @@ pub fn build_artifact_path(
 pub fn build_repo_path(
     buildspace: &buildspace::Slug,
     iteration_sequence: u32,
-    architecture: &KnownArchitecture,
+    architecture: &BuildArchitecture,
     override_data_dir: &Option<Utf8PathBuf>,
 ) -> Result<Utf8PathBuf> {
     // Destination path: buildspace/{}/iteration/{}/os/{}/repo
@@ -85,7 +85,7 @@ pub fn build_log_path(
 pub fn build_iteration_arch_dir(
     buildspace: &buildspace::Slug,
     iteration_sequence: u32,
-    architecture: &KnownArchitecture,
+    architecture: &BuildArchitecture,
     override_data_dir: &Option<Utf8PathBuf>,
 ) -> Result<Utf8PathBuf> {
     let artifact_storage_base_path = storage::build_artifact_storage(override_data_dir)

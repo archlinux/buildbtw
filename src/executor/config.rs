@@ -5,7 +5,7 @@ use serde::Serialize;
 use url::Url;
 use uuid::Uuid;
 
-use crate::{api_client, buildspace, package::KnownArchitecture};
+use crate::{api_client, buildspace, package::BuildArchitecture};
 
 #[derive(Debug, Serialize)]
 pub struct BuildConfig {
@@ -18,6 +18,9 @@ pub struct BuildConfig {
 pub struct RunBuildScript {
     /// Directory of the project that will be built
     pub ci_project_dir: Utf8PathBuf,
+
+    /// Architecture to build for
+    pub architecture: BuildArchitecture,
 
     /// Pacman repository that should be injected
     ///
@@ -71,7 +74,7 @@ pub struct PacmanRepo {
     pub iteration: u32,
 
     /// Build architecture
-    pub architecture: KnownArchitecture,
+    pub architecture: BuildArchitecture,
 
     /// Base URL of the pacman repository that should be injected
     ///

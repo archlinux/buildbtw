@@ -6,7 +6,7 @@ use std::{
 
 use buildbtw::oidc;
 use buildbtw::{external_secrets, schedule_builds};
-use buildbtw::{gitlab_api, package::KnownArchitecture};
+use buildbtw::{gitlab_api, package::BuildArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{Result, bail, eyre};
 use derive_more::Display;
@@ -398,7 +398,7 @@ pub struct SeedArgs {
 
     /// Choose architectures for which pacman repos should be seeded
     #[arg(long, env = "BUILDBTW_SEED_ARCHITECTURES", default_value = "x86_64")]
-    pub architectures: Vec<KnownArchitecture>,
+    pub architectures: Vec<BuildArchitecture>,
 }
 
 /// Checks wether an interface is valid, i.e. it can be parsed into an IP
