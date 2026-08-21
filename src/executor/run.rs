@@ -1,7 +1,6 @@
 use std::time::Duration;
 use std::{fs::Permissions, os::unix::fs::PermissionsExt, process::Stdio};
 
-use alpm_types::PackageFileName;
 use axum::body::Bytes;
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::{Context, OptionExt, bail};
@@ -17,7 +16,7 @@ use tokio::{
 use tokio_stream::{StreamExt, wrappers::ReceiverStream};
 use tokio_util::io::ReaderStream;
 use tokio_util::{io::StreamReader, sync::CancellationToken};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use super::shell::ShellScripts;
 use crate::{
@@ -205,8 +204,7 @@ async fn build_project_dir(
 
     // Upload artifacts inside the output_dir if a collector URL has been passed
     if let Some(api_config) = &build_script_args.api_config {
-        let http_client = reqwest::Client::new();
-        upload_package_artifacts(&http_client, api_config, output_dir).await?;
+        upload_package_artifacts(api_config, output_dir).await?;
     }
 
     Ok(())
@@ -215,10 +213,12 @@ async fn build_project_dir(
 /// Uploads all package artifacts inside the given build output directory to the
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
-    http_client: &reqwest::Client,
     api_config: &config::RunBuildScriptApiConfig,
     output_dir: &Utf8Path,
 ) -> Result<()> {
+    let client = api_config.build_api_client()?;
+    let build_id = api_config.build_id;
+
     info!("📡 Uploading artifacts...");
     let mut read_dir = fs::read_dir(output_dir).await?;
     while let Some(entry) = read_dir.next_entry().await? {
@@ -226,63 +226,10 @@ async fn upload_package_artifacts(
         if let Some(filename) = file.file_name()
             && file.is_file()
         {
-            upload_package_artifact(http_client, api_config, &file).await?;
+            api_client::builds::upload_package(&client, build_id, &file).await?;
             info!("✅ {}", filename);
         }
     }
-    Ok(())
-}
-
-/// Uploads a single passed package artifact to the buildbtw collector endpoint.
-async fn upload_package_artifact(
-    http_client: &reqwest::Client,
-    api_config: &config::RunBuildScriptApiConfig,
-    artifact_path: &Utf8PathBuf,
-) -> Result<()> {
-    let pkgfile = PackageFileName::try_from(artifact_path.as_std_path())?;
-    let pkgname = pkgfile.name();
-
-    let mut upload_url = api_config.api_server_url.clone();
-    upload_url
-        .path_segments_mut()
-        .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
-        .pop_if_empty()
-        .extend(["api", "v1", "upload_package"]);
-
-    upload_url
-        .query_pairs_mut()
-        .append_pair("build_id", &api_config.build_id.to_string())
-        .append_pair("pkgname", pkgname.as_ref());
-
-    let artifact_file = fs::File::open(artifact_path).await?;
-    let artifact_bytes = artifact_file.metadata().await?.len();
-
-    // Extract API secret from bbtw config
-    let token = api_config.api_token.expose_secret();
-
-    // Wrap stream in 2MB chunks for chunked transfer.
-    // https://docs.rs/axum/latest/axum/extract/struct.DefaultBodyLimit.html
-    let stream = ReaderStream::with_capacity(artifact_file, 2 * 1024 * 1024);
-    let body = reqwest::Body::wrap_stream(stream);
-
-    debug!("⬆️ Sending {artifact_bytes} bytes for {pkgname}");
-    let response = http_client
-        .post(upload_url.clone())
-        .bearer_auth(token)
-        .body(body)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await?;
-        bail!(
-            "❌ Failed to upload package artifact '{}' to '{}': HTTP {status}: {body}",
-            artifact_path,
-            upload_url
-        );
-    }
-
     Ok(())
 }
 
