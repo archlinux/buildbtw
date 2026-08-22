@@ -1,3 +1,4 @@
+use std::io::{ErrorKind, Write};
 use std::time::Duration;
 use std::{fs::Permissions, os::unix::fs::PermissionsExt, process::Stdio};
 
@@ -5,16 +6,8 @@ use axum::body::Bytes;
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::{Context, OptionExt, bail};
 use color_eyre::{Result, eyre::eyre};
-use tokio::{
-    fs,
-    io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    net::unix::pipe,
-    process::Command,
-    sync::mpsc,
-    task::JoinSet,
-};
+use tokio::{fs, io::AsyncReadExt, process::Command, sync::mpsc, task::JoinSet};
 use tokio_stream::{StreamExt, wrappers::ReceiverStream};
-use tokio_util::io::ReaderStream;
 use tokio_util::{io::StreamReader, sync::CancellationToken};
 use tracing::{error, info, warn};
 
@@ -150,21 +143,25 @@ async fn build_project_dir(
         );
     }
 
-    // Create a single anonymous pipe we control and pass to the process as
-    // stdout and stderr. This allows to delegate the serialization of both
-    // streams to the kernel, which synchronizes and operates on a syscall level
-    // to fill the pipe without splicing chunks inbetween writes.
-    let (pipe_reader, pipe_writer) = std::io::pipe()?;
-    let pipe_receiver = pipe::Receiver::from_owned_fd(pipe_reader.into())?;
+    // Handle pipe backpressure by using a filesystem backed spool file as buffer.
+    // Pass the same file discriptor as stdout and stderr to avoid message splicing
+    // in userland by letting the kernel serialize the streams on syscall level.
+    let log_dir = output_dir.join("logs");
+    std::fs::create_dir(&log_dir)
+        .wrap_err_with(|| format!("Failed to create build log dir: {log_dir}"))?;
+    let log_path = log_dir.join("build.log");
+    let log_file = std::fs::File::create(&log_path)
+        .wrap_err_with(|| format!("Failed to create build log spool file: {log_path}"))?;
     cmd.stdin(Stdio::inherit())
-        .stdout(pipe_writer.try_clone()?)
-        .stderr(pipe_writer);
+        .stdout(log_file.try_clone()?)
+        .stderr(log_file);
 
     // Spawn the process and store its pid.
     let mut child = cmd
         .kill_on_drop(true)
         .spawn()
         .map_err(|e| eyre!("❌ Failed to spawn command '{:?}': {}", cmd.as_std(), e))?;
+    let child_exited = CancellationToken::new();
     let child_pid = nix::unistd::Pid::from_raw(
         child
             .id()
@@ -172,14 +169,10 @@ async fn build_project_dir(
             .try_into()?,
     );
 
-    // The Command binding still holds copies of the write pipe, drop `cmd` to ensure
-    // the pipe readers will see an EOF when the `child` exists.
-    drop(cmd);
-
     // Tasks for all streams with an optional log upload stream via API
     let mut stream_tasks = JoinSet::new();
     let log_tx = spawn_upload_log(&mut stream_tasks, build_script_args.api_config.as_ref())?;
-    stream_tasks.spawn(tee_log(pipe_receiver, io::stdout(), log_tx));
+    stream_tasks.spawn(tee_log(log_path, log_tx, child_exited.clone()));
 
     // Wait for the child or for cancellation signal
     let status = tokio::select! {
@@ -192,6 +185,10 @@ async fn build_project_dir(
             child.wait().await?
         }
     };
+
+    // Signal child exit to stream consumers as all write syscalls must have finished
+    // handing over all available data to the kernel before the process exits.
+    child_exited.cancel();
 
     // Drain all streams to ensure we fully collect all logs on failure
     drain_streams(&mut stream_tasks).await?;
@@ -258,24 +255,40 @@ fn spawn_upload_log(
     Ok(Some(tx))
 }
 
-async fn tee_log<R, W>(mut reader: R, mut writer: W, tx: Option<mpsc::Sender<Bytes>>) -> Result<()>
-where
-    R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
-{
+/// Read from the spool file and write to stdout and optionally to an mpsc channel.
+///
+/// Use a `CancellationToken` to signal EOF after the child process has exited.
+async fn tee_log(
+    path: Utf8PathBuf,
+    tx: Option<mpsc::Sender<Bytes>>,
+    child_exited: CancellationToken,
+) -> Result<()> {
+    let mut file = fs::File::open(&path)
+        .await
+        .wrap_err_with(|| format!("Failed to open build log: {path}"))?;
     let mut buf = [0u8; 8192];
+
     loop {
-        let bytes_read = reader
+        let exited = child_exited.is_cancelled();
+        let bytes_read = file
             .read(&mut buf)
             .await
-            .wrap_err("Failed to read the build output pipe")?;
+            .wrap_err("Failed to read build log")?;
         if bytes_read == 0 {
-            break;
+            // No data with exited child means EOF
+            if exited {
+                return Ok(());
+            }
+
+            // Park and wait for new data
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            continue;
         }
 
         // Local console output
-        writer.write_all(&buf[..bytes_read]).await?;
-        writer.flush().await?;
+        write_console(&buf[..bytes_read])
+            .await
+            .wrap_err("Failed to write to console")?;
 
         // Optional remote transmission
         if let Some(ref tx) = tx {
@@ -287,7 +300,52 @@ where
             .wrap_err("Timed out forwarding build output to the log uploader")?;
         }
     }
-    Ok(())
+}
+
+/// Writes a buffer into stdout while retrying as long as recoverable.
+///
+/// This allows to gracefully handle a console that cannot keep up.
+async fn write_console(buf: &[u8]) -> Result<()> {
+    let buf = Bytes::copy_from_slice(buf);
+
+    tokio::task::spawn_blocking(move || {
+        let mut stdout = std::io::stdout().lock();
+        let mut written = 0;
+
+        // Wait until everything is written to the file descriptor
+        while written < buf.len() {
+            match stdout.write(&buf[written..]) {
+                // No longer able to accept bytes and will likely not be able to
+                Ok(0) => bail!("Console stopped accepting data"),
+                // Succeeded writing `n` bytes
+                Ok(n) => written += n,
+                // Write operation should be retried
+                Err(err) if err.kind() == ErrorKind::Interrupted => {}
+                // Give time to catch up when the pipe has `O_NONBLOCK`
+                Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+                // Unrecoverable error
+                Err(err) => return Err(err).wrap_err("Failed to write build output"),
+            }
+        }
+
+        // Wait and retry until the pipe is fully flushed
+        loop {
+            match stdout.flush() {
+                Ok(()) => return Ok(()),
+                // Write operation should be retried
+                Err(err) if err.kind() == ErrorKind::Interrupted => {}
+                // Give time to catch up when the pipe isn't flushed yet
+                Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+                // Unrecoverable error
+                Err(err) => return Err(err).wrap_err("Failed to flush build output"),
+            }
+        }
+    })
+    .await?
 }
 
 /// Drain log streams by joining on all tasks.
