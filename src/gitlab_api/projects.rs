@@ -139,12 +139,12 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
     // This test needs authenticated access to a live GitLab instance, so we don't run it as part of
     // the normal test suite. This is not great but better than testing it manually.
     // The test will only send read requests to the API.
     // It is specifically written for gitlab.archlinux.org, and the packaging-buildbtw-dev/packages
     // group. Run it with `just test-flaky`.
+    #[tokio::test]
     async fn test_flaky_changed_since_integration() -> Result<()> {
         let _ = crate::tracing::init(0, false);
 
