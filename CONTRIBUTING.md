@@ -52,6 +52,10 @@ As such, we have some reservations towards AI tool usage:
 
 ## Writing Tests
 
+Non-trivial tests should have a doc comment (and above all `#[attributes]`) explaining the intention.
+
+Keep tests as simple and short as possible. Add helpers if it helps test readability.
+
 When writing tests for HTTP endpoints, make sure to include the following edge cases:
 
 - Ensure necessary unique constraints are present and enforced when creating new entities
@@ -61,7 +65,7 @@ When writing tests for HTTP endpoints, make sure to include the following edge c
 We use `insta` for snapshot testing where appropriate, e.g. for CLI output.
 You can run `just update-test-snapshots` to update the expected snapshot values.
 
-Test locations:
+### Test locations
 
 - Unit tests go into the same file as the code they are testing
 - Integration tests go in the root-level `tests/` dir
