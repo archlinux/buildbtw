@@ -69,7 +69,7 @@ pub struct BaseName(alpm_types::PackageBaseName);
 #[nutype(
     // See https://docs.gitlab.com/user/reserved_names/#rules-for-usernames-project-and-group-names-and-slugs
     validate(with = validate_repository_name, error = garde::Error),
-    derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom, Display),
+    derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom, Display, FromStr),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
     derive_unchecked(sea_orm::FromJsonQueryResult)

@@ -55,11 +55,19 @@ pub enum Command {
         name: buildspace::Slug,
     },
 
-    /// List all buildspaces
+    /// List all buildspaces. By default, shows only started ones.
+    /// Shows recently created buildspaces first.
     List {
-        /// Show all buildspaces, including canceled ones. Default: false
-        #[arg(short, long, action, default_value = "false")]
+        /// Show all buildspaces, including stopped ones. Default: false
+        #[arg(short, long, action, default_value = "false", conflicts_with = "stopped")]
         all: bool,
+
+        /// Show only stopped buildspaces. Default: false
+        #[arg(long, action, default_value = "false", conflicts_with = "all")]
+        stopped: bool,
+
+        #[arg(short, long, action)]
+        repo_slug: Option<RepositorySlug>,
     },
 
     /// Manually create a new iteration for a buildspace, recalculating the build

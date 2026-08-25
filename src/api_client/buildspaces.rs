@@ -4,7 +4,7 @@ use tracing::instrument;
 use crate::{
     api::buildspaces::{self, CreateBuildspaceResponse, GetBuildspaceWithIterationResponse},
     api_client::ApiClient,
-    buildspace, input,
+    buildspace, input, package,
 };
 
 #[instrument(skip(api_client))]
@@ -23,6 +23,38 @@ pub async fn create(
         .send()
         .await
         .wrap_err("Couldn't create buildspace")?;
+
+    if let Err(err) = resp.error_for_status_ref() {
+        return Err(err).wrap_err(resp.text().await?.to_string());
+    }
+
+    let response = resp
+        .json()
+        .await
+        .wrap_err("Couldn't deserialize response")?;
+
+    Ok(response)
+}
+
+pub async fn list(
+    api_client: &ApiClient,
+    status: Option<buildspace::Status>,
+    gitlab_repo: Option<package::RepositorySlug>,
+) -> Result<buildspaces::ListResponse> {
+    let resp = api_client
+        .reqwest_client
+        .get(
+            api_client
+                .buildbtw_server_url
+                .join(&buildspaces::List {}.to_string())?,
+        )
+        .query(&buildspaces::ListQuery {
+            status,
+            gitlab_repo,
+        })
+        .send()
+        .await
+        .wrap_err("Couldn't list buildspaces")?;
 
     if let Err(err) = resp.error_for_status_ref() {
         return Err(err).wrap_err(resp.text().await?.to_string());
