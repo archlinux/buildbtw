@@ -366,6 +366,46 @@ async fn test_stop_buildspace_not_found(#[future(awt)] ctx: TestCtx) -> Result<(
     Ok(())
 }
 
+/// Verify that we can list buildspaces via the API
+#[rstest]
+#[tokio::test]
+async fn test_list_buildspaces(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create a couple of buildspaces
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace1, _) = factories::buildspace_with_iteration(&tx, "first").await?;
+    let (buildspace2, _) = factories::buildspace_with_iteration(&tx, "second").await?;
+    tx.commit().await?;
+
+    // List buildspaces
+    let response = ctx
+        .server
+        .typed_get(&api::buildspaces::List {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .await;
+
+    // Check response
+    response.assert_status_ok();
+    let body: api::buildspaces::ListResponse = response.json();
+    assert_eq!(body.buildspaces.len(), 2);
+
+    let names: Vec<_> = body.buildspaces.iter().map(|b| &b.name).collect();
+    assert!(names.contains(&&buildspace1.name));
+    assert!(names.contains(&&buildspace2.name));
+
+    Ok(())
+}
+
+/// Check that we can't list buildspaces if not logged in
+#[rstest]
+#[tokio::test]
+async fn test_list_buildspaces_unauthorized(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let response = ctx.server.typed_get(&api::buildspaces::List {}).await;
+
+    response.assert_status_unauthorized();
+    response.assert_text_contains("Unauthorized");
+    Ok(())
+}
+
 /// Check that we can't stop a buildspace if not logged in
 #[rstest]
 #[tokio::test]

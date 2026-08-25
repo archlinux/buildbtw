@@ -2,9 +2,10 @@
 
 use axum_extra::routing::TypedPath;
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::buildspace;
+use crate::{buildspace, package};
 
 /// A request to create a new buildspace.
 #[derive(TypedPath, Deserialize, Debug)]
@@ -15,8 +16,33 @@ pub struct CreateBuildspace {}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateBuildspaceResponse {
     pub id: Uuid,
-    pub created_at: time::OffsetDateTime,
+    pub created_at: OffsetDateTime,
     pub name: buildspace::Slug,
+}
+
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/buildspaces")]
+pub struct List {}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListQuery {
+    /// Only return buildspaces with this status.
+    pub status: Option<buildspace::Status>,
+    /// Only return buildspaces with this package source repo slug as a changeset.
+    pub gitlab_repo: Option<package::RepositorySlug>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ListResponse {
+    pub buildspaces: Vec<Buildspace>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Buildspace {
+    pub id: Uuid,
+    pub name: buildspace::Slug,
+    pub status: buildspace::Status,
+    pub created_at: OffsetDateTime,
 }
 
 /// A request to set the status of a buildspace.
@@ -49,7 +75,7 @@ pub struct GetBuildspaceWithIteration {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetBuildspaceWithIterationResponse {
     pub id: Uuid,
-    pub created_at: time::OffsetDateTime,
+    pub created_at: OffsetDateTime,
     pub name: buildspace::Slug,
     pub status: buildspace::Status,
     pub iteration: super::iterations::Iteration,

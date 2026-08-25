@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::{buildspace, db_fields::TxtUuid, entities::iterations};
+use crate::{api, buildspace, db_fields::TxtUuid, entities::iterations};
 
 /// A logical grouping of package repositories and build configurations.
 ///
@@ -25,3 +25,14 @@ pub struct Model {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl From<Model> for api::buildspaces::Buildspace {
+    fn from(model: Model) -> Self {
+        Self {
+            id: model.id.into(),
+            name: model.name,
+            status: model.status,
+            created_at: model.created_at,
+        }
+    }
+}
