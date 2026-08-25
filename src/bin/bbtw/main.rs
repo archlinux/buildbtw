@@ -38,7 +38,15 @@ async fn main() -> Result<()> {
             command::stop::stop(name, api_client).await
         }
         args::Command::Start { name: _ } => todo!(),
-        args::Command::List { all: _ } => todo!(),
+        args::Command::List {
+            search,
+            all,
+            stopped,
+            quiet,
+        } => {
+            let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
+            command::list::list(api_client, search, all, stopped, quiet).await
+        }
         args::Command::Retry { name: _ } => todo!(),
         args::Command::Show {
             name,
