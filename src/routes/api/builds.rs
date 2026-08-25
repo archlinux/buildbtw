@@ -35,18 +35,16 @@ pub async fn list(
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<Json<api::builds::ListBuildsResponse>> {
     let buildspace = queries::buildspaces::by_name(buildspace_name)
-        .one(&tx)
-        .await?
-        .ok_or(ResponseError::NotFound("buildspace".to_string()))?;
+        .require_one(&tx)
+        .await?;
 
     let iteration: entities::iterations::Model = if let Some(sequence) = iteration_sequence {
         queries::iterations::by_sequence(buildspace.id, sequence)
     } else {
         queries::iterations::newest_for_buildspace(buildspace.id)
     }
-    .one(&tx)
-    .await?
-    .ok_or(ResponseError::NotFound("iteration".to_string()))?;
+    .require_one(&tx)
+    .await?;
 
     let builds = queries::builds::list(status, iteration.id, max_results)
         .all(&tx)
@@ -118,9 +116,8 @@ pub async fn upload_package(
 ) -> ResponseResult<()> {
     let build =
         queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
-            .one(&tx)
-            .await?
-            .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
+            .require_one(&tx)
+            .await?;
 
     // Required database metadata has been read, commit transaction to release locks before streaming data.
     tx.commit().await?;
@@ -233,9 +230,8 @@ pub async fn download_package(
 ) -> ResponseResult<Response> {
     let build =
         queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build_id.into()))
-            .one(&tx)
-            .await?
-            .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
+            .require_one(&tx)
+            .await?;
 
     let filename = build.pkgnames_filenames.0.get(&pkgname).ok_or_else(|| {
         ResponseError::NotFound(format!("Package '{pkgname}' not found in build"))

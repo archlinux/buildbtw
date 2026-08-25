@@ -1,10 +1,10 @@
-use crate::web;
 use axum::response::{Html, Redirect};
 use axum_extra::extract::PrivateCookieJar;
-use color_eyre::eyre::{Context, eyre};
+use color_eyre::eyre::Context;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
+use crate::web;
 use crate::{
     db,
     db_fields::TxtUuid,
@@ -89,9 +89,8 @@ pub async fn session_revoke(
 
     // Get the user_id before deleting the session
     let session_model = queries::sessions::by_id(session_to_revoke)
-        .one(&tx)
-        .await?
-        .ok_or_else(|| eyre!("Session not found"))?;
+        .require_one(&tx)
+        .await?;
     let user_id = session_model.user_id.0;
 
     let _ = queries::sessions::delete(TxtUuid::from(session_to_revoke))

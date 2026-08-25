@@ -35,7 +35,7 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use color_eyre::eyre::{ContextCompat, Result};
+use color_eyre::eyre::Result;
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use tokio_util::sync::CancellationToken;
@@ -297,9 +297,8 @@ impl IterationCreator {
             }
 
             let buildspace = queries::buildspaces::by_id(iteration.buildspace_id)
-                .one(&tx)
-                .await?
-                .wrap_err("Missing buildspace for iteration")?;
+                .require_one(&tx)
+                .await?;
 
             tx.commit().await?;
 

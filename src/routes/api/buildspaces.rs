@@ -1,6 +1,5 @@
 use axum::extract::Query;
 use axum::{Json, extract::State};
-use color_eyre::eyre::ContextCompat;
 use sea_orm::{DatabaseTransaction, SelectExt};
 use tracing::debug;
 
@@ -80,19 +79,15 @@ async fn get_with_iteration_inner(
     name: buildspace::Slug,
     iteration_seq: Option<u32>,
 ) -> ResponseResult<Json<api::buildspaces::GetBuildspaceWithIterationResponse>> {
-    let buildspace = queries::buildspaces::by_name(name.clone())
-        .one(&tx)
-        .await?
-        .ok_or(ResponseError::NotFound(format!(r#"buildspace "{name}""#)))?;
+    let buildspace = queries::buildspaces::by_name(name).require_one(&tx).await?;
 
     let iteration = match iteration_seq {
         Some(iteration_seq) => queries::iterations::by_sequence(buildspace.id, iteration_seq),
         None => queries::iterations::newest_for_buildspace(buildspace.id),
     }
-    .one(&tx)
-    .await?
     // Buildspaces without at least one initial iteration are not supported.
-    .wrap_err("Buildspace has no iterations")?
+    .require_one(&tx)
+    .await?
     .into();
 
     Ok(Json(api::buildspaces::GetBuildspaceWithIterationResponse {
@@ -110,13 +105,9 @@ pub async fn set_status(
     db::Tx(tx): db::Tx,
     Json(body): Json<input::buildspaces::SetStatus>,
 ) -> ResponseResult<()> {
-    let buildspace = queries::buildspaces::by_name(path.name.clone())
-        .one(&tx)
-        .await?
-        .ok_or(ResponseError::NotFound(format!(
-            r#"buildspace "{}""#,
-            path.name
-        )))?;
+    let buildspace = queries::buildspaces::by_name(path.name)
+        .require_one(&tx)
+        .await?;
 
     if buildspace.status == body.status {
         // Nothing to do, status is already correct

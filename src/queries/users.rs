@@ -1,4 +1,4 @@
-use color_eyre::{Result, eyre::ContextCompat};
+use color_eyre::Result;
 use openidconnect::RefreshToken;
 use sea_orm::{
     ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, Insert, QueryFilter, Select,
@@ -92,9 +92,8 @@ pub async fn update_refresh_token(
 ) -> Result<()> {
     let mut identity: oidc_identity::ActiveModel = oidc_identity::Entity::find()
         .filter(oidc_identity::COLUMN.user_id.eq(TxtUuid::from(user_id)))
-        .one(db)
+        .require_one(db)
         .await?
-        .wrap_err("User has no OIDC identity")?
         .into();
 
     identity.refresh_token = Set(new_refresh_token.map(|rt| RedactedString::from(rt.secret())));
