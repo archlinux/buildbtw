@@ -268,7 +268,8 @@ pub struct PacmanRepoArgs {
 
     /// Base URL of the pacman repository that should be injected
     ///
-    /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
+    /// For local builds, the host is expected to be reachable at 10.0.2.2 from inside the VM since we're using user mode networking.
+    /// For gitlab builds, use the buildbtw server's public base URL.
     /// If no value is provided, no pacman repository will be injected into the build.
     #[arg(long, env = "CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", required = false)]
     pub pacman_repository_base_url: Url,
@@ -279,12 +280,11 @@ pub struct ApiConfigArgs {
     /// Base URL of the output artifacts collector endpoint that retrieves build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
-    /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
     #[arg(
         long,
-        env = "BUILDBTW_API_SERVER_URL",
+        env = "CUSTOM_ENV_API_SERVER_URL",
         verbatim_doc_comment,
         required = false
     )]

@@ -10,6 +10,7 @@ use gitlab::AsyncGitlab;
 use redact::Secret;
 use url::Url;
 
+pub mod pipelines;
 pub mod projects;
 
 #[derive(Clone, derive_more::Debug)]

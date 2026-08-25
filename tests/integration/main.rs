@@ -11,6 +11,7 @@ mod geckodriver;
 mod iteration_creator;
 mod migrations;
 mod queries;
+mod schedule_builds;
 mod tasks;
 mod templates;
 mod test_ctx;

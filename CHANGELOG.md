@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Feature:** Manage and serve pacman repos of a buildspace ([!222](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/225))
 - **Feature:** Add health route (`/api/v1/health`) ([!213](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/213))
 - **Feature:** Run builds locally ([!217](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/217))
+- **Feature:** Run builds in gitlab pipelines ([!275](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/275))
 - **Feature:** Add route for creating a buildspace (`/api/v1/buildspaces`) ([!222](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/222))
 - **Fix:** Better OIDC config handling ([!218](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/218/diffs))
 - **Fix:**: [Vulnerability in a transitive dependency](https://rustsec.org/advisories/RUSTSEC-2026-0204); Our specific usage of this dependency did not expose the vulnerability to users of the buildbtw server. ([!233](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/233))

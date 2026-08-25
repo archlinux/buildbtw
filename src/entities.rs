@@ -5,6 +5,7 @@
 pub mod build_dependencies;
 pub mod builds;
 pub mod buildspaces;
+pub mod gitlab_pipelines;
 pub mod global_state;
 pub mod iterations;
 pub mod oidc_identity;

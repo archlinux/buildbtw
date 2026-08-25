@@ -73,6 +73,8 @@ pub async fn connect_and_migrate(location: SQLiteLocation) -> Result<DatabaseCon
 
 /// Begin a transaction in SQLite's IMMEDIATE mode
 ///
+/// Use this when you're sure you will do write operations to the database.
+///
 /// See also <https://sqlite.org/lang_transaction.html>
 pub async fn begin_immediate(db: &DatabaseConnection) -> Result<TxImmediate, DbErr> {
     let tx = db
