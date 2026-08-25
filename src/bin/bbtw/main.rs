@@ -13,12 +13,9 @@ use clap::Parser;
 use color_eyre::Result;
 
 mod args;
-mod auth;
+mod command;
 mod config;
 mod log;
-mod new;
-mod show;
-mod stop;
 
 use crate::args::Args;
 
@@ -39,11 +36,11 @@ async fn main() -> Result<()> {
         }
         args::Command::New { name, changesets } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
-            new::new(name, changesets, api_client).await
+            command::new::new(name, changesets, api_client).await
         }
         args::Command::Stop { name } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
-            stop::stop(name, api_client).await
+            command::stop::stop(name, api_client).await
         }
         args::Command::Start { name: _ } => todo!(),
         args::Command::List { all: _ } => todo!(),
@@ -54,10 +51,10 @@ async fn main() -> Result<()> {
             iteration,
         } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
-            show::show(name, iteration, limit.into(), &api_client).await
+            command::show::show(name, iteration, limit.into(), &api_client).await
         }
         args::Command::Auth(auth_command) => {
-            auth::auth(&auth_command, args.server_url, args.state_dir).await
+            command::auth::auth(&auth_command, args.server_url, args.state_dir).await
         }
     }
 }
