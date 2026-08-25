@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use color_eyre::{Result, eyre::eyre};
+use color_eyre::{Result, eyre::OptionExt};
 use petgraph::{graph::NodeIndex, prelude::StableGraph};
 use strum::IntoEnumIterator;
 use tracing::trace;
@@ -47,10 +47,9 @@ impl GlobalDependencies {
 
     /// Get the index of a graph node for the given package name.
     pub fn node_index_by_package_name(&self, pkgname: &package::Name) -> Result<NodeIndex> {
-        self.index_map
-            .get(pkgname)
-            .copied()
-            .ok_or_else(|| eyre!("Failed to find pkgname in global dependency graph: '{pkgname}'"))
+        self.index_map.get(pkgname).copied().ok_or_eyre(format!(
+            "Failed to find pkgname in global dependency graph: '{pkgname}'"
+        ))
     }
 }
 

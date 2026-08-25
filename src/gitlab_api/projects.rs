@@ -1,7 +1,7 @@
 //! API functionality for GitLab projects
 
+use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt};
-use color_eyre::{Result, eyre::eyre};
 use derive_more::{AsRef, Display};
 use gitlab::AsyncGitlab;
 use graphql_client::GraphQLQuery;
@@ -70,7 +70,7 @@ pub async fn changed_since(
                     if project
                         .last_activity_at
                         .as_ref()
-                        .ok_or_else(|| eyre!("Missing update date for projects"))?
+                        .ok_or_eyre("Missing update date for projects")?
                         .0
                         .le(&last_fetched) =>
                 {

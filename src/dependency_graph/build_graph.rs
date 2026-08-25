@@ -8,7 +8,7 @@ use std::{
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,
-    eyre::{Context, bail, eyre},
+    eyre::{Context, OptionExt, bail},
 };
 use nutype::nutype;
 use petgraph::{Directed, Graph, graph::NodeIndex, visit::EdgeRef};
@@ -191,7 +191,7 @@ fn calculate_build_graph_for_architecture(
         let repo_slug_as_pkgbase: package::BaseName = changeset.repo_slug.to_string().parse()?;
         let PackageMetadata { branch_info, .. } = packages_metadata
             .by_pkgbase(&repo_slug_as_pkgbase)
-            .ok_or(eyre!(
+            .ok_or_eyre(format!(
                 r#"Missing source info for changeset "{changeset:?}""#
             ))?;
         for package in branch_info
@@ -216,15 +216,13 @@ fn calculate_build_graph_for_architecture(
         let package_node = global_graph
             .graph
             .node_weight(global_node_index_to_visit)
-            .ok_or_else(|| eyre!("Failed to find node in global dependency graph"))?;
+            .ok_or_eyre("Failed to find node in global dependency graph")?;
         let (pkgbase, single_package_metadata) = packages_metadata
             .by_pkgname(&package_node.package_name)
-            .ok_or_else(|| {
-                eyre!(
-                    "Failed to get srcinfo for pkgname {}",
-                    package_node.package_name
-                )
-            })?;
+            .ok_or_eyre(format!(
+                "Failed to get srcinfo for pkgname {}",
+                package_node.package_name
+            ))?;
 
         // Create build graph node if it doesn't exist
         let build_graph_node_index =
