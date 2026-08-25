@@ -36,6 +36,35 @@ pub async fn create(
     Ok(response)
 }
 
+pub async fn list(
+    api_client: &ApiClient,
+    status: Option<buildspace::Status>,
+    search: Option<String>,
+) -> Result<buildspaces::ListResponse> {
+    let resp = api_client
+        .reqwest_client
+        .get(
+            api_client
+                .buildbtw_server_url
+                .join(&buildspaces::List {}.to_string())?,
+        )
+        .query(&buildspaces::ListQuery { status, search })
+        .send()
+        .await
+        .wrap_err("Couldn't list buildspaces")?;
+
+    if let Err(err) = resp.error_for_status_ref() {
+        return Err(err).wrap_err(resp.text().await?.to_string());
+    }
+
+    let response = resp
+        .json()
+        .await
+        .wrap_err("Couldn't deserialize response")?;
+
+    Ok(response)
+}
+
 /// Get a buildspace with one of its iterations
 ///
 /// If passed no iteration sequence, fetch the most recent iteration.
