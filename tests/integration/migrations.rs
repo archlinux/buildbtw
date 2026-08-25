@@ -4,9 +4,9 @@ use sea_orm_migration::MigratorTrait;
 
 use buildbtw::{migrations::Migrator, tracing};
 
-#[tokio::test]
 /// Check that the migrations don't raise an error when run on an empty
 /// database.
+#[tokio::test]
 async fn can_migrate() -> Result<()> {
     tracing::init(0, false)?;
 

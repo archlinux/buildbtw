@@ -10,7 +10,6 @@ use url::Url;
 
 use crate::factories;
 
-#[tokio::test]
 // This test needs authenticated access to a live GitLab instance, so we don't run it as part of
 // the normal test suite. This is not great but better than testing it manually.
 // It is specifically written for gitlab.archlinux.org, and the packaging-buildbtw-dev/packages
@@ -21,6 +20,7 @@ use crate::factories;
 // This tests [buildbtw::schedule_builds::create_and_persist_pipeline] which:
 // 1. Creates a new gitlab pipeline
 // 2. Sets the build status to `scheduled` and `dispatched_to` to `GitlabPipeline`
+#[tokio::test]
 async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
     let _ = buildbtw::tracing::init(0, false);
 
