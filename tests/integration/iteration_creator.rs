@@ -61,9 +61,8 @@ async fn test_flaky_run() -> Result<()> {
     let tx = db.begin().await?;
     let pending = queries::iterations::pending_calculation().all(&tx).await?;
     let newest_iteration = queries::iterations::newest_for_buildspace(buildspace.id)
-        .one(&tx)
-        .await?
-        .unwrap();
+        .require_one(&tx)
+        .await?;
     let builds = queries::builds::by_iteration_id(newest_iteration.id)
         .all(&tx)
         .await?;

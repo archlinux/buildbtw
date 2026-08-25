@@ -63,16 +63,14 @@ async fn test_create_buildspace_success(
 
     // Check that the buildspace was written to the db
     let buildspace = queries::buildspaces::by_name(expected_name.parse()?)
-        .one(&ctx.state.db)
-        .await?
-        .expect("buildspace should be persisted in the database");
+        .require_one(&ctx.state.db)
+        .await?;
     assert_eq!(buildspace.name.as_ref(), expected_name);
 
     // Check that an iteration was created with the correct changesets
     let iteration = queries::iterations::by_sequence(buildspace.id, 1)
-        .one(&ctx.state.db)
-        .await?
-        .expect("iteration not found");
+        .require_one(&ctx.state.db)
+        .await?;
     assert_eq!(iteration.changesets.0.len(), 1);
 
     assert_eq!(
@@ -331,16 +329,14 @@ async fn test_stop_buildspace_success(#[future(awt)] ctx: TestCtx) -> Result<()>
 
     // Verify status was updated in the database
     let buildspace = queries::buildspaces::by_name("my-buildspace".parse()?)
-        .one(&ctx.state.db)
-        .await?
-        .expect("buildspace should still exist");
+        .require_one(&ctx.state.db)
+        .await?;
     assert_eq!(buildspace.status, buildspace::Status::Stopped);
 
     // Check that build was skipped
     let build = queries::builds::by_id(pending_build.id)
-        .one(&ctx.state.db)
-        .await?
-        .unwrap();
+        .require_one(&ctx.state.db)
+        .await?;
     assert_eq!(build.status, package::BuildStatus::Skipped);
 
     Ok(())

@@ -24,9 +24,8 @@ async fn newest_iteration_for_buildspace(#[future(awt)] ctx: TestCtx) -> Result<
     .await?;
 
     let newest_iteration = queries::iterations::newest_for_buildspace(buildspace.id)
-        .one(&tx)
-        .await?
-        .expect("Found no iteration but expected one");
+        .require_one(&tx)
+        .await?;
 
     assert_eq!(newest_iteration.id, iteration.id);
 

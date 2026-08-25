@@ -3,7 +3,7 @@ use buildbtw::{
     entities::{builds, gitlab_pipelines},
     gitlab_api, package,
 };
-use color_eyre::{Result, eyre::OptionExt};
+use color_eyre::Result;
 use redact::Secret;
 use sea_orm::{EntityTrait, TransactionTrait};
 use url::Url;
@@ -50,9 +50,8 @@ async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
     let build = buildbtw::queries::builds::with_iteration_and_buildspace(
         buildbtw::queries::builds::by_id(build.id),
     )
-    .one(&tx)
-    .await?
-    .ok_or_eyre("Build not found")?;
+    .require_one(&tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -72,9 +71,8 @@ async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
 
     // Verify the build was updated
     let updated_build = builds::Entity::find_by_id(build.id)
-        .one(&db)
-        .await?
-        .expect("Missing build that was created earlier");
+        .require_one(&db)
+        .await?;
 
     assert_eq!(updated_build.status, package::BuildStatus::Scheduled);
     assert_eq!(
@@ -89,9 +87,8 @@ async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
     // Verify the pipeline record exists in the database
     let pipeline_id = updated_build.gitlab_pipeline_id.unwrap();
     let pipeline = gitlab_pipelines::Entity::find_by_id(pipeline_id)
-        .one(&db)
-        .await?
-        .expect("Pipeline not found in db");
+        .require_one(&db)
+        .await?;
 
     assert_eq!(pipeline.build_id, build.id,);
     assert!(

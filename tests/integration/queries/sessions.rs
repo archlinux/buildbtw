@@ -138,9 +138,8 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .await?;
 
     queries::sessions::by_id(session_id.into())
-        .one(&ctx.state.db)
-        .await?
-        .expect("Expected to find a session but found none");
+        .require_one(&ctx.state.db)
+        .await?;
 
     Ok(())
 }

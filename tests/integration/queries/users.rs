@@ -33,9 +33,8 @@ async fn test_upsert_creates_user_and_oidc_identity(#[future(awt)] ctx: TestCtx)
 
     let identity = oidc_identity::Entity::find()
         .filter(oidc_identity::COLUMN.oidc_id.eq("test-oidc-id"))
-        .one(&tx.0)
-        .await?
-        .expect("Expected an OIDC identity to be created");
+        .require_one(&tx.0)
+        .await?;
     assert_eq!(identity.user_id, user.id);
     assert!(identity.refresh_token.is_none());
 
@@ -81,9 +80,8 @@ async fn test_upsert_updates_existing_user(#[future(awt)] ctx: TestCtx) -> Resul
 
     let identity = oidc_identity::Entity::find()
         .filter(oidc_identity::COLUMN.oidc_id.eq("test-oidc-id"))
-        .one(&tx.0)
-        .await?
-        .expect("Expected an OIDC identity to exist");
+        .require_one(&tx.0)
+        .await?;
     assert_eq!(
         identity
             .refresh_token

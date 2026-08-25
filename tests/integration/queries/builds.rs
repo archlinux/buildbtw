@@ -72,9 +72,8 @@ async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Check that iteration status was updated
     let iteration = queries::iterations::by_sequence(buildspace.id, iteration.sequence)
-        .one(&tx)
-        .await?
-        .expect("Didn't find iteration");
+        .require_one(&tx)
+        .await?;
 
     assert_eq!(iteration.status, entities::iterations::Status::Calculated);
 
@@ -223,15 +222,13 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     // Get ids for both builds
     let foo_build = builds::Entity::find()
         .filter(builds::COLUMN.pkgbase.eq("foo"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'foo' in the database");
+        .require_one(&tx)
+        .await?;
 
     let bar_build = builds::Entity::find()
         .filter(builds::COLUMN.pkgbase.eq("bar"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'bar' in the database");
+        .require_one(&tx)
+        .await?;
 
     let build_dep = build_dependencies::ActiveModel {
         id: Set(Uuid::new_v4().into()),
@@ -366,25 +363,22 @@ async fn test_build_status_reflects_dependencies(#[future(awt)] ctx: TestCtx) ->
 
     let independent_build = builds::Entity::find()
         .filter(builds::COLUMN.pkgbase.eq("independent"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'independent'");
+        .require_one(&tx)
+        .await?;
 
     assert_eq!(independent_build.status, package::BuildStatus::Pending);
 
     let root_build = builds::Entity::find()
         .filter(builds::COLUMN.pkgbase.eq("root"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'root'");
+        .require_one(&tx)
+        .await?;
 
     assert_eq!(root_build.status, package::BuildStatus::Pending);
 
     let dep_a_build = builds::Entity::find()
         .filter(builds::COLUMN.pkgbase.eq("dep_a"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'dep_a'");
+        .require_one(&tx)
+        .await?;
 
     assert_eq!(dep_a_build.status, package::BuildStatus::Blocked);
 
@@ -415,14 +409,12 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     let foo_build = builds::Entity::find()
         .filter(builds::COLUMN.pkgbase.eq("foo"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'foo' in the database");
+        .require_one(&tx)
+        .await?;
 
     queries::builds::by_id(foo_build.id)
-        .one(&tx)
-        .await?
-        .expect("Expected to find build by id but found none");
+        .require_one(&tx)
+        .await?;
 
     Ok(())
 }
@@ -513,9 +505,8 @@ async fn test_skip_pending_builds_skips_only_pending(#[future(awt)] ctx: TestCtx
 
     // Verify only the waiting builds were skipped
     let dispatched_build = queries::builds::by_id(dispatched_build.id)
-        .one(&tx)
-        .await?
-        .unwrap();
+        .require_one(&tx)
+        .await?;
     assert_eq!(dispatched_build.status, package::BuildStatus::Scheduled);
 
     let skipped_builds =
@@ -553,10 +544,10 @@ async fn test_skip_pending_builds_only_affects_own_buildspace(
         .await?;
 
     // Verify only buildspace_a's build was skipped
-    let build_a = queries::builds::by_id(build_a.id).one(&tx).await?.unwrap();
+    let build_a = queries::builds::by_id(build_a.id).require_one(&tx).await?;
     assert_eq!(build_a.status, package::BuildStatus::Skipped);
 
-    let build_b = queries::builds::by_id(build_b.id).one(&tx).await?.unwrap();
+    let build_b = queries::builds::by_id(build_b.id).require_one(&tx).await?;
     assert_eq!(build_b.status, package::BuildStatus::Pending);
 
     Ok(())

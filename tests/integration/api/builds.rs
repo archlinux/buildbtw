@@ -340,15 +340,14 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
     let build_with_ctx =
         queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
-            .one(&tx)
-            .await?
-            .ok_or_eyre("Build not found")?;
+            .require_one(&tx)
+            .await?;
     let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     let dest_bytes = tokio::fs::read(&dest.to_path_buf()).await?;
     assert_eq!(package_bytes, dest_bytes, "uploaded bytes must match");
 
     // Check build status update
-    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    let build = queries::builds::by_id(build.id).require_one(&tx).await?;
     assert_eq!(
         package::BuildStatus::Built,
         build.status,
@@ -438,15 +437,14 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
     let tx = ctx.state.db.begin().await?;
     let build_with_ctx =
         queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
-            .one(&tx)
-            .await?
-            .ok_or_eyre("Build not found")?;
+            .require_one(&tx)
+            .await?;
     let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     let dest_bytes = tokio::fs::read(&dest.to_path_buf()).await?;
     assert_eq!(package_bytes, dest_bytes, "uploaded bytes must match");
 
     // Check build status update
-    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    let build = queries::builds::by_id(build.id).require_one(&tx).await?;
     assert_eq!(
         package::BuildStatus::Pending,
         build.status,
@@ -562,9 +560,8 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
     let tx = ctx.state.db.begin().await?;
     let build_with_ctx =
         queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
-            .one(&tx)
-            .await?
-            .ok_or_eyre("Build not found")?;
+            .require_one(&tx)
+            .await?;
     tx.rollback().await?;
     let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
@@ -687,9 +684,8 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
     let tx = ctx.state.db.begin().await?;
     let build_with_ctx =
         queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
-            .one(&tx)
-            .await?
-            .ok_or_eyre("Build not found")?;
+            .require_one(&tx)
+            .await?;
     tx.rollback().await?;
     let dest = buildbtw::builds::build_artifact_path(&build_with_ctx, &pkgname, &Some(data_dir))?;
     tokio::fs::create_dir_all(&dest.parent().unwrap()).await?;
@@ -1045,7 +1041,7 @@ async fn test_update_build_status(
 
     // Check build status update
     let tx = ctx.state.db.begin().await?;
-    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    let build = queries::builds::by_id(build.id).require_one(&tx).await?;
     assert_eq!(status_to, build.status, "build status must be updated");
 
     Ok(())
@@ -1108,7 +1104,7 @@ async fn test_update_build_status_invalid_transition(
 
     // Check build status update
     let tx = ctx.state.db.begin().await?;
-    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    let build = queries::builds::by_id(build.id).require_one(&tx).await?;
     assert_eq!(
         status_from, build.status,
         "build status must not be updated"

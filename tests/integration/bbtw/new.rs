@@ -50,9 +50,8 @@ async fn test_new(
     // Check that buildspace was created
     let expected_slug: buildspace::Slug = name.unwrap_or("libfoo").try_into()?;
     let buildspace = queries::buildspaces::by_name(expected_slug)
-        .one(&ctx.state.db)
-        .await?
-        .expect("Buildspace should exist in db");
+        .require_one(&ctx.state.db)
+        .await?;
 
     let iterations = buildspace
         .find_related(entities::iterations::Entity)
@@ -107,9 +106,8 @@ async fn test_new_multiple_changesets(#[future(awt)] ctx: TestCtx) -> Result<()>
     // Check that buildspace was created with the first repo as name
     let expected_slug: buildspace::Slug = "libfoo".try_into()?;
     let buildspace = queries::buildspaces::by_name(expected_slug)
-        .one(&ctx.state.db)
-        .await?
-        .expect("Buildspace should exist in db");
+        .require_one(&ctx.state.db)
+        .await?;
 
     // Check that both changesets are stored in the iteration
     let iterations = buildspace
@@ -321,9 +319,8 @@ async fn test_new_slugify_buildspace_name(
     // Check that the buildspace was created with the slugified name
     let slug: buildspace::Slug = expected_slug.try_into()?;
     let buildspace = queries::buildspaces::by_name(slug)
-        .one(&ctx.state.db)
-        .await?
-        .expect("Buildspace should exist in db");
+        .require_one(&ctx.state.db)
+        .await?;
     assert_eq!(buildspace.name.as_ref(), expected_slug);
 
     Ok(())

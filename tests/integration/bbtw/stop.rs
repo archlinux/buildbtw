@@ -38,9 +38,8 @@ async fn test_stop(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Verify status was updated in the database
     let buildspace = buildbtw::queries::buildspaces::by_name("my-buildspace".parse()?)
-        .one(&ctx.state.db)
-        .await?
-        .expect("buildspace should still exist");
+        .require_one(&ctx.state.db)
+        .await?;
     assert_eq!(buildspace.status, buildspace::Status::Stopped);
 
     Ok(())

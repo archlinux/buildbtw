@@ -99,10 +99,7 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
 
     // Check that the build was marked as successful.
     let tx = ctx.state.db.begin().await?;
-    let updated = queries::builds::by_id(build.id)
-        .one(&tx)
-        .await?
-        .expect("build row disappeared after run");
+    let updated = queries::builds::by_id(build.id).require_one(&tx).await?;
     assert_eq!(updated.status, package::BuildStatus::Built);
 
     // Check that build artifacts where copied into server data dir.
@@ -184,10 +181,7 @@ arch=(any)
 
     // Check that the build was marked as failed.
     let tx = ctx.state.db.begin().await?;
-    let updated = queries::builds::by_id(build.id)
-        .one(&tx)
-        .await?
-        .expect("build row disappeared after run");
+    let updated = queries::builds::by_id(build.id).require_one(&tx).await?;
     assert_eq!(updated.status, package::BuildStatus::Failed);
 
     Ok(())
@@ -294,9 +288,8 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .await?;
 
     let build_ex = queries::builds::with_iteration_and_buildspace(queries::builds::by_id(build.id))
-        .one(&tx)
-        .await?
-        .expect("build row disappeared");
+        .require_one(&tx)
+        .await?;
 
     // Commit here because the executor starts its own transactions
     tx.commit().await?;
@@ -313,10 +306,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Check that the build was marked as successful.
     let tx = ctx.state.db.begin().await?;
-    let updated = queries::builds::by_id(build.id)
-        .one(&tx)
-        .await?
-        .expect("build row disappeared after run");
+    let updated = queries::builds::by_id(build.id).require_one(&tx).await?;
     assert_eq!(updated.status, package::BuildStatus::Built);
 
     // Check that build artifacts where copied into server data dir.

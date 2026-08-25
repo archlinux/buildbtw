@@ -6,7 +6,7 @@ use buildbtw::{
 };
 use color_eyre::Result;
 use rstest::rstest;
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, SelectExt};
 use serde_json::json;
 
 use crate::factories;
@@ -51,9 +51,8 @@ async fn test_create_user(#[future(awt)] ctx: TestCtx, #[case] roles: Vec<Role>)
     assert!(created.sessions.is_empty());
 
     let user = queries::users::by_username("someuser".to_string())
-        .one(&ctx.state.db)
-        .await?
-        .expect("created user should exist");
+        .require_one(&ctx.state.db)
+        .await?;
 
     let db_roles: Vec<Role> = user_roles::Entity::find()
         .filter(user_roles::COLUMN.user_id.eq(user.id))
@@ -65,11 +64,12 @@ async fn test_create_user(#[future(awt)] ctx: TestCtx, #[case] roles: Vec<Role>)
     assert_eq!(db_roles, roles);
 
     // Users created this way do not have an OIDC identity
-    let identity = oidc_identity::Entity::find()
-        .filter(oidc_identity::COLUMN.user_id.eq(user.id))
-        .one(&ctx.state.db)
-        .await?;
-    assert!(identity.is_none());
+    assert!(
+        !oidc_identity::Entity::find()
+            .filter(oidc_identity::COLUMN.user_id.eq(user.id))
+            .exists(&ctx.state.db)
+            .await?
+    );
 
     Ok(())
 }
