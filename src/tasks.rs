@@ -141,10 +141,13 @@ async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> 
 
     // No need to check the cancellation token here: each build task takes care to check the cancellation token itself.
     while let Some(result) = build_tasks.join_next().await {
-        let Ok(Ok(())) = result else {
-            error!("Unknown build task panicked or was aborted.");
-            continue;
-        };
+        match result {
+            Ok(Ok(())) => {}
+            e => {
+                error!(?e, "build task panicked or was aborted.");
+                continue;
+            }
+        }
     }
 
     Ok(())
