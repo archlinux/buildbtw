@@ -49,7 +49,7 @@ impl BuildspaceSourceInfoIndex<'_> {
             // specified there instead of "main".
             let origin_changeset_branch = (&changesets).into_iter().find_map(|repo_ref| {
                 // TODO: repo slug and dir name might be different for the same package (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/219)
-                (&repo_ref.repo_slug == dir_name).then_some(repo_ref.branch_name.clone())
+                (&repo_ref.pkgbase == dir_name).then_some(repo_ref.branch_name.clone())
             });
             let branch = origin_changeset_branch.unwrap_or(git::BranchName::try_from("main")?);
 
@@ -58,12 +58,14 @@ impl BuildspaceSourceInfoIndex<'_> {
                     for package in &branch_info.source_info.packages {
                         pkgname_to_pkgbase.insert(
                             package::Name::from(package.name.clone()),
-                            branch_info.source_info.base.name.clone().into(),
+                            branch_info.source_info.base.name.clone().try_into()?,
                         );
                     }
 
                     pkgbase_to_metadata.insert(
-                        package::BaseName::from(branch_info.source_info.base.name.clone()),
+                        package::BaseName::from(
+                            branch_info.source_info.base.name.clone().try_into()?,
+                        ),
                         PackageMetadata {
                             branch_name: branch,
                             branch_info,

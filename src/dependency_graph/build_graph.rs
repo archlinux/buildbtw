@@ -63,7 +63,7 @@ impl BuildNode {
             .collect::<Result<HashMap<_, _>>>()?;
 
         Ok(BuildNode {
-            pkgbase: source_info.base.name.clone().into(),
+            pkgbase: source_info.base.name.clone().try_into()?,
             commit_hash: branch_info.commit_hash.clone(),
             branch_name: branch_name.clone(),
             package_file_names,
@@ -188,9 +188,8 @@ fn calculate_build_graph_for_architecture(
 
     // add root nodes from our buildspace so we can start walking the graph
     for changeset in changesets {
-        let repo_slug_as_pkgbase: package::BaseName = changeset.repo_slug.to_string().parse()?;
         let PackageMetadata { branch_info, .. } = packages_metadata
-            .by_pkgbase(&repo_slug_as_pkgbase)
+            .by_pkgbase(&changeset.pkgbase)
             .ok_or(eyre!(
                 r#"Missing source info for changeset "{changeset:?}""#
             ))?;

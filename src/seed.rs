@@ -16,7 +16,7 @@ use crate::{
     buildspace,
     entities::{self, buildspaces},
     git::{BranchName, Changeset, Changesets},
-    package::{BuildArchitecture, RepositorySlug},
+    package::BuildArchitecture,
     pacman_repository, queries,
 };
 
@@ -53,7 +53,7 @@ pub async fn seed(
         .await?;
 
         let changesets = Changesets::from(vec![Changeset {
-            repo_slug: RepositorySlug::try_new(pkgbase.to_string())?,
+            pkgbase: pkgbase.parse()?,
             branch_name: BranchName::try_new("main".to_string())?,
         }]);
 

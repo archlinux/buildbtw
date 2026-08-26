@@ -32,15 +32,14 @@ impl TryFrom<Create> for ValidatedCreate {
         })?;
 
         // Use pkgbase of the first changeset as default name
-        let name = value
-            .name
-            .unwrap_or(
+        let name =
+            value.name.unwrap_or(
                 first_changeset
-                    .repo_slug
+                    .pkgbase
                     .to_string()
                     .try_into()
                     .map_err(|e| {
-                        garde_report(garde::Path::new("changesets").join(0).join("repo_slug"), e)
+                        garde_report(garde::Path::new("changesets").join(0).join("pkgbase"), e)
                     })?,
             );
 
