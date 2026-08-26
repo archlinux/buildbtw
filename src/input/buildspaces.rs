@@ -5,7 +5,7 @@ use crate::{buildspace, git, input::garde_report};
 /// Input for creating a new buildspace.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Create {
-    /// If left out, will use the repo name of the first changeset.
+    /// If left out, will use the pkgbase of the first changeset.
     pub name: Option<buildspace::Slug>,
 
     pub changesets: git::Changesets,
@@ -32,15 +32,14 @@ impl TryFrom<Create> for ValidatedCreate {
         })?;
 
         // Use pkgbase of the first changeset as default name
-        let name = value
-            .name
-            .unwrap_or(
+        let name =
+            value.name.unwrap_or(
                 first_changeset
-                    .repo_slug
+                    .pkgbase
                     .to_string()
                     .try_into()
                     .map_err(|e| {
-                        garde_report(garde::Path::new("changesets").join(0).join("repo_slug"), e)
+                        garde_report(garde::Path::new("changesets").join(0).join("pkgbase"), e)
                     })?,
             );
 

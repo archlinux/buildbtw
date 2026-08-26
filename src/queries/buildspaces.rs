@@ -85,7 +85,7 @@ pub fn list_filtered(
             .filter(Expr::cust_with_values(
                 // TODO: _ will be used as sqlite wildcard, so in theory the user can provide a quite expensive multi wildcard expression
                 // Possible DoS here
-                "EXISTS (SELECT 1 FROM json_each(iterations.changesets) WHERE json_extract(json_each.value, '$.repo_slug') LIKE ?)",
+                "EXISTS (SELECT 1 FROM json_each(iterations.changesets) WHERE json_extract(json_each.value, '$.pkgbase') LIKE ?)",
                 [pattern.clone()],
             ))
             .into_query();

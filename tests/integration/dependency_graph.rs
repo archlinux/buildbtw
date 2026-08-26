@@ -35,7 +35,7 @@ async fn test_flaky_build_buildspace_source_info_index() -> Result<()> {
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
         git::Changesets::from(vec![git::Changeset {
-            repo_slug: "libfoo".try_into()?,
+            pkgbase: "libfoo".parse()?,
             branch_name: "testbranch".try_into()?,
         }]),
         &mut source_repos,
@@ -65,7 +65,7 @@ async fn test_flaky_build_global_dependency_graphs() -> Result<()> {
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
         git::Changesets::from(vec![git::Changeset {
-            repo_slug: "libfoo".try_into()?,
+            pkgbase: "libfoo".parse()?,
             branch_name: "testbranch".try_into()?,
         }]),
         &mut source_repos,
@@ -108,7 +108,7 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
     // Test creating a build graph for an arbitrary changeset
     let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
-            repo_slug: "gdu".try_into()?,
+            pkgbase: "gdu".parse()?,
             branch_name: "main".try_into()?,
         }]),
         &mut source_repos,
@@ -126,7 +126,7 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
     // Test calculating some huge graphs
     let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
-            repo_slug: "firefox".try_into()?,
+            pkgbase: "firefox".parse()?,
             branch_name: "main".try_into()?,
         }]),
         &mut source_repos,
@@ -145,7 +145,7 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
     // (ktikz -> poppler, because ktikz has split packages both depending on poppler)
     let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
-            repo_slug: "poppler".try_into()?,
+            pkgbase: "poppler".parse()?,
             branch_name: "main".try_into()?,
         }]),
         &mut source_repos,
