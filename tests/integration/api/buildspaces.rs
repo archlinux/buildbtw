@@ -23,8 +23,8 @@ fn make_create(
         "changesets": changesets
             .iter()
             .map(
-                |&(repo_slug, branch_name)| json!( {
-                    "repo_slug": repo_slug,
+                |&(pkgbase, branch_name)| json!( {
+                    "pkgbase": pkgbase,
                     "branch_name": branch_name,
                 }),
             )
@@ -43,6 +43,7 @@ async fn create_buildspace(ctx: &TestCtx, request: &serde_json::Value) -> TestRe
 /// Verify that we can create a buildspace via the API.
 #[rstest]
 #[case(Some("buildspace"))]
+#[case(Some("libsigc++-3.0"))]
 #[case(None)]
 #[tokio::test]
 async fn test_create_buildspace_success(
@@ -58,15 +59,15 @@ async fn test_create_buildspace_success(
     // Check response
     response.assert_status_ok();
     let body: api::buildspaces::CreateBuildspaceResponse = response.json();
-    let expected_name = name.unwrap_or(changeset_pkgbase);
-    assert_eq!(body.name.as_ref(), expected_name);
+    let expected_name = buildspace::Slug::try_from(name.unwrap_or(changeset_pkgbase))?;
+    assert_eq!(body.name.as_ref(), expected_name.as_ref());
 
     // Check that the buildspace was written to the db
     let buildspace = queries::buildspaces::by_name(expected_name.parse()?)
         .one(&ctx.state.db)
         .await?
         .expect("buildspace should be persisted in the database");
-    assert_eq!(buildspace.name.as_ref(), expected_name);
+    assert_eq!(buildspace.name.as_ref(), expected_name.as_ref());
 
     // Check that an iteration was created with the correct changesets
     let iteration = queries::iterations::by_sequence(buildspace.id, 1)
@@ -160,24 +161,25 @@ async fn test_create_buildspace_invalid_name(
     Ok(())
 }
 
-/// Check that we can't create a buildspace with invalid characters in the changeset
+/// Check that we can't create a buildspace with invalid characters in the pkgbase
 #[rstest]
 #[case("")]
-#[case("lemao.git")]
-#[case(".sdf-")]
-#[case("libsigc++-3.0")]
+#[case("lemao/noslash")]
+#[case("⚡")]
+#[case(".sdf")]
+#[case("-sdf")]
 #[tokio::test]
 async fn test_create_buildspace_invalid_changeset(
-    #[case] repo_slug: &'static str,
+    #[case] pkgbase: &'static str,
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
-    let request = make_create(Some("buildspace"), &[(repo_slug, "main")]);
+    let request = make_create(Some("buildspace"), &[(pkgbase, "main")]);
     let response = create_buildspace(&ctx, &request).await;
 
     // Check status and error message
     response.assert_status_unprocessable_entity();
-    response.assert_text_contains("repo_slug");
+    response.assert_text_contains("pkgbase");
     Ok(())
 }
 
@@ -221,13 +223,13 @@ async fn test_create_buildspace_no_name_invalid_changeset_slug(
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
-    let request = make_create(None, &[("libfoo+++++", "main")]);
+    let request = make_create(None, &[("libfoo$", "main")]);
     let response = create_buildspace(&ctx, &request).await;
 
     // Check status and error message
     response.assert_status_unprocessable_entity();
-    response.assert_text_contains("changesets[0].repo_slug");
-    response.assert_text_contains("special characters");
+    response.assert_text_contains("changesets[0].pkgbase");
+    response.assert_text_contains("invalid character");
     Ok(())
 }
 

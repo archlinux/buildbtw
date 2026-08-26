@@ -103,11 +103,11 @@ pub struct Changesets(pub Vec<Changeset>);
     sea_orm::FromJsonQueryResult,
     Display,
 )]
-#[display("{repo_slug}/{branch_name}")]
-#[debug("{repo_slug}/{branch_name}")]
+#[display("{pkgbase}/{branch_name}")]
+#[debug("{pkgbase}/{branch_name}")]
 pub struct Changeset {
-    /// Slug of the repository, as in GitLab
-    pub repo_slug: package::RepositorySlug,
+    /// Pkgbase as written in the PKGBUILD
+    pub pkgbase: package::BaseName,
     /// Branch name containing the changes to build
     pub branch_name: BranchName,
 }
@@ -228,6 +228,7 @@ fn clone_packaging_repo(
         .host_str()
         .ok_or_eyre("GitLab domain URL has no host")?;
 
+    // TODO: use pkgbase as dir name instead of repo slug
     let repo = git2::build::RepoBuilder::new()
         .fetch_options(fetch_options)
         .clone(
