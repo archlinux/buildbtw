@@ -32,8 +32,8 @@ pub struct PackageMetadata<'b> {
 }
 
 impl BuildspaceSourceInfoIndex<'_> {
-    /// Given a set of repo & branch names (`repo_refs`), index all source infos we know by their pkgbase and pkgname.
-    /// For repos in `repo_refs`, source infos are read from the specified branch.
+    /// Given a set of repo & branch names (`changesets`), index all source infos we know by their pkgbase and pkgname.
+    /// For repos in `changesets`, source infos are read from the specified branch.
     /// For other repos, they are read from "main".
     pub async fn build(
         changesets: git::Changesets,
