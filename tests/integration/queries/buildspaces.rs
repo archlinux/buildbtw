@@ -9,9 +9,9 @@ use crate::{
 };
 
 /// Make a changeset for the given repo and the "main" branch.
-fn changeset(repo_slug: &str) -> git::Changeset {
+fn changeset(pkgbase: &str) -> git::Changeset {
     git::Changeset {
-        repo_slug: repo_slug.try_into().unwrap(),
+        pkgbase: pkgbase.parse().unwrap(),
         branch_name: "main".try_into().unwrap(),
     }
 }
@@ -59,7 +59,7 @@ async fn test_list_filtered_returns_all_buildspaces(#[future(awt)] ctx: TestCtx)
 #[rstest]
 #[tokio::test]
 /// Check that filtering by search matches repo slugs
-async fn test_list_filtered_by_search_repo_slug(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_list_filtered_by_search_pkgbase(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Create buildspaces

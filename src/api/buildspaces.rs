@@ -1,11 +1,11 @@
 //! Types for the buildspaces API endpoints.
 
+use std::collections::HashMap;
+
 use axum_extra::routing::TypedPath;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
-
-use std::collections::HashMap;
 
 use crate::{buildspace, package};
 
@@ -30,7 +30,7 @@ pub struct List {}
 pub struct ListQuery {
     /// Only return buildspaces with this status.
     pub status: Option<buildspace::Status>,
-    /// Only return buildspaces with a repo slug matching this search term (substring match).
+    /// Only return buildspaces with a pkgbase containing this search term.
     pub search: Option<String>,
 }
 

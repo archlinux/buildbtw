@@ -2,6 +2,10 @@
 source: tests/integration/bbtw/new.rs
 expression: output.stderr
 ---
-error: invalid value 'lib#bar' for '<CHANGESETS>...': Must start and end with alphanumeric character, cannot contain consecutive special characters, and cannot end in either '.git' or '.atom'.
+error: invalid value 'lib#bar' for '<CHANGESETS>...': Failed to parse pkgbase: Parser failed with the following error:
+lib#bar
+   ^
+invalid character in package name
+expected ASCII alphanumeric character, `_`, `@`, `+`, `-`, `.`
 
 For more information, try '--help'.

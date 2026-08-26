@@ -19,12 +19,12 @@ use color_eyre::{
 use tokio::task::spawn_blocking;
 use tracing::debug;
 
-use crate::{git, package};
+use crate::git;
 
 /// Global cache of source infos and metadata, retrievable by directory name and branch name.
 #[derive(Debug)]
 pub struct SourceRepoCache {
-    source_repos: HashMap<package::RepositorySlug, SourceRepo>,
+    source_repos: HashMap<String, SourceRepo>,
 }
 
 #[derive(Debug)]
@@ -47,9 +47,6 @@ impl SourceRepoCache {
     /// Read all git repositories in the given directory and record their
     /// source infos along with git commit information for the main branch
     /// in a `HashMap` indexed by the directory name.
-    ///
-    /// It is assumed that the **directory name equals the gitlab repository slug**
-    /// of the package inside each git repository.
     pub async fn new(source_repo_dir: &Utf8Path) -> Result<Self> {
         let start_time = Instant::now();
 
@@ -67,8 +64,7 @@ impl SourceRepoCache {
                 // CACHEDIR.TAG (https://bford.info/cachedir/)
                 continue;
             }
-            let dir_name = package::RepositorySlug::try_from(dir.file_name().to_string())
-                .wrap_err(format!("Invalid repo slug: {dir:?}"))?;
+            let dir_name = dir.file_name().to_string();
             let source_repo = SourceRepo {
                 source_infos: HashMap::new(),
                 path: dir.into_path(),
@@ -106,9 +102,7 @@ impl SourceRepoCache {
     }
 
     /// Iterate over all `SourceRepo`s in the hashmap, using mutable references.
-    pub fn all_repos_mut(
-        &mut self,
-    ) -> impl Iterator<Item = (&package::RepositorySlug, &mut SourceRepo)> {
+    pub fn all_repos_mut(&mut self) -> impl Iterator<Item = (&String, &mut SourceRepo)> {
         self.source_repos.iter_mut()
     }
 }
