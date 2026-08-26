@@ -278,45 +278,68 @@ impl IterationCreator {
 
         let iteration_count = iterations.len();
         for iteration in iterations {
-            // Calculate graphs for all architectures
-            let graphs = BuildGraphs::calculate(&iteration.changesets, source_repos).await?;
-
-            // Insert the graphs
-            let tx = self.db.begin().await?;
-            for (arch, graph) in graphs.iter() {
-                let (update_iteration, insert_builds, insert_dependencies) =
-                    queries::builds::insert_builds_with_dependencies(
-                        iteration.id.into(),
-                        *arch,
-                        graph,
-                    )?;
-
-                update_iteration.exec(&tx).await?;
-                insert_builds.exec(&tx).await?;
-                insert_dependencies.exec(&tx).await?;
+            // Continue on errors to make sure faulty iterations don't block other calculations
+            match self
+                .calculate_pending_build_graph(source_repos, &iteration)
+                .await
+            {
+                Ok(()) => {}
+                Err(e) => error!(?e, "Failed to calculate pending build graph"),
             }
-
-            let buildspace = queries::buildspaces::by_id(iteration.buildspace_id)
-                .one(&tx)
-                .await?
-                .wrap_err("Missing buildspace for iteration")?;
-
-            tx.commit().await?;
-
-            // Create pacman repositories for all architectures in the new iteration
-            let architectures = graphs.keys().copied().collect::<Vec<_>>();
-            pacman_repository::ensure_pacman_repo_exists(
-                &buildspace.name,
-                iteration.sequence,
-                &architectures,
-                &self.data_dir,
-            )
-            .await?;
         }
 
         if iteration_count > 0 {
             info!("Calculated {iteration_count} pending build graphs");
         }
+
+        Ok(())
+    }
+
+    /// Calculate and persist the build graph for a single iteration.
+    async fn calculate_pending_build_graph(
+        &self,
+        source_repos: &mut dependency_graph::SourceRepoCache,
+        iteration: &entities::iterations::Model,
+    ) -> Result<()> {
+        debug_assert_eq!(
+            iteration.status,
+            entities::iterations::Status::PendingCalculation
+        );
+
+        // Calculate graphs for all architectures
+        let graphs = BuildGraphs::calculate(&iteration.changesets, source_repos).await?;
+
+        // Insert the graphs
+        let tx = self.db.begin().await?;
+        for (arch, graph) in graphs.iter() {
+            let (update_iteration, insert_builds, insert_dependencies) =
+                queries::builds::insert_builds_with_dependencies(
+                    iteration.id.into(),
+                    *arch,
+                    graph,
+                )?;
+
+            update_iteration.exec(&tx).await?;
+            insert_builds.exec(&tx).await?;
+            insert_dependencies.exec(&tx).await?;
+        }
+
+        let buildspace = queries::buildspaces::by_id(iteration.buildspace_id)
+            .one(&tx)
+            .await?
+            .wrap_err("Missing buildspace for iteration")?;
+
+        tx.commit().await?;
+
+        // Create pacman repositories for all architectures in the new iteration
+        let architectures = graphs.keys().copied().collect::<Vec<_>>();
+        pacman_repository::ensure_pacman_repo_exists(
+            &buildspace.name,
+            iteration.sequence,
+            &architectures,
+            &self.data_dir,
+        )
+        .await?;
 
         Ok(())
     }
