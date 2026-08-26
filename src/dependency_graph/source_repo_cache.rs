@@ -24,7 +24,7 @@ use crate::{git, package};
 /// Global cache of source infos and metadata, retrievable by directory name and branch name.
 #[derive(Debug)]
 pub struct SourceRepoCache {
-    source_repos: HashMap<package::RepositorySlug, SourceRepo>,
+    source_repos: HashMap<package::BaseName, SourceRepo>,
 }
 
 #[derive(Debug)]
@@ -67,7 +67,9 @@ impl SourceRepoCache {
                 // CACHEDIR.TAG (https://bford.info/cachedir/)
                 continue;
             }
-            let dir_name = package::RepositorySlug::try_from(dir.file_name().to_string())
+            let dir_name: package::BaseName = dir
+                .file_name()
+                .parse()
                 .wrap_err(format!("Invalid repo slug: {dir:?}"))?;
             let source_repo = SourceRepo {
                 source_infos: HashMap::new(),
@@ -106,9 +108,7 @@ impl SourceRepoCache {
     }
 
     /// Iterate over all `SourceRepo`s in the hashmap, using mutable references.
-    pub fn all_repos_mut(
-        &mut self,
-    ) -> impl Iterator<Item = (&package::RepositorySlug, &mut SourceRepo)> {
+    pub fn all_repos_mut(&mut self) -> impl Iterator<Item = (&package::BaseName, &mut SourceRepo)> {
         self.source_repos.iter_mut()
     }
 }

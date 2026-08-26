@@ -62,7 +62,7 @@ async fn test_new(
     assert_eq!(iterations.len(), 1);
     let iteration = iterations.first().unwrap();
     let changesets = git::Changesets(vec![git::Changeset {
-        repo_slug: "libfoo".try_into()?,
+        pkgbase: "libfoo".parse()?,
         branch_name: branch_name.unwrap_or("main").try_into()?,
     }]);
     assert_eq!(iteration.changesets, changesets);
@@ -120,11 +120,11 @@ async fn test_new_multiple_changesets(#[future(awt)] ctx: TestCtx) -> Result<()>
     let iteration = iterations.first().unwrap();
     let expected_changesets = git::Changesets(vec![
         git::Changeset {
-            repo_slug: "libfoo".try_into()?,
+            pkgbase: "libfoo".parse()?,
             branch_name: "branch".try_into()?,
         },
         git::Changeset {
-            repo_slug: "libbar".try_into()?,
+            pkgbase: "libbar".parse()?,
             branch_name: "main".try_into()?,
         },
     ]);
@@ -229,23 +229,15 @@ async fn test_new_duplicate_name(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
 /// Check that we can't create a buildspace with invalid characters in the repo slug.
 #[rstest]
-// May not end with ".git" or ".atom"
-#[case("lemao.git")]
-#[case("lemao.atom")]
-// Needs letter or number at the start and end
-#[case(".sdf-")]
-#[case("+sdf_")]
-#[case("a+")]
-#[case("-z")]
-#[case("afl++")]
-// No consecutive special chars
-#[case("libsigc++-3.0")]
-#[case("a--b")]
-#[case("a..b")]
-#[case("a__b")]
-#[case("a+_b")]
+// Cannot start with dot or dash
+#[case(".sdf")]
+#[case("-sdf")]
+// No special chars
+#[case("sdfkj#dcjk")]
+#[case("d$s")]
+#[case("⚡")]
 #[tokio::test]
-async fn test_new_invalid_characters_repo_slug(
+async fn test_new_invalid_characters_pkgbase(
     #[future(awt)] ctx: TestCtx,
     #[case] changeset: &str,
 ) -> Result<()> {
@@ -256,11 +248,8 @@ async fn test_new_invalid_characters_repo_slug(
 
     // Check output
     assert!(!output.status.success());
-    assert!(
-        output
-            .stderr
-            .contains("Must start and end with alphanumeric")
-    );
+    assert!(output.stderr.contains("invalid"));
+    assert!(output.stderr.contains("character"));
     assert!(output.stdout.is_empty());
 
     // Check that no buildspace was created

@@ -23,8 +23,8 @@ fn make_create(
         "changesets": changesets
             .iter()
             .map(
-                |&(repo_slug, branch_name)| json!( {
-                    "repo_slug": repo_slug,
+                |&(pkgbase, branch_name)| json!( {
+                    "pkgbase": pkgbase,
                     "branch_name": branch_name,
                 }),
             )
@@ -160,24 +160,25 @@ async fn test_create_buildspace_invalid_name(
     Ok(())
 }
 
-/// Check that we can't create a buildspace with invalid characters in the changeset
+/// Check that we can't create a buildspace with invalid characters in the pkgbase
 #[rstest]
 #[case("")]
-#[case("lemao.git")]
-#[case(".sdf-")]
-#[case("libsigc++-3.0")]
+#[case("lemao/noslash")]
+#[case("⚡")]
+#[case(".sdf")]
+#[case("-sdf")]
 #[tokio::test]
 async fn test_create_buildspace_invalid_changeset(
-    #[case] repo_slug: &'static str,
+    #[case] pkgbase: &'static str,
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
-    let request = make_create(Some("buildspace"), &[(repo_slug, "main")]);
+    let request = make_create(Some("buildspace"), &[(pkgbase, "main")]);
     let response = create_buildspace(&ctx, &request).await;
 
     // Check status and error message
     response.assert_status_unprocessable_entity();
-    response.assert_text_contains("repo_slug");
+    response.assert_text_contains("pkgbase");
     Ok(())
 }
 
@@ -221,13 +222,13 @@ async fn test_create_buildspace_no_name_invalid_changeset_slug(
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {
     // Send request
-    let request = make_create(None, &[("libfoo+++++", "main")]);
+    let request = make_create(None, &[("libfoo$", "main")]);
     let response = create_buildspace(&ctx, &request).await;
 
     // Check status and error message
     response.assert_status_unprocessable_entity();
-    response.assert_text_contains("changesets[0].repo_slug");
-    response.assert_text_contains("special characters");
+    response.assert_text_contains("changesets[0].pkgbase");
+    response.assert_text_contains("invalid character");
     Ok(())
 }
 

@@ -1,5 +1,7 @@
 //! Types for dealing with package-specific data.
 
+use std::str::FromStr;
+
 use alpm_types::{Architecture, SystemArchitecture};
 use camino::Utf8PathBuf;
 use color_eyre::Result;
@@ -45,22 +47,35 @@ fn validate_pkgnames(input: &[Name]) -> bool {
 
 /// The base name of a PKGBUILD (not a `pkgname`)
 /// This is a newtype because alpm_types only uses type aliases to differentiate between `package_name` and `package_base_name`.
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-    From,
-    FromStr,
-    AsRef,
-    Display,
-    DeriveValueType,
+#[nutype(
+    derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        Serialize,
+        Deserialize,
+        TryFrom,
+        FromStr,
+        AsRef,
+        Display,
+    ),
+    derive_unchecked(DeriveValueType),
+    validate(with = validate_base_name, error = alpm_types::Error),
 )]
 #[sea_orm(value_type = "String", try_from_u64)]
 pub struct BaseName(alpm_types::PackageBaseName);
+
+// ALPM does not validate types on deserialization, so until that is fixed,
+// we need to do it explicitly
+// https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/219
+// https://gitlab.archlinux.org/archlinux/alpm/alpm/-/work_items/348
+fn validate_base_name(val: &alpm_types::PackageBaseName) -> Result<(), alpm_types::Error> {
+    alpm_types::PackageBaseName::from_str(val.as_ref())?;
+
+    Ok(())
+}
 
 /// A package source repository name.
 ///

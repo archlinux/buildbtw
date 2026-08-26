@@ -1,7 +1,7 @@
 use buildbtw::{
     buildspace,
     git::{self, BranchName},
-    package::RepositorySlug,
+    package::{self},
 };
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand, value_parser};
@@ -90,22 +90,22 @@ pub enum Command {
     Auth(AuthCommand),
 }
 
-/// Like [buildbtw::git::Changeset], but with an optional branch name.
+/// Like [buildbtw::git::Changeset], but the branch name is optional during parsing.
 #[derive(Debug, Clone)]
 pub struct ChangesetArg {
-    pub repo_slug: RepositorySlug,
+    pub pkgbase: package::BaseName,
     pub branch_name: BranchName,
 }
 
 impl From<ChangesetArg> for git::Changeset {
     fn from(
         ChangesetArg {
-            repo_slug,
+            pkgbase,
             branch_name,
         }: ChangesetArg,
     ) -> Self {
         git::Changeset {
-            repo_slug,
+            pkgbase,
             branch_name,
         }
     }
@@ -121,14 +121,15 @@ impl std::str::FromStr for ChangesetArg {
             ));
         }
 
-        // repo slugs cannot contain slashes, so we can easily split
+        // pkgbases cannot contain slashes, so we can easily split
         // the two parts of the input
         let (repo_part, branch_part) = match s.split_once('/') {
             Some((repo, branch)) => (repo, Some(branch)),
             None => (s, None),
         };
 
-        let repo_slug: RepositorySlug = repo_part.try_into()?;
+        // TODO verify that this outputs sensible error messages
+        let pkgbase: package::BaseName = repo_part.parse().map_err(|e| garde::Error::new(e))?;
 
         let branch_name = match branch_part {
             Some(branch) => branch.try_into()?,
@@ -136,7 +137,7 @@ impl std::str::FromStr for ChangesetArg {
         };
 
         Ok(ChangesetArg {
-            repo_slug,
+            pkgbase,
             branch_name,
         })
     }
