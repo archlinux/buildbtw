@@ -1,7 +1,7 @@
 use buildbtw::{
     buildspace,
     git::{self, BranchName},
-    package::{self, RepositorySlug},
+    package,
 };
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand, value_parser};
@@ -39,7 +39,7 @@ pub enum Command {
         #[arg(short, long)]
         name: Option<buildspace::Slug>,
 
-        /// Changesets to include, in the format `gitlab_repo_name` or `gitlab_repo_name/branch_name`
+        /// Changesets to include, in the format `pkgbase` or `pkgbase/branch_name`
         #[arg(required = true)]
         changesets: Vec<ChangesetArg>,
     },
@@ -126,22 +126,22 @@ pub enum Command {
     Auth(AuthCommand),
 }
 
-/// Like [buildbtw::git::Changeset], but with an optional branch name.
+/// Like [buildbtw::git::Changeset], but the branch name is optional during parsing.
 #[derive(Debug, Clone)]
 pub struct ChangesetArg {
-    pub repo_slug: RepositorySlug,
+    pub pkgbase: package::BaseName,
     pub branch_name: BranchName,
 }
 
 impl From<ChangesetArg> for git::Changeset {
     fn from(
         ChangesetArg {
-            repo_slug,
+            pkgbase,
             branch_name,
         }: ChangesetArg,
     ) -> Self {
         git::Changeset {
-            repo_slug,
+            pkgbase,
             branch_name,
         }
     }
@@ -157,14 +157,26 @@ impl std::str::FromStr for ChangesetArg {
             ));
         }
 
-        // repo slugs cannot contain slashes, so we can easily split
+        // pkgbases cannot contain slashes, so we can easily split
         // the two parts of the input
         let (repo_part, branch_part) = match s.split_once('/') {
             Some((repo, branch)) => (repo, Some(branch)),
             None => (s, None),
         };
 
-        let repo_slug: RepositorySlug = repo_part.try_into()?;
+        let pkgbase: package::BaseName =
+            repo_part
+                .parse()
+                .map_err(|e: package::BaseNameParseError| {
+                    // nutype's Display impl formats the inner error via Debug,
+                    // which renders alpm's caret diagram as escaped \n sequences.
+                    // Reformat using Display for readable multi-line output.
+                    let err = match &e {
+                        package::BaseNameParseError::Parse(err)
+                        | package::BaseNameParseError::Validate(err) => err,
+                    };
+                    garde::Error::new(format!("Failed to parse pkgbase: {err}"))
+                })?;
 
         let branch_name = match branch_part {
             Some(branch) => branch.try_into()?,
@@ -172,7 +184,7 @@ impl std::str::FromStr for ChangesetArg {
         };
 
         Ok(ChangesetArg {
-            repo_slug,
+            pkgbase,
             branch_name,
         })
     }

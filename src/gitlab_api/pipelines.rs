@@ -1,4 +1,3 @@
-use crate::entities;
 use color_eyre::{Result, eyre::Context};
 use gitlab::{
     AsyncGitlab,
@@ -10,6 +9,8 @@ use gitlab::{
 use serde::Deserialize;
 use tracing::info;
 use url::Url;
+
+use crate::entities;
 
 #[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
@@ -69,6 +70,7 @@ pub async fn create(
             .build()
     })
     .collect::<Result<Vec<_>, _>>()?;
+    // TODO pkgbase is incorrect here
     let project_name = format!("{gitlab_packages_group}/{pkgbase}", pkgbase = build.pkgbase);
     let response: CreatePipelineResponse = CreatePipeline::builder()
         .project(project_name)
