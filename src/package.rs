@@ -107,6 +107,7 @@ fn validate_repository_name(name: &str) -> Result<(), garde::Error> {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -129,6 +130,7 @@ pub enum BuildArchitecture {
     // and route builds based on architecture
     // Aarch64,
     /// Intel x86_64
+    #[default]
     X86_64,
     /// Intel x86_64 version 3
     #[strum(to_string = "x86_64_v3")]
