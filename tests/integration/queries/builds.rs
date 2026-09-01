@@ -518,10 +518,15 @@ async fn test_skip_pending_builds_skips_only_pending(#[future(awt)] ctx: TestCtx
         .unwrap();
     assert_eq!(dispatched_build.status, package::BuildStatus::Scheduled);
 
-    let skipped_builds =
-        queries::builds::list(Some(package::BuildStatus::Skipped), iteration.id, None)
-            .all(&tx)
-            .await?;
+    let skipped_builds = queries::builds::list(
+        iteration.id,
+        None,
+        None,
+        Some(package::BuildStatus::Skipped),
+        None,
+    )
+    .all(&tx)
+    .await?;
     let skipped_pkgbases: HashSet<_> = skipped_builds.iter().map(|b| &b.pkgbase).collect();
 
     let expected_skipped_pkgbases: HashSet<_> = builds_to_skip.iter().map(|b| &b.pkgbase).collect();

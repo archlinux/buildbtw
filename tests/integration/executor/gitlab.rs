@@ -299,6 +299,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
             package_file_names,
             version: "2.1-1".parse()?,
         },
+        BuildArchitecture::default(),
     )
     .await?;
 
