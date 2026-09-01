@@ -8,6 +8,8 @@ use clap::{Parser, Subcommand, value_parser};
 use url::Url;
 use uuid::Uuid;
 
+use crate::config;
+
 #[derive(Debug, Clone, Subcommand)]
 #[allow(clippy::enum_variant_names)]
 pub enum Command {
@@ -63,25 +65,17 @@ pub enum Command {
         all: bool,
     },
 
-    /// Log view and download build logs
-    Log {
-        /// UUID of the build.
-        #[arg(
-            short = 'b',
-            long,
-            required_unless_present = "buildspace",
-            conflicts_with = "buildspace"
-        )]
-        build_id: Option<Uuid>,
-
-        // Build by buildspace package
-        #[clap(flatten)]
-        buildspace_package: Option<BuildspacePackage>,
-
-        /// Do not keep trying to open the log if not uploaded yet
-        #[arg(long, action, default_value = "false")]
-        no_wait: bool,
-    },
+    /// View build log of a given build
+    ///
+    /// Examples:
+    ///
+    /// by build-id:
+    /// `bbtw log a72757aa-6ea2-4f5e-881b-36eb9ed8eacf`
+    ///
+    /// by buildspace and pkgbase:
+    /// `bbtw log buildspace/pkgbase`
+    #[clap(verbatim_doc_comment)]
+    Log(LogArgs),
 
     /// Manually create a new iteration for a buildspace, recalculating the build
     /// graph and starting to build from the beginning
@@ -202,28 +196,81 @@ pub enum AuthCommand {
     Status,
 }
 
-#[derive(clap::Args, Debug, Clone)]
-#[group(conflicts_with = "build_id", requires_all = ["buildspace", "pkgbase"])]
-pub struct BuildspacePackage {
-    /// Name of the buildspace.
-    #[arg(short = 's', long)]
+#[derive(Debug, Clone, clap::Args)]
+pub struct LogArgs {
+    /// Iteration of the buildspace to fetch log for
+    ///
+    /// [default: latest iteration]
+    #[arg(short, long, value_parser = value_parser!(u32).range(1..))]
+    iteration: Option<u32>,
+
+    /// Architecture of the build to fetch log for
+    #[arg(short, long, required = false, default_value = "x86_64")]
+    architecture: package::BuildArchitecture,
+
+    /// Do not keep trying to open the log if not uploaded yet
+    #[arg(long, action, default_value = "false")]
+    no_wait: bool,
+
+    /// Build source either by `build-id` or `buildspace/pkgbase`
+    #[arg(value_parser = parse_build_log_source)]
+    build: BuildLogSource,
+}
+
+#[derive(Debug, Clone)]
+pub struct BuildspacePkgbase {
+    /// Name of the buildspace
     pub buildspace: buildspace::Slug,
 
-    /// Iteration to fetch log for.
-    ///
-    /// Default: latest iteration
-    #[arg(short, long, value_parser = value_parser!(u32).range(1..))]
-    pub iteration: Option<u32>,
-
-    // Architecture to fetch log for.
-    //
-    // Default: X86_64 which is the primary architecture.
-    #[arg(short, long, required = false, default_value = "x86_64")]
-    pub architecture: package::BuildArchitecture,
-
-    /// Pkgbase of the build.
-    #[arg(short, long)]
+    /// Pkgbase of the build
     pub pkgbase: package::Name,
+}
+
+#[derive(Debug, Clone)]
+pub enum BuildLogSource {
+    /// Build id
+    BuildId(Uuid),
+
+    /// Buildspace and pkgbase
+    Buildspace(BuildspacePkgbase),
+}
+
+fn parse_build_log_source(s: &str) -> Result<BuildLogSource, String> {
+    if let Ok(build_id) = s.parse::<Uuid>() {
+        return Ok(BuildLogSource::BuildId(build_id));
+    }
+
+    let Some((buildspace, pkgbase)) = s.split_once('/') else {
+        return Err("Expected `build-id` or `buildspace/pkgbase`".to_string());
+    };
+
+    Ok(BuildLogSource::Buildspace(BuildspacePkgbase {
+        buildspace: buildspace
+            .parse()
+            .map_err(|err| format!("Invalid buildspace `{buildspace}`: {err}"))?,
+        pkgbase: pkgbase
+            .parse()
+            .map_err(|err| format!("Invalid pkgbase `{pkgbase}`: {err}"))?,
+    }))
+}
+
+impl From<LogArgs> for config::LogConfig {
+    fn from(args: LogArgs) -> Self {
+        Self {
+            build: match args.build {
+                BuildLogSource::BuildId(build_id) => config::BuildSource::BuildId(build_id),
+                BuildLogSource::Buildspace(buildspace_package) => {
+                    config::BuildSource::Buildspace(config::BuildspacePkgbase {
+                        buildspace: buildspace_package.buildspace,
+                        pkgbase: buildspace_package.pkgbase,
+                        architecture: args.architecture,
+                        iteration: args.iteration,
+                    })
+                }
+            },
+            no_wait: args.no_wait,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Parser)]

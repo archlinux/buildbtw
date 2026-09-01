@@ -7,47 +7,45 @@ use color_eyre::eyre::OptionExt;
 use color_eyre::{Result, eyre::Context};
 use tokio::io::AsyncWriteExt;
 use tokio_stream::{Stream, StreamExt};
-use uuid::Uuid;
 use yansi::Paint;
 
-use crate::args::BuildspacePackage;
+use crate::config;
 
 pub async fn log(
-    build_id: Option<Uuid>,
-    buildspace_package: Option<BuildspacePackage>,
-    no_wait: bool,
     client: ApiClient,
+    config::LogConfig { build, no_wait }: config::LogConfig,
 ) -> Result<()> {
-    let build_id = if let Some(build_id) = build_id {
-        build_id
-    } else {
-        let BuildspacePackage {
-            buildspace,
-            iteration,
-            architecture,
-            pkgbase,
-        } = buildspace_package.ok_or_eyre("missing buildspace package option")?;
-
-        let builds = api_client::builds::list(
-            &client,
-            buildspace,
-            iteration,
-            Some(architecture),
-            Some(pkgbase),
-            None,
-            Some(1),
-        )
-        .await
-        .wrap_err("Failed to find build for buildspace package")?
-        .builds;
-
-        let build = builds
-            .first()
-            .ok_or_eyre("Failed to find build for buildspace package")?;
-
-        build.id
-    };
     let mut wait_printed = false;
+    let build_id = match build {
+        config::BuildSource::BuildId(build_id) => build_id,
+        config::BuildSource::Buildspace(buildspace) => {
+            let config::BuildspacePkgbase {
+                buildspace,
+                iteration,
+                architecture,
+                pkgbase,
+            } = buildspace;
+
+            let builds = api_client::builds::list(
+                &client,
+                buildspace,
+                iteration,
+                Some(architecture),
+                Some(pkgbase),
+                None,
+                Some(1),
+            )
+            .await
+            .wrap_err("Failed to find build for buildspace package")?
+            .builds;
+
+            let build = builds
+                .first()
+                .ok_or_eyre("Failed to find build for buildspace package")?;
+
+            build.id
+        }
+    };
 
     let stream = loop {
         match api_client::builds::download_log(&client, build_id).await {
