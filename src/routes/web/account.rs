@@ -1,7 +1,7 @@
 use crate::web;
 use axum::response::{Html, Redirect};
 use axum_extra::extract::PrivateCookieJar;
-use color_eyre::eyre::{Context, eyre};
+use color_eyre::eyre::{Context, OptionExt};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
@@ -91,7 +91,7 @@ pub async fn session_revoke(
     let session_model = queries::sessions::by_id(session_to_revoke)
         .one(&tx)
         .await?
-        .ok_or_else(|| eyre!("Session not found"))?;
+        .ok_or_eyre("Session not found")?;
     let user_id = session_model.user_id.0;
 
     let _ = queries::sessions::delete(TxtUuid::from(session_to_revoke))
