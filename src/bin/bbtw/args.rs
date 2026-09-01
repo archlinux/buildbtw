@@ -68,6 +68,10 @@ pub enum Command {
         /// UUID of the build.
         #[arg(short = 'b', long)]
         build_id: Uuid,
+
+        /// Do not keep trying to open the log if not uploaded yet
+        #[arg(long, action, default_value = "false")]
+        no_wait: bool,
     },
 
     /// Manually create a new iteration for a buildspace, recalculating the build

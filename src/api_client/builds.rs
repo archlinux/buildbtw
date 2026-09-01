@@ -8,6 +8,7 @@ use alpm_types::PackageFileName;
 use axum::body::Bytes;
 use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::Context};
+use thiserror::Error;
 use tokio::{fs, io::AsyncRead};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::io::ReaderStream;
@@ -110,11 +111,34 @@ pub async fn upload_package(
     Ok(())
 }
 
+#[derive(Debug, Error)]
+pub enum DownloadLogError {
+    /// No log available yet.
+    #[error("Not available: {0}")]
+    NotAvailable(String),
+
+    /// Reqwest errors.
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+
+    /// URL parse errors.
+    #[error(transparent)]
+    Url(#[from] url::ParseError),
+
+    /// Generic error wrapper for validation errors.
+    #[error(transparent)]
+    Other(#[from] garde::Report),
+
+    /// Generic error wrapper for color_eyre errors.
+    #[error(transparent)]
+    Eyre(#[from] color_eyre::eyre::Error),
+}
+
 #[instrument(skip(client))]
 pub async fn download_log(
     client: &ApiClient,
     build_id: Uuid,
-) -> Result<impl Stream<Item = Result<Bytes>>> {
+) -> Result<impl Stream<Item = Result<Bytes>>, DownloadLogError> {
     let resp = client
         .reqwest_client
         .get(
@@ -128,7 +152,12 @@ pub async fn download_log(
         .wrap_err("Couldn't get build log")?;
 
     if let Err(err) = resp.error_for_status_ref() {
-        return Err(err).wrap_err(resp.text().await?.to_string());
+        let status = resp.status();
+        let message = resp.text().await?;
+        if status == reqwest::StatusCode::CONFLICT {
+            return Err(DownloadLogError::NotAvailable(message));
+        }
+        return Err(color_eyre::eyre::Report::new(err).wrap_err(message).into());
     }
 
     Ok(resp
