@@ -12,22 +12,28 @@ use crate::{buildspace, git, package};
 /// List builds, optionally filtered by status or namespace name.
 #[derive(TypedPath, Deserialize, Debug)]
 #[typed_path("/api/v1/builds")]
-pub struct ListByStatus {}
+pub struct List {}
 
 #[derive(Debug, Serialize, Deserialize)]
-/// Query Parameters for the [`ListByStatus`] endpoint
-pub struct ListByStatusQuery {
+/// Query Parameters for the [`List`] endpoint
+pub struct ListQuery {
+    /// Only return builds for this buildspace.
+    pub buildspace: buildspace::Slug,
+
+    /// Only return builds from this iteration
+    pub iteration: Option<u32>,
+
+    /// Only return builds for this architecture
+    pub architecture: Option<package::BuildArchitecture>,
+
+    /// Only return builds for this pkgbase
+    pub pkgbase: Option<package::Name>,
+
     /// Only return builds with this status.
     pub status: Option<package::BuildStatus>,
 
-    /// Only return builds for this buildspace.
-    pub buildspace_name: buildspace::Slug,
-
     /// Do not return more than this number of builds
     pub max_results: Option<u64>,
-
-    /// Only return builds from this iteration
-    pub iteration_sequence: Option<u32>,
 }
 
 /// A single package build job within an iteration.
@@ -48,7 +54,7 @@ pub struct Build {
     pub architecture: package::BuildArchitecture,
 }
 
-/// Response of the [ListByStatus] endpoint.
+/// Response of the [`List`] endpoint.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ListBuildsResponse {
     pub total_build_count: u64,

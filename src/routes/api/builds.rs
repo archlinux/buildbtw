@@ -27,13 +27,15 @@ use crate::{builds, from_request, package, storage};
 use crate::{db, queries, response_error::ResponseResult};
 
 pub async fn list(
-    _: api::builds::ListByStatus,
-    Query(api::builds::ListByStatusQuery {
+    _: api::builds::List,
+    Query(api::builds::ListQuery {
+        buildspace: buildspace_name,
+        iteration: iteration_sequence,
+        architecture,
+        pkgbase,
         status,
-        buildspace_name,
         max_results,
-        iteration_sequence,
-    }): Query<api::builds::ListByStatusQuery>,
+    }): Query<api::builds::ListQuery>,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<Json<api::builds::ListBuildsResponse>> {
     let buildspace = queries::buildspaces::by_name(buildspace_name)
@@ -50,16 +52,23 @@ pub async fn list(
     .await?
     .ok_or(ResponseError::NotFound("iteration".to_string()))?;
 
-    let builds = queries::builds::list(status, iteration.id, max_results)
-        .all(&tx)
-        .await?
-        .into_iter()
-        .map(Into::into)
-        .collect();
+    let builds = queries::builds::list(
+        iteration.id,
+        architecture,
+        pkgbase.clone(),
+        status,
+        max_results,
+    )
+    .all(&tx)
+    .await?
+    .into_iter()
+    .map(Into::into)
+    .collect();
 
-    let total_build_count = queries::builds::list(status, iteration.id, None)
-        .count(&tx)
-        .await?;
+    let total_build_count =
+        queries::builds::list(iteration.id, architecture, pkgbase, status, None)
+            .count(&tx)
+            .await?;
 
     Ok(Json(api::builds::ListBuildsResponse {
         total_build_count,

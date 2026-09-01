@@ -1,8 +1,7 @@
 use crate::{
     api::builds::{self, ListBuildsResponse},
     api_client::ApiClient,
-    buildspace, input,
-    package::BuildStatus,
+    buildspace, input, package,
 };
 use alpm_types::PackageFileName;
 use axum::body::Bytes;
@@ -18,9 +17,11 @@ use uuid::Uuid;
 #[instrument(skip(api_client))]
 pub async fn list(
     api_client: &ApiClient,
-    status: Option<BuildStatus>,
-    buildspace_name: buildspace::Slug,
-    iteration_sequence: Option<u32>,
+    buildspace: buildspace::Slug,
+    iteration: Option<u32>,
+    architecture: Option<package::BuildArchitecture>,
+    pkgbase: Option<package::Name>,
+    status: Option<package::BuildStatus>,
     max_results: Option<u64>,
 ) -> Result<ListBuildsResponse> {
     let resp = api_client
@@ -28,13 +29,15 @@ pub async fn list(
         .get(
             api_client
                 .buildbtw_server_url
-                .join(&builds::ListByStatus {}.to_string())?,
+                .join(&builds::List {}.to_string())?,
         )
-        .query(&builds::ListByStatusQuery {
+        .query(&builds::ListQuery {
+            buildspace,
+            iteration,
+            architecture,
+            pkgbase,
             status,
-            buildspace_name,
             max_results,
-            iteration_sequence,
         })
         .send()
         .await
@@ -53,7 +56,11 @@ pub async fn list(
 }
 
 #[instrument(skip(api_client))]
-pub async fn set_status(api_client: &ApiClient, build_id: Uuid, status: BuildStatus) -> Result<()> {
+pub async fn set_status(
+    api_client: &ApiClient,
+    build_id: Uuid,
+    status: package::BuildStatus,
+) -> Result<()> {
     let resp = api_client
         .reqwest_client
         .put(

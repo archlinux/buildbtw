@@ -79,6 +79,21 @@ pub async fn build(
     iteration_id: TxtUuid,
     pkgbase: &str,
 ) -> Result<entities::builds::Model> {
+    build_with_architecture(
+        tx,
+        iteration_id,
+        pkgbase,
+        package::BuildArchitecture::default(),
+    )
+    .await
+}
+
+pub async fn build_with_architecture(
+    tx: &DatabaseTransaction,
+    iteration_id: TxtUuid,
+    pkgbase: &str,
+    architecture: package::BuildArchitecture,
+) -> Result<entities::builds::Model> {
     let pkgver = "2.1-1".parse()?;
     let build_node = BuildNode {
         pkgbase: pkgbase.parse()?,
@@ -94,7 +109,7 @@ pub async fn build(
         version: pkgver,
     };
 
-    build_from_node(tx, iteration_id, build_node).await
+    build_from_node(tx, iteration_id, build_node, architecture).await
 }
 
 pub async fn build_with_status(
@@ -116,6 +131,7 @@ pub async fn build_from_node(
     tx: &DatabaseTransaction,
     iteration_id: TxtUuid,
     build_node: BuildNode,
+    architecture: package::BuildArchitecture,
 ) -> Result<entities::builds::Model> {
     let mut graph = dependency_graph::BuildGraph::new();
     graph.add_node(build_node);
@@ -123,7 +139,7 @@ pub async fn build_from_node(
     let (update_iteration, insert_builds, insert_deps) =
         queries::builds::insert_builds_with_dependencies(
             iteration_id.into(),
-            package::BuildArchitecture::X86_64,
+            architecture,
             &graph,
         )?;
     update_iteration.exec(tx).await?;

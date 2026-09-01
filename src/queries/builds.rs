@@ -22,14 +22,22 @@ use crate::{dependency_graph::BuildGraph, package};
 /// Return a query returning all builds, optionally filtered by status.
 #[must_use]
 pub fn list(
-    status: Option<package::BuildStatus>,
     iteration_id: TxtUuid,
+    architecture: Option<package::BuildArchitecture>,
+    pkgbase: Option<package::Name>,
+    status: Option<package::BuildStatus>,
     limit: Option<u64>,
 ) -> Select<builds::Entity> {
     let mut query = builds::Entity::find();
 
     query = query.filter(builds::COLUMN.iteration_id.eq(iteration_id));
 
+    if let Some(architecture_filter) = architecture {
+        query = query.filter(builds::COLUMN.architecture.eq(architecture_filter));
+    }
+    if let Some(pkgbase_filter) = pkgbase {
+        query = query.filter(builds::COLUMN.pkgbase.eq(pkgbase_filter));
+    }
     if let Some(status_filter) = status {
         query = query.filter(builds::COLUMN.status.eq(status_filter));
     }

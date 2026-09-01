@@ -38,12 +38,14 @@ async fn test_list_builds_by_status_empty(
 
     let response = ctx
         .server
-        .typed_get(&api::builds::ListByStatus {})
-        .add_query_params(api::builds::ListByStatusQuery {
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: None,
+            architecture: None,
+            pkgbase: None,
             status,
-            buildspace_name: buildspace.name,
             max_results: None,
-            iteration_sequence: None,
         })
         .await;
 
@@ -78,12 +80,14 @@ async fn test_list_builds_by_status_and_namespace(
 
     let response = ctx
         .server
-        .typed_get(&api::builds::ListByStatus {})
-        .add_query_params(api::builds::ListByStatusQuery {
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: None,
+            architecture: None,
+            pkgbase: None,
             status,
-            buildspace_name: buildspace.name,
             max_results: None,
-            iteration_sequence: None,
         })
         .await;
 
@@ -115,12 +119,14 @@ async fn test_list_builds_max_results(#[future(awt)] ctx: TestCtx) -> Result<()>
     // Get the builds limited to two max_results
     let response = ctx
         .server
-        .typed_get(&api::builds::ListByStatus {})
-        .add_query_params(api::builds::ListByStatusQuery {
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: None,
+            architecture: None,
+            pkgbase: None,
             status: None,
-            buildspace_name: buildspace.name,
             max_results: Some(2),
-            iteration_sequence: None,
         })
         .await;
 
@@ -157,12 +163,14 @@ async fn test_list_builds_total_count(
     // Query the backend
     let response = ctx
         .server
-        .typed_get(&api::builds::ListByStatus {})
-        .add_query_params(api::builds::ListByStatusQuery {
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: None,
+            architecture: None,
+            pkgbase: None,
             status: None,
-            buildspace_name: buildspace.name,
             max_results,
-            iteration_sequence: None,
         })
         .await;
 
@@ -203,12 +211,14 @@ async fn test_list_builds_defaults_to_latest_iteration(#[future(awt)] ctx: TestC
     // Send request
     let response = ctx
         .server
-        .typed_get(&api::builds::ListByStatus {})
-        .add_query_params(api::builds::ListByStatusQuery {
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: None,
+            architecture: None,
+            pkgbase: None,
             status: None,
-            buildspace_name: buildspace.name,
             max_results: None,
-            iteration_sequence: None,
         })
         .await;
 
@@ -257,12 +267,14 @@ async fn test_list_builds_for_specific_iteration(#[future(awt)] ctx: TestCtx) ->
     // Act
     let response = ctx
         .server
-        .typed_get(&api::builds::ListByStatus {})
-        .add_query_params(api::builds::ListByStatusQuery {
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: Some(target_iteration.sequence),
+            architecture: None,
+            pkgbase: None,
             status: None,
-            buildspace_name: buildspace.name,
             max_results: None,
-            iteration_sequence: Some(target_iteration.sequence),
         })
         .await;
 
@@ -281,6 +293,144 @@ async fn test_list_builds_for_specific_iteration(#[future(awt)] ctx: TestCtx) ->
         returned_ids, expected_ids,
         "Only builds from iteration 1 should be returned"
     );
+
+    Ok(())
+}
+
+/// List builds by architecture
+#[rstest]
+#[case(Some(package::BuildArchitecture::X86_64))]
+#[case(Some(package::BuildArchitecture::X86_64V3))]
+#[case(None)]
+#[tokio::test]
+async fn test_list_builds_by_architecture(
+    #[case] architecture: Option<package::BuildArchitecture>,
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    use std::collections::HashMap;
+
+    let tx = ctx.state.db.begin().await?;
+    let (_, other_iteration) = factories::buildspace_with_iteration(&tx, "other").await?;
+    factories::build(&tx, other_iteration.id, "other_build").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+
+    let build_one = factories::build_with_architecture(
+        &tx,
+        iteration.id,
+        "one",
+        package::BuildArchitecture::X86_64,
+    )
+    .await?;
+    let build_two = factories::build_with_architecture(
+        &tx,
+        iteration.id,
+        "two",
+        package::BuildArchitecture::X86_64V3,
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    let mut builds = HashMap::new();
+    builds.insert(build_one.architecture, build_one.clone());
+    builds.insert(build_two.architecture, build_two.clone());
+
+    let response = ctx
+        .server
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: None,
+            architecture,
+            pkgbase: None,
+            status: None,
+            max_results: None,
+        })
+        .await;
+
+    response.assert_status_ok();
+    let body: api::builds::ListBuildsResponse = response.json();
+    assert!(!body.builds.is_empty(), "Should return some builds");
+
+    let build_ids: HashSet<_> = body.builds.iter().map(|build| build.id).collect();
+    if let Some(architecture) = architecture {
+        assert_eq!(body.builds.len(), 1);
+        assert_eq!(body.total_build_count, 1);
+
+        let expected_ids = HashSet::from([builds
+            .get(&architecture)
+            .ok_or_eyre("No build for architecture")?
+            .id
+            .into()]);
+        assert_eq!(build_ids, expected_ids);
+    } else {
+        assert_eq!(body.builds.len(), 2);
+        assert_eq!(body.total_build_count, 2);
+
+        let expected_ids = HashSet::from([build_one.id.into(), build_two.id.into()]);
+        assert_eq!(build_ids, expected_ids);
+    }
+
+    Ok(())
+}
+
+/// List builds by pkgbase
+#[rstest]
+#[tokio::test]
+async fn test_list_builds_by_pkgbase(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let expected_pkgbase = "one";
+
+    let tx = ctx.state.db.begin().await?;
+    let (_, other_iteration) = factories::buildspace_with_iteration(&tx, "other").await?;
+    factories::build(&tx, other_iteration.id, "other_build").await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+
+    let build_one = factories::build_with_architecture(
+        &tx,
+        iteration.id,
+        expected_pkgbase,
+        package::BuildArchitecture::X86_64,
+    )
+    .await?;
+    let build_two = factories::build_with_architecture(
+        &tx,
+        iteration.id,
+        expected_pkgbase,
+        package::BuildArchitecture::X86_64V3,
+    )
+    .await?;
+    let _other_build = factories::build_with_architecture(
+        &tx,
+        iteration.id,
+        "other",
+        package::BuildArchitecture::X86_64,
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    let response = ctx
+        .server
+        .typed_get(&api::builds::List {})
+        .add_query_params(api::builds::ListQuery {
+            buildspace: buildspace.name,
+            iteration: None,
+            architecture: None,
+            pkgbase: Some(expected_pkgbase.parse()?),
+            status: None,
+            max_results: None,
+        })
+        .await;
+
+    response.assert_status_ok();
+    let body: api::builds::ListBuildsResponse = response.json();
+    assert!(!body.builds.is_empty(), "Should return some builds");
+    assert_eq!(body.builds.len(), 2);
+    assert_eq!(body.total_build_count, 2);
+
+    let build_ids: HashSet<_> = body.builds.iter().map(|build| build.id).collect();
+    let expected_ids = HashSet::from([build_one.id.into(), build_two.id.into()]);
+    assert_eq!(build_ids, expected_ids);
 
     Ok(())
 }

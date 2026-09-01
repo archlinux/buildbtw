@@ -147,9 +147,11 @@ async fn all_builds_grouped_by_status(
                 status,
                 api_client::builds::list(
                     api_client,
-                    Some(status),
                     buildspace_name.clone(),
                     iteration_sequence,
+                    None,
+                    None,
+                    Some(status),
                     max_results,
                 )
                 .await?,
