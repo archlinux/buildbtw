@@ -3,13 +3,50 @@ use std::{io::ErrorKind, time::Duration};
 
 use buildbtw::api_client::{self, ApiClient};
 
+use color_eyre::eyre::OptionExt;
 use color_eyre::{Result, eyre::Context};
 use tokio::io::AsyncWriteExt;
 use tokio_stream::{Stream, StreamExt};
 use uuid::Uuid;
 use yansi::Paint;
 
-pub async fn log(build_id: Uuid, no_wait: bool, client: ApiClient) -> Result<()> {
+use crate::args::BuildspacePackage;
+
+pub async fn log(
+    build_id: Option<Uuid>,
+    buildspace_package: Option<BuildspacePackage>,
+    no_wait: bool,
+    client: ApiClient,
+) -> Result<()> {
+    let build_id = if let Some(build_id) = build_id {
+        build_id
+    } else {
+        let BuildspacePackage {
+            buildspace,
+            iteration,
+            architecture,
+            pkgbase,
+        } = buildspace_package.ok_or_eyre("missing buildspace package option")?;
+
+        let builds = api_client::builds::list(
+            &client,
+            buildspace,
+            iteration,
+            Some(architecture),
+            Some(pkgbase),
+            None,
+            Some(1),
+        )
+        .await
+        .wrap_err("Failed to find build for buildspace package")?
+        .builds;
+
+        let build = builds
+            .first()
+            .ok_or_eyre("Failed to find build for buildspace package")?;
+
+        build.id
+    };
     let mut wait_printed = false;
 
     let stream = loop {

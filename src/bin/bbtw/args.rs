@@ -1,7 +1,7 @@
 use buildbtw::{
     buildspace,
     git::{self, BranchName},
-    package::RepositorySlug,
+    package::{self, RepositorySlug},
 };
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand, value_parser};
@@ -66,8 +66,17 @@ pub enum Command {
     /// Log view and download build logs
     Log {
         /// UUID of the build.
-        #[arg(short = 'b', long)]
-        build_id: Uuid,
+        #[arg(
+            short = 'b',
+            long,
+            required_unless_present = "buildspace",
+            conflicts_with = "buildspace"
+        )]
+        build_id: Option<Uuid>,
+
+        // Build by buildspace package
+        #[clap(flatten)]
+        buildspace_package: Option<BuildspacePackage>,
 
         /// Do not keep trying to open the log if not uploaded yet
         #[arg(long, action, default_value = "false")]
@@ -191,6 +200,30 @@ pub enum AuthCommand {
 
     /// View authentication status
     Status,
+}
+
+#[derive(clap::Args, Debug, Clone)]
+#[group(conflicts_with = "build_id", requires_all = ["buildspace", "pkgbase"])]
+pub struct BuildspacePackage {
+    /// Name of the buildspace.
+    #[arg(short = 's', long)]
+    pub buildspace: buildspace::Slug,
+
+    /// Iteration to fetch log for.
+    ///
+    /// Default: latest iteration
+    #[arg(short, long, value_parser = value_parser!(u32).range(1..))]
+    pub iteration: Option<u32>,
+
+    // Architecture to fetch log for.
+    //
+    // Default: X86_64 which is the primary architecture.
+    #[arg(short, long, required = false, default_value = "x86_64")]
+    pub architecture: package::BuildArchitecture,
+
+    /// Pkgbase of the build.
+    #[arg(short, long)]
+    pub pkgbase: package::Name,
 }
 
 #[derive(Debug, Clone, Parser)]
