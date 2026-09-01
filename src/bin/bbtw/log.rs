@@ -1,5 +1,5 @@
-use std::io::ErrorKind;
 use std::pin::pin;
+use std::{io::ErrorKind, time::Duration};
 
 use buildbtw::api_client::{self, ApiClient};
 
@@ -7,9 +7,36 @@ use color_eyre::{Result, eyre::Context};
 use tokio::io::AsyncWriteExt;
 use tokio_stream::{Stream, StreamExt};
 use uuid::Uuid;
+use yansi::Paint;
 
-pub async fn log(build_id: Uuid, client: ApiClient) -> Result<()> {
-    let stream = api_client::builds::download_log(&client, build_id).await?;
+pub async fn log(build_id: Uuid, no_wait: bool, client: ApiClient) -> Result<()> {
+    let mut wait_printed = false;
+
+    let stream = loop {
+        match api_client::builds::download_log(&client, build_id).await {
+            Err(api_client::builds::DownloadLogError::NotAvailable(message)) => {
+                // Early exit if in no wait mode
+                if no_wait {
+                    eprintln!("{} Build log not available: {message}", '✗'.red().bold());
+                    return Ok(());
+                }
+
+                // Print waiting message once
+                if !wait_printed {
+                    wait_printed = true;
+                    eprintln!(
+                        "{} Waiting for build log to be available: {message}",
+                        '⧗'.cyan().bold()
+                    );
+                }
+
+                // Wait before retry
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+            result => break result.wrap_err("Failed to download build log")?,
+        }
+    };
+
     print_stream(stream).await?;
     Ok(())
 }

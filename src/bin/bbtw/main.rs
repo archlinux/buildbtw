@@ -32,9 +32,9 @@ async fn main() -> Result<()> {
 
     #[allow(clippy::todo)]
     match args.command {
-        args::Command::Log { build_id } => {
+        args::Command::Log { build_id, no_wait } => {
             let client = ApiClient::new(args.server_url, args.state_dir).await?;
-            log::log(build_id, client).await
+            log::log(build_id, no_wait, client).await
         }
         args::Command::New { name, changesets } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
