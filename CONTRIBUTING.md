@@ -49,6 +49,8 @@ As such, we have some reservations towards AI tool usage:
     - Generated migrations need a copy-pasted definition of the entity inside the migration, which removes most of the benefit of auto-generation.
 - Do not use `CASCADE`. Handle deletion of related rows explicitly in request handlers instead. For some deletions, it makes sense to return a descriptive error when related rows shouldn't be deleted. Make sure to assert the deletion of all related entities in deletion tests.
 - Use plain strings to specify the table and column names. We used to use ad-hoc enums specifying the types but we considered this to be window dressing since we can't use the real entity types here currently and would have to re-define them every time.
+- Open immediate transactions (using our `begin_immediate` function) when you know you'll do write operations. [Opening normal transactions and later upgrading them to write transactions can lead to errors](https://berthub.eu/articles/posts/a-brief-post-on-sqlite3-database-locked-despite-timeout/).
+- Avoid long-running write transactions. They block other, concurrent write operations.
 
 ## Writing Tests
 

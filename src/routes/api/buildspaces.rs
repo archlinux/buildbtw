@@ -1,3 +1,4 @@
+use axum::extract::Query;
 use axum::{Json, extract::State};
 use color_eyre::eyre::ContextCompat;
 use sea_orm::{DatabaseTransaction, SelectExt};
@@ -38,6 +39,22 @@ pub async fn create(
         created_at: buildspace.created_at,
         name: buildspace.name,
     }))
+}
+
+pub async fn list(
+    _: api::buildspaces::List,
+    _auth: from_request::AuthUser,
+    db::Tx(tx): db::Tx,
+    Query(query): Query<api::buildspaces::ListQuery>,
+) -> ResponseResult<Json<api::buildspaces::ListResponse>> {
+    let buildspaces = queries::buildspaces::list_filtered(query.status, query.gitlab_repo)
+        .all(&tx)
+        .await?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+
+    Ok(Json(api::buildspaces::ListResponse { buildspaces }))
 }
 
 pub async fn get_with_iteration(
