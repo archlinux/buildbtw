@@ -14,7 +14,7 @@ use axum_server::{Handle, tls_rustls::RustlsConfig};
 #[cfg(debug_assertions)]
 use buildbtw::authelia;
 use buildbtw::{
-    db, graceful_shutdown::shutdown_signal, router, schedule_builds, server_state, tasks,
+    db, graceful_shutdown::shutdown_signal, router, schedule_builds, server_state, storage, tasks,
     templates, utils::remove_file_if_exists,
 };
 use clap::Parser;
@@ -26,9 +26,14 @@ use listenfd::ListenFd;
 use sea_orm::DatabaseConnection;
 #[cfg(debug_assertions)]
 use sea_orm::TransactionTrait;
-use tokio::{fs::set_permissions, net::UnixListener};
+use tokio::{
+    fs::{self, set_permissions},
+    net::UnixListener,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
+
+use crate::config::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -65,7 +70,12 @@ async fn main() -> Result<()> {
                 None
             };
 
-            run_server(db, run_args).await?;
+            let config = Config::try_from(run_args).await?;
+
+            // Ensure data dir exists
+            fs::create_dir_all(&storage::data_dir(&config.data_dir)?).await?;
+
+            run_server(db, config).await?;
 
             // We don't really need the explicit drop here, but it makes sure the container
             // is not accidentally dropped earlier.
@@ -196,11 +206,9 @@ async fn serve(
 }
 
 /// Create an axum service and make it listen on the given socket.
-async fn run_server(db: DatabaseConnection, run_args: args::RunArgs) -> Result<()> {
+async fn run_server(db: DatabaseConnection, config: Config) -> Result<()> {
     // Shared cancellation token to signal graceful shutdown across the application.
     let cancellation_token = CancellationToken::new();
-
-    let config = config::Config::try_from(run_args).await?;
 
     tracing::debug!("{config:#?}");
 
