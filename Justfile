@@ -84,7 +84,7 @@ build-release-container-image:
         --rm \
         -e "BUILDBTW_GITLAB_SSH_HOST_KEY=$BUILDBTW_GITLAB_SSH_HOST_KEY" \
         -e "BUILDBTW_GITLAB_DOMAIN" \
-        -v "$ssh_dir/id_ed25519:/etc/ssh/id_ed25519:ro" \
+        -v "$ssh_dir/id_ed25519:/root/.ssh/id_ed25519:ro" \
         localhost/buildbtw-backend --version
 
 [doc("Run a sequence of recipes that resemble CI")]
