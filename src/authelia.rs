@@ -145,7 +145,7 @@ impl Container {
         });
 
         // Wait for the container to be ready for accepting connections
-        tokio::time::timeout(Duration::from_secs(10), async {
+        tokio::time::timeout(Duration::from_secs(30), async {
             // Wait for the log message telling us startup has finished
             while let Ok(Some(line)) = stdout_lines.next_line().await {
                 debug!(target: "authelia", "{line}");
