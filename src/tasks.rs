@@ -38,7 +38,7 @@ use crate::{iteration_creator, schedule_builds, storage};
 /// - Regularly delete expired sessions
 /// - Dispatch builds to local executor or gitlab pipelines
 pub fn initialize(
-    state: ServerState,
+    state: &mut ServerState,
     token: CancellationToken,
     gitlab_config: Option<gitlab_api::Config>,
     update_source_repos: bool,
@@ -53,7 +53,7 @@ pub fn initialize(
         iteration_creator::RepoUpdateConfig::DontUpdate
     };
 
-    iteration_creator::IterationCreator::spawn(
+    let iteration_creator_message_sender = iteration_creator::IterationCreator::spawn(
         iteration_creator::Config {
             repo_update: repo_update_config,
             source_repo_dir: storage::package_source_repos_dir(&state.data_dir)?,
@@ -64,6 +64,8 @@ pub fn initialize(
         token.clone(),
     );
 
+    state.iteration_creator_message_sender = Some(iteration_creator_message_sender);
+
     debug!(?dispatch_builds);
     if let Some(dispatch_config) = dispatch_builds {
         spawn_schedule_builds(state.clone(), token.clone(), dispatch_config);
@@ -72,8 +74,8 @@ pub fn initialize(
     spawn_invalidate_old_sessions(state.clone(), token.clone());
 
     // Run OIDC role sync if OIDC is configured
-    if let Some(oidc_state) = state.oidc {
-        spawn_sync_oidc_roles(state.db, oidc_state, token);
+    if let Some(oidc_state) = &state.oidc {
+        spawn_sync_oidc_roles(state.db.clone(), oidc_state.clone(), token);
     }
 
     Ok(())
