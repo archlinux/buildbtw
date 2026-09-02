@@ -1,0 +1,7 @@
+FROM registry.archlinux.org/archlinux/archlinux-docker:base-master
+RUN pacman -Syu --noconfirm libgit2 openssh && pacman -Scc --noconfirm
+COPY --chmod=755 target/release/buildbtw-backend /app/
+COPY --chmod=755 container/container-exec.sh /app/container-exec.sh
+COPY --parents common-style/ assets/ templates/ /app/
+WORKDIR /app
+ENTRYPOINT ["/app/container-exec.sh"]
