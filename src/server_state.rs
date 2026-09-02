@@ -1,13 +1,14 @@
 use std::{collections::HashMap, sync::Arc};
 
 use camino::Utf8PathBuf;
+use color_eyre::Result;
 use redact::Secret;
 use sea_orm::DatabaseConnection;
-use tokio::sync;
+use tokio::sync::{self, mpsc};
 use url::Url;
 use uuid::Uuid;
 
-use crate::oidc;
+use crate::{iteration_creator, oidc};
 
 /// Global shared state for axum handlers
 #[derive(Clone, Debug)]
@@ -34,6 +35,27 @@ pub struct ServerState {
     ///
     /// Acts as an EOF signal for download requests while upload has started but didn't finish yet
     pub build_log_upload: Arc<sync::RwLock<HashMap<Uuid, Arc<sync::watch::Receiver<bool>>>>>,
+
+    /// Optional channel for sending messages to the iteration creator.
+    /// If the iteration creator is not running, this will be `None`.
+    pub iteration_creator_message_sender: Option<mpsc::Sender<iteration_creator::Message>>,
+}
+
+impl ServerState {
+    /// Notify the iteration creator about a new buildspace.
+    /// If the iteration creator is not initialized, does nothing.
+    pub async fn notify_iteration_creator_buildspace_created(
+        &self,
+        buildspace_id: Uuid,
+    ) -> Result<()> {
+        if let Some(sender) = self.iteration_creator_message_sender.as_ref() {
+            sender
+                .send(iteration_creator::Message::BuildspaceCreated { buildspace_id })
+                .await?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Allows us to use the [axum_extra::extract::cookie::PrivateCookieJar]
