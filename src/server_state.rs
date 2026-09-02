@@ -1,9 +1,12 @@
 use camino::Utf8PathBuf;
+use color_eyre::{Result, eyre::OptionExt};
 use redact::Secret;
 use sea_orm::DatabaseConnection;
+use tokio::sync::mpsc;
 use url::Url;
+use uuid::Uuid;
 
-use crate::oidc;
+use crate::{iteration_creator, oidc};
 
 /// Global shared state for axum handlers
 #[derive(Clone, Debug)]
@@ -25,6 +28,23 @@ pub struct ServerState {
     /// Port can be omitted if it's the standard port.
     /// E.g. <https://buildbtw.archlinux.org>
     pub server_url: Url,
+
+    pub iteration_creator_message_sender: Option<mpsc::Sender<iteration_creator::Message>>,
+}
+
+impl ServerState {
+    pub async fn notify_iteration_creator_buildspace_created(
+        &self,
+        buildspace_id: Uuid,
+    ) -> Result<()> {
+        self.iteration_creator_message_sender
+            .as_ref()
+            .ok_or_eyre("Iteration creator not initialized, can't send message to it")?
+            .send(iteration_creator::Message::BuildspaceCreated { buildspace_id })
+            .await?;
+
+        Ok(())
+    }
 }
 
 /// Allows us to use the [axum_extra::extract::cookie::PrivateCookieJar]

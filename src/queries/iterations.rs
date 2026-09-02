@@ -58,6 +58,15 @@ pub fn pending_calculation() -> Select<iterations::Entity> {
 }
 
 #[must_use]
+pub fn pending_calculation_for_buildspace(buildspace_id: TxtUuid) -> Select<iterations::Entity> {
+    pending_calculation().filter(
+        iterations::COLUMN
+            .buildspace_id
+            .eq(TxtUuid::from(buildspace_id)),
+    )
+}
+
+#[must_use]
 pub fn by_sequence(buildspace_id: TxtUuid, sequence: u32) -> Select<iterations::Entity> {
     iterations::Entity::find_by_unique_iteration_sequence((buildspace_id, sequence))
 }

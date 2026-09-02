@@ -14,7 +14,7 @@ pub async fn create(
     _: api::buildspaces::CreateBuildspace,
     _auth: from_request::AuthUser,
     db::Tx(tx): db::Tx,
-    State(_server_state): State<ServerState>,
+    State(server_state): State<ServerState>,
     Json(body): Json<input::buildspaces::Create>,
 ) -> ResponseResult<Json<api::buildspaces::CreateBuildspaceResponse>> {
     let validated = input::buildspaces::ValidatedCreate::try_from(body)?;
@@ -33,6 +33,10 @@ pub async fn create(
     insert_iteration.exec(&tx).await?;
 
     tx.commit().await?;
+
+    server_state
+        .notify_iteration_creator_buildspace_created(buildspace.id.into())
+        .await?;
 
     Ok(Json(api::buildspaces::CreateBuildspaceResponse {
         id: buildspace.id.into(),

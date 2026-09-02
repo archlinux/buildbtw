@@ -204,16 +204,17 @@ async fn run_server(db: DatabaseConnection, run_args: args::RunArgs) -> Result<(
 
     tracing::debug!("{config:#?}");
 
-    let server_state = server_state::ServerState {
+    let mut server_state = server_state::ServerState {
         db: db.clone(),
         oidc: config.oidc_state,
         cookie_encryption_key: config.cookie_encryption_key,
         data_dir: config.data_dir,
         server_url: config.server_url.clone(),
+        iteration_creator_message_sender: None,
     };
 
     tasks::initialize(
-        server_state.clone(),
+        &mut server_state,
         cancellation_token.clone(),
         config.gitlab.clone(),
         config.update_source_repos,

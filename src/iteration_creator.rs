@@ -29,17 +29,16 @@
 //! and the automatic creation of new iterations.
 //! The calculation of pending build graphs cannot be disabled currently.
 
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, time::Duration};
 
 use camino::Utf8PathBuf;
 use color_eyre::eyre::{ContextCompat, Result};
 use gitlab::AsyncGitlab;
 use sea_orm::{DatabaseConnection, TransactionTrait};
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument};
+use uuid::Uuid;
 
 use crate::{
     dependency_graph::{self, BuildGraphs},
@@ -56,7 +55,10 @@ pub struct IterationCreator {
     db: DatabaseConnection,
 
     /// Override data storage dir used for package repos, build artifacts etc
-    pub data_dir: Option<Utf8PathBuf>,
+    data_dir: Option<Utf8PathBuf>,
+
+    message_receiver: mpsc::Receiver<Message>,
+    message_sender: mpsc::Sender<Message>,
 }
 
 #[derive(Debug)]
@@ -75,53 +77,63 @@ pub enum RepoUpdateConfig {
     DoUpdate(gitlab_api::Config),
 }
 
+#[derive(Debug)]
+pub enum Message {
+    /// Instruct the iteration creator to calculate a build graph for this new buildspace.
+    BuildspaceCreated { buildspace_id: Uuid },
+}
+
 impl IterationCreator {
     /// Create a new [`IterationCreator`] but don't run it.
     #[must_use]
     pub fn new(config: Config, db: DatabaseConnection, data_dir: Option<Utf8PathBuf>) -> Self {
+        let (message_sender, message_receiver) = mpsc::channel(500);
         Self {
             config,
             db,
             data_dir,
+            message_receiver,
+            message_sender,
         }
     }
 
-    /// Spawn a new IterationCreator task.
+    /// Spawn a new IterationCreator task and return a channel for sending messages to it.
     pub fn spawn(
         config: Config,
         db: DatabaseConnection,
         data_dir: Option<Utf8PathBuf>,
         token: CancellationToken,
-    ) {
+    ) -> mpsc::Sender<Message> {
         let creator = IterationCreator::new(config, db, data_dir);
 
+        let message_sender = creator.message_sender.clone();
+
         tokio::spawn(creator.run(token));
+
+        message_sender
     }
 
     /// Continuously run the whole process in a loop.
     /// Check the module description for an overview.
     #[instrument(name = "ic", skip_all)]
     pub async fn run(mut self, token: CancellationToken) {
+        let mut tick_interval = tokio::time::interval(Duration::from_secs(20));
+        tick_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
         while !token.is_cancelled() {
-            let run_start = Instant::now();
-            let sleep_duration = if let Err(e) = self.tick().await {
-                let retry_duration = Duration::from_secs(30);
-                error!(
-                    ?e,
-                    "Failed to run iteration creator, retrying in {retry_duration:?}"
-                );
-                Duration::from_secs(30)
-            } else if run_start.elapsed() < Duration::from_secs(10) {
-                // If the task took a very short time to complete, wait a bit to make sure we're
-                // not spamming it
-                Duration::from_secs(10)
-            } else {
-                Duration::ZERO
+            // Either tick in intervals, or handle incoming messages.
+            let result = tokio::select! {
+                () = token.cancelled() => { return; },
+                _ = tick_interval.tick() => {
+                    self.tick().await
+                },
+                Some(msg) = self.message_receiver.recv() => {
+                    self.handle_message(msg).await
+                }
             };
 
-            tokio::select! {
-                () = token.cancelled() => {},
-                () = tokio::time::sleep(sleep_duration) => {}
+            if let Err(e) = result {
+                error!(?e)
             }
         }
     }
@@ -152,6 +164,33 @@ impl IterationCreator {
             .await
         {
             error!(?e, "Could not calculate missing build graphs");
+        }
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn handle_message(&self, msg: Message) -> Result<()> {
+        match msg {
+            Message::BuildspaceCreated { buildspace_id } => {
+                let mut source_repo_cache =
+                    dependency_graph::SourceRepoCache::new(&self.config.source_repo_dir).await?;
+
+                let Some(iteration) =
+                    queries::iterations::pending_calculation_for_buildspace(buildspace_id.into())
+                        .one(&self.db)
+                        .await?
+                else {
+                    // If there's no pending iteration for this buildspace,
+                    // a previous iteration creator tick might have already
+                    // calculated its build graph. In that case, there's no
+                    // need to do anything.
+                    return Ok(());
+                };
+
+                self.calculate_pending_build_graph(&mut source_repo_cache, &iteration)
+                    .await?;
+            }
         }
 
         Ok(())
