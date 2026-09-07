@@ -1,5 +1,4 @@
-use std::io::{BufRead, BufReader, Read};
-use std::process::{Command, ExitStatus};
+use std::process::ExitStatus;
 
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
@@ -25,11 +24,13 @@ use redact::Secret;
 use sea_orm::DatabaseConnection;
 use thirtyfour::CapabilitiesHelper;
 use time::OffsetDateTime;
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+use tokio::process::Command;
 use url::Url;
 
 use crate::geckodriver::{self, ProcessGuard};
 
-pub struct BbtwOutput {
+pub struct CmdOutput {
     pub status: ExitStatus,
     pub stdout: String,
     pub stderr: String,
@@ -114,7 +115,7 @@ impl TestCtx {
 
     const BBTW_BINARY: &str = env!("CARGO_BIN_EXE_bbtw");
 
-    /// Create a new [std::process::Command] for running the `bbtw` binary in a test.
+    /// Create a new [tokio::process::Command] for running the `bbtw` binary in a test.
     ///
     /// Configures Server URL, disables logging and sets the state directory to a temporary directory.
     /// Stderr and Stdout are sent to new pipes rather than inherited.
@@ -132,21 +133,6 @@ impl TestCtx {
 
         cmd
     }
-}
-
-async fn stream_output<R: Read + Send + 'static>(pipe: R, description: &str) -> String {
-    let description = description.to_string();
-    let join_handle = tokio::task::spawn_blocking(move || {
-        let mut buf = String::new();
-        for line in BufReader::new(pipe).lines().map_while(Result::ok) {
-            eprintln!("[{description}] {line}");
-            buf.push_str(&line);
-            buf.push('\n');
-        }
-        buf
-    });
-
-    join_handle.await.expect("Failed to join")
 }
 
 /// Extention trait to create a [`cookie::CookieJar`] with encrypted values.
@@ -334,20 +320,36 @@ pub async fn ctx() -> TestCtx {
     TestCtxBuilder::new().build().await.login_bbtw().await
 }
 
+async fn stream_output<R: AsyncRead + Unpin>(pipe: R, description: &str) -> String {
+    let mut lines = BufReader::new(pipe).lines();
+    let mut buf = String::new();
+    while let Ok(Some(line)) = lines.next_line().await {
+        eprintln!("[{description}] {line}");
+        buf.push_str(&line);
+        buf.push('\n');
+    }
+    buf
+}
+
 /// Spawn the command, stream stdout/stderr in the background, and wait for completion.
 /// This dance is required to allow test output capturing to work as expected.
 /// See https://github.com/rust-lang/rust/issues/92370 and https://github.com/rust-lang/rust/issues/90785
-pub async fn run_cmd(cmd: &mut Command) -> Result<BbtwOutput> {
+pub async fn run_cmd(cmd: &mut Command) -> Result<CmdOutput> {
     let mut child = cmd.spawn()?;
 
-    let stdout_join = stream_output(child.stdout.take().expect("stdout is None"), "cmd stdout");
-    let stderr_join = stream_output(child.stderr.take().expect("stderr is None"), "cmd stderr");
+    let child_stdout = child.stdout.take().expect("stdout is None");
+    let child_stderr = child.stderr.take().expect("stderr is None");
 
-    let status = tokio::task::spawn_blocking(move || child.wait()).await??;
-    let stdout = stdout_join.await;
-    let stderr = stderr_join.await;
+    // While the child is waiting, we need to keep draining its output lest its pipe fills up,
+    // blocking us forever.
+    let (status, stdout, stderr) = tokio::join!(
+        child.wait(),
+        stream_output(child_stdout, "cmd stdout"),
+        stream_output(child_stderr, "cmd stderr"),
+    );
+    let status = status?;
 
-    Ok(BbtwOutput {
+    Ok(CmdOutput {
         status,
         stdout,
         stderr,
