@@ -224,7 +224,7 @@ impl BuildStatus {
             BuildStatus::Building => '✦',
             BuildStatus::Built => '✓',
             BuildStatus::Failed => '✗',
-            BuildStatus::Skipped => '⊘',
+            BuildStatus::Skipped => '⌀',
         }
     }
 }
