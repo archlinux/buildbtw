@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+
 use axum::extract::Query;
 use axum::{Json, extract::State};
 use color_eyre::eyre::ContextCompat;
 use sea_orm::{DatabaseTransaction, SelectExt};
 use tracing::debug;
+use uuid::Uuid;
 
 use crate::{
-    api, buildspace, db, entities, from_request, input, queries,
+    api, buildspace, db, entities, from_request, input, package, queries,
     response_error::{ResponseError, ResponseResult},
     server_state::ServerState,
 };
@@ -47,11 +50,33 @@ pub async fn list(
     db::Tx(tx): db::Tx,
     Query(query): Query<api::buildspaces::ListQuery>,
 ) -> ResponseResult<Json<api::buildspaces::ListResponse>> {
-    let buildspaces = queries::buildspaces::list_filtered(query.status, query.gitlab_repo)
+    let buildspace_models = queries::buildspaces::list_filtered(query.status, query.gitlab_repo)
         .all(&tx)
-        .await?
+        .await?;
+
+    let build_counts: HashMap<Uuid, HashMap<package::BuildStatus, u64>> =
+        queries::buildspaces::build_counts_for_newest_iterations(&tx)
+            .await?
+            .into_iter()
+            .fold(HashMap::new(), |mut acc, row| {
+                acc.entry(row.buildspace_id.into())
+                    .or_default()
+                    .insert(row.status, row.count.cast_unsigned());
+                acc
+            });
+
+    let buildspaces = buildspace_models
         .into_iter()
-        .map(Into::into)
+        .map(|model| api::buildspaces::Buildspace {
+            id: model.id.into(),
+            name: model.name,
+            status: model.status,
+            created_at: model.created_at,
+            build_counts: build_counts
+                .get(&Into::<Uuid>::into(model.id))
+                .cloned()
+                .unwrap_or_default(),
+        })
         .collect();
 
     Ok(Json(api::buildspaces::ListResponse { buildspaces }))
