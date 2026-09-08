@@ -1,0 +1,5 @@
+---
+source: tests/integration/executor/doctor.rs
+expression: output.stderr
+---
+[  OK  ] login: Logged in as admin
