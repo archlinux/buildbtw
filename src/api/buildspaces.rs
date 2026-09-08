@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+use std::collections::HashMap;
+
 use crate::{buildspace, package};
 
 /// A request to create a new buildspace.
@@ -43,6 +45,7 @@ pub struct Buildspace {
     pub name: buildspace::Slug,
     pub status: buildspace::Status,
     pub created_at: OffsetDateTime,
+    pub build_counts: HashMap<package::BuildStatus, u64>,
 }
 
 /// A request to set the status of a buildspace.

@@ -1,15 +1,15 @@
 use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveValue::{NotSet, Set, Unchanged},
-    ColumnTrait, EntityTrait, Insert, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
-    UpdateOne,
+    ColumnTrait, EntityTrait, ExprTrait, FromQueryResult, Insert, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, RelationTrait, Select, UpdateOne,
 };
 use uuid::Uuid;
 
 use crate::{
     buildspace,
     db_fields::TxtUuid,
-    entities::{buildspaces, iterations},
+    entities::{builds, buildspaces, iterations},
     git, package, queries,
 };
 
@@ -105,4 +105,49 @@ pub fn by_name(name: buildspace::Slug) -> Select<buildspaces::Entity> {
 #[must_use]
 pub fn by_id(id: TxtUuid) -> Select<buildspaces::Entity> {
     buildspaces::Entity::find_by_id(id)
+}
+
+/// Row returned by [`build_counts_for_newest_iterations`].
+#[derive(Debug, FromQueryResult)]
+pub struct BuildCountRow {
+    pub buildspace_id: TxtUuid,
+    pub status: package::BuildStatus,
+    pub count: i64,
+}
+
+/// Return per-status build counts for each buildspace, using the newest iteration.
+pub async fn build_counts_for_newest_iterations(
+    tx: &sea_orm::DatabaseTransaction,
+) -> Result<Vec<BuildCountRow>, sea_orm::DbErr> {
+    // Correlated subquery: for a given buildspace, find its newest iteration id
+    let newest_iteration_id = iterations::Entity::find()
+        .select_only()
+        .column(iterations::COLUMN.id)
+        .filter(
+            Expr::col((iterations::Entity, iterations::COLUMN.buildspace_id))
+                .equals((buildspaces::Entity, buildspaces::COLUMN.id)),
+        )
+        .order_by_desc(iterations::COLUMN.sequence)
+        .limit(1)
+        .into_query();
+
+    buildspaces::Entity::find()
+        .select_only()
+        .column_as(buildspaces::COLUMN.id, "buildspace_id")
+        .column_as(builds::COLUMN.status, "status")
+        .column_as(builds::COLUMN.id.count(), "count")
+        .join(
+            sea_orm::JoinType::InnerJoin,
+            buildspaces::Relation::Iterations.def(),
+        )
+        .join(
+            sea_orm::JoinType::InnerJoin,
+            iterations::Relation::Builds.def(),
+        )
+        .filter(iterations::COLUMN.id.in_subquery(newest_iteration_id))
+        .group_by(buildspaces::COLUMN.id)
+        .group_by(builds::COLUMN.status)
+        .into_model::<BuildCountRow>()
+        .all(tx)
+        .await
 }

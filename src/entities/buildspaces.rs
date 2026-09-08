@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sea_orm::entity::prelude::*;
 
 use crate::{api, buildspace, db_fields::TxtUuid, entities::iterations};
@@ -33,6 +35,7 @@ impl From<Model> for api::buildspaces::Buildspace {
             name: model.name,
             status: model.status,
             created_at: model.created_at,
+            build_counts: HashMap::new(),
         }
     }
 }
