@@ -1,0 +1,5 @@
+---
+source: tests/integration/executor/doctor.rs
+expression: output.stderr
+---
+[ FAIL ] login: Couldn't log in with provided token

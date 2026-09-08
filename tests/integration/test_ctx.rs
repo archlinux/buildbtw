@@ -30,6 +30,7 @@ use url::Url;
 
 use crate::geckodriver::{self, ProcessGuard};
 
+#[derive(Debug, Clone)]
 pub struct CmdOutput {
     pub status: ExitStatus,
     pub stdout: String,
@@ -114,6 +115,7 @@ impl TestCtx {
     }
 
     const BBTW_BINARY: &str = env!("CARGO_BIN_EXE_bbtw");
+    const EXECUTOR_BINARY: &str = env!("CARGO_BIN_EXE_buildbtw-executor");
 
     /// Create a new [tokio::process::Command] for running the `bbtw` binary in a test.
     ///
@@ -130,6 +132,29 @@ impl TestCtx {
             .env("RUST_LOG", "")
             .stderr(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped());
+
+        cmd
+    }
+
+    /// Create a new [tokio::process::Command] for running the `buildbtw-executor` binary in a test.
+    ///
+    /// Configures Server URL, API token and disables logging.
+    /// Stderr and Stdout are sent to new pipes rather than inherited.
+    pub fn executor_cmd(&self) -> Command {
+        let mut cmd = Command::new(Self::EXECUTOR_BINARY);
+
+        cmd.env(
+            "CUSTOM_ENV_API_SERVER_URL",
+            self.state.server_url.to_string(),
+        )
+        .env(
+            "BUILDBTW_EXECUTOR_TOKEN",
+            self.admin_session.secret_token.0.expose_secret(),
+        )
+        // Reset RUST_LOG to prevent tracing output polluting our snapshots
+        .env("RUST_LOG", "")
+        .stderr(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped());
 
         cmd
     }
