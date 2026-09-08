@@ -1,8 +1,8 @@
 use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveValue::{NotSet, Set, Unchanged},
-    ColumnTrait, EntityTrait, ExprTrait, FromQueryResult, Insert, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait, RelationTrait, Select, UpdateOne,
+    ColumnTrait, Condition, EntityTrait, ExprTrait, FromQueryResult, Insert, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Select, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -69,7 +69,7 @@ pub fn list_open() -> buildspaces::EntityLoader {
 #[must_use]
 pub fn list_filtered(
     status: Option<buildspace::Status>,
-    pkgbase: Option<package::RepositorySlug>,
+    search: Option<String>,
 ) -> Select<buildspaces::Entity> {
     let mut query = buildspaces::Entity::find().order_by_desc(buildspaces::COLUMN.created_at);
 
@@ -77,20 +77,25 @@ pub fn list_filtered(
         query = query.filter(buildspaces::COLUMN.status.eq(status));
     }
 
-    if let Some(pkgbase) = pkgbase {
+    if let Some(search) = search {
+        let pattern = format!("%{search}%");
         let buildspace_ids_with_changeset = iterations::Entity::find()
             .select_only()
             .column(iterations::COLUMN.buildspace_id)
             .filter(Expr::cust_with_values(
-                "EXISTS (SELECT 1 FROM json_each(iterations.changesets) WHERE json_extract(json_each.value, '$.repo_slug') = ?)",
-                [pkgbase.to_string()],
+                "EXISTS (SELECT 1 FROM json_each(iterations.changesets) WHERE json_extract(json_each.value, '$.repo_slug') LIKE ?)",
+                [pattern.clone()],
             ))
             .into_query();
 
         query = query.filter(
-            buildspaces::COLUMN
-                .id
-                .in_subquery(buildspace_ids_with_changeset),
+            Condition::any()
+                .add(buildspaces::COLUMN.name.like(&pattern))
+                .add(
+                    buildspaces::COLUMN
+                        .id
+                        .in_subquery(buildspace_ids_with_changeset),
+                ),
         );
     }
 

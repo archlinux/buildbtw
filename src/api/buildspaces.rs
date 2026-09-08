@@ -30,8 +30,8 @@ pub struct List {}
 pub struct ListQuery {
     /// Only return buildspaces with this status.
     pub status: Option<buildspace::Status>,
-    /// Only return buildspaces with this package source repo slug as a changeset.
-    pub gitlab_repo: Option<package::RepositorySlug>,
+    /// Only return buildspaces with a repo slug matching this search term (substring match).
+    pub search: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
