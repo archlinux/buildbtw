@@ -50,7 +50,7 @@ pub async fn list(
     db::Tx(tx): db::Tx,
     Query(query): Query<api::buildspaces::ListQuery>,
 ) -> ResponseResult<Json<api::buildspaces::ListResponse>> {
-    let buildspace_models = queries::buildspaces::list_filtered(query.status, query.gitlab_repo)
+    let buildspace_models = queries::buildspaces::list_filtered(query.status, query.search)
         .all(&tx)
         .await?;
 

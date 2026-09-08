@@ -58,8 +58,8 @@ async fn test_list_filtered_returns_all_buildspaces(#[future(awt)] ctx: TestCtx)
 
 #[rstest]
 #[tokio::test]
-/// Check that filtering by repo slug excludes buildspaces from listing
-async fn test_list_filtered_by_repo_slug(#[future(awt)] ctx: TestCtx) -> Result<()> {
+/// Check that filtering by search matches repo slugs
+async fn test_list_filtered_by_search_repo_slug(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Create buildspaces
@@ -72,13 +72,32 @@ async fn test_list_filtered_by_repo_slug(#[future(awt)] ctx: TestCtx) -> Result<
     create_buildspace_with_changesets(&tx, "without-target", vec![changeset("other-repo")]).await?;
 
     // List buildspaces
-    let buildspaces = queries::buildspaces::list_filtered(None, Some("target-repo".try_into()?))
+    let buildspaces = queries::buildspaces::list_filtered(None, Some("target-repo".to_string()))
         .all(&tx)
         .await?;
 
-    // Check that only the correct changeset was selected
+    // Check that only the correct buildspace was selected
     assert_eq!(buildspaces.len(), 1);
     assert_eq!(buildspaces[0].name.to_string(), "with-target");
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+/// Check that filtering by search matches buildspace names
+async fn test_list_filtered_by_search_name(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    create_buildspace_with_changesets(&tx, "my-special-build", vec![changeset("repo-a")]).await?;
+    create_buildspace_with_changesets(&tx, "unrelated", vec![changeset("repo-b")]).await?;
+
+    let buildspaces = queries::buildspaces::list_filtered(None, Some("special".to_string()))
+        .all(&tx)
+        .await?;
+
+    assert_eq!(buildspaces.len(), 1);
+    assert_eq!(buildspaces[0].name.to_string(), "my-special-build");
 
     Ok(())
 }
