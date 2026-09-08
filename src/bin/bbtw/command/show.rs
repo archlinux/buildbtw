@@ -56,6 +56,7 @@ pub async fn show(
         BuildStatus::Building,
         BuildStatus::Built,
         BuildStatus::Failed,
+        BuildStatus::Skipped,
     ] {
         let Some(response) = responses_by_status.get(&status) else {
             continue;
