@@ -84,6 +84,15 @@ pub async fn show(
         }
     }
 
+    print_pending_builds(max_results, &responses_by_status)?;
+
+    Ok(())
+}
+
+fn print_pending_builds(
+    max_results: Option<u64>,
+    responses_by_status: &HashMap<BuildStatus, ListBuildsResponse>,
+) -> Result<()> {
     let to_be_scheduled_builds = responses_by_status
         .get(&BuildStatus::Pending)
         .ok_or_eyre("Missing builds that we fetched earlier")?;
@@ -96,7 +105,6 @@ pub async fn show(
     let total_pending = to_be_scheduled_builds.total_build_count
         + blocked_builds.total_build_count
         + scheduled_builds.total_build_count;
-
     if total_pending > 0 {
         println!();
         println!("Pending builds");
