@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use buildbtw::{
-    dependency_graph::{BuildDependency, BuildGraph, BuildGraphs, BuildNode},
+    dependency_graph::{BuildGraph, BuildGraphs, BuildNode},
     entities::{self, build_dependencies, builds},
     package, queries,
 };
@@ -35,33 +35,21 @@ async fn test_insert_build_graph(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Setup necessary stuff for satisfying foreign keys
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
 
-    // Create build graph
-    let mut graph = BuildGraph::new();
-
-    let root = graph.add_node(build_node("root")?);
-    let intermediate = graph.add_node(build_node("intermediate")?);
-    let leaf = graph.add_node(build_node("leaf")?);
-
-    // In the build graph, nodes point towards their *dependents*:
+    // Create build graph:
     // root -> intermediate
     //  |        |
     //  v        |
     // leaf <----
-    graph.add_edge(root, intermediate, BuildDependency {});
-    graph.add_edge(root, leaf, BuildDependency {});
-    graph.add_edge(intermediate, leaf, BuildDependency {});
-
-    // Insert into DB
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration.id.0,
-            package::BuildArchitecture::X86_64,
-            &graph,
-        )?;
-
-    update_iteration.exec(&tx).await?;
-    insert_builds.exec(&tx).await?;
-    insert_deps.exec(&tx).await?;
+    factories::build_graph(
+        &tx,
+        iteration.id,
+        &[
+            ("root", "intermediate"),
+            ("root", "leaf"),
+            ("intermediate", "leaf"),
+        ],
+    )
+    .await?;
 
     // Check overall numbers
     let build_count = builds::Entity::find().count(&tx).await?;
@@ -199,26 +187,8 @@ async fn test_unique_build_dependencies(#[future(awt)] ctx: TestCtx) -> Result<(
     // Setup necessary stuff for satisfying foreign keys
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
-    // Create build graph with two builds, without edges
-    let mut graph = BuildGraph::new();
-
-    let foo_index = graph.add_node(build_node("foo")?);
-    let bar_index = graph.add_node(build_node("bar")?);
-
-    // bar depends on foo
-    graph.add_edge(foo_index, bar_index, BuildDependency {});
-
-    // Insert into DB
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration.id.0,
-            package::BuildArchitecture::X86_64,
-            &graph,
-        )?;
-
-    update_iteration.exec(&tx).await?;
-    insert_builds.exec(&tx).await?;
-    insert_deps.exec(&tx).await?;
+    // Create build graph: bar depends on foo
+    factories::build_graph(&tx, iteration.id, &[("foo", "bar")]).await?;
 
     // Get ids for both builds
     let foo_build = builds::Entity::find()
@@ -344,25 +314,9 @@ async fn test_build_status_reflects_dependencies(#[future(awt)] ctx: TestCtx) ->
 
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
-    let mut graph = BuildGraph::new();
-
-    let _independent = graph.add_node(build_node("independent")?);
-    let root = graph.add_node(build_node("root")?);
-    let dep_a = graph.add_node(build_node("dep_a")?);
-
-    // Add dependency from dep_a to root. Root should build first
-    graph.add_edge(root, dep_a, BuildDependency {});
-
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration.id.0,
-            package::BuildArchitecture::X86_64,
-            &graph,
-        )?;
-
-    update_iteration.exec(&tx).await?;
-    insert_builds.exec(&tx).await?;
-    insert_deps.exec(&tx).await?;
+    // Create builds: independent (no deps), root -> dep_a
+    factories::build(&tx, iteration.id, "independent").await?;
+    factories::build_graph(&tx, iteration.id, &[("root", "dep_a")]).await?;
 
     let independent_build = builds::Entity::find()
         .filter(builds::COLUMN.pkgbase.eq("independent"))
@@ -399,25 +353,7 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Setup necessary stuff for satisfying foreign keys
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
-    // Create build graph with two builds, without edges
-    let mut graph = BuildGraph::new();
-
-    graph.add_node(build_node("foo")?);
-
-    // Insert into DB
-    let (_, insert_builds, _) = queries::builds::insert_builds_with_dependencies(
-        iteration.id.0,
-        package::BuildArchitecture::X86_64,
-        &graph,
-    )?;
-
-    insert_builds.exec(&tx).await?;
-
-    let foo_build = builds::Entity::find()
-        .filter(builds::COLUMN.pkgbase.eq("foo"))
-        .one(&tx)
-        .await?
-        .expect("Expected to find build for 'foo' in the database");
+    let foo_build = factories::build(&tx, iteration.id, "foo").await?;
 
     queries::builds::by_id(foo_build.id)
         .one(&tx)
@@ -538,24 +474,8 @@ async fn test_unblock_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
-    // Create a build graph: root -> dep_a
-    let mut graph = BuildGraph::new();
-
-    let root = graph.add_node(build_node("root")?);
-    let dep_a = graph.add_node(build_node("dep_a")?);
-
-    graph.add_edge(root, dep_a, BuildDependency {});
-
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration.id.0,
-            package::BuildArchitecture::X86_64,
-            &graph,
-        )?;
-
-    update_iteration.exec(&tx).await?;
-    insert_builds.exec(&tx).await?;
-    insert_deps.exec(&tx).await?;
+    // Create a build graph: root -> dep_a (dep_a depends on root)
+    factories::build_graph(&tx, iteration.id, &[("root", "dep_a")]).await?;
 
     // Verify initial statuses: root is Pending, dep_a is Blocked
     let root_build = builds::Entity::find()
@@ -601,23 +521,7 @@ async fn test_blocked_builds_stay_blocked_when_dependencies_not_satisfied(
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
     // Create a build graph: root -> dep_a
-    let mut graph = BuildGraph::new();
-
-    let root = graph.add_node(build_node("root")?);
-    let dep_a = graph.add_node(build_node("dep_a")?);
-
-    graph.add_edge(root, dep_a, BuildDependency {});
-
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration.id.0,
-            package::BuildArchitecture::X86_64,
-            &graph,
-        )?;
-
-    update_iteration.exec(&tx).await?;
-    insert_builds.exec(&tx).await?;
-    insert_deps.exec(&tx).await?;
+    factories::build_graph(&tx, iteration.id, &[("root", "dep_a")]).await?;
 
     // root is still Pending (not yet built), so dep_a should stay Blocked
     queries::builds::unblock_builds().exec(&tx).await?;
@@ -639,23 +543,7 @@ async fn test_skipped_dependency_does_not_unblock(#[future(awt)] ctx: TestCtx) -
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
 
     // Create a build graph: root -> dep_a (dep_a depends on root)
-    let mut graph = BuildGraph::new();
-
-    let root = graph.add_node(build_node("root")?);
-    let dep_a = graph.add_node(build_node("dep_a")?);
-
-    graph.add_edge(root, dep_a, BuildDependency {});
-
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration.id.0,
-            package::BuildArchitecture::X86_64,
-            &graph,
-        )?;
-
-    update_iteration.exec(&tx).await?;
-    insert_builds.exec(&tx).await?;
-    insert_deps.exec(&tx).await?;
+    factories::build_graph(&tx, iteration.id, &[("root", "dep_a")]).await?;
 
     // Simulate root being skipped (not built)
     let root_build = builds::Entity::find()

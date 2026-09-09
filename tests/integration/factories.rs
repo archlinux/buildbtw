@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use alpm_types::FullVersion;
 use buildbtw::{
     buildspace,
@@ -131,6 +133,65 @@ pub async fn build_from_node(
     insert_deps.exec(tx).await?;
 
     Ok(builds.into_iter().next().unwrap())
+}
+
+/// Quickest way to create a build graph.
+///
+/// Takes a list of dependency edges.
+/// Each edge is a `(depends_on, depended_on_by)` pair, meaning the second build depends on the first.
+/// All unique node names from edges are created as builds.
+pub async fn build_graph(
+    tx: &DatabaseTransaction,
+    iteration_id: TxtUuid,
+    edges: &[(&str, &str)],
+) -> Result<Vec<entities::builds::Model>> {
+    let mut graph = dependency_graph::BuildGraph::new();
+    let mut node_indices = HashMap::new();
+
+    for &(dependency, dependent) in edges {
+        let dep_index = *node_indices
+            .entry(dependency)
+            .or_insert_with(|| graph.add_node(build_graph_node(dependency)));
+        let dep_by_index = *node_indices
+            .entry(dependent)
+            .or_insert_with(|| graph.add_node(build_graph_node(dependent)));
+        graph.add_edge(
+            dep_index,
+            dep_by_index,
+            dependency_graph::BuildDependency {},
+        );
+    }
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration_id.into(),
+            package::BuildArchitecture::X86_64,
+            &graph,
+        )?;
+    update_iteration.exec(tx).await?;
+    let builds = insert_builds.exec_with_returning(tx).await?;
+    insert_deps.exec(tx).await?;
+
+    Ok(builds)
+}
+
+fn build_graph_node(pkgbase: &str) -> BuildNode {
+    let pkgver = "2.1-1".parse().unwrap();
+    BuildNode {
+        pkgbase: pkgbase.parse().unwrap(),
+        commit_hash: "aaaaaa".parse().unwrap(),
+        branch_name: "main".try_into().unwrap(),
+        package_file_names: [(
+            pkgbase.parse().unwrap(),
+            format!("{pkgbase}-{pkgver}-any.pkg.tar.zst")
+                .parse()
+                .unwrap(),
+        )]
+        .iter()
+        .cloned()
+        .collect(),
+        version: pkgver,
+    }
 }
 
 pub async fn build_with_split_package(

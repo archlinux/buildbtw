@@ -1,6 +1,5 @@
 use buildbtw::{
     db,
-    dependency_graph::{BuildDependency, BuildGraph, BuildNode},
     entities::{builds, gitlab_pipelines},
     gitlab_api, package, queries,
 };
@@ -107,19 +106,6 @@ async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
     Ok(())
 }
 
-fn build_node(pkgbase: &str) -> Result<BuildNode> {
-    Ok(BuildNode {
-        pkgbase: pkgbase.parse()?,
-        commit_hash: "aaaaaa".parse()?,
-        branch_name: pkgbase.try_into()?,
-        package_file_names: [(pkgbase.parse()?, "dummy.tar.gz".parse()?)]
-            .iter()
-            .cloned()
-            .collect(),
-        version: "2.1-0".parse()?,
-    })
-}
-
 #[rstest]
 #[tokio::test]
 async fn test_schedule_pending_builds_unblocks_dependent_builds(
@@ -130,21 +116,7 @@ async fn test_schedule_pending_builds_unblocks_dependent_builds(
     let (_, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
 
     // Create a build graph: root -> dep_a (dep_a depends on root)
-    let mut graph = BuildGraph::new();
-    let root = graph.add_node(build_node("root")?);
-    let dep_a = graph.add_node(build_node("dep_a")?);
-    graph.add_edge(root, dep_a, BuildDependency {});
-
-    let (update_iteration, insert_builds, insert_deps) =
-        queries::builds::insert_builds_with_dependencies(
-            iteration.id.0,
-            package::BuildArchitecture::X86_64,
-            &graph,
-        )?;
-
-    update_iteration.exec(&tx).await?;
-    insert_builds.exec(&tx).await?;
-    insert_deps.exec(&tx).await?;
+    factories::build_graph(&tx, iteration.id, &[("root", "dep_a")]).await?;
 
     // Simulate root completing successfully
     let root_build = builds::Entity::find()
