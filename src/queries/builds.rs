@@ -237,6 +237,36 @@ pub fn skip_undispatched_builds(buildspace_id: TxtUuid) -> UpdateMany<builds::En
     )
 }
 
+/// Set status of builds where all dependencies are built to [package::BuildStatus::Pending].
+#[must_use]
+pub fn unblock_builds() -> UpdateMany<builds::Entity> {
+    let model = builds::ActiveModel {
+        status: Set(package::BuildStatus::Pending),
+        ..Default::default()
+    };
+
+    // Select builds that should stay blocked by going over all dependency relations...
+    let still_blocked_builds = build_dependencies::Entity::find()
+        // ... And selecting only relations where the build it's depending on is not built yet ...
+        .join(
+            JoinType::InnerJoin,
+            build_dependencies::Relation::DependsOnBuild.def(),
+        )
+        .filter(builds::COLUMN.status.ne(package::BuildStatus::Built))
+        // ... Then select the build that's blocked because of this dependency.
+        .select_only()
+        .column(build_dependencies::COLUMN.depended_on_by_build_id)
+        .into_query();
+
+    // Unblock all blocked builds that don't appear in the subquery above.
+    builds::Entity::update_many().set(model).filter(
+        builds::COLUMN
+            .status
+            .eq(package::BuildStatus::Blocked)
+            .and(builds::COLUMN.id.not_in_subquery(still_blocked_builds)),
+    )
+}
+
 /// Get the set of builds that are currently pending, optionally filtered
 /// by iteration.
 #[must_use]

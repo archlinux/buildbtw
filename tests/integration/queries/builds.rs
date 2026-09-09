@@ -533,6 +533,157 @@ async fn test_skip_pending_builds_skips_only_pending(#[future(awt)] ctx: TestCtx
 
 #[rstest]
 #[tokio::test]
+async fn test_unblock_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+
+    // Create a build graph: root -> dep_a
+    let mut graph = BuildGraph::new();
+
+    let root = graph.add_node(build_node("root")?);
+    let dep_a = graph.add_node(build_node("dep_a")?);
+
+    graph.add_edge(root, dep_a, BuildDependency {});
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            package::BuildArchitecture::X86_64,
+            &graph,
+        )?;
+
+    update_iteration.exec(&tx).await?;
+    insert_builds.exec(&tx).await?;
+    insert_deps.exec(&tx).await?;
+
+    // Verify initial statuses: root is Pending, dep_a is Blocked
+    let root_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("root"))
+        .require_one(&tx)
+        .await?;
+    assert_eq!(root_build.status, package::BuildStatus::Pending);
+
+    let dep_a_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("dep_a"))
+        .require_one(&tx)
+        .await?;
+    assert_eq!(dep_a_build.status, package::BuildStatus::Blocked);
+
+    // Simulate root completing successfully
+    queries::builds::update_build_status_and_dispatch(
+        root_build.id,
+        package::BuildStatus::Built,
+        Some(builds::DispatchedTo::Local),
+    )
+    .exec(&tx)
+    .await?;
+
+    // Promote blocked builds whose dependencies are all satisfied
+    queries::builds::unblock_builds().exec(&tx).await?;
+
+    // dep_a should now be Pending since its only dependency (root) is Built
+    let dep_a_build = builds::Entity::find_by_id(dep_a_build.id)
+        .require_one(&tx)
+        .await?;
+    assert_eq!(dep_a_build.status, package::BuildStatus::Pending);
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_blocked_builds_stay_blocked_when_dependencies_not_satisfied(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+
+    // Create a build graph: root -> dep_a
+    let mut graph = BuildGraph::new();
+
+    let root = graph.add_node(build_node("root")?);
+    let dep_a = graph.add_node(build_node("dep_a")?);
+
+    graph.add_edge(root, dep_a, BuildDependency {});
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            package::BuildArchitecture::X86_64,
+            &graph,
+        )?;
+
+    update_iteration.exec(&tx).await?;
+    insert_builds.exec(&tx).await?;
+    insert_deps.exec(&tx).await?;
+
+    // root is still Pending (not yet built), so dep_a should stay Blocked
+    queries::builds::unblock_builds().exec(&tx).await?;
+
+    let dep_a_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("dep_a"))
+        .require_one(&tx)
+        .await?;
+    assert_eq!(dep_a_build.status, package::BuildStatus::Blocked);
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_skipped_dependency_does_not_unblock(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "foo").await?;
+
+    // Create a build graph: root -> dep_a (dep_a depends on root)
+    let mut graph = BuildGraph::new();
+
+    let root = graph.add_node(build_node("root")?);
+    let dep_a = graph.add_node(build_node("dep_a")?);
+
+    graph.add_edge(root, dep_a, BuildDependency {});
+
+    let (update_iteration, insert_builds, insert_deps) =
+        queries::builds::insert_builds_with_dependencies(
+            iteration.id.0,
+            package::BuildArchitecture::X86_64,
+            &graph,
+        )?;
+
+    update_iteration.exec(&tx).await?;
+    insert_builds.exec(&tx).await?;
+    insert_deps.exec(&tx).await?;
+
+    // Simulate root being skipped (not built)
+    let root_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("root"))
+        .require_one(&tx)
+        .await?;
+    queries::builds::update_build_status(root_build.id, package::BuildStatus::Skipped)
+        .exec(&tx)
+        .await?;
+
+    // dep_a should remain Blocked because root was skipped, not built
+    queries::builds::unblock_builds().exec(&tx).await?;
+
+    let dep_a_build = builds::Entity::find()
+        .filter(builds::COLUMN.pkgbase.eq("dep_a"))
+        .require_one(&tx)
+        .await?;
+    assert_eq!(
+        dep_a_build.status,
+        package::BuildStatus::Blocked,
+        "Skipped dependency should not unblock dependent builds"
+    );
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
 async fn test_skip_pending_builds_only_affects_own_buildspace(
     #[future(awt)] ctx: TestCtx,
 ) -> Result<()> {

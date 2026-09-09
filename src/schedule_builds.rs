@@ -50,6 +50,9 @@ pub async fn schedule_pending_builds(
     db: &DatabaseConnection,
     server_base_url: &Url,
 ) -> Result<()> {
+    // Move builds that can now be built to `Pending` status
+    queries::builds::unblock_builds().exec(db).await?;
+
     let pending = queries::builds::with_iteration_and_buildspace(queries::builds::pending(None))
         .all(db)
         .await?;
