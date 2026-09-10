@@ -17,7 +17,7 @@ pub async fn prepare(ssh_timeout: u32) -> Result<()> {
         "--pull",
         "newer",
         "--pmem",
-        "/var/lib/archbuild:30",
+        "/var/lib/archbuild:500",
     ])
     .args(["--ssh-timeout", &ssh_timeout.to_string()])
     .args(["--", "echo", "VM image warmed up"])

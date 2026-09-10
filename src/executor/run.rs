@@ -117,7 +117,7 @@ async fn build_project_dir(
         "archlinux",
         "--rm",
         "--pmem",
-        "/var/lib/archbuild:30",
+        "/var/lib/archbuild:500",
     ])
     .args(["--ssh-timeout", &ssh_timeout.to_string()])
     .args(["--volume", &format!("{}:/mnt/bin:ro", bin_dir.path())])
