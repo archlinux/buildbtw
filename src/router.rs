@@ -3,7 +3,7 @@ use std::time::Duration;
 use axum::Router;
 use camino::Utf8Path;
 use reqwest::StatusCode;
-use tower_http::timeout::TimeoutLayer;
+use tower_http::timeout::{RequestBodyTimeoutLayer, TimeoutLayer};
 
 use crate::server_state::ServerState;
 
@@ -23,4 +23,12 @@ pub fn new(root: &Utf8Path) -> Router<ServerState> {
                 Duration::from_secs(10),
             ),
         ))
+        // Streamed API routes for clients, living under /api/v1
+        .merge(crate::routes::api::streaming_router())
+        .layer(
+            // Add a timeout that resets on every received body frame instead of the request as a
+            // whole. This allows for streamed endpoints that run f.e. as long as a build runs.
+            // The timeout defines how long an upload may stall before it is aborted.
+            RequestBodyTimeoutLayer::new(Duration::from_mins(10)),
+        )
 }

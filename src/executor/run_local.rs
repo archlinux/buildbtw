@@ -9,8 +9,8 @@ use tracing::debug;
 use url::Url;
 
 use crate::entities::{self};
-use crate::executor::config::{self, LogDestination, PacmanRepo};
-use crate::{builds, executor, git};
+use crate::executor::config::{self, PacmanRepo};
+use crate::{executor, git};
 use crate::{queries, storage};
 
 /// Run a build locally
@@ -21,8 +21,6 @@ pub async fn build(
     api_server_url: Url,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
-    let log_file = builds::build_log_path(&build, &data_dir)?;
-
     // Prepare project build dir
     let package_source_dir = storage::package_source_dir(&data_dir, &build.pkgbase)?;
     let build_dir = camino_tempfile::Builder::new()
@@ -62,7 +60,6 @@ pub async fn build(
                 pacman_repository_base_url: server_url_in_vm,
             }),
             api_config,
-            log_destination: LogDestination::File(log_file),
         },
         cancellation_token,
     )

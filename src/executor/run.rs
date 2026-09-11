@@ -1,14 +1,15 @@
+use std::io::{ErrorKind, Write};
+use std::time::Duration;
 use std::{fs::Permissions, os::unix::fs::PermissionsExt, process::Stdio};
 
-use alpm_types::PackageFileName;
+use axum::body::Bytes;
 use camino::{Utf8Path, Utf8PathBuf};
-use color_eyre::{
-    Result,
-    eyre::{OptionExt, bail, eyre},
-};
-use tokio::{fs, process::Command};
-use tokio_util::{io::ReaderStream, sync::CancellationToken};
-use tracing::{debug, error, info, warn};
+use color_eyre::eyre::{Context, OptionExt, bail};
+use color_eyre::{Result, eyre::eyre};
+use tokio::{fs, io::AsyncReadExt, process::Command, sync::mpsc, task::JoinSet};
+use tokio_stream::{StreamExt, wrappers::ReceiverStream};
+use tokio_util::{io::StreamReader, sync::CancellationToken};
+use tracing::{error, info, warn};
 
 use super::shell::ShellScripts;
 use crate::{
@@ -125,8 +126,7 @@ async fn build_project_dir(
     .args(["--volume", &format!("{output_dir}:/mnt/output")])
     .arg("--")
     .arg(format!("/mnt/bin/{build_script_filename}"))
-    .arg(build_script_args.architecture.to_string())
-    .stdin(Stdio::inherit());
+    .arg(build_script_args.architecture.to_string());
 
     // If set, pass buildspace name and pacman repo URL for downloading
     // buildspace-specific dependency artifacts
@@ -143,63 +143,65 @@ async fn build_project_dir(
         );
     }
 
-    match &build_script_args.log_destination {
-        config::LogDestination::File(log_path) => {
-            if let Ok(exists) = fs::try_exists(&log_path).await
-                && exists
-            {
-                bail!(
-                    "Log file {log_path} already exists. This indicates a previous build that ran for this iteration, arch and pkgbase. Running builds multiple times is not supported."
-                );
-            }
-            if let Some(log_dir) = log_path.parent() {
-                fs::create_dir_all(log_dir).await?;
-            }
+    // Handle pipe backpressure by using a filesystem backed spool file as buffer.
+    // Pass the same file discriptor as stdout and stderr to avoid message splicing
+    // in userland by letting the kernel serialize the streams on syscall level.
+    let log_dir = output_dir.join("logs");
+    std::fs::create_dir(&log_dir)
+        .wrap_err_with(|| format!("Failed to create build log dir: {log_dir}"))?;
+    let log_path = log_dir.join("build.log");
+    let log_file = std::fs::File::create(&log_path)
+        .wrap_err_with(|| format!("Failed to create build log spool file: {log_path}"))?;
+    cmd.stdin(Stdio::inherit())
+        .stdout(log_file.try_clone()?)
+        .stderr(log_file);
 
-            let log_file = fs::File::create(&log_path).await?;
-            let stderr_file = log_file.try_clone().await?;
-            let log_file = log_file.into_std().await;
-            let stderr_file = stderr_file.into_std().await;
-            cmd.stdout(log_file).stderr(stderr_file);
-        }
-        config::LogDestination::InheritStdio => {
-            cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-        }
-    }
-
+    // Spawn the process and store its pid.
     let mut child = cmd
+        .kill_on_drop(true)
         .spawn()
         .map_err(|e| eyre!("❌ Failed to spawn command '{:?}': {}", cmd.as_std(), e))?;
+    let child_exited = CancellationToken::new();
     let child_pid = nix::unistd::Pid::from_raw(
         child
             .id()
             .ok_or_eyre("Missing PID for vmexec process")?
             .try_into()?,
     );
-    let output = tokio::select! {
-        output = child.wait() => {output}
+
+    // Tasks for all streams with an optional log upload stream via API
+    let mut stream_tasks = JoinSet::new();
+    let log_tx = spawn_upload_log(&mut stream_tasks, build_script_args.api_config.as_ref())?;
+    stream_tasks.spawn(tee_log(log_path, log_tx, child_exited.clone()));
+
+    // Wait for the child or for cancellation signal
+    let status = tokio::select! {
+        status = child.wait() => status?,
         () = cancellation_token.cancelled() => {
-            debug!("Sending SIGTERM to vmexec");
-            tokio::task::spawn_blocking(move || {
-                if let Err(err) = nix::sys::signal::kill(child_pid, nix::sys::signal::Signal::SIGTERM) {
-                    error!(?err, "Could not send SIGTERM to vmexec");
-                }
-            }).await?;
-
-            bail!("Build was cancelled.")
+            warn!("Build was cancelled, terminating vmexec process");
+            if let Err(err) = nix::sys::signal::kill(child_pid, nix::sys::signal::Signal::SIGTERM) {
+                error!(?err, "Could not send SIGTERM to vmexec");
+            }
+            child.wait().await?
         }
-    }?;
+    };
 
-    if !output.success() {
-        bail!("❌ Child exited with status: {}", output);
+    // Signal child exit to stream consumers as all write syscalls must have finished
+    // handing over all available data to the kernel before the process exits.
+    child_exited.cancel();
+
+    // Drain all streams to ensure we fully collect all logs on failure
+    drain_streams(&mut stream_tasks).await?;
+
+    if !status.success() {
+        bail!("❌ Child exited with status: {}", status);
     }
 
     print_dir_content(output_dir).await?;
 
     // Upload artifacts inside the output_dir if a collector URL has been passed
     if let Some(api_config) = &build_script_args.api_config {
-        let http_client = reqwest::Client::new();
-        upload_package_artifacts(&http_client, api_config, output_dir).await?;
+        upload_package_artifacts(api_config, output_dir).await?;
     }
 
     Ok(())
@@ -208,10 +210,12 @@ async fn build_project_dir(
 /// Uploads all package artifacts inside the given build output directory to the
 /// buildbtw collector endpoint.
 async fn upload_package_artifacts(
-    http_client: &reqwest::Client,
     api_config: &config::RunBuildScriptApiConfig,
     output_dir: &Utf8Path,
 ) -> Result<()> {
+    let client = api_config.build_api_client()?;
+    let build_id = api_config.build_id;
+
     info!("📡 Uploading artifacts...");
     let mut read_dir = fs::read_dir(output_dir).await?;
     while let Some(entry) = read_dir.next_entry().await? {
@@ -219,66 +223,161 @@ async fn upload_package_artifacts(
         if let Some(filename) = file.file_name()
             && file.is_file()
         {
-            upload_package_artifact(http_client, api_config, &file).await?;
+            api_client::builds::upload_package(&client, build_id, &file).await?;
             info!("✅ {}", filename);
-        } else {
-            warn!("⚠️ Skipping invalid file: {}", file);
         }
     }
     Ok(())
 }
 
-/// Uploads a single passed package artifact to the buildbtw collector endpoint.
-async fn upload_package_artifact(
-    http_client: &reqwest::Client,
-    api_config: &config::RunBuildScriptApiConfig,
-    artifact_path: &Utf8PathBuf,
+fn spawn_upload_log(
+    stream_tasks: &mut JoinSet<Result<()>>,
+    api_config: Option<&config::RunBuildScriptApiConfig>,
+) -> Result<Option<mpsc::Sender<Bytes>>> {
+    let Some(api_config) = api_config else {
+        return Ok(None);
+    };
+
+    let client = api_config.build_api_client()?;
+    let build_id = api_config.build_id;
+
+    // Convert Receiver into AsyncRead
+    let (tx, rx) = mpsc::channel::<Bytes>(100);
+    let stream = ReceiverStream::new(rx).map(Ok::<Bytes, std::io::Error>);
+    let reader = StreamReader::new(stream);
+
+    stream_tasks.spawn(async move {
+        api_client::builds::upload_log(&client, build_id, reader)
+            .await
+            .wrap_err("Failed to stream build log to the API")
+    });
+
+    Ok(Some(tx))
+}
+
+/// Read from the spool file and write to stdout and optionally to an mpsc channel.
+///
+/// Use a `CancellationToken` to signal EOF after the child process has exited.
+async fn tee_log(
+    path: Utf8PathBuf,
+    tx: Option<mpsc::Sender<Bytes>>,
+    child_exited: CancellationToken,
 ) -> Result<()> {
-    let pkgfile = PackageFileName::try_from(artifact_path.as_std_path())?;
-    let pkgname = pkgfile.name();
+    let mut file = fs::File::open(&path)
+        .await
+        .wrap_err_with(|| format!("Failed to open build log: {path}"))?;
+    let mut buf = [0u8; 8192];
 
-    let mut upload_url = api_config.api_server_url.clone();
-    upload_url
-        .path_segments_mut()
-        .map_err(|()| eyre!("❌ Failed to convert collector base url"))?
-        .pop_if_empty()
-        .extend(["api", "v1", "upload_package"]);
+    loop {
+        let exited = child_exited.is_cancelled();
+        let bytes_read = file
+            .read(&mut buf)
+            .await
+            .wrap_err("Failed to read build log")?;
+        if bytes_read == 0 {
+            // No data with exited child means EOF
+            if exited {
+                return Ok(());
+            }
 
-    upload_url
-        .query_pairs_mut()
-        .append_pair("build_id", &api_config.build_id.to_string())
-        .append_pair("pkgname", pkgname.as_ref());
+            // Park and wait for new data
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            continue;
+        }
 
-    let artifact_file = fs::File::open(artifact_path).await?;
-    let artifact_bytes = artifact_file.metadata().await?.len();
+        // Local console output
+        write_console(&buf[..bytes_read])
+            .await
+            .wrap_err("Failed to write to console")?;
 
-    // Extract API secret from bbtw config
-    let token = api_config.api_token.expose_secret();
+        // Optional remote transmission
+        if let Some(ref tx) = tx {
+            tx.send_timeout(
+                Bytes::copy_from_slice(&buf[..bytes_read]),
+                Duration::from_mins(2),
+            )
+            .await
+            .wrap_err("Timed out forwarding build output to the log uploader")?;
+        }
+    }
+}
 
-    // Wrap stream in 2MB chunks for chunked transfer.
-    // https://docs.rs/axum/latest/axum/extract/struct.DefaultBodyLimit.html
-    let stream = ReaderStream::with_capacity(artifact_file, 2 * 1024 * 1024);
-    let body = reqwest::Body::wrap_stream(stream);
+/// Writes a buffer into stdout while retrying as long as recoverable.
+///
+/// This allows to gracefully handle a console that cannot keep up.
+async fn write_console(buf: &[u8]) -> Result<()> {
+    let buf = Bytes::copy_from_slice(buf);
 
-    debug!("⬆️ Sending {artifact_bytes} bytes for {pkgname}");
-    let response = http_client
-        .post(upload_url.clone())
-        .bearer_auth(token)
-        .body(body)
-        .send()
-        .await?;
+    tokio::task::spawn_blocking(move || {
+        let mut stdout = std::io::stdout().lock();
+        let mut written = 0;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await?;
-        bail!(
-            "❌ Failed to upload package artifact '{}' to '{}': HTTP {status}: {body}",
-            artifact_path,
-            upload_url
-        );
+        // Wait until everything is written to the file descriptor
+        while written < buf.len() {
+            match stdout.write(&buf[written..]) {
+                // No longer able to accept bytes and will likely not be able to
+                Ok(0) => bail!("Console stopped accepting data"),
+                // Succeeded writing `n` bytes
+                Ok(n) => written += n,
+                // Write operation should be retried
+                Err(err) if err.kind() == ErrorKind::Interrupted => {}
+                // Give time to catch up when the pipe has `O_NONBLOCK`
+                Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+                // Unrecoverable error
+                Err(err) => return Err(err).wrap_err("Failed to write build output"),
+            }
+        }
+
+        // Wait and retry until the pipe is fully flushed
+        loop {
+            match stdout.flush() {
+                Ok(()) => return Ok(()),
+                // Write operation should be retried
+                Err(err) if err.kind() == ErrorKind::Interrupted => {}
+                // Give time to catch up when the pipe isn't flushed yet
+                Err(err) if err.kind() == ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+                // Unrecoverable error
+                Err(err) => return Err(err).wrap_err("Failed to flush build output"),
+            }
+        }
+    })
+    .await?
+}
+
+/// Drain log streams by joining on all tasks.
+///
+/// Report all errors from all joined tasks before bailing. This makes sure we are
+/// able to see all channel errors no matter in which order they join.
+async fn drain_streams(streams: &mut JoinSet<Result<()>>) -> Result<()> {
+    // Drain all streams and collect all errors
+    let errors = tokio::time::timeout(Duration::from_mins(2), async {
+        let mut errors = Vec::new();
+        while let Some(result) = streams.join_next().await {
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => errors.push(err),
+                Err(err) => errors.push(eyre!("Failed to join log stream task: {err}")),
+            }
+        }
+        errors
+    })
+    .await
+    .wrap_err("Timed out waiting for the build log stream tasks")?;
+
+    // Report all errors from all tasks rather just the first
+    for err in &errors {
+        error!(?err, "Draining build log stream failed");
     }
 
-    Ok(())
+    // Bail with the first error, like join_all would
+    match errors.into_iter().next() {
+        Some(err) => Err(err),
+        None => Ok(()),
+    }
 }
 
 /// Prints the passed directory listing to show all build output artifacts
@@ -287,6 +386,9 @@ async fn print_dir_content(path: &Utf8Path) -> Result<()> {
     info!("🔍 Listing build artifacts...");
     let mut read_dir = fs::read_dir(path).await?;
     while let Some(entry) = read_dir.next_entry().await? {
+        if entry.file_type().await?.is_dir() {
+            continue;
+        }
         let filename = entry.file_name().to_string_lossy().to_string();
         info!("📦 {filename}");
     }
