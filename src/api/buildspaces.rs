@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+use std::collections::HashMap;
+
 use crate::{buildspace, package};
 
 /// A request to create a new buildspace.
@@ -28,8 +30,8 @@ pub struct List {}
 pub struct ListQuery {
     /// Only return buildspaces with this status.
     pub status: Option<buildspace::Status>,
-    /// Only return buildspaces with this package source repo slug as a changeset.
-    pub gitlab_repo: Option<package::RepositorySlug>,
+    /// Only return buildspaces with a repo slug matching this search term (substring match).
+    pub search: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,6 +45,7 @@ pub struct Buildspace {
     pub name: buildspace::Slug,
     pub status: buildspace::Status,
     pub created_at: OffsetDateTime,
+    pub build_counts: HashMap<package::BuildStatus, u64>,
 }
 
 /// A request to set the status of a buildspace.
