@@ -72,7 +72,7 @@ pub struct BaseName(alpm_types::PackageBaseName);
     derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, AsRef, Deref, TryFrom, Display, FromStr),
     // This is not actually unsafe code - nutype tries to protect us from accidentally
     // deriving a trait that would sidestep the invariants our newtype upholds
-    derive_unchecked(sea_orm::FromJsonQueryResult)
+    derive_unchecked(sea_orm::DeriveValueType)
 )]
 pub struct RepositorySlug(String);
 
@@ -230,21 +230,20 @@ impl BuildStatus {
 }
 
 /// Provides SeaORM compatibility for ALPM package versions.
-#[nutype(
-    derive(
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Serialize,
-        Deserialize,
-        FromStr,
-        From,
-        AsRef,
-        Display,
-    ),
-    derive_unchecked(sea_orm::FromJsonQueryResult)
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    FromStr,
+    From,
+    AsRef,
+    Display,
+    sea_orm::DeriveValueType,
 )]
+#[sea_orm(value_type = "String")]
 pub struct Version(alpm_types::FullVersion);
 
 /// Take a split package for a specific architecture and predict the
