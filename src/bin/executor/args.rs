@@ -64,14 +64,14 @@ impl TryFrom<DoctorArgs> for config::DoctorConfig {
     fn try_from(DoctorArgs { api_config }: DoctorArgs) -> Result<Self, Self::Error> {
         let api_config = match api_config {
             Some(ApiConfigArgs {
-                api_server_url,
+                server_url,
                 api_token_path,
             }) => external_secrets::get_optional(
                 "BUILDBTW_EXECUTOR_TOKEN",
                 api_token_path.as_deref(),
             )?
             .map(|api_token| config::ApiConfig {
-                api_server_url,
+                api_server_url: server_url,
                 api_token,
             }),
             None => None,
@@ -230,7 +230,7 @@ impl From<GetSourcesArgs> for config::RunGetSources {
 // 1. `requires_all` names members that are not part of this struct. They are actually flattened into
 //    here from `api_config`.
 // 2. `args` so that clap is even aware that a `build_id` exists and is expected to be provided.
-#[group(requires_all = ["api_server_url", "build_id"], args = ["api_server_url", "api_token_path", "build_id"])]
+#[group(requires_all = ["server_url", "build_id"], args = ["server_url", "api_token_path", "build_id"])]
 pub struct BuildScriptArgs {
     /// Directory of the project that will be built
     #[arg(long, env = "CUSTOM_ENV_CI_PROJECT_DIR")]
@@ -250,7 +250,7 @@ pub struct BuildScriptArgs {
 
     /// Build UUID for API calls
     ///
-    /// If set, requires the API server URL as well.
+    /// If set, requires the server URL as well.
     #[arg(long, env = "CUSTOM_ENV_BUILD_ID")]
     build_id: Option<Uuid>,
 }
@@ -277,23 +277,25 @@ pub struct PacmanRepoArgs {
 
 #[derive(Debug, Clone, clap::Args, PartialEq)]
 pub struct ApiConfigArgs {
-    /// Base URL of the output artifacts collector endpoint that retrieves build results
+    /// Base URL of the buildbtw server that receives build results
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
+    ///
+    /// Should be set in the GitLab Runner `config.toml`.
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
     #[arg(
         long,
-        env = "CUSTOM_ENV_API_SERVER_URL",
+        env = "BUILDBTW_SERVER_URL",
         verbatim_doc_comment,
         required = false
     )]
-    pub api_server_url: Url,
+    pub server_url: Url,
 
     /// Path to a file containing the API token for authentication
     ///
     /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
-    /// If set, requires build ID and API server URL as well.
+    /// If set, requires build ID and server URL as well.
     ///
     /// Precedence:
     ///
@@ -321,7 +323,7 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
         let api_config = match (api_config, build_id) {
             (
                 Some(ApiConfigArgs {
-                    api_server_url,
+                    server_url,
                     api_token_path,
                 }),
                 Some(build_id),
@@ -332,7 +334,7 @@ impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
                 )?
                 .ok_or_eyre("API endpoint configured but no API token provided")?;
                 Some(config::RunBuildScriptApiConfig {
-                    api_server_url,
+                    api_server_url: server_url,
                     api_token,
                     build_id,
                 })
@@ -455,7 +457,7 @@ mod tests {
             ("CUSTOM_ENV_ITERATION", None::<&str>),
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
-            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_SERVER_URL", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
@@ -503,7 +505,7 @@ mod tests {
             "--buildspace=foospace",
             "--iteration=1",
             "--pacman-repository-base-url=https://10.0.2.2",
-            "--api-server-url=https://localhost",
+            "--server-url=https://localhost",
             "--build-id",
             &build_id.to_string(),
         ];
@@ -513,7 +515,7 @@ mod tests {
             ("CUSTOM_ENV_ITERATION", None::<&str>),
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
-            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_SERVER_URL", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN", Some("FOOBAR")),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
@@ -533,7 +535,7 @@ mod tests {
                     pacman_repository_base_url: Url::from_str("https://10.0.2.2")?,
                 }),
                 api_config: Some(ApiConfigArgs {
-                    api_server_url: Url::from_str("https://localhost")?,
+                    server_url: Url::from_str("https://localhost")?,
                     api_token_path: None,
                 }),
                 build_id: Some(build_id),
@@ -573,7 +575,7 @@ mod tests {
             "/tmp/foo",
             "build_script",
             "--ci-project-dir=/tmp/foo",
-            "--api-server-url=https://localhost",
+            "--server-url=https://localhost",
         ];
         let env = [
             ("CUSTOM_ENV_CI_PROJECT_DIR", None::<&str>),
@@ -581,7 +583,7 @@ mod tests {
             ("CUSTOM_ENV_ITERATION", None::<&str>),
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
-            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_SERVER_URL", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
@@ -607,7 +609,7 @@ mod tests {
             ("CUSTOM_ENV_ITERATION", None::<&str>),
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
-            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_SERVER_URL", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
@@ -623,7 +625,7 @@ mod tests {
     fn test_doctor_args_minimal() -> Result<()> {
         let argv = &["buildbtw-executor", "doctor"];
         let env = [
-            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_SERVER_URL", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
@@ -644,11 +646,11 @@ mod tests {
         let argv = &[
             "buildbtw-executor",
             "doctor",
-            "--api-server-url",
+            "--server-url",
             "https://10.0.2.2",
         ];
         let env = [
-            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_SERVER_URL", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN", Some("FOOBAR")),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
@@ -661,7 +663,7 @@ mod tests {
             args,
             DoctorArgs {
                 api_config: Some(ApiConfigArgs {
-                    api_server_url: Url::try_from("https://10.0.2.2")?,
+                    server_url: Url::try_from("https://10.0.2.2")?,
                     api_token_path: None,
                 })
             }
@@ -686,11 +688,11 @@ mod tests {
         let argv = &[
             "buildbtw-executor",
             "doctor",
-            "--api-server-url",
+            "--server-url",
             "https://10.0.2.2",
         ];
         let env = [
-            ("BUILDBTW_API_SERVER_URL", None::<&str>),
+            ("BUILDBTW_SERVER_URL", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
             ("BUILDBTW_EXECUTOR_TOKEN", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
@@ -703,7 +705,7 @@ mod tests {
             args,
             DoctorArgs {
                 api_config: Some(ApiConfigArgs {
-                    api_server_url: Url::try_from("https://10.0.2.2")?,
+                    server_url: Url::try_from("https://10.0.2.2")?,
                     api_token_path: None,
                 })
             }

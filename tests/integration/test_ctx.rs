@@ -146,18 +146,15 @@ impl TestCtx {
     pub fn executor_cmd(&self) -> Command {
         let mut cmd = Command::new(Self::EXECUTOR_BINARY);
 
-        cmd.env(
-            "CUSTOM_ENV_API_SERVER_URL",
-            self.state.server_url.to_string(),
-        )
-        .env(
-            "BUILDBTW_EXECUTOR_TOKEN",
-            self.admin_session.secret_token.0.expose_secret(),
-        )
-        // Reset RUST_LOG to prevent tracing output polluting our snapshots
-        .env("RUST_LOG", "")
-        .stderr(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped());
+        cmd.env("BUILDBTW_SERVER_URL", self.state.server_url.to_string())
+            .env(
+                "BUILDBTW_EXECUTOR_TOKEN",
+                self.admin_session.secret_token.0.expose_secret(),
+            )
+            // Reset RUST_LOG to prevent tracing output polluting our snapshots
+            .env("RUST_LOG", "")
+            .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped());
 
         cmd
     }
