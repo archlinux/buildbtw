@@ -317,6 +317,7 @@ impl TestCtxBuilder {
             data_dir: Some(self.data_dir.path().to_path_buf()),
             server_url: server_url.clone(),
             build_log_upload: Arc::new(RwLock::new(HashMap::new())),
+            iteration_creator_message_sender: None,
         };
 
         templates::initialize("./".into()).unwrap();
