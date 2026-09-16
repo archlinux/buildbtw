@@ -5,7 +5,7 @@ use buildbtw::{entities::sessions::ClientType, queries, web};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, ContextCompat};
 use rstest::rstest;
-use sea_orm::TransactionTrait;
+use sea_orm::{SelectExt, TransactionTrait};
 use thirtyfour::{By, prelude::ElementQueryable};
 use uuid::Uuid;
 
@@ -126,11 +126,10 @@ async fn test_e2e_account_logout() -> Result<()> {
     );
 
     // Check if the session has been removed from the database
-    let session_record = queries::sessions::by_id(session_record.unwrap().id.into())
-        .one(&ctx_with_oidc.state.db)
-        .await?;
     assert!(
-        session_record.is_none(),
+        !queries::sessions::by_id(session_record.unwrap().id.into())
+            .exists(&ctx_with_oidc.state.db)
+            .await?,
         "expected a session record to not exist after logout",
     );
 
@@ -224,9 +223,10 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     response.assert_text_contains("Sign in");
 
     // Check if the session has been removed from the database
-    let session_record = queries::sessions::by_id(session.id.into()).one(db).await?;
     assert!(
-        session_record.is_none(),
+        !queries::sessions::by_id(session.id.into())
+            .exists(db)
+            .await?,
         "expected a session record to not exist after revoke",
     );
 
@@ -279,16 +279,18 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     response.assert_text_contains("test_username");
 
     // Check if our session has been removed from the database
-    let session_record = queries::sessions::by_id(session.id.into()).one(db).await?;
     assert!(
-        session_record.is_some(),
+        queries::sessions::by_id(session.id.into())
+            .exists(db)
+            .await?,
         "expected our session record to exist",
     );
 
     // Check if the other session has been removed from the database
-    let session_record = queries::sessions::by_id(other_session_id).one(db).await?;
     assert!(
-        session_record.is_none(),
+        !queries::sessions::by_id(other_session_id)
+            .exists(db)
+            .await?,
         "expected other session record to not exist",
     );
 
@@ -339,11 +341,10 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
     response.assert_status_forbidden();
 
     // Verify user B's session still exists
-    let user_b_session_record = queries::sessions::by_id(user_b_session.id.into())
-        .one(db)
-        .await?;
     assert!(
-        user_b_session_record.is_some(),
+        queries::sessions::by_id(user_b_session.id.into())
+            .exists(db)
+            .await?,
         "expected user B's session to still exist",
     );
 
@@ -384,11 +385,10 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     response.assert_status_forbidden();
 
     // Verify session still exists
-    let user_b_session_record = queries::sessions::by_secret_token(session.secret_token)
-        .one(db)
-        .await?;
     assert!(
-        user_b_session_record.is_some(),
+        queries::sessions::by_secret_token(session.secret_token)
+            .exists(db)
+            .await?,
         "expected session to still exist",
     );
 
