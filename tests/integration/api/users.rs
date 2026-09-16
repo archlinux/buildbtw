@@ -6,7 +6,7 @@ use buildbtw::{
 };
 use color_eyre::Result;
 use rstest::rstest;
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, SelectExt};
 use serde_json::json;
 
 use crate::factories;
@@ -65,11 +65,11 @@ async fn test_create_user(#[future(awt)] ctx: TestCtx, #[case] roles: Vec<Role>)
     assert_eq!(db_roles, roles);
 
     // Users created this way do not have an OIDC identity
-    let identity = oidc_identity::Entity::find()
+    let has_identity = oidc_identity::Entity::find()
         .filter(oidc_identity::COLUMN.user_id.eq(user.id))
-        .one(&ctx.state.db)
+        .exists(&ctx.state.db)
         .await?;
-    assert!(identity.is_none());
+    assert!(!has_identity);
 
     Ok(())
 }

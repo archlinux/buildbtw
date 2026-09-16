@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use rstest::rstest;
-use sea_orm::TransactionTrait;
+use sea_orm::{SelectExt, TransactionTrait};
 use time::{Duration, OffsetDateTime};
 
 use buildbtw::{entities, queries};
@@ -14,8 +14,7 @@ async fn test_upsert_global_state(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
 
     // Check that state doesn't exist at start
-    let state = queries::global_state::get().one(&tx).await?;
-    assert!(state.is_none());
+    assert!(!queries::global_state::get().exists(&tx).await?);
 
     // Check that state can be inserted and new set values are returned
     // We just use the unix timestamp 0 for convenience here

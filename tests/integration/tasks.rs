@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use redact::Secret;
 use rstest::rstest;
-use sea_orm::{ActiveValue::Set, EntityTrait};
+use sea_orm::{ActiveValue::Set, EntityTrait, SelectExt};
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
@@ -38,11 +38,10 @@ async fn test_invalidate_old_sessions(#[future(awt)] ctx: TestCtx) -> Result<()>
 
     invalidate_old_sessions(&ctx.state).await?;
 
-    let session = queries::sessions::by_id(session_id.0)
-        .one(&ctx.state.db)
-        .await?;
     assert!(
-        session.is_none(),
+        !queries::sessions::by_id(session_id.0)
+            .exists(&ctx.state.db)
+            .await?,
         "Old session should be deleted after cleanup"
     );
 
@@ -72,11 +71,10 @@ async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCt
 
     invalidate_old_sessions(&ctx.state).await?;
 
-    let session = queries::sessions::by_id(session_id.0)
-        .one(&ctx.state.db)
-        .await?;
     assert!(
-        session.is_some(),
+        queries::sessions::by_id(session_id.0)
+            .exists(&ctx.state.db)
+            .await?,
         "Recent session should still exist after cleanup"
     );
 
