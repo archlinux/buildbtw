@@ -98,7 +98,7 @@ impl BuildGraphs {
 
         let packages_metadata = BuildspaceSourceInfoIndex::build(changesets.clone(), source_repos)
             .await
-            .wrap_err("Error mapping package names to srcinfo")?;
+            .wrap_err("Error mapping pkgbases to srcinfos")?;
         let global_graphs = build_global_dependency_graphs(&packages_metadata);
 
         trace!("Walking dependents for each architecture");
