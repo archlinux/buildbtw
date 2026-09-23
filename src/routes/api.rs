@@ -13,6 +13,7 @@ mod users;
 pub fn router() -> Router<ServerState> {
     Router::new()
         .typed_get(builds::list)
+        .typed_get(builds::get)
         .typed_get(builds::download_package)
         .typed_get(builds::download_log)
         .typed_get(builds::serve_repo_file)

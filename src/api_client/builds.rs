@@ -1,5 +1,5 @@
 use crate::{
-    api::builds::{self, ListBuildsResponse},
+    api::builds::{self, GetBuildResponse, ListBuildsResponse},
     api_client::ApiClient,
     buildspace, input, package,
 };
@@ -56,6 +56,32 @@ pub async fn list(
 }
 
 #[instrument(skip(api_client))]
+pub async fn get(api_client: &ApiClient, build_id: Uuid) -> Result<GetBuildResponse> {
+    let resp = api_client
+        .reqwest_client
+        .get(
+            api_client
+                .buildbtw_server_url
+                .join(&builds::Get { id: build_id }.to_string())?,
+        )
+        .query(&builds::GetQuery {})
+        .send()
+        .await
+        .wrap_err("Couldn't get build")?;
+
+    if let Err(err) = resp.error_for_status_ref() {
+        return Err(err).wrap_err(resp.text().await?.to_string());
+    }
+
+    let response = resp
+        .json()
+        .await
+        .wrap_err("Couldn't deserialize response")?;
+
+    Ok(response)
+}
+
+#[instrument(skip(api_client))]
 pub async fn set_status(
     api_client: &ApiClient,
     build_id: Uuid,
@@ -78,6 +104,61 @@ pub async fn set_status(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum DownloadPackageError {
+    /// No log available yet.
+    #[error("Not available: {0}")]
+    NotAvailable(String),
+
+    /// Reqwest errors.
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+
+    /// URL parse errors.
+    #[error(transparent)]
+    Url(#[from] url::ParseError),
+
+    /// Generic error wrapper for validation errors.
+    #[error(transparent)]
+    Other(#[from] garde::Report),
+
+    /// Generic error wrapper for color_eyre errors.
+    #[error(transparent)]
+    Eyre(#[from] color_eyre::eyre::Error),
+}
+
+#[instrument(skip(client))]
+pub async fn download_package(
+    client: &ApiClient,
+    build_id: Uuid,
+    pkgname: package::Name,
+) -> Result<impl Stream<Item = Result<Bytes>>, DownloadPackageError> {
+    let resp = client
+        .reqwest_client
+        .get(
+            client
+                .buildbtw_server_url
+                .join(&builds::DownloadPackage {}.to_string())?,
+        )
+        .query(&builds::DownloadPackageQuery { build_id, pkgname })
+        .send()
+        .await
+        .wrap_err("Couldn't get build package")?;
+
+    if let Err(err) = resp.error_for_status_ref() {
+        let status = resp.status();
+        let message = resp.text().await?;
+        if status == reqwest::StatusCode::CONFLICT {
+            return Err(DownloadPackageError::NotAvailable(message));
+        }
+        return Err(color_eyre::eyre::Report::new(err).wrap_err(message).into());
+    }
+
+    Ok(resp
+        .bytes_stream()
+        .map(|chunk| chunk.wrap_err("Failed to read build package stream")))
 }
 
 #[instrument(skip(client))]

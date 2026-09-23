@@ -7,7 +7,7 @@ use camino::Utf8PathBuf;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{buildspace, git, package};
+use crate::{buildspace, entities, git, package};
 
 /// List builds, optionally filtered by status or namespace name.
 #[derive(TypedPath, Deserialize, Debug)]
@@ -52,6 +52,7 @@ pub struct Build {
     pub status: package::BuildStatus,
     pub version: package::Version,
     pub architecture: package::BuildArchitecture,
+    pub packages: entities::builds::PkgnamesFilenames,
 }
 
 /// Response of the [`List`] endpoint.
@@ -59,6 +60,24 @@ pub struct Build {
 pub struct ListBuildsResponse {
     pub total_build_count: u64,
     pub builds: Vec<Build>,
+}
+
+/// Get a build by build-id
+#[derive(TypedPath, Deserialize, Debug)]
+#[typed_path("/api/v1/builds/{id}")]
+pub struct Get {
+    /// Unique build-id which to query.
+    pub id: Uuid,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+/// Query Parameters for the [`Get`] endpoint
+pub struct GetQuery {}
+
+/// Response of the [`Get`] endpoint.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetBuildResponse {
+    pub build: Build,
 }
 
 /// Update the build status

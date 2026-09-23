@@ -37,3 +37,9 @@ pub enum BuildSource {
     /// Buildspace and pkgbase
     Buildspace(BuildspacePkgbase),
 }
+
+#[derive(Debug, Clone)]
+pub struct DownloadConfig {
+    /// Build identified by build-id or buildspace/pkgbase
+    pub build: BuildSource,
+}

@@ -16,6 +16,8 @@ mod args;
 mod command;
 mod config;
 mod log;
+mod shell;
+mod utils;
 
 use crate::args::Args;
 
@@ -30,6 +32,10 @@ async fn main() -> Result<()> {
 
     #[allow(clippy::todo)]
     match args.command {
+        args::Command::Download(download_args) => {
+            let client = ApiClient::new(args.server_url, args.state_dir).await?;
+            command::download::download(client, download_args.into()).await
+        }
         args::Command::Log(log_args) => {
             let client = ApiClient::new(args.server_url, args.state_dir).await?;
             log::log(client, log_args.into()).await

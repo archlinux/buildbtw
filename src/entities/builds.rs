@@ -96,6 +96,7 @@ impl From<Model> for api::builds::Build {
             created_at: value.created_at,
             branch_name: value.branch_name,
             commit_hash: value.commit_hash,
+            packages: value.pkgnames_filenames,
         }
     }
 }

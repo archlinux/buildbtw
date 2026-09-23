@@ -15,6 +15,7 @@ use color_eyre::eyre::OptionExt;
 use reqwest::header;
 use sea_orm::PaginatorTrait;
 use sea_orm::TransactionTrait;
+use tokio::fs::OpenOptions;
 use tokio_util::io::ReaderStream;
 use tracing::debug;
 use tracing::warn;
@@ -73,6 +74,32 @@ pub async fn list(
     Ok(Json(api::builds::ListBuildsResponse {
         total_build_count,
         builds,
+    }))
+}
+
+pub async fn get(
+    api::builds::Get { id: build_id }: api::builds::Get,
+    Query(api::builds::GetQuery {}): Query<api::builds::GetQuery>,
+    db::Tx(tx): db::Tx,
+) -> ResponseResult<Json<api::builds::GetBuildResponse>> {
+    let build = queries::builds::by_id(build_id.into())
+        .one(&tx)
+        .await?
+        .ok_or_else(|| ResponseError::NotFound(format!("Build with id {build_id}")))?;
+
+    Ok(Json(api::builds::GetBuildResponse {
+        build: api::builds::Build {
+            id: build.id.into(),
+            iteration_id: build.iteration_id.into(),
+            created_at: build.created_at,
+            pkgbase: build.pkgbase,
+            branch_name: build.branch_name,
+            commit_hash: build.commit_hash,
+            status: build.status,
+            version: build.version,
+            architecture: build.architecture,
+            packages: build.pkgnames_filenames,
+        },
     }))
 }
 
@@ -175,9 +202,13 @@ pub async fn upload_package(
             .ok_or_eyre("Failed to get filename from dest path")?,
     );
     tokio::fs::File::create(&temp_file).await?;
-    crate::web::utils::stream_to_file(&temp_file, request.into_body().into_data_stream())
-        .await
-        .wrap_err_with(|| format!("Failed to write artifact to {temp_file:?}"))?;
+    crate::web::utils::stream_to_file(
+        &temp_file,
+        &mut OpenOptions::new(),
+        request.into_body().into_data_stream(),
+    )
+    .await
+    .wrap_err_with(|| format!("Failed to write artifact to {temp_file:?}"))?;
 
     // Check uploaded file validity and metadata. Don't expect a full file validation,
     // just checking basic expectations like the pkgname and extract version to avoid
@@ -318,10 +349,13 @@ pub async fn upload_log(
 
     // Write uploaded body data to destination
     tokio::fs::File::create(&dest).await?;
-    let stream_result =
-        crate::web::utils::stream_to_file(&dest, request.into_body().into_data_stream())
-            .await
-            .wrap_err_with(|| format!("Failed to write build log to {dest:?}"));
+    let stream_result = crate::web::utils::stream_to_file(
+        &dest,
+        &mut OpenOptions::new(),
+        request.into_body().into_data_stream(),
+    )
+    .await
+    .wrap_err_with(|| format!("Failed to write build log to {dest:?}"));
 
     // Signal upload finished
     upload_finished_tx.send_replace(true);
