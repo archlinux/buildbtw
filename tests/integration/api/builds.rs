@@ -893,6 +893,36 @@ async fn test_download_build_artifact_pkgname_not_found(#[future(awt)] ctx: Test
 
 #[rstest]
 #[tokio::test]
+async fn test_download_build_artifact_package_not_available_yet(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Get the artifact download response
+    let response = ctx
+        .server
+        .typed_get(&api::builds::DownloadPackage {})
+        .add_query_params(api::builds::DownloadPackageQuery {
+            build_id: build.id.into(),
+            // Request a pkgname that wasn't uploaded yet
+            pkgname,
+        })
+        .await;
+
+    // Check artifact not available yet
+    response.assert_status_conflict();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
 async fn test_download_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let pkgname: package::Name = "one".parse()?;
 

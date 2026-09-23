@@ -5,6 +5,8 @@ use buildbtw::{
 };
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand, value_parser};
+use color_eyre::Result;
+use color_eyre::eyre::bail;
 use url::Url;
 use uuid::Uuid;
 
@@ -97,6 +99,18 @@ pub enum Command {
     /// `bbtw log buildspace/pkgbase`
     #[clap(verbatim_doc_comment)]
     Log(LogArgs),
+
+    /// Download artifacts of a given build
+    ///
+    /// Examples:
+    ///
+    /// by build-id:
+    /// `bbtw download a72757aa-6ea2-4f5e-881b-36eb9ed8eacf`
+    ///
+    /// by buildspace and pkgbase:
+    /// `bbtw download buildspace/pkgbase`
+    #[clap(verbatim_doc_comment)]
+    Download(DownloadArgs),
 
     /// Manually create a new iteration for a buildspace, recalculating the build
     /// graph and starting to build from the beginning
@@ -236,16 +250,31 @@ pub struct LogArgs {
     iteration: Option<u32>,
 
     /// Architecture of the build to fetch log for
-    #[arg(short, long, required = false, default_value = "x86_64")]
-    architecture: package::BuildArchitecture,
+    #[arg(short, long)]
+    architecture: Option<package::BuildArchitecture>,
 
     /// Do not keep trying to open the log if not uploaded yet
     #[arg(long, action, default_value = "false")]
     no_wait: bool,
 
     /// Build source either by `build-id` or `buildspace/pkgbase`
-    #[arg(value_parser = parse_build_log_source)]
-    build: BuildLogSource,
+    #[arg(value_parser = parse_build_source)]
+    build: BuildSource,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct DownloadArgs {
+    /// Iteration of the buildspace to download artifacts for [default: latest iteration]
+    #[arg(short, long, value_parser = value_parser!(u32).range(1..))]
+    iteration: Option<u32>,
+
+    /// Architecture of the build to download artifacts for
+    #[arg(short, long)]
+    architecture: Option<package::BuildArchitecture>,
+
+    /// Build source either by `build-id` or `buildspace/pkgbase`
+    #[arg(value_parser = parse_build_source)]
+    build: BuildSource,
 }
 
 #[derive(Debug, Clone)]
@@ -258,7 +287,7 @@ pub struct BuildspacePkgbase {
 }
 
 #[derive(Debug, Clone)]
-pub enum BuildLogSource {
+pub enum BuildSource {
     /// Build id
     BuildId(Uuid),
 
@@ -266,16 +295,16 @@ pub enum BuildLogSource {
     Buildspace(BuildspacePkgbase),
 }
 
-fn parse_build_log_source(s: &str) -> Result<BuildLogSource, String> {
+fn parse_build_source(s: &str) -> Result<BuildSource, String> {
     if let Ok(build_id) = s.parse::<Uuid>() {
-        return Ok(BuildLogSource::BuildId(build_id));
+        return Ok(BuildSource::BuildId(build_id));
     }
 
     let Some((buildspace, pkgbase)) = s.split_once('/') else {
         return Err("Expected `build-id` or `buildspace/pkgbase`".to_string());
     };
 
-    Ok(BuildLogSource::Buildspace(BuildspacePkgbase {
+    Ok(BuildSource::Buildspace(BuildspacePkgbase {
         buildspace: buildspace
             .parse()
             .map_err(|err| format!("Invalid buildspace `{buildspace}`: {err}"))?,
@@ -285,22 +314,64 @@ fn parse_build_log_source(s: &str) -> Result<BuildLogSource, String> {
     }))
 }
 
-impl From<LogArgs> for config::LogConfig {
-    fn from(args: LogArgs) -> Self {
-        Self {
+impl TryFrom<LogArgs> for config::LogConfig {
+    type Error = color_eyre::eyre::Report;
+
+    fn try_from(args: LogArgs) -> Result<Self> {
+        Ok(Self {
             build: match args.build {
-                BuildLogSource::BuildId(build_id) => config::BuildSource::BuildId(build_id),
-                BuildLogSource::Buildspace(buildspace_package) => {
+                BuildSource::BuildId(build_id) => {
+                    if args.architecture.is_some() {
+                        bail!(
+                            "error: the argument '--architecture' cannot be used with a `build-id`"
+                        );
+                    }
+                    if args.iteration.is_some() {
+                        bail!("error: the argument '--iteration' cannot be used with a `build-id`");
+                    }
+                    config::BuildSource::BuildId(build_id)
+                }
+                BuildSource::Buildspace(buildspace_package) => {
                     config::BuildSource::Buildspace(config::BuildspacePkgbase {
                         buildspace: buildspace_package.buildspace,
                         pkgbase: buildspace_package.pkgbase,
-                        architecture: args.architecture,
+                        architecture: args.architecture.unwrap_or_default(),
                         iteration: args.iteration,
                     })
                 }
             },
             no_wait: args.no_wait,
-        }
+        })
+    }
+}
+
+impl TryFrom<DownloadArgs> for config::DownloadConfig {
+    type Error = color_eyre::eyre::Report;
+
+    fn try_from(args: DownloadArgs) -> Result<Self> {
+        Ok(Self {
+            build: match args.build {
+                BuildSource::BuildId(build_id) => {
+                    if args.architecture.is_some() {
+                        bail!(
+                            "error: the argument '--architecture' cannot be used with a `build-id`"
+                        );
+                    }
+                    if args.iteration.is_some() {
+                        bail!("error: the argument '--iteration' cannot be used with a `build-id`");
+                    }
+                    config::BuildSource::BuildId(build_id)
+                }
+                BuildSource::Buildspace(buildspace_package) => {
+                    config::BuildSource::Buildspace(config::BuildspacePkgbase {
+                        buildspace: buildspace_package.buildspace,
+                        pkgbase: buildspace_package.pkgbase,
+                        architecture: args.architecture.unwrap_or_default(),
+                        iteration: args.iteration,
+                    })
+                }
+            },
+        })
     }
 }
 
