@@ -1,12 +1,14 @@
 use std::env;
 
-use buildbtw::{external_secrets, gitlab_api, repo_updater, storage};
+use buildbtw::{external_secrets, gitlab_api, repo_updater, storage, tracing};
 use color_eyre::Result;
 
 use crate::state::State;
 
 #[tokio::test]
 async fn test_flaky_update_source_repos() -> Result<()> {
+    tracing::init(0, false)?;
+
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
 
     let gitlab_config = gitlab_api::Config {
