@@ -7,7 +7,7 @@
 
 use std::collections::{HashMap, hash_map::Values};
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::bail};
 use tracing::trace;
 
 use crate::{
@@ -81,6 +81,21 @@ impl BuildspaceSourceInfoIndex<'_> {
             pkgname_to_pkgbase.len(),
             pkgbase_to_metadata.len()
         );
+
+        for changeset in changesets {
+            let Some(metadata) = pkgbase_to_metadata.get(&changeset.pkgbase) else {
+                bail!(r#"Could not find .SRCINFO for changeset "{changeset:?}""#);
+            };
+
+            // This can happen if for some reason package source directory names don't match the pkgbase, causing the lookup above to silently use main for that changeset
+            if metadata.branch_name != changeset.branch_name {
+                bail!(
+                    r#"Could not find branch "{}" for pkgbase "{}""#,
+                    changeset.branch_name,
+                    changeset.pkgbase
+                );
+            }
+        }
 
         Ok(BuildspaceSourceInfoIndex {
             pkgname_to_pkgbase,
