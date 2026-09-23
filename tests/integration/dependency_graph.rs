@@ -154,6 +154,39 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
 
     assert_no_duplicate_deps(&graphs);
 
+    // Test calculating a graph where pkgbase != gitlab repo slug,
+    // and the changeset uses a non-main branch.
+    // This happens when the pkgbase contains characters not allowed in a
+    // gitlab repo slug, e.g. with "afl++".
+    let graphs = BuildGraphs::calculate(
+        &git::Changesets::from(vec![git::Changeset {
+            pkgbase: "test-package-please++ignore".parse()?,
+            branch_name: "testbranch".try_into()?,
+        }]),
+        &mut source_repos,
+    )
+    .await?;
+
+    assert!(!graphs.is_empty());
+    let x86_64_graph = graphs
+        .get(&package::BuildArchitecture::X86_64)
+        .expect("Missing build graph for x86_64");
+
+    let node = x86_64_graph
+        .node_weights()
+        .find(|node| {
+            node.pkgbase
+                == "test-package-please++ignore"
+                    .parse()
+                    .expect("Invalid pkgbase string")
+        })
+        .expect("Missing build node for package");
+
+    assert_eq!(node.branch_name.as_ref(), "testbranch");
+
+    assert!(x86_64_graph.node_count() > 0);
+    assert_no_duplicate_deps(&graphs);
+
     Ok(())
 }
 
