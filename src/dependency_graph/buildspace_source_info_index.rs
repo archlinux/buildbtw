@@ -7,7 +7,7 @@
 
 use std::collections::{HashMap, hash_map::Values};
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::bail};
 use tracing::trace;
 
 use crate::{
@@ -48,7 +48,6 @@ impl BuildspaceSourceInfoIndex<'_> {
             // If this package is in the origin changesets, use the git ref
             // specified there instead of "main".
             let origin_changeset_branch = (&changesets).into_iter().find_map(|repo_ref| {
-                // TODO: repo slug and dir name might be different for the same package (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/219)
                 (&repo_ref.pkgbase == dir_name).then_some(repo_ref.branch_name.clone())
             });
             let branch = origin_changeset_branch.unwrap_or(git::BranchName::try_from("main")?);
@@ -81,6 +80,21 @@ impl BuildspaceSourceInfoIndex<'_> {
             pkgname_to_pkgbase.len(),
             pkgbase_to_metadata.len()
         );
+
+        for changeset in changesets {
+            let Some(metadata) = pkgbase_to_metadata.get(&changeset.pkgbase) else {
+                bail!(r#"Could not read .SRCINFO for changeset "{changeset:?}""#);
+            };
+
+            // This can happen when multiple repos specify the same pkgbase.
+            if metadata.branch_name != changeset.branch_name {
+                bail!(
+                    r#"Selected wrong branch "{}" for pkgbase "{}". This is a bug."#,
+                    changeset.branch_name,
+                    changeset.pkgbase
+                );
+            }
+        }
 
         Ok(BuildspaceSourceInfoIndex {
             pkgname_to_pkgbase,
