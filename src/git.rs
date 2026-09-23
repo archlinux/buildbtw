@@ -208,7 +208,58 @@ fn prepare_git_credentials<'a>() -> git2::RemoteCallbacks<'a> {
     callbacks
 }
 
-/// Clone a package source git repository into a new folder in `target_dir`.
+/// Build the SSH remote URL for a GitLab packaging repository.
+fn packaging_repo_remote_url(
+    gitlab_project_path: &gitlab_api::projects::ProjectPath,
+    gitlab_config: &gitlab_api::Config,
+) -> Result<String> {
+    let gitlab_domain = gitlab_config
+        .domain
+        .host_str()
+        .ok_or_eyre("GitLab domain URL has no host")?;
+
+    Ok(format!(
+        "git@{gitlab_domain}:{packages_group}/{gitlab_project_path}.git",
+        packages_group = gitlab_config.packages_group
+    ))
+}
+
+/// Create a temporary repo and read its .SRCINFO on the main branch, without checking anything out, to determine the pkgbase of the package within.
+fn read_pkgbase_from_remote(
+    remote_url: &str,
+    fetch_options: &mut git2::FetchOptions<'_>,
+) -> Result<package::BaseName> {
+    // Create bare repo
+    let temp_dir = camino_tempfile::tempdir()?;
+    let temp_repo = git2::Repository::init_bare(temp_dir.path())?;
+
+    // git fetch
+    let mut remote = temp_repo.remote("origin", remote_url)?;
+    let main_ref = "refs/heads/main";
+    remote.fetch(
+        &[&format!("{main_ref}:{main_ref}")],
+        Some(fetch_options),
+        None,
+    )?;
+
+    // Read .SRCINFO
+    let reference = temp_repo.find_reference(main_ref)?;
+    let file_oid = reference
+        .peel_to_tree()?
+        .get_path(Path::new(".SRCINFO"))?
+        .id();
+    let file_blob = temp_repo.find_blob(file_oid)?;
+
+    // Parse and extract pkgbase
+    let SourceInfo::V1(srcinfo) = SourceInfo::from_str(std::str::from_utf8(file_blob.content())?)?;
+
+    Ok(package::BaseName::from(
+        srcinfo.base.name.clone().try_into()?,
+    ))
+}
+
+/// Clone the given repo into the given target dir.
+/// Names the new directory after the pkgbase of the package within.
 fn clone_packaging_repo(
     target_dir: &Utf8Path,
     gitlab_project_path: &gitlab_api::projects::ProjectPath,
@@ -223,20 +274,17 @@ fn clone_packaging_repo(
     let mut fetch_options = git2::FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
 
-    let gitlab_domain = gitlab_config
-        .domain
-        .host_str()
-        .ok_or_eyre("GitLab domain URL has no host")?;
+    let remote_url = packaging_repo_remote_url(gitlab_project_path, gitlab_config)?;
 
-    // TODO: use pkgbase as dir name instead of repo slug
+    // Determine the pkgbase by reading .SRCINFO from the remote's default branch
+    // without performing a full clone.
+    let pkgbase = read_pkgbase_from_remote(&remote_url, &mut fetch_options)?;
+
     let repo = git2::build::RepoBuilder::new()
         .fetch_options(fetch_options)
         .clone(
-            &format!(
-                "git@{gitlab_domain}:{packages_group}/{gitlab_project_path}.git",
-                packages_group = gitlab_config.packages_group
-            ),
-            packaging_repo_path(target_dir, gitlab_project_path).as_std_path(),
+            &remote_url,
+            target_dir.join(pkgbase.to_string()).as_std_path(),
         )?;
 
     Ok(repo)
@@ -319,8 +367,7 @@ pub fn read_srcinfo_from_repo(
 
     debug_assert!(!file_blob.is_binary());
 
-    let SourceInfo::V1(parsed) =
-        SourceInfo::from_str(&String::from_utf8(file_blob.content().to_vec())?)?;
+    let SourceInfo::V1(parsed) = SourceInfo::from_str(std::str::from_utf8(file_blob.content())?)?;
     Ok(parsed)
 }
 
