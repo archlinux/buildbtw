@@ -11,8 +11,9 @@ use color_eyre::{Result, eyre::bail};
 use tracing::trace;
 
 use crate::{
-    dependency_graph::{BranchInfo, SourceRepoCache},
-    git, package,
+    dependency_graph::{BranchInfo, SourceRepo, SourceRepoCache},
+    git::{self},
+    package,
 };
 
 /// Metadata like the source info & commit hash, retrievable by pkgname and pkgbase.
@@ -45,34 +46,16 @@ impl BuildspaceSourceInfoIndex<'_> {
         let mut ignored_packages = 0;
 
         for (dir_name, repo) in source_repos.all_repos_mut() {
-            // If this package is in the origin changesets, use the git ref
-            // specified there instead of "main".
-            let origin_changeset_branch = (&changesets).into_iter().find_map(|repo_ref| {
-                (&repo_ref.pkgbase == dir_name).then_some(repo_ref.branch_name.clone())
-            });
-            let branch = origin_changeset_branch.unwrap_or(git::BranchName::try_from("main")?);
-
-            match repo.get_branch_info(branch.clone()).await {
-                Ok(branch_info) => {
-                    for package in &branch_info.source_info.packages {
-                        pkgname_to_pkgbase.insert(
-                            package::Name::from(package.name.clone()),
-                            branch_info.source_info.base.name.clone().try_into()?,
-                        );
-                    }
-
-                    pkgbase_to_metadata.insert(
-                        branch_info.source_info.base.name.clone().try_into()?,
-                        PackageMetadata {
-                            branch_name: branch,
-                            branch_info,
-                        },
-                    );
-                }
-                Err(e) => {
-                    trace!("Ignoring package {dir_name}: {e:#}");
-                    ignored_packages += 1;
-                }
+            if let Err(e) = index_repo(
+                repo,
+                &changesets,
+                &mut pkgname_to_pkgbase,
+                &mut pkgbase_to_metadata,
+            )
+            .await
+            {
+                trace!("Ignoring package {dir_name}: {e:#}");
+                ignored_packages += 1;
             }
         }
         trace!(
@@ -125,4 +108,67 @@ impl BuildspaceSourceInfoIndex<'_> {
     pub fn all_packages(&self) -> Values<'_, package::BaseName, PackageMetadata<'_>> {
         self.pkgbase_to_metadata.values()
     }
+}
+
+async fn index_repo<'a>(
+    repo: &'a mut SourceRepo,
+    changesets: &git::Changesets,
+    pkgname_to_pkgbase: &mut HashMap<package::Name, package::BaseName>,
+    pkgbase_to_metadata: &mut HashMap<package::BaseName, PackageMetadata<'a>>,
+) -> Result<()> {
+    let branch_name = relevant_branch_name(repo, changesets).await?;
+    let branch_info = repo.get_branch_info(branch_name.clone()).await?;
+
+    for package in &branch_info.source_info.packages {
+        pkgname_to_pkgbase.insert(
+            package::Name::from(package.name.clone()),
+            branch_info.source_info.base.name.clone().try_into()?,
+        );
+    }
+
+    let pkgbase = &branch_info.source_info.base.name;
+    let previous_metadata_entry = pkgbase_to_metadata.insert(
+        pkgbase.clone().try_into()?,
+        PackageMetadata {
+            branch_name,
+            branch_info,
+        },
+    );
+
+    if previous_metadata_entry.is_some() {
+        bail!("Multiple repositories declare pkgbase {pkgbase}");
+    }
+
+    Ok(())
+}
+
+/// Pick a branch name to read for this repo.
+/// If the repo is part of the changesets, use the branch specified there,
+/// otherwise use "main".
+async fn relevant_branch_name(
+    repo: &mut SourceRepo,
+    changesets: &git::Changesets,
+) -> Result<git::BranchName> {
+    let main_branch_name = git::BranchName::try_from("main")?;
+
+    let main_pkgbase = repo
+        .get_branch_info(main_branch_name.clone())
+        .await?
+        .source_info
+        .base
+        .name
+        .clone();
+
+    // Check if there's a changeset for this pkgbase
+    let changeset = changesets
+        .0
+        .iter()
+        .find(|c| c.pkgbase.as_ref() == &main_pkgbase);
+
+    // If a changeset exists, use its branch name
+    let branch_name = changeset
+        .map(|c| c.branch_name.clone())
+        .unwrap_or(main_branch_name);
+
+    Ok(branch_name)
 }
