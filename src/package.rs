@@ -128,7 +128,7 @@ fn validate_base_name(val: &alpm_types::PackageBaseName) -> Result<(), alpm_type
     Ok(())
 }
 
-/// A package source repository name.
+/// A package source repository name, slugified after gitlab's rules.
 ///
 /// This newtype wrapper provides type safety when working with repository
 /// references in the build system.

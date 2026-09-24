@@ -188,15 +188,15 @@ pub async fn clone_or_fetch_repositories(
 /// Ensure a package source git repository exists and is up to date.
 fn clone_or_fetch_repository(
     target_dir: &Utf8Path,
-    gitlab_project_path: &gitlab_api::projects::ProjectPath,
+    repo_slug: &package::RepositorySlug,
     gitlab_config: &gitlab_api::Config,
 ) -> Result<git2::Repository> {
-    let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, gitlab_project_path));
+    let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, repo_slug));
     let repo = if let Ok(repo) = maybe_repo {
         fetch_packaging_repo(&repo)?;
         repo
     } else {
-        clone_packaging_repo(target_dir, gitlab_project_path, gitlab_config)?
+        clone_packaging_repo(target_dir, repo_slug, gitlab_config)?
     };
     Ok(repo)
 }
@@ -211,10 +211,10 @@ fn prepare_git_credentials<'a>() -> git2::RemoteCallbacks<'a> {
 /// Clone a package source git repository into a new folder in `target_dir`.
 fn clone_packaging_repo(
     target_dir: &Utf8Path,
-    gitlab_project_path: &gitlab_api::projects::ProjectPath,
+    repo_slug: &package::RepositorySlug,
     gitlab_config: &gitlab_api::Config,
 ) -> Result<git2::Repository> {
-    trace!("Cloning {gitlab_project_path}");
+    trace!("Cloning {repo_slug}");
 
     // Set up the callbacks to use SSH credentials and verify the host key
     let callbacks = prepare_git_credentials();
@@ -233,10 +233,10 @@ fn clone_packaging_repo(
         .fetch_options(fetch_options)
         .clone(
             &format!(
-                "git@{gitlab_domain}:{packages_group}/{gitlab_project_path}.git",
+                "git@{gitlab_domain}:{packages_group}/{repo_slug}.git",
                 packages_group = gitlab_config.packages_group
             ),
-            packaging_repo_path(target_dir, gitlab_project_path).as_std_path(),
+            packaging_repo_path(target_dir, repo_slug).as_std_path(),
         )?;
 
     Ok(repo)
@@ -296,9 +296,9 @@ fn fetch_packaging_repo(repo: &git2::Repository) -> Result<()> {
 #[must_use]
 pub fn packaging_repo_path(
     target_dir: &Utf8Path,
-    gitlab_project_path: &gitlab_api::projects::ProjectPath,
+    repo_slug: &package::RepositorySlug,
 ) -> Utf8PathBuf {
-    target_dir.join(gitlab_project_path.as_ref())
+    target_dir.join(repo_slug.as_ref())
 }
 
 /// From the given branch, read the .SRCINFO file and parse it.

@@ -2,31 +2,20 @@
 
 use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt};
-use derive_more::{AsRef, Display};
 use gitlab::AsyncGitlab;
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tracing::{debug, info, instrument};
 
-/// Gitlab's `path` value on a project. Basically an URL-safe, slugified variant
-/// of the project name.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, AsRef, Display)]
-#[serde(transparent)]
-pub struct ProjectPath(String);
-
-impl From<String> for ProjectPath {
-    fn from(value: String) -> Self {
-        ProjectPath(value)
-    }
-}
+use crate::package;
 
 /// Metadata for a project with recent changes, used for updating its
 /// local git repository.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Project {
     /// URL-safe path of the project.
-    pub path: ProjectPath,
+    pub path: package::RepositorySlug,
 
     /// Last time the project has seen some kind of activity.
     pub last_activity_at: Option<OffsetDateTime>,
@@ -80,7 +69,7 @@ pub async fn changed_since(
             }
 
             results.push(Project {
-                path: ProjectPath::from(project.path),
+                path: package::RepositorySlug::try_from(project.path)?,
                 last_activity_at: project.last_activity_at.map(OffsetDateTime::from),
             });
         }
