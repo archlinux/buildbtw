@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::Stdio};
+use std::{collections::HashMap, fs, process::Stdio};
 
 use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
 use buildbtw::{
@@ -12,7 +12,7 @@ use buildbtw::{
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,
-    eyre::{OptionExt, bail, eyre},
+    eyre::{bail, eyre},
 };
 use rstest::*;
 use sea_orm::{TransactionSession, TransactionTrait};
@@ -259,17 +259,37 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Prepare temporary working dir and source repo
     let server_data_dir = ctx.state.data_dir;
 
-    let pkgbase: package::BaseName = "buildbtw-rocks".parse()?;
-    let source_dir = storage::package_source_dir(&server_data_dir, pkgbase.clone())?;
-    tokio::fs::create_dir_all(source_dir.parent().ok_or_eyre("source_dir has no parent")?).await?;
+    // 1-to-1 copy a package cloned by the flaky repo-updater test.
+    // This tests that the way the repo updater clones things works correctly
+    // in tandem with our local build process.
+    let pkgbase: package::BaseName = "test-package-please++ignore".parse()?;
+    // Passing `None` here means we use the XDG base dir location where
+    // all our "real" source repos are
+    let source_dir = storage::package_source_dir(&None, pkgbase.clone())?;
+    let dest_dir = storage::package_source_dir(&server_data_dir, pkgbase.clone())?;
+    assert!(
+        fs::exists(&source_dir)?,
+        "Expected {source_dir} to exist and be a repo cloned by the repo-updater"
+    );
+    fs::create_dir_all(dest_dir.parent().unwrap())?;
+    let cp_output = Command::new("cp")
+        .args([
+            "-r",
+            source_dir.as_str(),
+            dest_dir.parent().unwrap().as_str(),
+        ])
+        .output()
+        .await?;
+    assert!(
+        cp_output.status.success(),
+        "cp -r failed: {}",
+        String::from_utf8_lossy(&cp_output.stderr)
+    );
 
-    let source_repo = git2::Repository::init(source_dir.as_std_path())?;
-
-    // Write, then commit PKGBUILD + .SRCINFO
-    std::fs::write(source_dir.join(PKGBUILD_FILE_NAME), PKGBUILD)?;
-    std::fs::write(source_dir.join(SRCINFO_FILE_NAME), SRCINFO)?;
-
-    let commit_hash = commit_all(&source_repo)?;
+    // Read the commit behind "main" from the source repo
+    let source_repo = git2::Repository::open(source_dir.as_str())?;
+    let main_branch: git::BranchName = "main".try_into()?;
+    let commit_hash = git::branch_commit_sha(&source_repo, &main_branch)?;
 
     // Create buildspace, iteration and builds
     let tx = ctx.state.db.begin().await?;
@@ -284,9 +304,9 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     .await?;
 
     let mut package_file_names = HashMap::new();
-    let package_filename = "buildbtw-rocks-2.1-1-any.pkg.tar.zst";
+    let package_filename = "test-package-please++ignore-0.0.1-1-any.pkg.tar.zst";
     package_file_names.insert(
-        "buildbtw-rocks".parse()?,
+        "test-package-please++ignore".parse()?,
         Utf8PathBuf::from(package_filename),
     );
     let build = factories::build_from_node(
@@ -294,10 +314,10 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
         iteration.id,
         buildbtw::dependency_graph::BuildNode {
             pkgbase,
-            commit_hash,
+            commit_hash: commit_hash.clone(),
             branch_name: "main".try_into()?,
             package_file_names,
-            version: "2.1-1".parse()?,
+            version: "0.0.1-1".parse()?,
         },
         BuildArchitecture::default(),
     )
@@ -347,20 +367,4 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     );
 
     Ok(())
-}
-
-fn commit_all(repo: &git2::Repository) -> Result<git::CommitHash> {
-    let sig = git2::Signature::now("buildbtw-test", "test@buildbtw.localhost")?;
-
-    // Stage all and write tree
-    let mut index = repo.index()?;
-    index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
-    index.write()?;
-    let tree_oid = index.write_tree()?;
-    let tree = repo.find_tree(tree_oid)?;
-
-    // Commit
-    let oid = repo.commit(Some("HEAD"), &sig, &sig, "test commit", &tree, &[])?;
-
-    Ok(git::CommitHash::from(oid))
 }
