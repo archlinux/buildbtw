@@ -2,31 +2,20 @@
 
 use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt};
-use derive_more::{AsRef, Display};
 use gitlab::AsyncGitlab;
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tracing::{debug, info, instrument};
 
-/// Gitlab's `path` value on a project. Basically an URL-safe, slugified variant
-/// of the project name.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, AsRef, Display)]
-#[serde(transparent)]
-pub struct ProjectPath(String);
-
-impl From<String> for ProjectPath {
-    fn from(value: String) -> Self {
-        ProjectPath(value)
-    }
-}
+use crate::package;
 
 /// Metadata for a project with recent changes, used for updating its
 /// local git repository.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Project {
     /// URL-safe path of the project.
-    pub path: ProjectPath,
+    pub repo_slug: package::RepositorySlug,
 
     /// Last time the project has seen some kind of activity.
     pub last_activity_at: Option<OffsetDateTime>,
@@ -80,7 +69,7 @@ pub async fn changed_since(
             }
 
             results.push(Project {
-                path: ProjectPath::from(project.path),
+                repo_slug: package::RepositorySlug::try_from(project.path)?,
                 last_activity_at: project.last_activity_at.map(OffsetDateTime::from),
             });
         }
@@ -174,7 +163,10 @@ mod tests {
 
         // A few hardcoded projects that we know exist in archlinux' gitlab, but which
         // we manually archived in the packaging-buildbtw-dev group
-        let project_names: HashSet<_> = all_projects.iter().map(|p| p.path.to_string()).collect();
+        let project_names: HashSet<_> = all_projects
+            .iter()
+            .map(|p| p.repo_slug.to_string())
+            .collect();
         let archived_projects = ["ack", "abcmidi"];
         for archived_project_name in archived_projects {
             assert!(
