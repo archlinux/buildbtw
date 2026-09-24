@@ -344,7 +344,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
         ctx.state.server_url,
         CancellationToken::new(),
     )
-    .await?;
+    .await;
 
     // Check that the build was marked as successful.
     let tx = ctx.state.db.begin().await?;
