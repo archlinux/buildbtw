@@ -250,6 +250,7 @@ pub async fn shallow_clone_local_repo_for_build(
     commit_hash: CommitHash,
 ) -> Result<()> {
     tokio::task::spawn_blocking(move || -> Result<()> {
+        let source_dir = format!("file://{source_dir}");
         git2::build::RepoBuilder::new().clone(source_dir.as_str(), target_dir.as_std_path())?;
 
         let repo = git2::Repository::open(target_dir)?;
