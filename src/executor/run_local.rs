@@ -22,7 +22,7 @@ pub async fn build(
     cancellation_token: CancellationToken,
 ) -> Result<()> {
     // Prepare project build dir
-    let package_source_dir = storage::package_source_dir(&data_dir, &build.pkgbase)?;
+    let package_source_dir = storage::package_source_dir(&data_dir, build.pkgbase.clone())?;
     let build_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-build-dir-")
         .tempdir()?;

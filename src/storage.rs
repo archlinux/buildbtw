@@ -29,9 +29,10 @@ pub fn package_source_repos_dir(override_data_dir: &Option<Utf8PathBuf>) -> Resu
 
 pub fn package_source_dir(
     override_data_dir: &Option<Utf8PathBuf>,
-    pkgbase: &package::BaseName,
+    pkgbase: package::BaseName,
 ) -> Result<Utf8PathBuf> {
-    Ok(package_source_repos_dir(override_data_dir)?.join(pkgbase.to_string()))
+    Ok(package_source_repos_dir(override_data_dir)?
+        .join(package::RepositorySlug::try_from(pkgbase)?.as_ref()))
 }
 
 /// Returns the data directory storing build artifacts of buildspaces and iterations.
