@@ -47,7 +47,6 @@ impl BuildNode {
         PackageMetadata {
             branch_name,
             branch_info,
-            ..
         }: &PackageMetadata,
         architecture: package::BuildArchitecture,
     ) -> Result<BuildNode> {

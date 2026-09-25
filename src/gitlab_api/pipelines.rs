@@ -11,6 +11,7 @@ use tracing::info;
 use url::Url;
 
 use crate::entities;
+use crate::package;
 
 #[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
@@ -70,8 +71,10 @@ pub async fn create(
             .build()
     })
     .collect::<Result<Vec<_>, _>>()?;
-    // TODO pkgbase is incorrect here
-    let project_name = format!("{gitlab_packages_group}/{pkgbase}", pkgbase = build.pkgbase);
+    let project_name = format!(
+        "{gitlab_packages_group}/{gitlab_repo_slug}",
+        gitlab_repo_slug = package::RepositorySlug::try_from(build.pkgbase.clone())?
+    );
     let response: CreatePipelineResponse = CreatePipeline::builder()
         .project(project_name)
         .ref_(build.branch_name.to_string())
