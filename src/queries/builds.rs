@@ -88,7 +88,7 @@ pub fn insert_builds_with_dependencies(
             id: Set(id.into()),
             created_at: Set(time::OffsetDateTime::now_utc()),
             architecture: Set(architecture),
-            pkgbase: Set(build.pkgbase),
+            pkgbase: Set(build.pkgbase.clone()),
             iteration_id: Set(iteration_id.into()),
             pkgnames_filenames: Set(PkgnamesFilenames::from(build.package_file_names)),
             branch_name: Set(build.branch_name),
