@@ -111,7 +111,7 @@ impl Container {
             // We use listenfd for development which passes a socket via the `LISTEN_FDS` env var.
             // However, this variable is also passed to child processes which breaks podman
             // https://github.com/containers/podman/issues/20968
-            .env("LISTEN_FDS", "")
+            .env_remove("LISTEN_FDS")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
