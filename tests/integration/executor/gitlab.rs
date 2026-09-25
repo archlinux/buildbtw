@@ -260,7 +260,7 @@ async fn test_flaky_build_local(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let server_data_dir = ctx.state.data_dir;
 
     let pkgbase: package::BaseName = "buildbtw-rocks".parse()?;
-    let source_dir = storage::package_source_dir(&server_data_dir, &pkgbase)?;
+    let source_dir = storage::package_source_dir(&server_data_dir, pkgbase.clone())?;
     tokio::fs::create_dir_all(source_dir.parent().ok_or_eyre("source_dir has no parent")?).await?;
 
     let source_repo = git2::Repository::init(source_dir.as_std_path())?;

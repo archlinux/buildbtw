@@ -67,6 +67,57 @@ fn validate_pkgnames(input: &[Name]) -> bool {
 #[sea_orm(value_type = "String", try_from_u64)]
 pub struct BaseName(alpm_types::PackageBaseName);
 
+impl TryFrom<BaseName> for RepositorySlug {
+    type Error = garde::Error;
+
+    /// Convert a package base name to a GitLab-valid repository slug.
+    ///
+    /// This follows the same transformation as pkgctl's `gitlab_project_name_to_path`:
+    /// <https://docs.gitlab.com/ee/user/reserved_names.html>
+    ///
+    /// 1. Replace single `+` between word boundaries with `-`
+    /// 2. Replace any remaining `+` with literal `plus`
+    /// 3. Replace any special chars other than `_`, `-` and `.` with `-`
+    /// 4. Replace consecutive `_`/`-` chars with a single `-`
+    /// 5. Replace exact `tree` with `unix-tree` (GitLab reserved keyword)
+    fn try_from(name: BaseName) -> Result<Self, Self::Error> {
+        let name = name.to_string();
+
+        // Step 1: Replace '+' between word boundaries with '-'
+        // Matches ([a-zA-Z0-9]+)\+([a-zA-Z]+) in the shell script
+        let slug = regex!("([a-zA-Z0-9]+)\\+([a-zA-Z]+)")
+            .replace_all(&name, "$1-$2")
+            .to_string();
+
+        // Step 2: Replace any remaining '+' with 'plus'
+        let slug = slug.replace('+', "plus");
+
+        // Step 3: Replace any special chars other than '_', '-' and '.' with '-'
+        let slug: String = slug
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.' {
+                    c
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+
+        // Step 4: Collapse consecutive '_' or '-' chars with a single '-'
+        let slug = regex!("[_\\-]{2,}").replace_all(&slug, "-").to_string();
+
+        // Step 5: Replace exact 'tree' with 'unix-tree'
+        let slug = if slug == "tree" {
+            "unix-tree".to_string()
+        } else {
+            slug
+        };
+
+        RepositorySlug::try_new(slug)
+    }
+}
+
 // ALPM does not validate types on deserialization, so until that is fixed,
 // we need to do it explicitly
 // https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/219
@@ -381,5 +432,28 @@ mod tests {
             serde_json::from_str::<BaseName>("\"-bad\"").is_err(),
             "deserializing an invalid base name should fail"
         );
+    }
+
+    #[rstest]
+    #[case("libfoo", "libfoo")]
+    // '+' between word boundaries becomes '-'
+    #[case("foo+bar", "foo-bar")]
+    // Consecutive '+' becomes 'plusplus'
+    #[case("c++", "cplusplus")]
+    #[case("afl++", "aflplusplus")]
+    #[case("libsigc++-3.0", "libsigcplusplus-3.0")]
+    // '+' followed by digits stays as 'plus'
+    #[case("a_z.A-Z+09a", "a_z.A-Zplus09a")]
+    // Simple names pass through unchanged
+    #[case("cowfortune", "cowfortune")]
+    #[case("test-package-please++ignore", "test-package-pleaseplusplusignore")]
+    // Exact 'tree' becomes 'unix-tree'
+    #[case("tree", "unix-tree")]
+    // 'tree' as part of a larger name is unchanged
+    #[case("treehouse", "treehouse")]
+    fn base_name_to_repository_slug(#[case] input: &str, #[case] expected: &str) {
+        let base: BaseName = input.parse().unwrap();
+        let slug: RepositorySlug = base.try_into().unwrap();
+        assert_eq!(slug.as_ref(), expected);
     }
 }
