@@ -16,6 +16,11 @@ pub enum ClientType {
 
     /// Session created for local usage
     Local,
+
+    /// Session created by an admin for a bot user
+    ///
+    /// This type of session has an infinite lifetime and will not be automatically cleaned up.
+    Bot,
 }
 
 /// A user session
