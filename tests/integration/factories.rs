@@ -42,6 +42,13 @@ pub async fn session_with_roles(
     Ok(session)
 }
 
+/// Create a user with the bot role and no sessions
+pub async fn bot(db: &DatabaseConnection, username: &str) -> Result<entities::users::Model> {
+    let bot = user(db, username).await?;
+    queries::user_roles::set(db, bot.id, vec![entities::user_roles::Role::Bot]).await?;
+    Ok(bot)
+}
+
 /// Create a user with an OIDC identity
 ///
 /// Pretend this user has logged in via OIDC.

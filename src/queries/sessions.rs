@@ -48,10 +48,15 @@ pub fn delete_by_user_id(user_id: TxtUuid) -> DeleteMany<sessions::Entity> {
     sessions::Entity::delete_many().filter(sessions::COLUMN.user_id.eq(user_id))
 }
 
+/// Delete sessions not accessed since `delta` ago.
+///
+/// Does not clean up bot sessions as they have an infinite lifetime.
 #[must_use]
 pub fn delete_old_sessions(delta: time::Duration) -> DeleteMany<sessions::Entity> {
     let before_datetime = time::OffsetDateTime::now_utc() - delta;
-    sessions::Entity::delete_many().filter(sessions::COLUMN.last_accessed.lt(before_datetime))
+    sessions::Entity::delete_many()
+        .filter(sessions::COLUMN.last_accessed.lt(before_datetime))
+        .filter(sessions::COLUMN.client_type.ne(ClientType::Bot))
 }
 
 #[must_use]
