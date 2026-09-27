@@ -8,6 +8,7 @@ use tower_http::services::ServeDir;
 use crate::server_state::ServerState;
 
 mod account;
+mod admin;
 pub mod index;
 mod oidc;
 
@@ -25,4 +26,7 @@ pub fn router(root: &Utf8Path) -> Router<ServerState> {
         .typed_post(account::session_revoke)
         .typed_get(account::cli_session_landing)
         .typed_post(account::cli_session_create)
+        .typed_get(admin::bot_list)
+        .typed_post(admin::bot_create)
+        .typed_post(admin::bot_token_regenerate)
 }

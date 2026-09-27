@@ -6,6 +6,7 @@ use time::{OffsetDateTime, format_description};
 use tokio::sync::OnceCell;
 
 pub mod account;
+pub mod admin;
 pub mod index;
 
 /// Path to the templates directory.
@@ -58,5 +59,6 @@ fn render(template_name: &str, mut context: tera::Context) -> Result<String> {
         "cli_session_url",
         &crate::web::account::CliSessionLanding {}.to_string(),
     );
+    context.insert("admin_bot_url", &crate::web::admin::BotList {}.to_string());
     Ok(tera.render(template_name, &context)?)
 }

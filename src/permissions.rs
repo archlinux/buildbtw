@@ -32,6 +32,11 @@ pub fn can_create_user(user: &AuthUser) -> Result<bool> {
     Ok(user.roles.contains(&entities::user_roles::Role::Admin))
 }
 
+/// Check that this user can create bots and their tokens.
+pub fn can_manage_bots(user: &AuthUser) -> Result<bool> {
+    Ok(user.roles.contains(&entities::user_roles::Role::Admin))
+}
+
 /// Check that the given permission is `true`. if not, return an error.
 pub fn check(permission: Result<bool>) -> ResponseResult<()> {
     match permission {

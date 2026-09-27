@@ -24,7 +24,7 @@ pub async fn overview(
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     Ok((
         cookie_jar,
-        Html(templates::account::render_account_overview(&session.user)?),
+        Html(templates::account::render_account_overview(&session)?),
     ))
 }
 

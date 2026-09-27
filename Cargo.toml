@@ -125,6 +125,7 @@ axum = { version = "0.8.8", features = [
     "tokio",
     "json",
     "query",
+    "form",
     "http1",
     "http2",
 ], default-features = false }

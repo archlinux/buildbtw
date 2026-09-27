@@ -9,13 +9,25 @@ use uuid::Uuid;
 use crate::{
     db,
     db_fields::{RedactedString, TxtUuid},
-    entities::{oidc_identity, users},
+    entities::{oidc_identity, user_roles, users},
     input,
 };
 
 #[must_use]
 pub fn by_username(username: String) -> Select<users::Entity> {
     users::Entity::find().filter(users::COLUMN.username.eq(username))
+}
+
+#[must_use]
+pub fn bots() -> Select<users::Entity> {
+    users::Entity::find()
+        .inner_join(user_roles::Entity)
+        .filter(user_roles::COLUMN.role.eq(user_roles::Role::Bot))
+}
+
+#[must_use]
+pub fn bot_by_id(id: Uuid) -> Select<users::Entity> {
+    bots().filter(users::COLUMN.id.eq(TxtUuid::from(id)))
 }
 
 #[must_use]
