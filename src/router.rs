@@ -2,18 +2,33 @@ use std::time::Duration;
 
 use axum::Router;
 use camino::Utf8Path;
+use color_eyre::{Result, eyre::WrapErr};
 use reqwest::StatusCode;
-use tower_http::timeout::{RequestBodyTimeoutLayer, TimeoutLayer};
+use tower_http::{
+    csrf::CsrfLayer,
+    timeout::{RequestBodyTimeoutLayer, TimeoutLayer},
+};
+use url::Origin;
 
 use crate::server_state::ServerState;
 
 /// Create and configure a new top-level router for the backend server.
-pub fn new(root: &Utf8Path) -> Router<ServerState> {
-    Router::new()
+pub fn new(root: &Utf8Path, trusted_origins: &[Origin]) -> Result<Router<ServerState>> {
+    let mut csrf = CsrfLayer::new();
+    for origin in trusted_origins {
+        let origin = origin.ascii_serialization();
+        csrf = csrf
+            .add_trusted_origin(&origin)
+            .wrap_err_with(|| format!("Invalid trusted origin: {origin}"))?;
+    }
+
+    Ok(Router::new()
         // API routes for clients, living under /api/v1
         .merge(crate::routes::api::router())
-        // Web routes for the browser UI, living under /
-        .merge(crate::routes::web::router(root))
+        // Web routes for the browser UI, living under /.
+        // The CSRF policy is layered onto that router since it's only needed for browser-based
+        // interaction. The API doesn't need it.
+        .merge(crate::routes::web::router(root).layer(csrf))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer((
             // Graceful shutdown will wait for outstanding requests to complete. Add a timeout so
@@ -30,5 +45,5 @@ pub fn new(root: &Utf8Path) -> Router<ServerState> {
             // whole. This allows for streamed endpoints that run f.e. as long as a build runs.
             // The timeout defines how long an upload may stall before it is aborted.
             RequestBodyTimeoutLayer::new(Duration::from_mins(10)),
-        )
+        ))
 }

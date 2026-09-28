@@ -1,5 +1,6 @@
 mod account;
 mod admin;
+mod csrf;
 mod index;
 mod oidc;
 

@@ -31,3 +31,9 @@ You can retrieve this key using `ssh-keyscan -t ed25519 gitlab.archlinux.org`.
 We also expect an SSH private key for cloning the repositories from GitLab to get mounted to `/etc/ssh/id_ed25519` inside the container.
 This key is shared amongst all containers and should be mounted read-only.
 The container launches an agent that looks for a key at that location. If the key isn't present, the container will not launch.
+
+### Reverse Proxy
+
+When running the backend behind a reverse proxy, you need to make sure that `Host` and `Origin` are passed through unchanged in order for
+the CSRF protection to work as intended.
+Refer to [this article](https://words.filippo.io/csrf/#protecting-against-csrf-in-2025) for details.
