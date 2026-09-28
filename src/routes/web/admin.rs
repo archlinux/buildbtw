@@ -7,7 +7,7 @@ use crate::{
     db,
     entities::sessions,
     from_request, input,
-    permissions::{can_manage_bots, check},
+    permissions::{self},
     queries,
     response_error::{ResponseError, ResponseResult},
     templates, web,
@@ -20,7 +20,7 @@ pub async fn bot_list(
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
-    check(can_manage_bots(&session))?;
+    permissions::check(permissions::can_manage_bots(&session))?;
 
     let bots = queries::users::bots().all(&tx).await?;
 
@@ -41,7 +41,7 @@ pub async fn bot_create(
     db::TxImmediate(tx): db::TxImmediate,
     Form(body): Form<input::users::CreateBot>,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
-    check(can_manage_bots(&session))?;
+    permissions::check(permissions::can_manage_bots(&session))?;
 
     let validated: input::users::CreateWithRoles =
         input::users::ValidatedCreateWithRoles::try_from(input::users::CreateWithRoles::from(
@@ -83,7 +83,7 @@ pub async fn bot_token_regenerate(
     cookie_jar: PrivateCookieJar,
     db::TxImmediate(tx): db::TxImmediate,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
-    check(can_manage_bots(&session))?;
+    permissions::check(permissions::can_manage_bots(&session))?;
 
     let bot_id: Uuid = params
         .user_id
