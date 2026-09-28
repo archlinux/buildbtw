@@ -237,7 +237,8 @@ async fn run_server(db: DatabaseConnection, config: Config) -> Result<()> {
 
     templates::initialize(&config.web_root)?;
 
-    let router = router::new(&config.web_root).with_state(server_state);
+    let router =
+        router::new(&config.web_root, &server_state.trusted_origins())?.with_state(server_state);
 
     info!("Server available at: {}", config.server_url);
 
