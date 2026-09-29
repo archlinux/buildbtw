@@ -46,7 +46,7 @@ impl BuildspaceSourceInfoIndex<'_> {
         let mut ignored_packages = 0;
 
         for (dir_name, repo) in source_repos.all_repos_mut() {
-            if let Err(e) = index_repo(
+            match index_repo(
                 repo,
                 &changesets,
                 &mut pkgname_to_pkgbase,
@@ -54,8 +54,19 @@ impl BuildspaceSourceInfoIndex<'_> {
             )
             .await
             {
-                trace!("Ignoring package {dir_name}: {e:#}");
-                ignored_packages += 1;
+                // Continue on non-fatal errors
+                Err(IndexError::Eyre(e)) => {
+                    trace!("Ignoring package {dir_name}: {e:#}");
+                    ignored_packages += 1;
+                }
+                Err(IndexError::Alpm(e)) => {
+                    trace!("Ignoring package {dir_name}: {e:#}");
+                    ignored_packages += 1;
+                }
+                // Stop everything on a fatal error
+                Err(IndexError::Fatal(reason)) => bail!(reason),
+
+                Ok(()) => (),
             }
         }
         trace!(
@@ -111,6 +122,19 @@ impl BuildspaceSourceInfoIndex<'_> {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+enum IndexError {
+    /// E.g. Invalid .SRCINFO, simply skip this package
+    #[error("{0}")]
+    Eyre(#[from] color_eyre::eyre::Error),
+    /// E.g. Invalid .SRCINFO, simply skip this package
+    #[error("{0}")]
+    Alpm(#[from] alpm_types::Error),
+    /// Do not allow the source graph to be calculated
+    #[error("{0}")]
+    Fatal(String),
+}
+
 /// Add metadata for this repository to the source info index.
 ///
 /// If the repo is part of the changesets, takes the branch from there, otherwise uses "main".
@@ -119,9 +143,18 @@ async fn index_repo<'a>(
     changesets: &git::Changesets,
     pkgname_to_pkgbase: &mut HashMap<package::Name, package::BaseName>,
     pkgbase_to_metadata: &mut HashMap<package::BaseName, PackageMetadata<'a>>,
-) -> Result<()> {
+) -> Result<(), IndexError> {
     let branch_name = relevant_branch_name(repo, changesets).await?;
     let branch_info = repo.get_branch_info(branch_name.clone()).await?;
+
+    let pkgbase = &branch_info.source_info.base.name;
+    let pkgbase_key: package::BaseName = pkgbase.clone().try_into()?;
+
+    if pkgbase_to_metadata.contains_key(&pkgbase_key) {
+        return Err(IndexError::Fatal(format!(
+            "Multiple repositories declare pkgbase {pkgbase}"
+        )));
+    }
 
     for package in &branch_info.source_info.packages {
         pkgname_to_pkgbase.insert(
@@ -130,18 +163,13 @@ async fn index_repo<'a>(
         );
     }
 
-    let pkgbase = &branch_info.source_info.base.name;
-    let previous_metadata_entry = pkgbase_to_metadata.insert(
-        pkgbase.clone().try_into()?,
+    pkgbase_to_metadata.insert(
+        pkgbase_key,
         PackageMetadata {
             branch_name,
             branch_info,
         },
     );
-
-    if previous_metadata_entry.is_some() {
-        bail!("Multiple repositories declare pkgbase {pkgbase}");
-    }
 
     Ok(())
 }
