@@ -7,7 +7,7 @@
 # Will replace the file passed as input with the pruned version.
 set -euo pipefail
 
-INPUT="${1:-src/gitlab/graphql_schema.json}"
+INPUT="${1}"
 OUTPUT="${INPUT}"
 
 echo "Pruning GraphQL schema"

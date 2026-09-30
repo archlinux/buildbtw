@@ -41,6 +41,7 @@ rustup default stable
 - For building locally: Install `vmexec` (`pacman -S vmexec`)
 - For license checking: Install `reuse` (`pacman -S reuse`)
 - For security auditing: Install `cargo-deny` (`pacman -S cargo-deny` or `cargo install cargo-deny`)
+- For updating the GraphQL schema: Install `graphql-client-cli` (`pacman -S graphql-client-cli`)
 - For releasing: Install `cargo-release` (`pacman -S cargo-release` or `cargo install cargo-release`)
 - For running the tests and running a local OIDC provider: `pacman -S cargo-nextest mkcert jq podman geckodriver firefox`. See [Arch Wiki Podman Page](https://wiki.archlinux.org/title/Podman) for podman configuration. Rootless podman is recommended.
 

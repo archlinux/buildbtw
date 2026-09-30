@@ -209,8 +209,8 @@ gen-dev-cert: (ensure-command "mkcert")
 [group("dev")]
 update-graphql-schema: (ensure-command "graphql-client")
     #!/bin/sh
-    graphql-client introspect-schema "$BUILDBTW_GITLAB_DOMAIN/api/graphql" --authorization "$BUILDBTW_GITLAB_TOKEN" --output src/gitlab/graphql_schema.json
-    ./scripts/prune-graphql-schema.sh src/gitlab/graphql_schema.json
+    graphql-client introspect-schema "$BUILDBTW_GITLAB_DOMAIN/api/graphql" --authorization "$BUILDBTW_GITLAB_TOKEN" --output src/gitlab_api/graphql_schema.json
+    ./scripts/prune-graphql-schema.sh src/gitlab_api/graphql_schema.json
 
 [doc("Reset DB and then insert dummy data into fresh DB")]
 [group("dev")]
