@@ -20,9 +20,9 @@ pub fn router(root: &Utf8Path) -> Router<ServerState> {
         .typed_get(oidc::start_login)
         .typed_get(oidc::authorized)
         .typed_get(account::overview)
-        .typed_get(account::logout)
+        .typed_post(account::logout)
         .typed_get(account::session_list)
-        .typed_get(account::session_revoke)
+        .typed_post(account::session_revoke)
         .typed_get(account::cli_session_landing)
         .typed_post(account::cli_session_create)
 }

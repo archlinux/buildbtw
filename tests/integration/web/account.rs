@@ -93,15 +93,17 @@ async fn test_e2e_account_logout() -> Result<()> {
         "expected a session record to exist after login",
     );
 
-    // Logout
+    // Logout by submitting the Sign out form
     c.goto(
         ctx_with_oidc
             .state
             .server_url
-            .join(&web::account::Logout {}.to_string())?
+            .join(&web::account::Overview {}.to_string())?
             .to_string(),
     )
     .await?;
+    let logout_selector = format!("form[action='{}'] button", web::account::Logout {});
+    c.find(By::Css(&logout_selector)).await?.click().await?;
 
     // Check if we are logged out
     let content = c
@@ -206,7 +208,7 @@ async fn test_session_revoke(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Request the endpoint to test
     let response = ctx
         .server
-        .typed_get(&web::account::SessionRevoke {
+        .typed_post(&web::account::SessionRevoke {
             session_id: session.id.to_string(),
         })
         .add_cookies(cookies.clone())
@@ -262,7 +264,7 @@ async fn test_session_revoke_other_session(#[future(awt)] ctx: TestCtx) -> Resul
     // Request the endpoint to test
     let response = ctx
         .server
-        .typed_get(&web::account::SessionRevoke {
+        .typed_post(&web::account::SessionRevoke {
             session_id: other_session_id.to_string(),
         })
         .add_cookies(cookies.clone())
@@ -333,7 +335,7 @@ async fn test_session_revoke_cannot_revoke_other_user_session(
     // Try to revoke user B's session while authenticated as user A
     let response = ctx
         .server
-        .typed_get(&web::account::SessionRevoke {
+        .typed_post(&web::account::SessionRevoke {
             session_id: user_b_session.id.to_string(),
         })
         .add_cookies(cookies.clone())
@@ -377,7 +379,7 @@ async fn test_session_cannot_revoke_nonexistent(#[future(awt)] ctx: TestCtx) -> 
     // Try to revoke nonexistent session
     let response = ctx
         .server
-        .typed_get(&web::account::SessionRevoke {
+        .typed_post(&web::account::SessionRevoke {
             session_id: Uuid::new_v4().to_string(),
         })
         .add_cookies(cookies.clone())
