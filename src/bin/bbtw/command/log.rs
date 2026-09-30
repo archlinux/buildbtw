@@ -3,7 +3,6 @@ use std::{io::ErrorKind, time::Duration};
 
 use buildbtw::api_client::{self, ApiClient};
 
-use color_eyre::eyre::{OptionExt, bail};
 use color_eyre::{Result, eyre::Context};
 use tokio::io::AsyncWriteExt;
 use tokio_stream::{Stream, StreamExt};
@@ -16,40 +15,7 @@ pub async fn log(
     config::LogConfig { build, no_wait }: config::LogConfig,
 ) -> Result<()> {
     let mut wait_printed = false;
-    let build_id = match build {
-        config::BuildSource::BuildId(build_id) => build_id,
-        config::BuildSource::Buildspace(buildspace) => {
-            let config::BuildspacePkgbase {
-                buildspace,
-                iteration,
-                architecture,
-                pkgbase,
-            } = buildspace;
-
-            let builds = api_client::builds::list(
-                &client,
-                buildspace,
-                iteration,
-                Some(architecture),
-                Some(pkgbase),
-                None,
-                Some(2),
-            )
-            .await
-            .wrap_err("Failed to find build for buildspace package")?
-            .builds;
-
-            if builds.len() > 1 {
-                bail!("Retrieved more builds than expected");
-            }
-
-            let build = builds
-                .first()
-                .ok_or_eyre("Failed to find build for buildspace package")?;
-
-            build.id
-        }
-    };
+    let build_id = build.to_build_id(&client).await?;
 
     let stream = loop {
         match api_client::builds::download_log(&client, build_id).await {

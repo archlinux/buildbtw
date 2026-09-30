@@ -5,10 +5,9 @@ use camino::Utf8PathBuf;
 use color_eyre::eyre::{bail, eyre};
 use color_eyre::{Result, eyre::Context};
 
+use crate::shell::ShellScripts;
 use tokio::fs;
 use tokio::process::Command;
-
-use crate::shell::ShellScripts;
 
 pub async fn makepkg_conf_pkgdest() -> Result<Utf8PathBuf> {
     let bin_dir = camino_tempfile::Builder::new()

@@ -1,4 +1,6 @@
-use buildbtw::{buildspace, package};
+use buildbtw::{api_client, buildspace, package};
+use color_eyre::Result;
+use color_eyre::eyre::{OptionExt, WrapErr, bail};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -42,4 +44,46 @@ pub enum BuildSource {
 pub struct DownloadConfig {
     /// Build identified by build-id or buildspace/pkgbase
     pub build: BuildSource,
+}
+
+impl BuildSource {
+    pub async fn to_build_id(&self, client: &api_client::ApiClient) -> Result<Uuid> {
+        // Fetch build id by buildspace/pkgbase or uuid
+        let build_id = match self {
+            BuildSource::BuildId(build_id) => *build_id,
+            BuildSource::Buildspace(buildspace) => {
+                let BuildspacePkgbase {
+                    buildspace,
+                    iteration,
+                    architecture,
+                    pkgbase,
+                } = buildspace;
+
+                let builds = api_client::builds::list(
+                    client,
+                    buildspace.clone(),
+                    *iteration,
+                    Some(*architecture),
+                    Some(pkgbase.clone()),
+                    None,
+                    Some(2),
+                )
+                .await
+                .wrap_err("Failed to find build for buildspace package")?
+                .builds;
+
+                if builds.len() > 1 {
+                    bail!("Retrieved more builds than expected");
+                }
+
+                let build = builds
+                    .first()
+                    .ok_or_eyre("Failed to find build for buildspace package")?;
+
+                build.id
+            }
+        };
+
+        Ok(build_id)
+    }
 }

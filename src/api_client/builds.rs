@@ -6,7 +6,11 @@ use crate::{
 use alpm_types::PackageFileName;
 use axum::body::Bytes;
 use camino::Utf8PathBuf;
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, OptionExt},
+};
+use reqwest::header;
 use thiserror::Error;
 use tokio::{fs, io::AsyncRead};
 use tokio_stream::{Stream, StreamExt};
@@ -130,7 +134,7 @@ pub async fn download_package(
     client: &ApiClient,
     build_id: Uuid,
     pkgname: package::Name,
-) -> Result<impl Stream<Item = Result<Bytes>>, DownloadPackageError> {
+) -> Result<(u64, impl Stream<Item = Result<Bytes>>), DownloadPackageError> {
     let resp = client
         .reqwest_client
         .get(
@@ -152,9 +156,20 @@ pub async fn download_package(
         return Err(color_eyre::eyre::Report::new(err).wrap_err(message).into());
     }
 
-    Ok(resp
-        .bytes_stream()
-        .map(|chunk| chunk.wrap_err("Failed to read build package stream")))
+    let len = resp
+        .headers()
+        .get(header::CONTENT_LENGTH)
+        .ok_or_eyre("Missing Content-Length header")?
+        .to_str()
+        .wrap_err("Content-Length is not a valid string")?
+        .parse::<u64>()
+        .wrap_err("Content-Length is not a valid usize")?;
+
+    Ok((
+        len,
+        resp.bytes_stream()
+            .map(|chunk| chunk.wrap_err("Failed to read build package stream")),
+    ))
 }
 
 #[instrument(skip(client))]

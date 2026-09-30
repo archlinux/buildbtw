@@ -446,6 +446,72 @@ async fn test_list_builds_invalid_status(#[future(awt)] ctx: TestCtx) {
     response.assert_status(StatusCode::BAD_REQUEST);
 }
 
+/// Check the get call returns expected build data
+#[rstest]
+#[tokio::test]
+async fn test_get_build(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Queried pkgname
+    let pkgname: package::Name = "foo".parse()?;
+
+    // Create buildspace, iteration and `factories::builds` builds.
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+
+    // Add other builds so we know the endpoints returns the correct one
+    let other_pkg_names = ["one", "two", "three"];
+    for pkgbase in &other_pkg_names {
+        factories::build(&tx, iteration.id, pkgbase).await?;
+    }
+    tx.commit().await?;
+
+    // Query the backend
+    let response = ctx
+        .server
+        .typed_get(&api::builds::Get {
+            id: build.id.into(),
+        })
+        .add_query_params(api::builds::GetQuery {})
+        .await;
+
+    // Check that data matches
+    response.assert_status_ok();
+    let body: api::builds::GetBuildResponse = response.json();
+    assert_eq!(
+        body.build.id, build.id.0,
+        "Returned build must match the queried one",
+    );
+
+    Ok(())
+}
+
+/// Check the queried build doesn't exist
+#[rstest]
+#[tokio::test]
+async fn test_get_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Queried pkgname
+    let pkgname: package::Name = "foo".parse()?;
+
+    // Create buildspace, iteration and `factories::builds` builds.
+    let tx = ctx.state.db.begin().await?;
+    let (_buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
+    let _build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Query the backend
+    let response = ctx
+        .server
+        // new random UUID that doesn't exist
+        .typed_get(&api::builds::Get { id: Uuid::new_v4() })
+        .add_query_params(api::builds::GetQuery {})
+        .await;
+
+    // Check that data was not found
+    response.assert_status_not_found();
+
+    Ok(())
+}
+
 #[rstest]
 #[tokio::test]
 async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
