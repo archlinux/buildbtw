@@ -44,7 +44,8 @@ use crate::{
     dependency_graph::{self, BuildGraphs},
     gitlab_api,
     package::BuildArchitecture,
-    pacman_repository, repo_updater,
+    pacman_repository,
+    repo_updater::{self, prune_deleted_source_repos},
 };
 use crate::{entities, queries};
 
@@ -389,12 +390,19 @@ impl IterationCreator {
         Ok(())
     }
 
-    /// Fetch new commits for all source repositories.
+    /// Fetch new commits for all source repositories and remove directories if their gitlab project has been deleted.
     async fn update_repos(
         &self,
         gitlab_client: &AsyncGitlab,
         gitlab_config: gitlab_api::Config,
     ) -> Result<()> {
+        prune_deleted_source_repos(
+            self.config.source_repo_dir.clone(),
+            gitlab_client,
+            &gitlab_config,
+        )
+        .await?;
+
         // Get the previous update cutoff timestamp
         let source_repos_last_updated = self
             .db
@@ -407,7 +415,7 @@ impl IterationCreator {
             self.config.source_repo_dir.clone(),
             gitlab_client,
             source_repos_last_updated,
-            gitlab_config,
+            &gitlab_config,
         )
         .await?;
 

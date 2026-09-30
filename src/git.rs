@@ -120,7 +120,7 @@ pub struct Changeset {
 pub async fn clone_or_fetch_repositories(
     target_dir: Utf8PathBuf,
     gitlab_projects: Vec<gitlab_api::projects::Project>,
-    gitlab_config: gitlab_api::Config,
+    gitlab_config: &gitlab_api::Config,
 ) -> Result<()> {
     let project_count = gitlab_projects.len();
 

@@ -27,7 +27,7 @@ async fn test_flaky_update_source_repos() -> Result<()> {
         source_repo_dir.clone(),
         &gitlab_client,
         last_updated,
-        gitlab_config,
+        &gitlab_config,
     )
     .await?;
 

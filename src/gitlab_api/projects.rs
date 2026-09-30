@@ -4,6 +4,7 @@ use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt};
 use derive_more::{AsRef, Display};
 use gitlab::AsyncGitlab;
+use gitlab::api::{self, AsyncQuery, groups::projects::GroupProjects};
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -23,12 +24,13 @@ impl From<String> for ProjectPath {
 
 /// Metadata for a project with recent changes, used for updating its
 /// local git repository.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Project {
     /// URL-safe path of the project.
     pub path: ProjectPath,
 
     /// Last time the project has seen some kind of activity.
+    #[serde(default, with = "time::serde::iso8601::option")]
     pub last_activity_at: Option<OffsetDateTime>,
 }
 
@@ -128,6 +130,24 @@ async fn query_changed_projects_page(
         .projects;
 
     Ok(response)
+}
+
+/// Get a list of *all* projects in the given group.
+/// Uses the REST API to reduce server load.
+#[instrument(name = "query_all_projects", skip(client))]
+pub async fn all(client: &AsyncGitlab, group: String) -> Result<Vec<Project>> {
+    let endpoint = GroupProjects::builder()
+        .group(group)
+        .build()
+        .wrap_err("Failed to build group projects query")?;
+    let projects: Vec<Project> = api::paged(endpoint, api::Pagination::All)
+        .query_async(client)
+        .await
+        .wrap_err("Failed to fetch group projects")?;
+
+    debug!("Queried {} projects", projects.len());
+
+    Ok(projects)
 }
 
 #[cfg(test)]

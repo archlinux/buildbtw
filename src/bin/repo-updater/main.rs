@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
                 update_args.target_dir.clone(),
                 &gitlab_client,
                 last_updated,
-                gitlab_config,
+                &gitlab_config,
             )
             .await?;
 
