@@ -42,9 +42,11 @@
       </td>
       <td>
         <div class="buttons">
-          <a class="button is-danger is-small" href="{{ session_url }}">
-            <strong>Revoke</strong>
-          </a>
+          <form action="{{ session_url }}" method="post">
+            <button class="button is-danger is-small" type="submit">
+              <strong>Revoke</strong>
+            </button>
+          </form>
         </div>
       </td>
     </tr>

@@ -1,3 +1,4 @@
+use axum::http::Method;
 use axum_extra::routing::TypedPath;
 use color_eyre::Result;
 use rstest::rstest;
@@ -10,13 +11,17 @@ use crate::test_ctx::{CookieJarExt, TestCtx, ctx};
 
 /// Verify that some endpoints need authorization
 #[rstest]
-#[case(api::users::AuthenticatedUser {})]
-#[case(web::account::Logout {})]
-#[case(web::account::SessionList {})]
-#[case(web::account::SessionRevoke { session_id: Uuid::new_v4().to_string() })]
+#[case(Method::GET, api::users::AuthenticatedUser {})]
+#[case(Method::POST, web::account::Logout {})]
+#[case(Method::GET, web::account::SessionList {})]
+#[case(Method::POST, web::account::SessionRevoke { session_id: Uuid::new_v4().to_string() })]
 #[tokio::test]
-async fn test_unauthorized_routes(#[case] path: impl TypedPath, #[future(awt)] ctx: TestCtx) {
-    let response = ctx.server.typed_get(&path).await;
+async fn test_unauthorized_routes(
+    #[case] method: Method,
+    #[case] path: impl TypedPath,
+    #[future(awt)] ctx: TestCtx,
+) {
+    let response = ctx.server.typed_method(method, &path).await;
 
     response.assert_status_unauthorized();
     response.assert_header("content-type", "text/plain; charset=utf-8");
