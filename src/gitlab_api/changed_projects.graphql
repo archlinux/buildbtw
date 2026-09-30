@@ -1,9 +1,10 @@
 query ChangedProjects($after: String, $group: ID!) {
     group(fullPath: $group) {
-        projects(sort: ACTIVITY_DESC, after: $after, includeArchived: false) {
+        projects(sort: ACTIVITY_DESC, after: $after, includeArchived: true) {
             nodes {
                 path
                 lastActivityAt
+                archived
             }
             pageInfo {
                 endCursor

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### repo-updater
+
+- **Feature:** Directories whose gitlab projects have been archived can now be removed from disk using the `--delete-archived` option. Projects that are permanently deleted on gitlab currently have to be removed manually.
+
 ## [0.0.7] - 2026-10-03
 
 ### backend
