@@ -19,6 +19,9 @@ pub struct Project {
 
     /// Last time the project has seen some kind of activity.
     pub last_activity_at: Option<OffsetDateTime>,
+
+    /// Whether the project is archived or not.
+    pub archived: Option<bool>,
 }
 
 /// Get all projects that changed since the given timestamp, ordered by most
@@ -71,6 +74,7 @@ pub async fn changed_since(
             results.push(Project {
                 repo_slug: package::RepositorySlug::try_from(project.path)?,
                 last_activity_at: project.last_activity_at.map(OffsetDateTime::from),
+                archived: project.archived,
             });
         }
 

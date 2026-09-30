@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## repo-updater
+
+- **Breaking Change:** Directories whose gitlab projects have been marked for deletion will now be removed from disk. Projects that have already been permanently deleted on gitlab currently have to be removed manually.
+
 ### backend
 
 - **Breaking Change:** Remove the `--gitlab-ssh-host-key` CLI option. For deploying the backend using the container image, the `BUILDBTW_GITLAB_SSH_HOST_KEY` environment variable will now write its value to `/etc/ssh/known_hosts` inside the container on startup. ([!268](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/268))

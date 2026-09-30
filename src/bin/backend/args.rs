@@ -156,7 +156,9 @@ pub struct RunArgs {
 
     /// Update package source repositories in the background.
     ///
-    /// Mostly, this is used for debugging and making the system less noisy in development.
+    /// This will also delete archived repositories from the package source directory in $BUILDBTW_DATA_DIR.
+    ///
+    /// Mostly, switching this off is used for debugging and making the system less noisy in development.
     #[arg(
         long,
         env = "BUILDBTW_UPDATE_SOURCE_REPOS",

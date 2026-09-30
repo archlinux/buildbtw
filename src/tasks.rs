@@ -48,7 +48,10 @@ pub fn initialize(
 ) -> Result<()> {
     // If the flag is enabled, and a gitlab config is present, tell the iteration creator to update source repos
     let repo_update_config = if update_source_repos && let Some(gitlab_config) = gitlab_config {
-        iteration_creator::RepoUpdateConfig::DoUpdate(gitlab_config)
+        iteration_creator::RepoUpdateConfig::DoUpdate {
+            gitlab_config,
+            delete_archived: true,
+        }
     } else {
         iteration_creator::RepoUpdateConfig::DontUpdate
     };

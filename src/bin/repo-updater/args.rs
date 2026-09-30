@@ -65,6 +65,10 @@ pub struct PrintChangedArgs {
 pub struct UpdateArgs {
     /// Directory to store package source repos in. Git repos will be created as a flat collection of subdirectories inside this directory.
     pub target_dir: Utf8PathBuf,
+
+    /// Whether to delete archived repositories from disk.
+    #[clap(default_value = "false")]
+    pub delete_archived: bool,
 }
 
 #[derive(clap::Args, Debug)]

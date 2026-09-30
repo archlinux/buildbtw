@@ -74,7 +74,10 @@ pub struct Config {
 #[derive(Debug)]
 pub enum RepoUpdateConfig {
     DontUpdate,
-    DoUpdate(gitlab_api::Config),
+    DoUpdate {
+        gitlab_config: gitlab_api::Config,
+        delete_archived: bool,
+    },
 }
 
 #[derive(Debug)]
@@ -143,10 +146,14 @@ impl IterationCreator {
     /// TODO: check if it's safe to cancel this function, because it can hold up the shutdown process.
     #[instrument(skip(self))]
     pub async fn tick(&mut self) -> Result<()> {
-        if let RepoUpdateConfig::DoUpdate(gitlab_config) = &self.config.repo_update {
+        if let RepoUpdateConfig::DoUpdate {
+            gitlab_config,
+            delete_archived,
+        } = &self.config.repo_update
+        {
             let gitlab_client = gitlab_api::client(gitlab_config).await?;
 
-            self.update_repos(&gitlab_client, gitlab_config.clone())
+            self.update_repos(&gitlab_client, gitlab_config.clone(), *delete_archived)
                 .await?;
         }
 
@@ -394,6 +401,7 @@ impl IterationCreator {
         &self,
         gitlab_client: &AsyncGitlab,
         gitlab_config: gitlab_api::Config,
+        delete_archived: bool,
     ) -> Result<()> {
         // Get the previous update cutoff timestamp
         let source_repos_last_updated = self
@@ -405,6 +413,7 @@ impl IterationCreator {
         // Update the source repos
         let source_repos_new_last_updated = repo_updater::update_all_source_repos(
             self.config.source_repo_dir.clone(),
+            delete_archived,
             gitlab_client,
             source_repos_last_updated,
             gitlab_config,

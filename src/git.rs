@@ -1,7 +1,7 @@
 //! Interactions with git repositories, remote or local.
 //! Implemented using the `git2` library.
 
-use std::{path::Path, str::FromStr};
+use std::{fs, path::Path, str::FromStr};
 
 use alpm_srcinfo::{SourceInfo, SourceInfoV1};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -14,7 +14,7 @@ use nutype::nutype;
 use sea_orm::DeriveValueType;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use tracing::{info, trace};
+use tracing::{debug, info, trace};
 
 use crate::{gitlab_api, package};
 
@@ -117,8 +117,9 @@ pub struct Changeset {
 /// Runs git operations in parallel.
 /// Will continue on errors for individual repos.
 /// Any errors are gathered and returned at the end.
-pub async fn clone_or_fetch_repositories(
+pub async fn update_repositories(
     target_dir: Utf8PathBuf,
+    delete_archived: bool,
     gitlab_projects: Vec<gitlab_api::projects::Project>,
     gitlab_config: gitlab_api::Config,
 ) -> Result<()> {
@@ -134,8 +135,13 @@ pub async fn clone_or_fetch_repositories(
             // TODO: handle spurious errors (network etc.) by retrying.
             // Maybe also clean up repositories on error in some way?
             // https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/198
-            clone_or_fetch_repository(&target_dir, &gitlab_project.repo_slug, &gitlab_config)
-                .wrap_err(gitlab_project.repo_slug)?;
+            update_repository(
+                &target_dir,
+                delete_archived,
+                &gitlab_project,
+                &gitlab_config,
+            )
+            .wrap_err(gitlab_project.repo_slug)?;
             Ok(())
         });
 
@@ -185,20 +191,38 @@ pub async fn clone_or_fetch_repositories(
     Ok(())
 }
 
-/// Ensure a package source git repository exists and is up to date.
-fn clone_or_fetch_repository(
+/// Update a package source git repository:
+/// If the project exists, make sure the local directory is cloned and is up to date.
+/// If the project is marked for deletion on gitlab, remove the local directory as well.
+fn update_repository(
     target_dir: &Utf8Path,
-    repo_slug: &package::RepositorySlug,
+    delete_archived: bool,
+    gitlab_project: &gitlab_api::projects::Project,
     gitlab_config: &gitlab_api::Config,
-) -> Result<git2::Repository> {
-    let maybe_repo = git2::Repository::open(packaging_repo_path(target_dir, repo_slug));
-    let repo = if let Ok(repo) = maybe_repo {
+) -> Result<()> {
+    // If project is marked for deletion, remove dir and return
+    let path = packaging_repo_path(target_dir, &gitlab_project.repo_slug);
+    if delete_archived && gitlab_project.archived == Some(true) {
+        if fs::exists(&path)? {
+            debug!(?gitlab_project.repo_slug, "Project marked for deletion, removing directory");
+            // No async here because this function also uses git2
+            fs::remove_dir_all(path)?;
+        }
+
+        return Ok(());
+    }
+
+    // Update the repo if it's cloned already, otherwise clone it
+    let maybe_repo =
+        git2::Repository::open(packaging_repo_path(target_dir, &gitlab_project.repo_slug));
+    if let Ok(repo) = maybe_repo {
         fetch_packaging_repo(&repo)?;
         repo
     } else {
-        clone_packaging_repo(target_dir, repo_slug, gitlab_config)?
+        clone_packaging_repo(target_dir, &gitlab_project.repo_slug, gitlab_config)?
     };
-    Ok(repo)
+
+    Ok(())
 }
 
 /// Build git remote callbacks that authenticate via the SSH agent.

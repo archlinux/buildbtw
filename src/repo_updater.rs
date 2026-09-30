@@ -21,6 +21,7 @@ use crate::gitlab_api;
 )]
 pub async fn update_all_source_repos(
     target_dir: Utf8PathBuf,
+    delete_archived: bool,
     gitlab_client: &AsyncGitlab,
     mut last_fetched: Option<OffsetDateTime>,
     gitlab_config: gitlab_api::Config,
@@ -46,7 +47,8 @@ pub async fn update_all_source_repos(
     }
 
     // Run git operations for changed projects
-    crate::git::clone_or_fetch_repositories(target_dir, changed_projects, gitlab_config).await?;
+    crate::git::update_repositories(target_dir, delete_archived, changed_projects, gitlab_config)
+        .await?;
 
     Ok(last_fetched)
 }

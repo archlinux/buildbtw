@@ -6,7 +6,9 @@
           "args": [
             {
               "defaultValue": "\"No longer supported\"",
+              "deprecationReason": null,
               "description": "Explains why this element was deprecated, usually also including a suggestion for how to access supported similar data. Formatted in [Markdown](https://daringfireball.net/projects/markdown/).",
+              "isDeprecated": false,
               "name": "reason",
               "type": {
                 "kind": "SCALAR",
@@ -28,7 +30,9 @@
           "args": [
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "The version when this field was introduced (e.g. '18.1.0')",
+              "isDeprecated": false,
               "name": "version",
               "type": {
                 "kind": "NON_NULL",
@@ -41,7 +45,7 @@
               }
             }
           ],
-          "description": "Marks a field as introduced in a specific version. Fields with a version higher than the current one will return null.",
+          "description": "Marks a field as introduced in a specific version. Fields tagged with the current milestone or a later one return null when the field is absent from the schema.",
           "locations": [
             "FIELD",
             "INLINE_FRAGMENT"
@@ -52,7 +56,119 @@
           "args": [
             {
               "defaultValue": null,
+              "deprecationReason": null,
+              "description": "Granular scope permissions required to access the field or type.",
+              "isDeprecated": false,
+              "name": "permissions",
+              "type": {
+                "kind": "LIST",
+                "name": null,
+                "ofType": {
+                  "kind": "NON_NULL",
+                  "name": null,
+                  "ofType": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "ofType": null
+                  }
+                }
+              }
+            },
+            {
+              "defaultValue": null,
+              "deprecationReason": null,
+              "description": "The type of authorization boundary (project, group, user, instance). Used for validation and documentation of the permission boundary.",
+              "isDeprecated": false,
+              "name": "boundaryType",
+              "type": {
+                "kind": "ENUM",
+                "name": "PermissionBoundary",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "deprecationReason": null,
+              "description": "Reason the field or type intentionally opts out of granular token authorization. ",
+              "isDeprecated": false,
+              "name": "skipReason",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "deprecationReason": null,
+              "description": "Method name to call on the resolved object to extract the authorization boundary (Project/Group). Use when the object is already resolved (fields on types, nested fields).",
+              "isDeprecated": false,
+              "name": "boundary",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "deprecationReason": null,
+              "description": "Argument name containing the authorization boundary (path or GlobalID). Use for mutations and query fields where the boundary is passed as an argument.",
+              "isDeprecated": false,
+              "name": "boundaryArgument",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "deprecationReason": null,
+              "description": "Label grouping directives that are alternative boundaries for the same requirement. The token must be authorized on any one boundary in a group, and on every group. Absent means the primary group. Set for a second container, such as a move target.",
+              "isDeprecated": false,
+              "name": "requirementGroup",
+              "type": {
+                "kind": "SCALAR",
+                "name": "String",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "deprecationReason": null,
+              "description": "Conditions the current user must meet for the permissions to be offered in the token creation UI. Not a security control: the type, mutation, or field must still enforce the conditions. Valid values: admin, gitlab_team_member, saas, self_managed.",
+              "isDeprecated": false,
+              "name": "assignableWhen",
+              "type": {
+                "kind": "LIST",
+                "name": null,
+                "ofType": {
+                  "kind": "NON_NULL",
+                  "name": null,
+                  "ofType": {
+                    "kind": "SCALAR",
+                    "name": "String",
+                    "ofType": null
+                  }
+                }
+              }
+            }
+          ],
+          "description": null,
+          "locations": [
+            "FIELD_DEFINITION",
+            "OBJECT"
+          ],
+          "name": "granularScope"
+        },
+        {
+          "args": [
+            {
+              "defaultValue": null,
+              "deprecationReason": null,
               "description": "Included when true.",
+              "isDeprecated": false,
               "name": "if",
               "type": {
                 "kind": "NON_NULL",
@@ -85,7 +201,9 @@
           "args": [
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "Skipped when true.",
+              "isDeprecated": false,
               "name": "if",
               "type": {
                 "kind": "NON_NULL",
@@ -110,7 +228,9 @@
           "args": [
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "The URL that specifies the behavior of this scalar.",
+              "isDeprecated": false,
               "name": "url",
               "type": {
                 "kind": "NON_NULL",
@@ -131,12 +251,15 @@
         }
       ],
       "mutationType": {
+        "kind": "OBJECT",
         "name": "Mutation"
       },
       "queryType": {
+        "kind": "OBJECT",
         "name": "Query"
       },
       "subscriptionType": {
+        "kind": "OBJECT",
         "name": "Subscription"
       },
       "types": [
@@ -167,7 +290,9 @@
           "inputFields": [
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "ID of the compliance framework.",
+              "isDeprecated": false,
               "name": "id",
               "type": {
                 "kind": "SCALAR",
@@ -177,7 +302,9 @@
             },
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "IDs of the compliance framework.",
+              "isDeprecated": false,
               "name": "ids",
               "type": {
                 "kind": "LIST",
@@ -195,7 +322,9 @@
             },
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "Negated compliance framework filter input.",
+              "isDeprecated": false,
               "name": "not",
               "type": {
                 "kind": "INPUT_OBJECT",
@@ -205,7 +334,9 @@
             },
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "Checks presence of compliance framework of the project, \"none\" and \"any\" values are supported.",
+              "isDeprecated": false,
               "name": "presenceFilter",
               "type": {
                 "kind": "ENUM",
@@ -270,7 +401,9 @@
               "args": [
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": "Include also subgroup projects.",
+                  "isDeprecated": false,
                   "name": "includeSubgroups",
                   "type": {
                     "kind": "SCALAR",
@@ -279,8 +412,22 @@
                   }
                 },
                 {
+                  "defaultValue": "false",
+                  "deprecationReason": "Status: Experiment. Introduced in GitLab 17.2.",
+                  "description": "Include also projects from parent group. Introduced in GitLab 17.2: Status: Experiment.",
+                  "isDeprecated": true,
+                  "name": "includeSiblingProjects",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Boolean",
+                    "ofType": null
+                  }
+                },
+                {
                   "defaultValue": "true",
+                  "deprecationReason": null,
                   "description": "Include also archived projects.",
+                  "isDeprecated": false,
                   "name": "includeArchived",
                   "type": {
                     "kind": "SCALAR",
@@ -290,7 +437,9 @@
                 },
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": "Include projects that are not aimed for deletion.",
+                  "isDeprecated": false,
                   "name": "notAimedForDeletion",
                   "type": {
                     "kind": "SCALAR",
@@ -300,7 +449,9 @@
                 },
                 {
                   "defaultValue": "null",
+                  "deprecationReason": null,
                   "description": "Search project with most similar names or paths.",
+                  "isDeprecated": false,
                   "name": "search",
                   "type": {
                     "kind": "SCALAR",
@@ -310,7 +461,9 @@
                 },
                 {
                   "defaultValue": "null",
+                  "deprecationReason": null,
                   "description": "Sort projects by the criteria.",
+                  "isDeprecated": false,
                   "name": "sort",
                   "type": {
                     "kind": "ENUM",
@@ -320,7 +473,9 @@
                 },
                 {
                   "defaultValue": "null",
+                  "deprecationReason": null,
                   "description": "Filter projects by IDs.",
+                  "isDeprecated": false,
                   "name": "ids",
                   "type": {
                     "kind": "LIST",
@@ -338,7 +493,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Return only projects with issues enabled.",
+                  "isDeprecated": false,
                   "name": "withIssuesEnabled",
                   "type": {
                     "kind": "SCALAR",
@@ -348,7 +505,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Return only projects with merge requests enabled.",
+                  "isDeprecated": false,
                   "name": "withMergeRequestsEnabled",
                   "type": {
                     "kind": "SCALAR",
@@ -358,7 +517,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Return only projects that use the namespace domain for pages projects.",
+                  "isDeprecated": false,
                   "name": "withNamespaceDomainPages",
                   "type": {
                     "kind": "SCALAR",
@@ -368,7 +529,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Return only archived projects.",
+                  "isDeprecated": false,
                   "name": "archivedOnly",
                   "type": {
                     "kind": "SCALAR",
@@ -378,7 +541,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Filters applied when selecting a compliance framework.",
+                  "isDeprecated": false,
                   "name": "complianceFrameworkFilters",
                   "type": {
                     "kind": "INPUT_OBJECT",
@@ -388,7 +553,9 @@
                 },
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": "Returns only the projects which have code coverage.",
+                  "isDeprecated": false,
                   "name": "hasCodeCoverage",
                   "type": {
                     "kind": "SCALAR",
@@ -398,7 +565,9 @@
                 },
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": "Returns only the projects which have vulnerabilities.",
+                  "isDeprecated": false,
                   "name": "hasVulnerabilities",
                   "type": {
                     "kind": "SCALAR",
@@ -408,7 +577,9 @@
                 },
                 {
                   "defaultValue": "null",
+                  "deprecationReason": null,
                   "description": "Return only the projects related to the specified SBOM component.",
+                  "isDeprecated": false,
                   "name": "sbomComponentId",
                   "type": {
                     "kind": "SCALAR",
@@ -418,7 +589,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Returns the elements in the list that come after the specified cursor.",
+                  "isDeprecated": false,
                   "name": "after",
                   "type": {
                     "kind": "SCALAR",
@@ -428,7 +601,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Returns the elements in the list that come before the specified cursor.",
+                  "isDeprecated": false,
                   "name": "before",
                   "type": {
                     "kind": "SCALAR",
@@ -438,7 +613,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Returns the first _n_ elements from the list.",
+                  "isDeprecated": false,
                   "name": "first",
                   "type": {
                     "kind": "SCALAR",
@@ -448,7 +625,9 @@
                 },
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Returns the last _n_ elements from the list.",
+                  "isDeprecated": false,
                   "name": "last",
                   "type": {
                     "kind": "SCALAR",
@@ -669,9 +848,25 @@
             },
             {
               "args": [],
-              "deprecationReason": "**Status**: Experiment. Introduced in GitLab 18.3.",
-              "description": "If `true`, the user can perform `archive_group` on this resource Introduced in GitLab 18.3: **Status**: Experiment.",
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 19.4.",
+              "description": "If `true`, the user can perform `apply_security_scan_profiles` on this resource. Attaching a profile is authorized per project, so this ability is evaluated on this resource rather than on the root ancestor. Introduced in GitLab 19.4: Status: Experiment.",
               "isDeprecated": true,
+              "name": "applySecurityScanProfiles",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "If `true`, the user can perform `archive_group` on this resource",
+              "isDeprecated": false,
               "name": "archiveGroup",
               "type": {
                 "kind": "NON_NULL",
@@ -689,6 +884,22 @@
               "description": "If `true`, the user can leave this group.",
               "isDeprecated": false,
               "name": "canLeave",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "If `true`, the user can perform `change_group` on this resource",
+              "isDeprecated": false,
+              "name": "changeGroup",
               "type": {
                 "kind": "NON_NULL",
                 "name": null,
@@ -721,6 +932,38 @@
               "description": "If `true`, the user can perform `create_projects` on this resource",
               "isDeprecated": false,
               "name": "createProjects",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 19.4.",
+              "description": "If `true`, the user can perform `create_security_scan_profiles` on the top-level namespace of this resource. Security scan profiles belong to the top-level namespace, so this ability is evaluated on the root ancestor rather than on this resource. Introduced in GitLab 19.4: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "createSecurityScanProfiles",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 19.4.",
+              "description": "If `true`, the user can perform `delete_security_scan_profiles` on the top-level namespace of this resource. Security scan profiles belong to the top-level namespace, so this ability is evaluated on the root ancestor rather than on this resource. Introduced in GitLab 19.4: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "deleteSecurityScanProfiles",
               "type": {
                 "kind": "NON_NULL",
                 "name": null,
@@ -797,10 +1040,58 @@
             },
             {
               "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 18.8.",
+              "description": "If `true`, the user can perform `read_runner_cloud_provisioning_info` on this resource Introduced in GitLab 18.8: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "readRunnerCloudProvisioningInfo",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 19.4.",
+              "description": "If `true`, the user can perform `read_security_scan_profiles` on the top-level namespace of this resource. Security scan profiles belong to the top-level namespace, so this ability is evaluated on the root ancestor rather than on this resource. Introduced in GitLab 19.4: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "readSecurityScanProfiles",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
               "deprecationReason": null,
               "description": "If `true`, the user can perform `remove_group` on this resource",
               "isDeprecated": false,
               "name": "removeGroup",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 19.4.",
+              "description": "If `true`, the user can perform `update_security_scan_profiles` on the top-level namespace of this resource. Security scan profiles belong to the top-level namespace, so this ability is evaluated on the root ancestor rather than on this resource. Introduced in GitLab 19.4: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "updateSecurityScanProfiles",
               "type": {
                 "kind": "NON_NULL",
                 "name": null,
@@ -1030,7 +1321,9 @@
           "inputFields": [
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "ID of the compliance framework.",
+              "isDeprecated": false,
               "name": "id",
               "type": {
                 "kind": "SCALAR",
@@ -1040,7 +1333,9 @@
             },
             {
               "defaultValue": null,
+              "deprecationReason": null,
               "description": "IDs of the compliance framework.",
+              "isDeprecated": false,
               "name": "ids",
               "type": {
                 "kind": "LIST",
@@ -1108,6 +1403,18 @@
             {
               "args": [],
               "deprecationReason": null,
+              "description": "Indicates if the project or any ancestor is archived.",
+              "isDeprecated": false,
+              "name": "archived",
+              "type": {
+                "kind": "SCALAR",
+                "name": "Boolean",
+                "ofType": null
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
               "description": "Timestamp of the project last activity.",
               "isDeprecated": false,
               "name": "lastActivityAt",
@@ -1171,7 +1478,9 @@
               "args": [
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Limit applied to the count query, returns limit + 1. When not provided, returns the exact count.",
+                  "isDeprecated": false,
                   "name": "limit",
                   "type": {
                     "kind": "SCALAR",
@@ -1412,8 +1721,8 @@
           "fields": [
             {
               "args": [],
-              "deprecationReason": "**Status**: Experiment. Introduced in GitLab 18.3.",
-              "description": "If `true`, the user can perform `admin_ai_catalog_item` on this resource Introduced in GitLab 18.3: **Status**: Experiment.",
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 18.3.",
+              "description": "If `true`, the user can perform `admin_ai_catalog_item` on this resource Introduced in GitLab 18.3: Status: Experiment.",
               "isDeprecated": true,
               "name": "adminAiCatalogItem",
               "type": {
@@ -1428,8 +1737,8 @@
             },
             {
               "args": [],
-              "deprecationReason": "**Status**: Experiment. Introduced in GitLab 18.3.",
-              "description": "If `true`, the user can perform `admin_ai_catalog_item_consumer` on this resource Introduced in GitLab 18.3: **Status**: Experiment.",
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 18.3.",
+              "description": "If `true`, the user can perform `admin_ai_catalog_item_consumer` on this resource Introduced in GitLab 18.3: Status: Experiment.",
               "isDeprecated": true,
               "name": "adminAiCatalogItemConsumer",
               "type": {
@@ -1589,6 +1898,22 @@
             {
               "args": [],
               "deprecationReason": null,
+              "description": "If `true`, the user can leave this project.",
+              "isDeprecated": false,
+              "name": "canLeave",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
               "description": "If `true`, the user can perform `change_namespace` on this resource",
               "isDeprecated": false,
               "name": "changeNamespace",
@@ -1608,6 +1933,22 @@
               "description": "If `true`, the user can perform `change_visibility_level` on this resource",
               "isDeprecated": false,
               "name": "changeVisibilityLevel",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 19.3.",
+              "description": "If `true`, the user can enable an AI catalog item in this project by creating an item consumer. Introduced in GitLab 19.3: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "createAiCatalogItemConsumer",
               "type": {
                 "kind": "NON_NULL",
                 "name": null,
@@ -1956,8 +2297,8 @@
             },
             {
               "args": [],
-              "deprecationReason": "**Status**: Experiment. Introduced in GitLab 18.3.",
-              "description": "If `true`, the user can perform `manage_ai_flow_triggers` on this resource Introduced in GitLab 18.3: **Status**: Experiment.",
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 18.3.",
+              "description": "If `true`, the user can perform `manage_ai_flow_triggers` on this resource Introduced in GitLab 18.3: Status: Experiment.",
               "isDeprecated": true,
               "name": "manageAiFlowTriggers",
               "type": {
@@ -2020,8 +2361,8 @@
             },
             {
               "args": [],
-              "deprecationReason": "**Status**: Experiment. Introduced in GitLab 18.3.",
-              "description": "If `true`, the user can perform `read_ai_catalog_item` on this resource Introduced in GitLab 18.3: **Status**: Experiment.",
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 18.3.",
+              "description": "If `true`, the user can perform `read_ai_catalog_item` on this resource Introduced in GitLab 18.3: Status: Experiment.",
               "isDeprecated": true,
               "name": "readAiCatalogItem",
               "type": {
@@ -2036,8 +2377,8 @@
             },
             {
               "args": [],
-              "deprecationReason": "**Status**: Experiment. Introduced in GitLab 18.3.",
-              "description": "If `true`, the user can perform `read_ai_catalog_item_consumer` on this resource Introduced in GitLab 18.3: **Status**: Experiment.",
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 18.3.",
+              "description": "If `true`, the user can perform `read_ai_catalog_item_consumer` on this resource Introduced in GitLab 18.3: Status: Experiment.",
               "isDeprecated": true,
               "name": "readAiCatalogItemConsumer",
               "type": {
@@ -2212,10 +2553,42 @@
             },
             {
               "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 19.0.",
+              "description": "If `true`, the user can perform `read_project_component_usages` on this resource Introduced in GitLab 19.0: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "readProjectComponentUsages",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
               "deprecationReason": null,
               "description": "If `true`, the user can perform `read_project_member` on this resource",
               "isDeprecated": false,
               "name": "readProjectMember",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": "Status: Experiment. Introduced in GitLab 18.8.",
+              "description": "If `true`, the user can perform `read_runner_cloud_provisioning_info` on this resource Introduced in GitLab 18.8: Status: Experiment.",
+              "isDeprecated": true,
+              "name": "readRunnerCloudProvisioningInfo",
               "type": {
                 "kind": "NON_NULL",
                 "name": null,
@@ -2417,7 +2790,9 @@
               "args": [
                 {
                   "defaultValue": null,
+                  "deprecationReason": null,
                   "description": "Full path of the group. For example, `gitlab-org/gitlab-foss`.",
+                  "isDeprecated": false,
                   "name": "fullPath",
                   "type": {
                     "kind": "NON_NULL",
@@ -2553,6 +2928,11 @@
             },
             {
               "kind": "OBJECT",
+              "name": "DuoWorkflow",
+              "ofType": null
+            },
+            {
+              "kind": "OBJECT",
               "name": "Epic",
               "ofType": null
             },
@@ -2646,7 +3026,9 @@
               "args": [
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": null,
+                  "isDeprecated": false,
                   "name": "includeDeprecated",
                   "type": {
                     "kind": "SCALAR",
@@ -2843,6 +3225,12 @@
             },
             {
               "deprecationReason": null,
+              "description": "Location adjacent to a variable definition.",
+              "isDeprecated": false,
+              "name": "VARIABLE_DEFINITION"
+            },
+            {
+              "deprecationReason": null,
               "description": "Location adjacent to a schema definition.",
               "isDeprecated": false,
               "name": "SCHEMA"
@@ -2906,12 +3294,6 @@
               "description": "Location adjacent to an input object field definition.",
               "isDeprecated": false,
               "name": "INPUT_FIELD_DEFINITION"
-            },
-            {
-              "deprecationReason": null,
-              "description": "Location adjacent to a variable definition.",
-              "isDeprecated": false,
-              "name": "VARIABLE_DEFINITION"
             }
           ],
           "fields": null,
@@ -2996,7 +3378,9 @@
               "args": [
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": null,
+                  "isDeprecated": false,
                   "name": "includeDeprecated",
                   "type": {
                     "kind": "SCALAR",
@@ -3332,7 +3716,9 @@
               "args": [
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": null,
+                  "isDeprecated": false,
                   "name": "includeDeprecated",
                   "type": {
                     "kind": "SCALAR",
@@ -3363,7 +3749,9 @@
               "args": [
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": null,
+                  "isDeprecated": false,
                   "name": "includeDeprecated",
                   "type": {
                     "kind": "SCALAR",
@@ -3394,7 +3782,9 @@
               "args": [
                 {
                   "defaultValue": "false",
+                  "deprecationReason": null,
                   "description": null,
+                  "isDeprecated": false,
                   "name": "includeDeprecated",
                   "type": {
                     "kind": "SCALAR",

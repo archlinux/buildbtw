@@ -19,7 +19,7 @@ jq '
   .data.__schema.types |= map(
     if .name == "Project" then
       # Keep only fields used in changed_projects.graphql
-      .fields |= map(select(.name | test("^(path|updatedAt|lastActivityAt)$")))
+      .fields |= map(select(.name | test("^(path|updatedAt|lastActivityAt|archived)$")))
     elif .name == "PageInfo" then
       # Keep only pagination fields we use
       .fields |= map(select(.name | test("^(endCursor|hasNextPage)$")))
