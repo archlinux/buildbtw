@@ -1403,6 +1403,18 @@
             {
               "args": [],
               "deprecationReason": null,
+              "description": "Indicates if the project or any ancestor is archived.",
+              "isDeprecated": false,
+              "name": "archived",
+              "type": {
+                "kind": "SCALAR",
+                "name": "Boolean",
+                "ofType": null
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
               "description": "Timestamp of the project last activity.",
               "isDeprecated": false,
               "name": "lastActivityAt",
