@@ -77,11 +77,7 @@ pub async fn schedule_pending_builds(
         return Ok(());
     }
 
-    let builds_to_schedule = queries::builds::with_iteration_and_buildspace(
-        queries::builds::pending(available_build_slots),
-    )
-    .all(&tx)
-    .await?;
+    let builds_to_schedule = queries::builds::pending(available_build_slots, &tx).await?;
 
     // Commit the read transaction before dispatching. The Local
     // dispatch path opens its own IMMEDIATE transaction below, which would

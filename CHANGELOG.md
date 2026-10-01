@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### backend
+
+- **Feature:** Prioritize builds for changesets before any builds for dependents ([!321](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/321))
+
 ## [0.0.7] - 2026-10-03
 
 ### backend
