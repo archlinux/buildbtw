@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### bbtw
 
 - **Breaking change:** Take pkgbases instead of gitlab repo names when creating a new buildspace.
+- **Feature:** Add `bbtw download` command for downloading packages from an iteration ([!299](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/299))
+- **Feature:** Add `bbtw log` command for retrieving package build logs ([!277](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/277))
 - **Fix:** Fix login when never logged in before ([!226](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/226))
 
 ### executor
