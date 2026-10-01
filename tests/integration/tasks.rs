@@ -1,16 +1,20 @@
+use buildbtw::{
+    db_fields::{RedactedString, TxtUuid},
+    entities::{
+        self,
+        sessions::{self, ClientType},
+    },
+    gitlab_api::pipelines::PipelineStatus,
+    package::BuildStatus,
+    queries,
+    tasks::{UpdateOutcome, invalidate_old_sessions, update_build_from_pipeline},
+};
 use color_eyre::Result;
 use redact::Secret;
 use rstest::rstest;
-use sea_orm::{ActiveValue::Set, EntityTrait, SelectExt};
+use sea_orm::{ActiveValue::Set, DatabaseConnection, EntityTrait, SelectExt, TransactionTrait};
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
-
-use buildbtw::{
-    db_fields::{RedactedString, TxtUuid},
-    entities::sessions::{self, ClientType},
-    queries,
-    tasks::invalidate_old_sessions,
-};
 
 use crate::factories;
 use crate::test_ctx::{TestCtx, ctx};
@@ -77,6 +81,90 @@ async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCt
             .await?,
         "Recent session should still exist after cleanup"
     );
+
+    Ok(())
+}
+
+/// Create a build with a given status dispatched to GitLab, along with
+/// its gitlab_pipeline row, then call `update_build_from_pipeline` with the
+/// given pipeline status. Returns the outcome and the build's resulting status.
+async fn make_build_dispatched_to_gitlab(
+    tx: &DatabaseConnection,
+    build_status: BuildStatus,
+) -> Result<entities::gitlab_pipelines::Model> {
+    let tx = tx.begin().await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "test-space").await?;
+    let build = factories::build(&tx, iteration.id, "test-pkg").await?;
+
+    let pipeline = factories::gitlab_pipeline(&tx, &build).await?;
+
+    // Set build status to the one we want to test
+    queries::builds::update_build_status(build.id, build_status)
+        .exec(&tx)
+        .await?;
+
+    tx.commit().await?;
+
+    Ok(pipeline)
+}
+
+/// Pipeline statuses that should transition the build to a new status.
+#[rstest]
+#[case(BuildStatus::Building, PipelineStatus::Failed, BuildStatus::Failed)]
+#[case(BuildStatus::Building, PipelineStatus::Canceled, BuildStatus::Failed)]
+#[case(BuildStatus::Building, PipelineStatus::Skipped, BuildStatus::Failed)]
+#[tokio::test]
+async fn test_update_build_from_pipeline_updates_build(
+    #[future(awt)] ctx: TestCtx,
+    #[case] build_status: BuildStatus,
+    #[case] pipeline_status: PipelineStatus,
+    #[case] expected_updated_status: BuildStatus,
+) -> Result<()> {
+    let db = &ctx.state.db;
+    let pipeline = make_build_dispatched_to_gitlab(db, build_status).await?;
+
+    let outcome = update_build_from_pipeline(db, &pipeline, pipeline_status).await?;
+
+    let build = queries::builds::by_id(pipeline.build_id)
+        .one(db)
+        .await?
+        .unwrap();
+
+    assert!(matches!(outcome, UpdateOutcome::Updated));
+    assert_eq!(build.status, expected_updated_status);
+
+    Ok(())
+}
+
+#[rstest]
+// Do nothing if the pipeline is still running.
+#[case(BuildStatus::Scheduled, PipelineStatus::Pending)]
+#[case(BuildStatus::Building, PipelineStatus::Running)]
+// A successful pipeline leaves a Building build alone, since the build will be updated when its artifacts are uploaded. If artifact upload fails, the pipeline will fail as well.
+#[case(BuildStatus::Scheduled, PipelineStatus::Success)]
+#[case(BuildStatus::Building, PipelineStatus::Success)]
+// Finished builds are never updated.
+#[case(BuildStatus::Built, PipelineStatus::Failed)]
+#[case(BuildStatus::Failed, PipelineStatus::Success)]
+#[case(BuildStatus::Skipped, PipelineStatus::Success)]
+#[tokio::test]
+async fn test_update_build_from_pipeline_does_nothing(
+    #[future(awt)] ctx: TestCtx,
+    #[case] build_status: BuildStatus,
+    #[case] pipeline_status: PipelineStatus,
+) -> Result<()> {
+    let db = &ctx.state.db;
+    let pipeline = make_build_dispatched_to_gitlab(db, build_status).await?;
+
+    let outcome = update_build_from_pipeline(db, &pipeline, pipeline_status).await?;
+
+    let build = queries::builds::by_id(pipeline.build_id)
+        .one(db)
+        .await?
+        .unwrap();
+
+    assert!(matches!(outcome, UpdateOutcome::Skipped));
+    assert_eq!(build.status, build_status);
 
     Ok(())
 }

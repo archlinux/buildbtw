@@ -20,8 +20,8 @@ use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::entities::{self, user_roles};
-use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
+use crate::entities::{self, gitlab_pipelines, user_roles};
+use crate::{db_fields::TxtUuid, package, queries, server_state::ServerState};
 use crate::{executor, gitlab_api};
 use crate::{iteration_creator, schedule_builds, storage};
 
@@ -37,6 +37,7 @@ use crate::{iteration_creator, schedule_builds, storage};
 /// - Regularly sync OIDC roles from OIDC provider
 /// - Regularly delete expired sessions
 /// - Dispatch builds to local executor or gitlab pipelines
+/// - Sync gitlab pipeline statuses to keep build statuses up to date
 pub fn initialize(
     state: &mut ServerState,
     token: CancellationToken,
@@ -47,11 +48,12 @@ pub fn initialize(
     db: DatabaseConnection,
 ) -> Result<()> {
     // If the flag is enabled, and a gitlab config is present, tell the iteration creator to update source repos
-    let repo_update_config = if update_source_repos && let Some(gitlab_config) = gitlab_config {
-        iteration_creator::RepoUpdateConfig::DoUpdate(gitlab_config)
-    } else {
-        iteration_creator::RepoUpdateConfig::DontUpdate
-    };
+    let repo_update_config =
+        if update_source_repos && let Some(gitlab_config) = gitlab_config.clone() {
+            iteration_creator::RepoUpdateConfig::DoUpdate(gitlab_config)
+        } else {
+            iteration_creator::RepoUpdateConfig::DontUpdate
+        };
 
     let iteration_creator_message_sender = iteration_creator::IterationCreator::spawn(
         iteration_creator::Config {
@@ -69,6 +71,10 @@ pub fn initialize(
     debug!(?dispatch_builds);
     if let Some(dispatch_config) = dispatch_builds {
         spawn_schedule_builds(state.clone(), token.clone(), dispatch_config);
+    }
+
+    if let Some(gitlab_config) = gitlab_config {
+        spawn_sync_gitlab_pipeline_statuses(state.db.clone(), gitlab_config, token.clone());
     }
 
     spawn_invalidate_old_sessions(state.clone(), token.clone());
@@ -163,6 +169,145 @@ async fn next_scheduled_build(
             .await?;
 
     Ok(build)
+}
+
+fn spawn_sync_gitlab_pipeline_statuses(
+    db: DatabaseConnection,
+    gitlab_config: gitlab_api::Config,
+    token: CancellationToken,
+) {
+    tokio::spawn(async move {
+        let mut every_10_seconds = interval(std::time::Duration::from_secs(10));
+        every_10_seconds.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                _ = every_10_seconds.tick() => {
+                    if let Err(e) = sync_gitlab_pipeline_statuses(&db, &gitlab_config).await {
+                        error!(?e, "Failed to sync gitlab pipeline statuses");
+                    }
+                }
+                () = token.cancelled() => {
+                    break;
+                }
+            }
+        }
+    });
+}
+
+/// Poll GitLab for the current status of all unfinished pipelines and update
+/// the corresponding build statuses accordingly.
+#[instrument(skip_all)]
+async fn sync_gitlab_pipeline_statuses(
+    db: &DatabaseConnection,
+    gitlab_config: &gitlab_api::Config,
+) -> Result<()> {
+    let client = gitlab_api::client(gitlab_config).await?;
+
+    let pipelines = queries::gitlab_pipelines::running().all(db).await?;
+
+    let pipeline_count = pipelines.len();
+    let mut updated_count = 0;
+    let mut skipped_count = 0;
+    let mut error_count = 0;
+
+    debug!(?pipeline_count, "Syncing gitlab pipeline statuses");
+
+    for pipeline in pipelines {
+        let pipeline_status =
+            match gitlab_api::pipelines::get(&client, pipeline.project_id, pipeline.pipeline_id)
+                .await
+            {
+                Ok(response) => response.status,
+                Err(e) => {
+                    error_count += 1;
+                    error!(
+                        ?e,
+                        pipeline_id = %pipeline.pipeline_id,
+                        project_id = %pipeline.project_id,
+                        build_id = %pipeline.build_id,
+                        "Failed to fetch pipeline status from GitLab"
+                    );
+                    continue;
+                }
+            };
+
+        match update_build_from_pipeline(db, &pipeline, pipeline_status).await {
+            Ok(UpdateOutcome::Updated) => updated_count += 1,
+            Ok(UpdateOutcome::Skipped) => skipped_count += 1,
+            Err(e) => {
+                error_count += 1;
+                error!(
+                    ?e,
+                    pipeline_id = %pipeline.pipeline_id,
+                    project_id = %pipeline.project_id,
+                    build_id = %pipeline.build_id,
+                    "Failed to update build status from pipeline"
+                );
+            }
+        }
+    }
+
+    info!(
+        pipeline_count,
+        updated_count, skipped_count, error_count, "Synced gitlab pipeline statuses"
+    );
+
+    Ok(())
+}
+
+pub enum UpdateOutcome {
+    /// Pipeline was updated.
+    Updated,
+    /// Pipeline still running, build status was already set as finished, or the pipeline succeeded and the build will be updated when artifacts are uploaded.
+    Skipped,
+}
+
+/// Update the build associated with the given pipeline based on the pipeline's
+/// current status.
+pub async fn update_build_from_pipeline(
+    db: &DatabaseConnection,
+    pipeline: &gitlab_pipelines::Model,
+    pipeline_status: gitlab_api::pipelines::PipelineStatus,
+) -> Result<UpdateOutcome> {
+    let tx = db.begin().await?;
+
+    let build = queries::builds::by_id(pipeline.build_id)
+        .require_one(&tx)
+        .await?;
+
+    // Don't change builds that are already marked as finished.
+    if matches!(
+        build.status,
+        package::BuildStatus::Built | package::BuildStatus::Failed | package::BuildStatus::Skipped
+    ) {
+        return Ok(UpdateOutcome::Skipped);
+    }
+
+    match pipeline_status {
+        gitlab_api::pipelines::PipelineStatus::Success => {
+            // Will be updated when build artifacts are uploaded.
+            Ok(UpdateOutcome::Skipped)
+        }
+        gitlab_api::pipelines::PipelineStatus::Failed
+        | gitlab_api::pipelines::PipelineStatus::Canceled
+        | gitlab_api::pipelines::PipelineStatus::Skipped => {
+            debug!(
+                pipeline_id = %pipeline.pipeline_id,
+                build_id = %pipeline.build_id,
+                pipeline_status = ?pipeline_status,
+                build_status = ?build.status,
+                "Pipeline failed, updating build"
+            );
+            queries::builds::update_build_status(pipeline.build_id, package::BuildStatus::Failed)
+                .exec(&tx)
+                .await?;
+            tx.commit().await?;
+            Ok(UpdateOutcome::Updated)
+        }
+        // Pipeline is still running, do nothing.
+        _ => Ok(UpdateOutcome::Skipped),
+    }
 }
 
 fn spawn_invalidate_old_sessions(state: ServerState, token: CancellationToken) {

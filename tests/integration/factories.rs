@@ -408,3 +408,29 @@ package() {{
 
     (pkgbuild, srcinfo)
 }
+
+pub async fn gitlab_pipeline(
+    tx: &DatabaseTransaction,
+    build: &entities::builds::Model,
+) -> Result<entities::gitlab_pipelines::Model> {
+    let pipeline = entities::gitlab_pipelines::ActiveModel {
+        id: Set(Uuid::new_v4().into()),
+        build_id: Set(build.id),
+        project_id: Set(1),
+        pipeline_id: Set(100),
+        web_url: Set("https://gitlab.archlinux.org/test/test-pkg/-/pipelines/100".to_string()),
+    };
+    let pipeline = entities::gitlab_pipelines::Entity::insert(pipeline)
+        .exec_with_returning(tx)
+        .await?;
+    queries::builds::update_gitlab_pipeline(build.id, pipeline.id)
+        .exec(tx)
+        .await?;
+
+    // Builds with pipelines always need to be dispatched as well
+    queries::builds::update_dispatched_to(build.id, Some(entities::builds::DispatchedTo::Gitlab))
+        .exec(tx)
+        .await?;
+
+    Ok(pipeline)
+}
