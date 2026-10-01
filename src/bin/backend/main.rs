@@ -231,7 +231,11 @@ async fn run_server(db: DatabaseConnection, config: Config) -> Result<()> {
         config.gitlab.clone(),
         config.update_source_repos,
         config.auto_create_iterations,
-        schedule_builds::Config::new(config.dispatch_builds_to, config.gitlab)?,
+        schedule_builds::Config::new(
+            config.dispatch_builds_to,
+            config.gitlab,
+            config.max_parallel_builds,
+        )?,
         db.clone(),
     )?;
 

@@ -1,7 +1,7 @@
 use buildbtw::{
     db,
     entities::{builds, gitlab_pipelines},
-    gitlab_api, package, queries,
+    gitlab_api, package, queries, schedule_builds,
 };
 use color_eyre::{Result, eyre::OptionExt};
 use redact::Secret;
@@ -61,7 +61,7 @@ async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
     // There's no way for gitlab.archlinux.org to reach our test server,
     // but for the purposes of this test, that's fine.
     let server_base_url: Url = "https://buildbtw.localhost:8080".parse()?;
-    buildbtw::schedule_builds::create_and_persist_gitlab_pipeline(
+    schedule_builds::create_and_persist_gitlab_pipeline(
         &client,
         &gitlab_config,
         &build,
@@ -141,13 +141,13 @@ async fn test_schedule_pending_builds_unblocks_dependent_builds(
     assert_eq!(dep_a_build.status, package::BuildStatus::Blocked);
 
     // schedule_pending_builds should unblock dep_a and then schedule it
-    let config = buildbtw::schedule_builds::Config::Local;
-    buildbtw::schedule_builds::schedule_pending_builds(
-        &config,
-        &ctx.state.db,
-        &ctx.state.server_url,
-    )
-    .await?;
+    let config = schedule_builds::Config::new(
+        Some(schedule_builds::DispatchBuildsTo::LocalExecutor),
+        None,
+        1,
+    )?
+    .expect("Created invalid config for scheduling builds");
+    schedule_builds::schedule_pending_builds(&config, &ctx.state.db, &ctx.state.server_url).await?;
 
     // dep_a should now be Scheduled: unblocked from Blocked -> Pending, then scheduled
     let dep_a_build = builds::Entity::find()

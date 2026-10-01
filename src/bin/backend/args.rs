@@ -190,6 +190,13 @@ pub struct RunArgs {
     /// since we don't inject the self-signing CA into the VM.
     #[arg(long, env = "BUILDBTW_DISPATCH_BUILDS_TO", value_enum)]
     pub dispatch_builds_to: Option<DispatchBuildsTo>,
+
+    /// Do not dispatch more than this number of builds at the same time.
+    /// For local builds, this is the only parameter limiting concurrency, and builds will only be dispatched on the machine running the buildbtw server.
+    /// For builds dispatched to gitlab, also have a look at the gitlab runner's `concurrent` and `limit` options:
+    /// <https://docs.gitlab.com/runner/configuration/advanced-configuration/#the-runners-section>
+    #[arg(long, env = "BUILDBTW_MAX_PARALLEL_BUILDS", default_value = "5")]
+    pub max_parallel_builds: u64,
 }
 
 #[derive(Display, Debug, Clone, PartialEq, Eq, clap::ValueEnum)]
