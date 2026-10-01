@@ -70,14 +70,14 @@ pub async fn oidc_user(db: &DatabaseConnection, username: &str) -> Result<entiti
 }
 
 pub async fn buildspace_with_iteration(
-    tx: &DatabaseTransaction,
+    tx: &impl ConnectionTrait,
     name: &str,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
     buildspace_with_changesets(tx, name, &[]).await
 }
 
 pub async fn buildspace_with_changesets(
-    tx: &DatabaseTransaction,
+    tx: &impl ConnectionTrait,
     name: &str,
     changesets: &[(&str, &str)],
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
@@ -98,7 +98,7 @@ pub async fn buildspace_with_changesets(
 }
 
 pub async fn build(
-    tx: &DatabaseTransaction,
+    tx: &impl ConnectionTrait,
     iteration_id: TxtUuid,
     pkgbase: &str,
 ) -> Result<entities::builds::Model> {
@@ -112,7 +112,7 @@ pub async fn build(
 }
 
 pub async fn build_with_architecture(
-    tx: &DatabaseTransaction,
+    tx: &impl ConnectionTrait,
     iteration_id: TxtUuid,
     pkgbase: &str,
     architecture: package::BuildArchitecture,
@@ -151,7 +151,7 @@ pub async fn build_with_status(
 
 /// More flexible, but less convenient way to create a build.
 pub async fn build_from_node(
-    tx: &DatabaseTransaction,
+    tx: &impl ConnectionTrait,
     iteration_id: TxtUuid,
     build_node: BuildNode,
     architecture: package::BuildArchitecture,
@@ -428,4 +428,29 @@ pub fn changeset((pkgbase, branch): (&str, &str)) -> git::Changeset {
         pkgbase: pkgbase.parse().unwrap(),
         branch_name: branch.try_into().unwrap(),
     }
+}
+pub async fn gitlab_pipeline(
+    tx: &impl ConnectionTrait,
+    build: &entities::builds::Model,
+) -> Result<entities::gitlab_pipelines::Model> {
+    let pipeline = entities::gitlab_pipelines::ActiveModel {
+        id: Set(Uuid::new_v4().into()),
+        build_id: Set(build.id),
+        project_id: Set(1),
+        pipeline_id: Set(100),
+        web_url: Set("https://gitlab.archlinux.org/test/test-pkg/-/pipelines/100".to_string()),
+    };
+    let pipeline = entities::gitlab_pipelines::Entity::insert(pipeline)
+        .exec_with_returning(tx)
+        .await?;
+    queries::builds::update_gitlab_pipeline(build.id, pipeline.id)
+        .exec(tx)
+        .await?;
+
+    // Builds with pipelines always need to be dispatched as well
+    queries::builds::update_dispatched_to(build.id, Some(entities::builds::DispatchedTo::Gitlab))
+        .exec(tx)
+        .await?;
+
+    Ok(pipeline)
 }
