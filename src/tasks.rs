@@ -94,7 +94,7 @@ fn spawn_schedule_builds(
             tokio::select! {
                 _ = every_10_seconds.tick() => {
                     if let Err(e) = schedule_builds::schedule_pending_builds(&dispatch_config, &state.db, &state.server_url).await {
-                        error!(?e, "Failed to dispatch builds");
+                        error!(?e, "Failed to schedule builds");
                     }
 
                     if let Err(e) = run_all_local_builds(&state, token.clone()).await {
@@ -144,7 +144,7 @@ async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> 
     // No need to check the cancellation token here: each build task takes care to check the cancellation token itself.
     while let Some(result) = build_tasks.join_next().await {
         match result {
-            Ok(Ok(())) => {}
+            Ok(()) => {}
             e => {
                 error!(?e, "build task panicked or was aborted.");
             }

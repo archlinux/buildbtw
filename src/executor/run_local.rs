@@ -5,7 +5,7 @@ use color_eyre::Result;
 use color_eyre::eyre::{Context, eyre};
 use sea_orm::DatabaseConnection;
 use tokio_util::sync::CancellationToken;
-use tracing::debug;
+use tracing::{debug, error};
 use url::Url;
 
 use crate::entities::{self};
@@ -13,10 +13,31 @@ use crate::executor::config::{self, PacmanRepo};
 use crate::{executor, git};
 use crate::{queries, storage};
 
-/// Run a build locally
 pub async fn build(
     db: DatabaseConnection,
     build: entities::builds::WithIterationAndBuildspace,
+    data_dir: Option<Utf8PathBuf>,
+    api_server_url: Url,
+    cancellation_token: CancellationToken,
+) -> () {
+    let result = try_build(&db, &build, data_dir, api_server_url, cancellation_token).await;
+
+    // Build failures inside the VM will already be caught downstream;
+    // In case something goes wrong with creating the VM etc., reset the "dispatched_to" status
+    // so we'll retry dispatching it later on.
+    // This matches our behavior when creating gitlab pipelines
+    if let Err(e) = result {
+        error!("Could not run local build: {e}");
+        let _ = queries::builds::update_dispatched_to(build.id, None)
+            .exec(&db)
+            .await;
+    }
+}
+
+/// Run a build locally
+pub async fn try_build(
+    db: &DatabaseConnection,
+    build: &entities::builds::WithIterationAndBuildspace,
     data_dir: Option<Utf8PathBuf>,
     api_server_url: Url,
     cancellation_token: CancellationToken,
@@ -34,7 +55,7 @@ pub async fn build(
     .await?;
 
     // Upload API config
-    let tx = crate::db::begin_immediate(&db).await?;
+    let tx = crate::db::begin_immediate(db).await?;
     let token = queries::sessions::upsert_system_user_api_token(&tx).await?;
     let api_config = Some(config::RunBuildScriptApiConfig {
         api_server_url: api_server_url.clone(),
@@ -54,7 +75,7 @@ pub async fn build(
             ci_project_dir: build_dir.path().to_path_buf(),
             architecture: build.architecture,
             pacman_repository: Some(PacmanRepo {
-                buildspace: build.iteration.buildspace.name,
+                buildspace: build.iteration.buildspace.name.clone(),
                 iteration: build.iteration.sequence,
                 architecture: build.architecture,
                 pacman_repository_base_url: server_url_in_vm,
