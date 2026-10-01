@@ -188,6 +188,8 @@ pub struct RunArgs {
     /// If not specified, builds will not be dispatched.
     /// For `local-vmexec`, you need to disable TLS if using self-signed certificates
     /// since we don't inject the self-signing CA into the VM.
+    ///
+    /// Note: the buildbtw server is not designed for changing this value once builds have been dispatched. Prefer running multiple instances of the server or wiping the database and artifacts before changing this.
     #[arg(long, env = "BUILDBTW_DISPATCH_BUILDS_TO", value_enum)]
     pub dispatch_builds_to: Option<DispatchBuildsTo>,
 
