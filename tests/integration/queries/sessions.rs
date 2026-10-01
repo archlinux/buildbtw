@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use redact::Secret;
 use rstest::rstest;
-use sea_orm::{ActiveValue::Set, EntityTrait, PaginatorTrait};
+use sea_orm::{ActiveValue::Set, EntityTrait, PaginatorTrait, SqlErr};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -141,6 +141,34 @@ async fn test_find_by_id(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .one(&ctx.state.db)
         .await?
         .expect("Expected to find a session but found none");
+
+    Ok(())
+}
+
+/// A bot may only ever have a single bot session.
+#[rstest]
+#[tokio::test]
+async fn test_bot_can_only_have_one_session(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create bot user.
+    let bot = factories::bot(&ctx.state.db, "bot").await?;
+
+    queries::sessions::insert(bot.id.0, sessions::ClientType::Bot)
+        .exec(&ctx.state.db)
+        .await?;
+
+    // Inserting a second bot session for the same user should violate the unique index.
+    let failure = queries::sessions::insert(bot.id.0, sessions::ClientType::Bot)
+        .exec(&ctx.state.db)
+        .await;
+
+    let err = failure
+        .unwrap_err()
+        .sql_err()
+        .expect("Expected to receive an SQL error");
+    assert_eq!(
+        err,
+        SqlErr::UniqueConstraintViolation("UNIQUE constraint failed: sessions.user_id".to_string())
+    );
 
     Ok(())
 }
