@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
             .await?;
 
             // Print project names separated by spaces
-            let project_names: Vec<_> = projects.iter().map(|p| p.path.to_string()).collect();
+            let project_names: Vec<_> = projects.iter().map(|p| p.repo_slug.to_string()).collect();
             println!("{}", project_names.join(" "));
 
             Ok(())
