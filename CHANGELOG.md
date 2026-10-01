@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
++++++++ lpowoyzl c9210061 "Merge branch 'vendor-assets' into 'main'" (rebase destination)
 ### backend
 
 - **Feature:** Prioritize builds for changesets before any builds for dependents ([!321](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/321))
 - **Feature:** Vendor all assets so the backend now serves everything without external resources ([!326](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/326))
+- **Fix:** Mark builds as failed where the gitlab executor didn't start or the pipeline was skipped. ([!310](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/310))
 
 ### repo-updater
 
