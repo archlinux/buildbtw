@@ -1,7 +1,7 @@
 use color_eyre::{Result, eyre::OptionExt};
 use derive_more::Display;
 use gitlab::AsyncGitlab;
-use sea_orm::{DatabaseConnection, TransactionSession};
+use sea_orm::{DatabaseConnection, PaginatorTrait, TransactionSession, TransactionTrait};
 use tracing::error;
 use url::Url;
 
@@ -62,17 +62,36 @@ pub async fn schedule_pending_builds(
     db: &DatabaseConnection,
     server_base_url: &Url,
 ) -> Result<()> {
+    let tx = db.begin().await?;
     // Move builds that can now be built to `Pending` status
-    queries::builds::unblock_builds().exec(db).await?;
+    queries::builds::unblock_builds().exec(&tx).await?;
 
-    let pending = queries::builds::with_iteration_and_buildspace(queries::builds::pending())
-        .all(db)
-        .await?;
+    // Check how many builds we can dispatch
+    let running_build_count = queries::builds::running().count(&tx).await?;
+    let available_build_slots = config
+        .max_parallel_builds
+        .saturating_sub(running_build_count);
+
+    if available_build_slots == 0 {
+        // Nothing to do
+        return Ok(());
+    }
+
+    let builds_to_schedule = queries::builds::with_iteration_and_buildspace(
+        queries::builds::pending(available_build_slots),
+    )
+    .all(&tx)
+    .await?;
+
+    // Commit the read transaction before dispatching. The Local
+    // dispatch path opens its own IMMEDIATE transaction below, which would
+    // deadlock with SQLite if this one were still open.
+    tx.commit().await?;
 
     match &config.dispatch_target {
         DispatchTargetConfig::Local => {
             let tx = db::begin_immediate(db).await?;
-            for build in &pending {
+            for build in &builds_to_schedule {
                 // Mark the build as `Scheduled` so we won't pick it up the next
                 // time this runs, but don't set it as dispatched since the
                 // build VM has not started running yet.
@@ -82,7 +101,7 @@ pub async fn schedule_pending_builds(
         }
         DispatchTargetConfig::Gitlab(gitlab_api_config) => {
             let client = gitlab_api::client(gitlab_api_config).await?;
-            for build in &pending {
+            for build in &builds_to_schedule {
                 if let Err(e) = create_and_persist_gitlab_pipeline(
                     &client,
                     gitlab_api_config,

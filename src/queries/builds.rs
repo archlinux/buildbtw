@@ -278,9 +278,10 @@ pub fn unblock_builds() -> UpdateMany<builds::Entity> {
 /// Get the set of builds that are currently pending, optionally filtered
 /// by iteration.
 #[must_use]
-pub fn pending() -> Select<builds::Entity> {
-    let query =
-        builds::Entity::find().filter(builds::COLUMN.status.eq(package::BuildStatus::Pending));
+pub fn pending(limit: u64) -> Select<builds::Entity> {
+    let query = builds::Entity::find()
+        .filter(builds::COLUMN.status.eq(package::BuildStatus::Pending))
+        .limit(Some(limit));
 
     query
 }
@@ -330,4 +331,13 @@ pub fn schedule_and_dispatch(
         ..Default::default()
     };
     builds::Entity::update(model)
+}
+
+/// Select all builds that are still running.
+#[must_use]
+pub fn running() -> Select<builds::Entity> {
+    builds::Entity::find().filter(builds::COLUMN.status.is_in([
+        package::BuildStatus::Scheduled,
+        package::BuildStatus::Building,
+    ]))
 }

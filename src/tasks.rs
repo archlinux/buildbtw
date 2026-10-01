@@ -138,9 +138,6 @@ async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> 
 
     tx.commit().await?;
 
-    // TODO limit concurrency here
-    // https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/278
-
     // No need to check the cancellation token here: each build task takes care to check the cancellation token itself.
     while let Some(result) = build_tasks.join_next().await {
         match result {
