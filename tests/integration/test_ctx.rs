@@ -324,7 +324,11 @@ impl TestCtxBuilder {
                 Some(std::net::Ipv4Addr::UNSPECIFIED.into()),
                 Some(testserver_port),
             )
-            .build(router::new("./".into()).with_state(state.clone()));
+            .build(
+                router::new("./".into(), &state.trusted_origins())
+                    .unwrap()
+                    .with_state(state.clone()),
+            );
 
         let admin_session = make_admin_session(db).await.unwrap();
 

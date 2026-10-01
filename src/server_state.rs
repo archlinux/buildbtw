@@ -5,7 +5,7 @@ use color_eyre::Result;
 use redact::Secret;
 use sea_orm::DatabaseConnection;
 use tokio::sync::{self, mpsc};
-use url::Url;
+use url::{Origin, Url};
 use uuid::Uuid;
 
 use crate::{iteration_creator, oidc};
@@ -42,6 +42,20 @@ pub struct ServerState {
 }
 
 impl ServerState {
+    /// List of trusted origins
+    ///
+    /// Effectively, this is the server's own URL and the OIDC issuer URL.
+    #[must_use]
+    pub fn trusted_origins(&self) -> Vec<Origin> {
+        let mut origins = vec![self.server_url.origin()];
+
+        if let Some(oidc) = &self.oidc {
+            origins.push(oidc.issuer_url.url().origin());
+        }
+
+        origins
+    }
+
     /// Notify the iteration creator about a new buildspace.
     /// If the iteration creator is not initialized, does nothing.
     pub async fn notify_iteration_creator_buildspace_created(
