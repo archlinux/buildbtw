@@ -278,13 +278,9 @@ pub fn unblock_builds() -> UpdateMany<builds::Entity> {
 /// Get the set of builds that are currently pending, optionally filtered
 /// by iteration.
 #[must_use]
-pub fn pending(iteration_id: Option<Uuid>) -> Select<builds::Entity> {
-    let mut query =
+pub fn pending() -> Select<builds::Entity> {
+    let query =
         builds::Entity::find().filter(builds::COLUMN.status.eq(package::BuildStatus::Pending));
-
-    if let Some(iteration_id) = iteration_id {
-        query = query.filter(builds::COLUMN.iteration_id.eq(iteration_id));
-    }
 
     query
 }
