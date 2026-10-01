@@ -5,7 +5,7 @@ use buildbtw::{
     buildspace,
     db_fields::TxtUuid,
     dependency_graph::{self, BuildNode},
-    entities, package, queries,
+    entities, git, package, queries,
 };
 use camino_tempfile::Utf8TempDir;
 use color_eyre::Result;
@@ -73,9 +73,23 @@ pub async fn buildspace_with_iteration(
     tx: &DatabaseTransaction,
     name: &str,
 ) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
+    buildspace_with_changesets(tx, name, &[]).await
+}
+
+pub async fn buildspace_with_changesets(
+    tx: &DatabaseTransaction,
+    name: &str,
+    changesets: &[(&str, &str)],
+) -> Result<(entities::buildspaces::Model, entities::iterations::Model)> {
     let buildspace_slug = buildspace::Slug::try_from(name)?;
-    let (insert_buildspace, insert_iteration) =
-        queries::buildspaces::insert(buildspace_slug, Vec::new().into());
+    let (insert_buildspace, insert_iteration) = queries::buildspaces::insert(
+        buildspace_slug,
+        changesets
+            .iter()
+            .map(|(pkgbase, branch)| changeset((pkgbase, branch)))
+            .collect::<Vec<_>>()
+            .into(),
+    );
 
     let buildspace = insert_buildspace.exec_with_returning(tx).await?;
     let iteration = insert_iteration.exec_with_returning(tx).await?;
@@ -407,4 +421,11 @@ package() {{
     );
 
     (pkgbuild, srcinfo)
+}
+
+pub fn changeset((pkgbase, branch): (&str, &str)) -> git::Changeset {
+    git::Changeset {
+        pkgbase: pkgbase.parse().unwrap(),
+        branch_name: branch.try_into().unwrap(),
+    }
 }

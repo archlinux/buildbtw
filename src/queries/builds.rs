@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
 use color_eyre::{Result, eyre::OptionExt};
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveValue::{Set, Unchanged},
-    ColumnTrait, EntityLoaderTrait, EntityTrait, ExprTrait, InsertMany, JoinType, QueryFilter,
-    QuerySelect, QueryTrait, RelationTrait, Select, SelectModel, Selector, UpdateMany, UpdateOne,
+    ColumnTrait, Condition, DatabaseTransaction, EntityLoaderTrait, EntityTrait, ExprTrait,
+    InsertMany, JoinType, QueryFilter, QuerySelect, QueryTrait, RelationTrait, Select, SelectModel,
+    Selector, UpdateMany, UpdateOne,
 };
 use uuid::Uuid;
 
@@ -275,15 +277,50 @@ pub fn unblock_builds() -> UpdateMany<builds::Entity> {
     )
 }
 
-/// Get the set of builds that are currently pending, optionally filtered
-/// by iteration.
-#[must_use]
-pub fn pending(limit: u64) -> Select<builds::Entity> {
-    let query = builds::Entity::find()
-        .filter(builds::COLUMN.status.eq(package::BuildStatus::Pending))
-        .limit(Some(limit));
+/// Get up to `limit` pending builds, prioritizing builds that
+/// match one of the changesets in their iteration.
+pub async fn pending(
+    limit: u64,
+    tx: &DatabaseTransaction,
+) -> Result<Vec<builds::WithIterationAndBuildspace>, sea_orm::DbErr> {
+    // First, look for builds that match a changeset of their iteration
+    // The `json_each` here is not ideal, but given that the average amount of changesets for an iteration will be 1-5, it's fine
+    let matches_changeset = Condition::all().add(Expr::cust(
+        "EXISTS (
+            SELECT 1
+            FROM iterations
+            JOIN json_each(iterations.changesets)
+            WHERE iterations.id = builds.iteration_id
+            AND json_extract(json_each.value, '$.pkgbase') = builds.pkgbase
+            AND json_extract(json_each.value, '$.branch_name') = builds.branch_name
+        )",
+    ));
+    let high_priority_builds = with_iteration_and_buildspace(
+        builds::Entity::find()
+            .filter(builds::COLUMN.status.eq(package::BuildStatus::Pending))
+            .filter(matches_changeset)
+            .limit(Some(limit)),
+    )
+    .all(tx)
+    .await?;
 
-    query
+    let remaining = limit.saturating_sub(high_priority_builds.len() as u64);
+    if remaining == 0 {
+        return Ok(high_priority_builds);
+    }
+
+    // Fill remaining build slots with random pending builds
+    let high_priority_build_ids: Vec<_> = high_priority_builds.iter().map(|b| b.id).collect();
+    let other = with_iteration_and_buildspace(
+        builds::Entity::find()
+            .filter(builds::COLUMN.status.eq(package::BuildStatus::Pending))
+            .filter(builds::COLUMN.id.is_not_in(high_priority_build_ids))
+            .limit(Some(remaining)),
+    )
+    .all(tx)
+    .await?;
+
+    Ok(high_priority_builds.into_iter().chain(other).collect())
 }
 
 /// Fetch builds from the background task which is [package::BuildStatus::Scheduled]

@@ -605,3 +605,133 @@ async fn test_skip_pending_builds_only_affects_own_buildspace(
 
     Ok(())
 }
+
+/// Builds matching a changeset in their iteration should be returned before
+/// builds that don't match any changeset.
+#[rstest]
+#[tokio::test]
+async fn test_pending_prioritizes_changeset_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    // Create an iteration whose changeset references "match_me"
+    let (_, iteration) =
+        factories::buildspace_with_changesets(&tx, "buildspace", &[("match_me", "main")]).await?;
+
+    // Create a matching build and one that doesn't match
+    factories::build(&tx, iteration.id, "match_me").await?;
+    factories::build(&tx, iteration.id, "no_match").await?;
+
+    // Only return the matching build if limit is too low
+    let result = queries::builds::pending(1, &tx).await?;
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].pkgbase.to_string(), "match_me");
+
+    // Return both builds in the correct order if limit allows it
+    let result = queries::builds::pending(10, &tx).await?;
+    assert_eq!(result.len(), 2);
+    assert_eq!(result[0].pkgbase.to_string(), "match_me");
+    assert_eq!(result[1].pkgbase.to_string(), "no_match");
+
+    Ok(())
+}
+
+/// Same as [test_pending_prioritizes_changeset_builds], but with multiple changesets.
+#[rstest]
+#[tokio::test]
+async fn test_pending_prioritizes_changeset_builds_multiple_changesets(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) = factories::buildspace_with_changesets(
+        &tx,
+        "buildspace",
+        &[("prio_a", "main"), ("prio_b", "main")],
+    )
+    .await?;
+
+    // Create two high-prio and two low-prio builds
+    factories::build(&tx, iteration.id, "prio_a").await?;
+    factories::build(&tx, iteration.id, "prio_b").await?;
+    factories::build(&tx, iteration.id, "low_a").await?;
+    factories::build(&tx, iteration.id, "low_b").await?;
+
+    let result = queries::builds::pending(3, &tx).await?;
+    // check that limit is upheld
+    assert_eq!(result.len(), 3);
+
+    // Check that high-prio comes first
+    assert!(["prio_a", "prio_b"].contains(&result[0].pkgbase.to_string().as_ref()));
+    assert!(["prio_a", "prio_b"].contains(&result[1].pkgbase.to_string().as_ref()));
+    // and low-prio third
+    assert!(["low_a", "low_b"].contains(&result[2].pkgbase.to_string().as_ref()));
+
+    Ok(())
+}
+
+/// When no builds match any changeset, builds::pending should still return
+/// pending builds.
+#[rstest]
+#[tokio::test]
+async fn test_pending_returns_non_matching_when_no_changeset_match(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    // Changeset references "not_created" — no build with that pkgbase exists
+    let (_, iteration) =
+        factories::buildspace_with_changesets(&tx, "buildspace", &[("no_match", "main")]).await?;
+
+    factories::build(&tx, iteration.id, "foo").await?;
+    factories::build(&tx, iteration.id, "bar").await?;
+
+    let result = queries::builds::pending(10, &tx).await?;
+
+    // Check that both builds were returned.
+    assert_eq!(result.len(), 2);
+    let pkgbases: HashSet<_> = result.iter().map(|b| b.pkgbase.to_string()).collect();
+    assert!(pkgbases.contains("foo"));
+    assert!(pkgbases.contains("bar"));
+
+    Ok(())
+}
+
+/// builds::pending should exclude builds that are not in Pending status even if they match a changeset.
+#[rstest]
+#[tokio::test]
+async fn test_pending_excludes_non_pending_statuses(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let (_, iteration) =
+        factories::buildspace_with_changesets(&tx, "buildspace", &[("blocked_pkg", "main")])
+            .await?;
+
+    // Create a blocked build that matches the changeset
+    factories::build_with_status(
+        &tx,
+        iteration.id,
+        "blocked_pkg",
+        package::BuildStatus::Blocked,
+        None,
+    )
+    .await?;
+
+    let result = queries::builds::pending(10, &tx).await?;
+    assert_eq!(result.len(), 0);
+
+    Ok(())
+}
+
+/// builds::pending should work even when no builds are present at all.
+#[rstest]
+#[tokio::test]
+async fn test_pending_works_without_any_builds(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let tx = ctx.state.db.begin().await?;
+
+    let result = queries::builds::pending(10, &tx).await?;
+
+    // Check that no builds were returned.
+    assert_eq!(result.len(), 0);
+
+    Ok(())
+}
