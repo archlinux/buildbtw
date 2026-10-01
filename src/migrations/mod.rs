@@ -34,6 +34,7 @@ mod m20260819_121548_add_gitlab_pipelines;
 mod m20260826_102022_pkgbase_changesets;
 mod m20260915_000000_builds_pkgver_string_field;
 mod m20261001_000000_single_bot_session;
+mod m20261001_000001_unique_local_sessions;
 
 #[derive(Debug)]
 pub struct Migrator;
@@ -65,6 +66,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260826_102022_pkgbase_changesets::Migration),
             Box::new(m20260915_000000_builds_pkgver_string_field::Migration),
             Box::new(m20261001_000000_single_bot_session::Migration),
+            Box::new(m20261001_000001_unique_local_sessions::Migration),
         ]
     }
 }
