@@ -15,6 +15,8 @@ use color_eyre::Result;
 mod args;
 mod command;
 mod config;
+mod shell;
+mod utils;
 
 use crate::args::Args;
 
@@ -29,9 +31,13 @@ async fn main() -> Result<()> {
 
     #[allow(clippy::todo)]
     match args.command {
+        args::Command::Download(download_args) => {
+            let client = ApiClient::new(args.server_url, args.state_dir).await?;
+            command::download::download(client, download_args.try_into()?).await
+        }
         args::Command::Log(log_args) => {
             let client = ApiClient::new(args.server_url, args.state_dir).await?;
-            command::log::log(client, log_args.into()).await
+            command::log::log(client, log_args.try_into()?).await
         }
         args::Command::New { name, changesets } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;

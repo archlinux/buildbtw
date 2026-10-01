@@ -11,7 +11,11 @@ use tokio::io::{self, AsyncReadExt, BufWriter};
 use tokio_util::io::StreamReader;
 
 // Save a `Stream` to a file
-pub async fn stream_to_file<S, E>(path: &Utf8Path, stream: S) -> Result<()>
+pub async fn stream_to_file<S, E>(
+    path: &Utf8Path,
+    options: &mut OpenOptions,
+    stream: S,
+) -> Result<()>
 where
     S: Stream<Item = Result<Bytes, E>>,
     E: Into<BoxError>,
@@ -22,7 +26,7 @@ where
         let mut body_reader = pin!(StreamReader::new(body_with_io_error));
 
         // Open an existing file for writing. `File` implements `AsyncWrite`.
-        let mut file = BufWriter::new(OpenOptions::new().write(true).open(path).await?);
+        let mut file = BufWriter::new(options.write(true).open(path).await?);
 
         // Copy the body into the file.
         io::copy(&mut body_reader, &mut file).await?;
