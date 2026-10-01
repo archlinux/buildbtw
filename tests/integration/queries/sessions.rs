@@ -172,3 +172,30 @@ async fn test_bot_can_only_have_one_session(#[future(awt)] ctx: TestCtx) -> Resu
 
     Ok(())
 }
+
+/// A user may only ever have a single local session.
+#[rstest]
+#[tokio::test]
+async fn test_user_can_only_have_one_local_session(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let user = factories::user(&ctx.state.db, "testuser").await?;
+
+    queries::sessions::insert(user.id.0, sessions::ClientType::Local)
+        .exec(&ctx.state.db)
+        .await?;
+
+    // Inserting a second local session for the same user should violate the unique index.
+    let failure = queries::sessions::insert(user.id.0, sessions::ClientType::Local)
+        .exec(&ctx.state.db)
+        .await;
+
+    let err = failure
+        .unwrap_err()
+        .sql_err()
+        .expect("Expected to receive an SQL error");
+    assert_eq!(
+        err,
+        SqlErr::UniqueConstraintViolation("UNIQUE constraint failed: sessions.user_id".to_string())
+    );
+
+    Ok(())
+}
