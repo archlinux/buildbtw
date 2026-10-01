@@ -11,7 +11,13 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub enum Config {
+pub struct Config {
+    dispatch_target: DispatchTargetConfig,
+    max_parallel_builds: u64,
+}
+
+#[derive(Debug)]
+enum DispatchTargetConfig {
     Gitlab(gitlab_api::Config),
     Local,
 }
@@ -28,17 +34,23 @@ impl Config {
     pub fn new(
         dispatch_builds_to: Option<DispatchBuildsTo>,
         maybe_gitlab: Option<gitlab_api::Config>,
+        max_parallel_builds: u64,
     ) -> Result<Option<Config>> {
-        match dispatch_builds_to {
+        let dispatch_target = match dispatch_builds_to {
             Some(DispatchBuildsTo::GitlabPipelines) => {
                 let config = maybe_gitlab.ok_or_eyre(
                     "Gitlab config must be set for dispatching builds to gitlab pipelines",
                 )?;
-                Ok(Some(Config::Gitlab(config)))
+                DispatchTargetConfig::Gitlab(config)
             }
-            Some(DispatchBuildsTo::LocalExecutor) => Ok(Some(Config::Local)),
-            None => Ok(None),
-        }
+            Some(DispatchBuildsTo::LocalExecutor) => DispatchTargetConfig::Local,
+            None => return Ok(None),
+        };
+
+        Ok(Some(Config {
+            dispatch_target,
+            max_parallel_builds,
+        }))
     }
 }
 
@@ -57,8 +69,8 @@ pub async fn schedule_pending_builds(
         .all(db)
         .await?;
 
-    match config {
-        Config::Local => {
+    match &config.dispatch_target {
+        DispatchTargetConfig::Local => {
             let tx = db::begin_immediate(db).await?;
             for build in &pending {
                 // Mark the build as `Scheduled` so we won't pick it up the next
@@ -68,7 +80,7 @@ pub async fn schedule_pending_builds(
             }
             tx.commit().await?;
         }
-        Config::Gitlab(gitlab_api_config) => {
+        DispatchTargetConfig::Gitlab(gitlab_api_config) => {
             let client = gitlab_api::client(gitlab_api_config).await?;
             for build in &pending {
                 if let Err(e) = create_and_persist_gitlab_pipeline(

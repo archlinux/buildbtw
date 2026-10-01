@@ -17,7 +17,9 @@ pub struct Config {
     pub rustls: Option<RustlsConfig>,
     // Prevent option from always taking three (!) lines
     #[debug("{dispatch_builds_to:?}")]
+    // TODO replace these fields with schedule_builds::Config
     pub dispatch_builds_to: Option<schedule_builds::DispatchBuildsTo>,
+    pub max_parallel_builds: u64,
     pub data_dir: Option<Utf8PathBuf>,
     pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
     pub listen: TcpSocketOrUnixSocket,
@@ -73,6 +75,7 @@ impl Config {
             auto_create_iterations: args.auto_create_iterations,
             server_url: args.server_url,
             web_root: args.web_root,
+            max_parallel_builds: args.max_parallel_builds,
         })
     }
 }
