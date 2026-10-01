@@ -15,7 +15,6 @@ use color_eyre::Result;
 mod args;
 mod command;
 mod config;
-mod log;
 
 use crate::args::Args;
 
@@ -32,7 +31,7 @@ async fn main() -> Result<()> {
     match args.command {
         args::Command::Log(log_args) => {
             let client = ApiClient::new(args.server_url, args.state_dir).await?;
-            log::log(client, log_args.into()).await
+            command::log::log(client, log_args.into()).await
         }
         args::Command::New { name, changesets } => {
             let api_client = ApiClient::new(args.server_url, args.state_dir).await?;
