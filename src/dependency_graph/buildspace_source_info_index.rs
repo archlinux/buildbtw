@@ -7,12 +7,13 @@
 
 use std::collections::{HashMap, hash_map::Values};
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::bail};
 use tracing::trace;
 
 use crate::{
-    dependency_graph::{BranchInfo, SourceRepoCache},
-    git, package,
+    dependency_graph::{BranchInfo, SourceRepo, SourceRepoCache},
+    git::{self},
+    package,
 };
 
 /// Metadata like the source info & commit hash, retrievable by pkgname and pkgbase.
@@ -32,8 +33,8 @@ pub struct PackageMetadata<'b> {
 }
 
 impl BuildspaceSourceInfoIndex<'_> {
-    /// Given a set of repo & branch names (`repo_refs`), index all source infos we know by their pkgbase and pkgname.
-    /// For repos in `repo_refs`, source infos are read from the specified branch.
+    /// Given a set of repo & branch names (`changesets`), index all source infos we know by their pkgbase and pkgname.
+    /// For repos in `changesets`, source infos are read from the specified branch.
     /// For other repos, they are read from "main".
     pub async fn build(
         changesets: git::Changesets,
@@ -45,35 +46,27 @@ impl BuildspaceSourceInfoIndex<'_> {
         let mut ignored_packages = 0;
 
         for (dir_name, repo) in source_repos.all_repos_mut() {
-            // If this package is in the origin changesets, use the git ref
-            // specified there instead of "main".
-            let origin_changeset_branch = (&changesets).into_iter().find_map(|repo_ref| {
-                // TODO: repo slug and dir name might be different for the same package (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/219)
-                (&repo_ref.repo_slug == dir_name).then_some(repo_ref.branch_name.clone())
-            });
-            let branch = origin_changeset_branch.unwrap_or(git::BranchName::try_from("main")?);
-
-            match repo.get_branch_info(branch.clone()).await {
-                Ok(branch_info) => {
-                    for package in &branch_info.source_info.packages {
-                        pkgname_to_pkgbase.insert(
-                            package::Name::from(package.name.clone()),
-                            branch_info.source_info.base.name.clone().into(),
-                        );
-                    }
-
-                    pkgbase_to_metadata.insert(
-                        package::BaseName::from(branch_info.source_info.base.name.clone()),
-                        PackageMetadata {
-                            branch_name: branch,
-                            branch_info,
-                        },
-                    );
-                }
-                Err(e) => {
+            match index_repo(
+                repo,
+                &changesets,
+                &mut pkgname_to_pkgbase,
+                &mut pkgbase_to_metadata,
+            )
+            .await
+            {
+                // Continue on non-fatal errors
+                Err(IndexError::Eyre(e)) => {
                     trace!("Ignoring package {dir_name}: {e:#}");
                     ignored_packages += 1;
                 }
+                Err(IndexError::Alpm(e)) => {
+                    trace!("Ignoring package {dir_name}: {e:#}");
+                    ignored_packages += 1;
+                }
+                // Stop everything on a fatal error
+                Err(IndexError::Fatal(reason)) => bail!(reason),
+
+                Ok(()) => (),
             }
         }
         trace!(
@@ -81,6 +74,22 @@ impl BuildspaceSourceInfoIndex<'_> {
             pkgname_to_pkgbase.len(),
             pkgbase_to_metadata.len()
         );
+
+        for changeset in changesets {
+            let Some(metadata) = pkgbase_to_metadata.get(&changeset.pkgbase) else {
+                bail!(r#"Could not find .SRCINFO for changeset "{changeset:?}""#);
+            };
+
+            // This can happen when multiple repos specify the same pkgbase.
+            // Since we check for duplicate pkgbases earlier already, this should never trigger, hence the "this is a bug" message.
+            if metadata.branch_name != changeset.branch_name {
+                bail!(
+                    r#"Selected wrong branch "{}" for pkgbase "{}". This is a bug."#,
+                    changeset.branch_name,
+                    changeset.pkgbase
+                );
+            }
+        }
 
         Ok(BuildspaceSourceInfoIndex {
             pkgname_to_pkgbase,
@@ -111,4 +120,87 @@ impl BuildspaceSourceInfoIndex<'_> {
     pub fn all_packages(&self) -> Values<'_, package::BaseName, PackageMetadata<'_>> {
         self.pkgbase_to_metadata.values()
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+enum IndexError {
+    /// E.g. Invalid .SRCINFO, simply skip this package
+    #[error("{0}")]
+    Eyre(#[from] color_eyre::eyre::Error),
+    /// E.g. Invalid .SRCINFO, simply skip this package
+    #[error("{0}")]
+    Alpm(#[from] alpm_types::Error),
+    /// Do not allow the source graph to be calculated
+    #[error("{0}")]
+    Fatal(String),
+}
+
+/// Add metadata for this repository to the source info index.
+///
+/// If the repo is part of the changesets, takes the branch from there, otherwise uses "main".
+async fn index_repo<'a>(
+    repo: &'a mut SourceRepo,
+    changesets: &git::Changesets,
+    pkgname_to_pkgbase: &mut HashMap<package::Name, package::BaseName>,
+    pkgbase_to_metadata: &mut HashMap<package::BaseName, PackageMetadata<'a>>,
+) -> Result<(), IndexError> {
+    let branch_name = relevant_branch_name(repo, changesets).await?;
+    let branch_info = repo.get_branch_info(branch_name.clone()).await?;
+
+    let pkgbase = &branch_info.source_info.base.name;
+    let pkgbase_key: package::BaseName = pkgbase.clone().try_into()?;
+
+    if pkgbase_to_metadata.contains_key(&pkgbase_key) {
+        return Err(IndexError::Fatal(format!(
+            "Multiple repositories declare pkgbase {pkgbase}"
+        )));
+    }
+
+    for package in &branch_info.source_info.packages {
+        pkgname_to_pkgbase.insert(
+            package::Name::from(package.name.clone()),
+            branch_info.source_info.base.name.clone().try_into()?,
+        );
+    }
+
+    pkgbase_to_metadata.insert(
+        pkgbase_key,
+        PackageMetadata {
+            branch_name,
+            branch_info,
+        },
+    );
+
+    Ok(())
+}
+
+/// Pick a branch name to read for this repo.
+/// If the repo is part of the changesets, use the branch specified there,
+/// otherwise use "main".
+async fn relevant_branch_name(
+    repo: &mut SourceRepo,
+    changesets: &git::Changesets,
+) -> Result<git::BranchName> {
+    let main_branch_name = git::BranchName::try_from("main")?;
+
+    let main_pkgbase = repo
+        .get_branch_info(main_branch_name.clone())
+        .await?
+        .source_info
+        .base
+        .name
+        .clone();
+
+    // Check if there's a changeset for this pkgbase
+    let changeset = changesets
+        .0
+        .iter()
+        .find(|c| c.pkgbase.as_ref() == &main_pkgbase);
+
+    // If a changeset exists, use its branch name
+    let branch_name = changeset
+        .map(|c| c.branch_name.clone())
+        .unwrap_or(main_branch_name);
+
+    Ok(branch_name)
 }

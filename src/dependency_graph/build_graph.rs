@@ -47,7 +47,6 @@ impl BuildNode {
         PackageMetadata {
             branch_name,
             branch_info,
-            ..
         }: &PackageMetadata,
         architecture: package::BuildArchitecture,
     ) -> Result<BuildNode> {
@@ -63,7 +62,7 @@ impl BuildNode {
             .collect::<Result<HashMap<_, _>>>()?;
 
         Ok(BuildNode {
-            pkgbase: source_info.base.name.clone().into(),
+            pkgbase: source_info.base.name.clone().try_into()?,
             commit_hash: branch_info.commit_hash.clone(),
             branch_name: branch_name.clone(),
             package_file_names,
@@ -98,7 +97,7 @@ impl BuildGraphs {
 
         let packages_metadata = BuildspaceSourceInfoIndex::build(changesets.clone(), source_repos)
             .await
-            .wrap_err("Error mapping package names to srcinfo")?;
+            .wrap_err("Error mapping pkgbases to srcinfos")?;
         let global_graphs = build_global_dependency_graphs(&packages_metadata);
 
         trace!("Walking dependents for each architecture");
@@ -188,9 +187,8 @@ fn calculate_build_graph_for_architecture(
 
     // add root nodes from our buildspace so we can start walking the graph
     for changeset in changesets {
-        let repo_slug_as_pkgbase: package::BaseName = changeset.repo_slug.to_string().parse()?;
         let PackageMetadata { branch_info, .. } = packages_metadata
-            .by_pkgbase(&repo_slug_as_pkgbase)
+            .by_pkgbase(&changeset.pkgbase)
             .ok_or_eyre(format!(
                 r#"Missing source info for changeset "{changeset:?}""#
             ))?;

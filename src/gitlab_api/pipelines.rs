@@ -1,4 +1,3 @@
-use crate::entities;
 use color_eyre::{Result, eyre::Context};
 use gitlab::{
     AsyncGitlab,
@@ -10,6 +9,9 @@ use gitlab::{
 use serde::Deserialize;
 use tracing::info;
 use url::Url;
+
+use crate::entities;
+use crate::package;
 
 #[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
@@ -69,7 +71,10 @@ pub async fn create(
             .build()
     })
     .collect::<Result<Vec<_>, _>>()?;
-    let project_name = format!("{gitlab_packages_group}/{pkgbase}", pkgbase = build.pkgbase);
+    let project_name = format!(
+        "{gitlab_packages_group}/{gitlab_repo_slug}",
+        gitlab_repo_slug = package::RepositorySlug::try_from(build.pkgbase.clone())?
+    );
     let response: CreatePipelineResponse = CreatePipeline::builder()
         .project(project_name)
         .ref_(build.branch_name.to_string())

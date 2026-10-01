@@ -334,3 +334,75 @@ license = GPL-3.0-or-later
     let package = alpm_package::Package::try_from(&config)?;
     Ok(package)
 }
+
+/// Create a new git repo inside `parent_dir` with the given name.
+/// Commit the given files in a single commit on the "main" branch.
+/// Create a remote named "origin", with its "main" branch pointing to the commit.
+pub fn git_repo(
+    parent_dir: &camino::Utf8Path,
+    repo_name: &str,
+    files: &[(&str, &str)],
+) -> Result<()> {
+    let work_dir = parent_dir.join(repo_name);
+    let mut init_opts = git2::RepositoryInitOptions::new();
+    init_opts.initial_head("main");
+    let repo = git2::Repository::init_opts(&work_dir, &init_opts)?;
+
+    // Write files into the working tree
+    for (name, content) in files {
+        std::fs::write(work_dir.join(name), content)?;
+    }
+
+    // Stage all files
+    let mut index = repo.index()?;
+    for (name, _) in files {
+        index.add_path(std::path::Path::new(name))?;
+    }
+    index.write()?;
+    let tree_id = index.write_tree()?;
+    let tree = repo.find_tree(tree_id)?;
+
+    // Commit
+    let sig = git2::Signature::now("Test", "test@buildbtw.localhost")?;
+    let commit_oid = repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])?;
+
+    // Create a remote "origin" and a remote-tracking branch origin/main
+    // pointing to the new commit
+    repo.remote("origin", "unused-url")?;
+    repo.reference(
+        "refs/remotes/origin/main",
+        commit_oid,
+        false,
+        "set up origin/main",
+    )?;
+
+    Ok(())
+}
+
+pub fn package_source(pkgbase: &str) -> (String, String) {
+    // One repo has a valid .SRCINFO.
+    let srcinfo = format!(
+        r"pkgbase = {pkgbase}
+pkgver = 1.0
+pkgrel = 1
+arch = x86_64
+url = https://www.archlinux.org
+
+pkgname = {pkgbase}"
+    );
+
+    let pkgbuild = format!(
+        r"pkgname={pkgbase}
+pkgver=1.0
+pkgrel=1
+arch=(x86_64)
+url='https://www.archlinux.org'
+
+package() {{
+    echo 'Building something'
+}}
+"
+    );
+
+    (pkgbuild, srcinfo)
+}

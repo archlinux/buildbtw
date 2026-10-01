@@ -10,6 +10,8 @@ use color_eyre::Result;
 use petgraph::visit::EdgeRef;
 use tracing::debug;
 
+use crate::factories;
+
 #[tokio::test]
 async fn test_flaky_create_source_repo_cache() -> Result<()> {
     let source_repo_dir = storage::package_source_repos_dir(&None)?;
@@ -35,7 +37,7 @@ async fn test_flaky_build_buildspace_source_info_index() -> Result<()> {
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
         git::Changesets::from(vec![git::Changeset {
-            repo_slug: "libfoo".try_into()?,
+            pkgbase: "libfoo".parse()?,
             branch_name: "testbranch".try_into()?,
         }]),
         &mut source_repos,
@@ -65,7 +67,7 @@ async fn test_flaky_build_global_dependency_graphs() -> Result<()> {
     let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
     let index = dependency_graph::BuildspaceSourceInfoIndex::build(
         git::Changesets::from(vec![git::Changeset {
-            repo_slug: "libfoo".try_into()?,
+            pkgbase: "libfoo".parse()?,
             branch_name: "testbranch".try_into()?,
         }]),
         &mut source_repos,
@@ -108,7 +110,7 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
     // Test creating a build graph for an arbitrary changeset
     let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
-            repo_slug: "gdu".try_into()?,
+            pkgbase: "gdu".parse()?,
             branch_name: "main".try_into()?,
         }]),
         &mut source_repos,
@@ -126,7 +128,7 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
     // Test calculating some huge graphs
     let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
-            repo_slug: "firefox".try_into()?,
+            pkgbase: "firefox".parse()?,
             branch_name: "main".try_into()?,
         }]),
         &mut source_repos,
@@ -145,7 +147,7 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
     // (ktikz -> poppler, because ktikz has split packages both depending on poppler)
     let graphs = BuildGraphs::calculate(
         &git::Changesets::from(vec![git::Changeset {
-            repo_slug: "poppler".try_into()?,
+            pkgbase: "poppler".parse()?,
             branch_name: "main".try_into()?,
         }]),
         &mut source_repos,
@@ -153,6 +155,137 @@ async fn test_flaky_calculate_build_graphs() -> Result<()> {
     .await?;
 
     assert_no_duplicate_deps(&graphs);
+
+    // Test calculating a graph where pkgbase != gitlab repo slug,
+    // and the changeset uses a non-main branch.
+    // This happens when the pkgbase contains characters not allowed in a
+    // gitlab repo slug, e.g. with "afl++".
+    let graphs = BuildGraphs::calculate(
+        &git::Changesets::from(vec![git::Changeset {
+            pkgbase: "test-package-please++ignore".parse()?,
+            branch_name: "testbranch".try_into()?,
+        }]),
+        &mut source_repos,
+    )
+    .await?;
+
+    assert!(!graphs.is_empty());
+    let x86_64_graph = graphs
+        .get(&package::BuildArchitecture::X86_64)
+        .expect("Missing build graph for x86_64");
+
+    let node = x86_64_graph
+        .node_weights()
+        .find(|node| {
+            node.pkgbase
+                == "test-package-please++ignore"
+                    .parse()
+                    .expect("Invalid pkgbase string")
+        })
+        .expect("Missing build node for package");
+
+    assert_eq!(node.branch_name.as_ref(), "testbranch");
+
+    assert!(x86_64_graph.node_count() > 0);
+    assert_no_duplicate_deps(&graphs);
+
+    Ok(())
+}
+
+/// Verify that the source info index cannot be built when two different
+/// repositories declare the same pkgbase.
+#[tokio::test]
+async fn test_buildspace_source_info_index_fails_on_duplicate_pkgbase() -> Result<()> {
+    buildbtw::tracing::init(0, false)?;
+    let tmpdir = camino_tempfile::Builder::new()
+        .prefix("buildbtw-test-dup-pkgbase-")
+        .tempdir()?;
+
+    // Two repos will use the same .SRCINFO with the same pkgbase.
+    let (pkgbuild, srcinfo) = factories::package_source("duplicate-package");
+
+    let files = &[
+        (".SRCINFO", srcinfo.as_ref()),
+        ("PKGBUILD", pkgbuild.as_ref()),
+    ];
+    factories::git_repo(tmpdir.path(), "repo1", files)?;
+    factories::git_repo(tmpdir.path(), "repo2", files)?;
+
+    // Create a source repo dir containing just the two clones (not the bare repos)
+    let source_repo_dir = tmpdir.path().join("source-repos");
+    std::fs::create_dir(&source_repo_dir)?;
+    std::fs::rename(tmpdir.path().join("repo1"), source_repo_dir.join("repo1"))?;
+    std::fs::rename(tmpdir.path().join("repo2"), source_repo_dir.join("repo2"))?;
+
+    let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
+
+    let result = dependency_graph::BuildspaceSourceInfoIndex::build(
+        git::Changesets::from(vec![]),
+        &mut source_repos,
+    )
+    .await;
+
+    // Must fail because both repos declare the same pkgbase
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+/// Verify that repositories with unparseable .SRCINFO files are skipped
+/// and source info index building succeeds for the remaining repos.
+/// TODO write same test but for repo without srcinfo
+#[tokio::test]
+async fn test_buildspace_source_info_index_skips_invalid_srcinfo() -> Result<()> {
+    buildbtw::tracing::init(0, false)?;
+    let tmpdir = camino_tempfile::Builder::new()
+        .prefix("buildbtw-test-invalid-srcinfo-")
+        .tempdir()?;
+
+    let (valid_pkgbuild, valid_srcinfo) = factories::package_source("valid-pkg");
+
+    // The other repo has an unparseable .SRCINFO.
+    let invalid_srcinfo = "this is not a valid .SRCINFO file\n";
+
+    factories::git_repo(
+        tmpdir.path(),
+        "valid-repo",
+        &[
+            (".SRCINFO", valid_srcinfo.as_ref()),
+            ("PKGBUILD", valid_pkgbuild.as_ref()),
+        ],
+    )?;
+    factories::git_repo(
+        tmpdir.path(),
+        "invalid-repo",
+        &[(".SRCINFO", invalid_srcinfo)],
+    )?;
+
+    // Create a source repo dir containing both clones
+    let source_repo_dir = tmpdir.path().join("source-repos");
+    std::fs::create_dir(&source_repo_dir)?;
+    std::fs::rename(
+        tmpdir.path().join("valid-repo"),
+        source_repo_dir.join("valid-repo"),
+    )?;
+    std::fs::rename(
+        tmpdir.path().join("invalid-repo"),
+        source_repo_dir.join("invalid-repo"),
+    )?;
+
+    let mut source_repos = dependency_graph::SourceRepoCache::new(&source_repo_dir).await?;
+
+    // Build must succeed, skipping the invalid repo
+    let index = dependency_graph::BuildspaceSourceInfoIndex::build(
+        git::Changesets::from(vec![]),
+        &mut source_repos,
+    )
+    .await?;
+
+    // The valid repo's package must be present
+    let pkg = index
+        .by_pkgbase(&"valid-pkg".parse()?)
+        .expect("Expected to find valid-pkg in index");
+    assert_eq!(pkg.branch_name, "main".try_into()?);
 
     Ok(())
 }

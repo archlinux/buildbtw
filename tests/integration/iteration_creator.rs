@@ -31,7 +31,7 @@ async fn test_flaky_run() -> Result<()> {
     let (buildspace, iteration) = create_buildspace_with_iteration(
         &tx,
         vec![git::Changeset {
-            repo_slug: "libfoo".try_into()?,
+            pkgbase: "libfoo".parse()?,
             branch_name: "main".try_into()?,
         }]
         .into(),
