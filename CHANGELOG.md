@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### backend
+
+- **Fix:** Mark builds as failed where the gitlab executor didn't start or the pipeline was skipped. ([!310](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/310))
+
 ## [0.0.7] - 2026-10-03
 
 ### backend

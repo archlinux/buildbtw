@@ -13,7 +13,7 @@ use url::Url;
 use crate::entities;
 use crate::package;
 
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PipelineStatus {
     Pending,
@@ -35,6 +35,12 @@ pub struct CreatePipelineResponse {
     pub project_id: i64,
     pub status: PipelineStatus,
     pub web_url: Url,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct PipelineResponse {
+    pub id: i64,
+    pub status: PipelineStatus,
 }
 
 pub async fn create(
@@ -85,6 +91,26 @@ pub async fn create(
         .wrap_err("Error creating pipeline")?;
 
     info!("Dispatched build to gitlab: {response:?}");
+
+    Ok(response)
+}
+
+/// Fetch the current status of a pipeline from GitLab.
+pub async fn get(
+    client: &AsyncGitlab,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<PipelineResponse> {
+    let project_id: u64 = project_id.try_into().wrap_err("Project ID is negative")?;
+    let pipeline_id: u64 = pipeline_id.try_into().wrap_err("Pipeline ID is negative")?;
+
+    let response: PipelineResponse = gitlab::api::projects::pipelines::Pipeline::builder()
+        .project(project_id)
+        .pipeline(pipeline_id)
+        .build()?
+        .query_async(client)
+        .await
+        .wrap_err("Error fetching pipeline status")?;
 
     Ok(response)
 }
