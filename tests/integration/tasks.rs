@@ -80,3 +80,37 @@ async fn test_invalidate_old_sessions_preserve_recent(#[future(awt)] ctx: TestCt
 
     Ok(())
 }
+
+/// Bot sessions are never automatically deleted
+#[rstest]
+#[tokio::test]
+async fn test_invalidate_old_sessions_preserve_bot(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create bot user
+    let bot = factories::bot(&ctx.state.db, "bot").await?;
+
+    // Create old bot session
+    let session_id: TxtUuid = Uuid::new_v4().into();
+    let session = sessions::ActiveModel {
+        id: Set(session_id),
+        created_at: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
+        user_id: Set(bot.id),
+        last_accessed: Set(OffsetDateTime::now_utc() - Duration::weeks(5)),
+        client_type: Set(ClientType::Bot),
+        secret_token: Set(RedactedString(Secret::new(Uuid::new_v4().to_string()))),
+    };
+    sessions::Entity::insert(session)
+        .exec(&ctx.state.db)
+        .await?;
+
+    invalidate_old_sessions(&ctx.state).await?;
+
+    let session = queries::sessions::by_id(session_id.0)
+        .one(&ctx.state.db)
+        .await?;
+    assert!(
+        session.is_some(),
+        "Old bot session should still exist after cleanup"
+    );
+
+    Ok(())
+}

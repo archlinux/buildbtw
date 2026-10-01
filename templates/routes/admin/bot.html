@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Admin / Bots{% endblock title %}
+{% block menu %}{% set menu_active = "Account" %}{{ super() }}{% endblock menu %}
+{% block content %}
+<nav class="breadcrumb pb-2" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="{{ account_url }}">Account</a></li>
+    <li class="is-active"><a href="{{ admin_bot_url }}" aria-current="page">Bots</a></li>
+  </ul>
+</nav>
+
+<h1 class="title">Bots</h1>
+
+<div class="notification is-info">
+  <p>Bots are special users used in the Buildbtw GitLab Custom Executor to log-in into the backend.</p>
+  <p>Each bot has exactly one token. Regenerating it invalidates the previous token immediately. Bot tokens do not expire.</p>
+</div>
+
+<form action="{{ admin_bot_url }}" method="post" class="field has-addons mb-5">
+  <div class="control">
+    <input class="input" type="text" name="username" placeholder="Bot name" required minlength="3" maxlength="255">
+  </div>
+  <div class="control">
+    <button type="submit" class="button is-primary">
+      <i class="fas fa-robot"></i> Create Bot
+    </button>
+  </div>
+</form>
+
+<table class="table is-striped">
+  <thead>
+    <tr>
+      <th>Bot</th>
+      <th>Created</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for bot_tuple in bots %}
+    {% set bot = bot_tuple[0] %}
+    {% set token_url = bot_tuple[1] %}
+    <tr>
+      <th>
+        {{ bot.username }}
+      </th>
+      <td>
+        {{ bot.created_at | datetime }}
+      </td>
+      <td>
+        <form action="{{ token_url }}" method="post">
+          <button type="submit" class="button is-primary is-small">
+            <i class="fas fa-key"></i> Regenerate token
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock content %}

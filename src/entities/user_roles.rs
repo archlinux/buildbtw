@@ -14,8 +14,12 @@ use crate::entities::users;
 pub enum Role {
     /// Most used role, for dispatching and releasing builds.
     PackageMaintainer,
+
     /// Can do everything.
     Admin,
+
+    /// Role used by bots.
+    Bot,
 }
 
 impl From<Role> for api::users::Role {
@@ -23,6 +27,7 @@ impl From<Role> for api::users::Role {
         match value {
             Role::PackageMaintainer => api::users::Role::PackageMaintainer,
             Role::Admin => api::users::Role::Admin,
+            Role::Bot => api::users::Role::Bot,
         }
     }
 }
@@ -32,6 +37,7 @@ impl From<api::users::Role> for Role {
         match value {
             api::users::Role::PackageMaintainer => Role::PackageMaintainer,
             api::users::Role::Admin => Role::Admin,
+            api::users::Role::Bot => Role::Bot,
         }
     }
 }

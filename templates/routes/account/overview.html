@@ -36,5 +36,18 @@
       </p>
     </a>
   </div>
+  {% if can_manage_bots %}
+  <div class="column is-6-mobile is-3-desktop">
+    <a href="{{ admin_bot_url }}" class="box has-text-centered">
+      <span class="icon is-large has-text-primary mb-3">
+        <i class="fas fa-robot fa-2x"></i>
+      </span>
+      <h3 class="title is-5 mb-2">Bots</h3>
+      <p class="subtitle is-6 has-text-grey">
+        Create bots and their tokens
+      </p>
+    </a>
+  </div>
+  {% endif %}
 </div>
 {% endblock content %}

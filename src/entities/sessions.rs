@@ -13,10 +13,17 @@ use crate::entities::users;
 pub enum ClientType {
     /// Session created via browser with OIDC login
     Web,
+
     /// Session created via CLI
     Cli,
+
     /// Session created for local usage
     Local,
+
+    /// Session created by an admin for a bot user
+    ///
+    /// This type of session has an infinite lifetime and will not be automatically cleaned up.
+    Bot,
 }
 
 /// Represents an active authenticated session in the application.
@@ -67,6 +74,7 @@ impl From<ClientType> for api::sessions::ClientType {
             ClientType::Web => api::sessions::ClientType::Web,
             ClientType::Cli => api::sessions::ClientType::Cli,
             ClientType::Local => api::sessions::ClientType::Local,
+            ClientType::Bot => api::sessions::ClientType::Bot,
         }
     }
 }

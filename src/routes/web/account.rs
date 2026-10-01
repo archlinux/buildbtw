@@ -1,4 +1,4 @@
-use crate::web;
+use crate::{permissions, web};
 use axum::response::{Html, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use color_eyre::eyre::{Context, OptionExt};
@@ -10,7 +10,6 @@ use crate::{
     db_fields::TxtUuid,
     entities::sessions,
     from_request::{self},
-    permissions::{can_revoke_session, check},
     queries,
     response_error::ResponseResult,
     templates,
@@ -24,7 +23,7 @@ pub async fn overview(
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     Ok((
         cookie_jar,
-        Html(templates::account::render_account_overview(&session.user)?),
+        Html(templates::account::render_account_overview(&session)?),
     ))
 }
 
@@ -85,7 +84,7 @@ pub async fn session_revoke(
         .parse()
         .wrap_err("Could not parse UUID from cookie")?;
 
-    check(can_revoke_session(&tx, &session, session_to_revoke).await)?;
+    permissions::check(permissions::can_revoke_session(&tx, &session, session_to_revoke).await)?;
 
     // Get the user_id before deleting the session
     let session_model = queries::sessions::by_id(session_to_revoke)

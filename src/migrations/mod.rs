@@ -32,6 +32,7 @@ mod m20260723_000000_allow_skipped_builds_dispatched_to;
 mod m20260731_000000_allow_scheduled_builds_dispatched_to;
 mod m20260819_121548_add_gitlab_pipelines;
 mod m20260915_000000_builds_pkgver_string_field;
+mod m20261001_000000_single_bot_session;
 
 #[derive(Debug)]
 pub struct Migrator;
@@ -61,6 +62,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260731_000000_allow_scheduled_builds_dispatched_to::Migration),
             Box::new(m20260819_121548_add_gitlab_pipelines::Migration),
             Box::new(m20260915_000000_builds_pkgver_string_field::Migration),
+            Box::new(m20261001_000000_single_bot_session::Migration),
         ]
     }
 }

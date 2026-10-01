@@ -18,6 +18,21 @@ pub struct CreateWithRoles {
 #[nutype(derive(Into, TryFrom), validate(with = CreateWithRoles::validate, error = garde::Report))]
 pub struct ValidatedCreateWithRoles(CreateWithRoles);
 
+/// Form body for creating a bot user. Validated by converting into [`CreateWithRoles`].
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateBot {
+    pub username: String,
+}
+
+impl From<CreateBot> for CreateWithRoles {
+    fn from(value: CreateBot) -> Self {
+        CreateWithRoles {
+            username: value.username,
+            user_roles: vec![Role::Bot],
+        }
+    }
+}
+
 #[derive(Debug, Validate)]
 pub struct CreateWithOidc {
     #[garde(length(max = 255))]

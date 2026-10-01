@@ -1,11 +1,12 @@
 use crate::web;
 use color_eyre::Result;
 
-use crate::{entities, entities::sessions, templates};
+use crate::{entities, entities::sessions, from_request::AuthUser, permissions, templates};
 
-pub fn render_account_overview(user: &entities::users::Model) -> Result<String> {
+pub fn render_account_overview(auth: &AuthUser) -> Result<String> {
     let mut ctx = tera::Context::default();
-    ctx.insert("user", &user);
+    ctx.insert("user", &auth.user);
+    ctx.insert("can_manage_bots", &permissions::can_manage_bots(auth)?);
     templates::render("routes/account/overview.html", ctx)
 }
 
