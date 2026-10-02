@@ -62,6 +62,7 @@ implicit_hasher = "allow"
 large_enum_variant = "allow"
 used_underscore_binding = "allow"
 unused_async_trait_impl = "allow"
+assert_is_empty = "allow"
 
 [features]
 sea-orm-debug-print = ["sea-orm/debug-print"]
