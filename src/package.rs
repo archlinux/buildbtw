@@ -354,6 +354,36 @@ pub fn file_name(
     .into())
 }
 
+/// Suffix that makepkg appends to its generated debug packages
+pub const DEBUG_SUFFIX: &str = "-debug";
+
+/// Returns the package name with `-debug` suffix stripped or `None` if it didn't have that suffix
+#[must_use]
+pub fn base_package_of_debug_package(pkgname: &Name) -> Option<Name> {
+    let name = pkgname.to_string();
+    let base = name.strip_suffix(DEBUG_SUFFIX)?;
+    base.parse().ok()
+}
+
+/// Returns the filename that the debug package `pkgname` would get or `None` if `base_file_name`
+/// doesn't parse
+///
+/// Note: We assume the `pkgname` already has a `-debug` suffix attached to it. As such, we're not
+/// attaching a `-debug` suffix ourselves.
+#[must_use]
+pub fn debug_package_file_name(pkgname: &Name, base_file_name: &str) -> Option<String> {
+    let base_file = alpm_types::PackageFileName::from_str(base_file_name).ok()?;
+    Some(
+        alpm_types::PackageFileName::new(
+            pkgname.as_ref().clone(),
+            base_file.version().clone(),
+            base_file.architecture().clone(),
+            Some(alpm_types::CompressionAlgorithmFileExtension::Zstd),
+        )
+        .to_string(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
