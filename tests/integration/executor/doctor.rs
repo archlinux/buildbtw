@@ -16,7 +16,7 @@ async fn test_doctor_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Check output
     assert!(output.status.success());
     assert_snapshot!(output.stderr);
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     Ok(())
 }
@@ -34,7 +34,7 @@ async fn test_doctor_no_login_token(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Check output
     assert!(!output.status.success());
     assert_snapshot!(output.stderr);
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     Ok(())
 }
@@ -52,7 +52,7 @@ async fn test_doctor_invalid_login_token(#[future(awt)] ctx: TestCtx) -> Result<
     // Check output
     assert!(!output.status.success());
     assert_snapshot!(output.stderr);
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     Ok(())
 }

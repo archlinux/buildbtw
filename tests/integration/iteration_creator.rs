@@ -69,9 +69,11 @@ async fn test_flaky_run() -> Result<()> {
         .await?;
     tx.commit().await?;
 
-    assert!(pending.is_empty());
+    let expected_pending: [entities::iterations::Model; 0] = [];
+    assert_eq!(pending, expected_pending);
     assert_eq!(newest_iteration.id, iteration.id);
-    assert!(!builds.is_empty());
+    let expected_builds: [entities::builds::Model; 0] = [];
+    assert_ne!(builds, expected_builds);
     assert!(
         builds
             .iter()

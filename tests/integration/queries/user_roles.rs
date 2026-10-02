@@ -19,7 +19,8 @@ async fn test_set_user_roles(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .all(&ctx.state.db)
         .await?;
 
-    assert!(roles.is_empty());
+    let expected: [user_roles::Model; 0] = [];
+    assert_eq!(roles, expected);
 
     // Check that assigning roles works
     let tx = ctx.state.db.begin().await?;

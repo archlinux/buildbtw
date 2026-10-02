@@ -21,7 +21,8 @@ async fn test_flaky_create_source_repo_cache() -> Result<()> {
         let info = repo.get_branch_info("main".try_into()?).await;
         // Some errors, e.g. due to empty repos without commits, are ok here
         if let Ok(info) = info {
-            assert!(!info.source_info.packages.is_empty());
+            let expected: [alpm_srcinfo::source_info::v1::package::Package; 0] = [];
+            assert_ne!(info.source_info.packages, expected);
         }
         count += 1;
     }

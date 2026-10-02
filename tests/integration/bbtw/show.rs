@@ -31,7 +31,7 @@ async fn test_show(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Snapshot output
     insta::assert_snapshot!(output.stdout);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
 
     // Check that it succeeded
     assert!(output.status.success());
@@ -59,7 +59,7 @@ async fn test_show_stopped(#[future(awt)] ctx: TestCtx) -> Result<()> {
 
     // Snapshot output
     insta::assert_snapshot!(output.stdout);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
 
     // Check that it succeeded
     assert!(output.status.success());
@@ -76,7 +76,7 @@ async fn test_show_nonexistent(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let output = run_cmd(&mut cmd).await?;
 
     // Snapshot output
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
     // No snapshot testing for stderr: due to parallel requests, the error message may contain different URLs depending on the timing
 
     // Check that the error message contains relevant info
@@ -99,7 +99,7 @@ async fn test_show_not_logged_in(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let output = run_cmd(&mut cmd).await?;
 
     // Snapshot output
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
     insta::assert_snapshot!(output.stderr);
 
     // Check that it failed
@@ -125,7 +125,7 @@ async fn test_show_invalid_limits(
     let output = run_cmd(&mut cmd).await?;
 
     // Snapshot output.
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
     insta::assert_snapshot!(format!("invalid limit {option_value}"), output.stderr);
 
     // Check that it failed
@@ -167,7 +167,7 @@ async fn test_show_valid_limits(
 
     // Snapshot output
     insta::assert_snapshot!(format!("valid limit {option_value}"), output.stdout);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
 
     // Check that it failed
     assert!(output.status.success());
@@ -203,7 +203,7 @@ async fn test_show_iteration(#[future(awt)] ctx: TestCtx) -> Result<()> {
     cmd.arg("show").arg(buildspace.name.as_ref());
     let output = run_cmd(&mut cmd).await?;
     assert!(output.status.success(), "stderr: {}", output.stderr);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
     assert!(output.stdout.contains("iteration #2"));
     assert_snapshot!(output.stdout);
 
@@ -215,7 +215,7 @@ async fn test_show_iteration(#[future(awt)] ctx: TestCtx) -> Result<()> {
         .arg(buildspace.name.as_ref());
     let output = run_cmd(&mut cmd).await?;
     assert!(output.status.success(), "stderr: {}", output.stderr);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
     assert!(output.stdout.contains("iteration #1"));
     assert_snapshot!(output.stdout);
 

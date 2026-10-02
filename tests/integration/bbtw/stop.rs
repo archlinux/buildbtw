@@ -24,7 +24,7 @@ async fn test_stop(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let output = run_cmd(&mut cmd).await?;
 
     assert!(output.status.success());
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
     assert_snapshot!(output.stdout);
 
     // Run it again and check that it works the same
@@ -33,7 +33,7 @@ async fn test_stop(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let output_again = run_cmd(&mut cmd).await?;
 
     assert!(output_again.status.success());
-    assert!(output_again.stderr.is_empty());
+    assert_eq!(output_again.stderr, "");
     assert_eq!(output_again.stdout, output.stdout);
 
     // Verify status was updated in the database
@@ -55,7 +55,7 @@ async fn test_stop_nonexistent(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let output = run_cmd(&mut cmd).await?;
 
     assert!(!output.status.success());
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
     assert!(output.stderr.contains("Not found"));
 
     Ok(())

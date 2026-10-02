@@ -47,7 +47,7 @@ async fn test_new(
     // Check output
     assert!(output.status.success(), "stderr: {}", output.stderr);
     assert_snapshot!(format!("{name:?}"), output.stdout);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
 
     // Check that buildspace was created
     let expected_slug: buildspace::Slug = name.unwrap_or("libfoo").try_into()?;
@@ -84,7 +84,7 @@ async fn test_new_invalid_changeset(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Check output
     assert!(!output.status.success());
     assert_snapshot!(output.stderr);
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     // Check that buildspace was not created
     assert_eq!(buildspace_count(&ctx).await?, 0);
@@ -104,7 +104,7 @@ async fn test_new_multiple_changesets(#[future(awt)] ctx: TestCtx) -> Result<()>
     // Check output
     assert!(output.status.success(), "stderr: {}", output.stderr);
     assert_snapshot!(output.stdout);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
 
     // Check that buildspace was created with the first repo as name
     let expected_slug: buildspace::Slug = "libfoo".try_into()?;
@@ -146,7 +146,7 @@ async fn test_new_mixed_valid_invalid_changesets(#[future(awt)] ctx: TestCtx) ->
 
     // Check output
     assert!(!output.status.success());
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
     assert_snapshot!(output.stderr);
 
     // Check that no buildspace was created
@@ -168,7 +168,7 @@ async fn test_new_empty_branch_name(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Check output
     assert!(!output.status.success());
     assert_snapshot!(output.stderr);
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     // Check that no buildspace was created
     assert_eq!(buildspace_count(&ctx).await?, 0);
@@ -188,7 +188,7 @@ async fn test_new_no_changesets(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Check output
     assert!(!output.status.success());
     assert_snapshot!(output.stderr);
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     // Check that no buildspace was created
     assert_eq!(buildspace_count(&ctx).await?, 0);
@@ -221,7 +221,7 @@ async fn test_new_duplicate_name(#[future(awt)] ctx: TestCtx) -> Result<()> {
     assert!(!output.status.success());
     // No snapshot testing here because error description contains random port
     assert!(output.stderr.contains("Buildspace already exists"));
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     // Check that only one buildspace exists
     assert_eq!(buildspace_count(&ctx).await?, 1);
@@ -252,7 +252,7 @@ async fn test_new_invalid_characters_pkgbase(
     assert!(!output.status.success());
     assert!(output.stderr.contains("invalid"));
     assert!(output.stderr.contains("character"));
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     // Check that no buildspace was created
     assert_eq!(buildspace_count(&ctx).await?, 0);
@@ -280,7 +280,7 @@ async fn test_new_invalid_characters_buildspace_name(
     // Check output
     assert!(!output.status.success());
     assert!(output.stderr.contains("May not be empty"));
-    assert!(output.stdout.is_empty());
+    assert_eq!(output.stdout, "");
 
     // Check that no buildspace was created
     assert_eq!(buildspace_count(&ctx).await?, 0);
@@ -306,7 +306,7 @@ async fn test_new_slugify_buildspace_name(
 
     // Check output
     assert!(output.status.success());
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, "");
     assert!(output.stdout.contains("Created buildspace"));
 
     // Check that the buildspace was created with the slugified name
