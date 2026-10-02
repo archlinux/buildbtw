@@ -58,6 +58,8 @@ pub fn get_optional(name: &str, file_path: Option<&Utf8Path>) -> Result<Option<S
         return Ok(Some(
             std::fs::read_to_string(path)
                 .wrap_err(format!("Could not read secret at {path}"))?
+                .trim()
+                .to_string()
                 .into(),
         ));
     }
@@ -71,7 +73,7 @@ pub fn get_optional(name: &str, file_path: Option<&Utf8Path>) -> Result<Option<S
             "Could not read secret at {}",
             xdg_secret_path.display()
         ))?;
-        return Ok(Some(val.into()));
+        return Ok(Some(val.trim().to_string().into()));
     }
 
     Ok(None)
@@ -124,8 +126,7 @@ mod tests {
         temp_env::with_var_unset(var_name, || {
             let result = get_required(var_name, Some(&file_path));
             assert!(result.is_ok());
-            // Note: read_to_string includes newline, so we need to trim
-            assert_eq!(result.unwrap().expose_secret().trim(), expected_value);
+            assert_eq!(result.unwrap().expose_secret(), expected_value);
         });
     }
 
@@ -169,5 +170,75 @@ mod tests {
         let result = get_required(var_name, None);
         // Should fail when no sources are available
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_optional_from_env() {
+        let var_name = "TEST_SECRET";
+        let expected_value = "secret_from_env";
+
+        temp_env::with_var(var_name, Some(expected_value), || {
+            let result = get_optional(var_name, None).unwrap();
+            assert_eq!(result.unwrap().expose_secret(), expected_value);
+        });
+    }
+
+    #[test]
+    fn test_get_optional_from_file() {
+        let var_name = "TEST_SECRET";
+        let expected_value = "secret_from_file";
+
+        // Create temporary file with secret
+        let mut temp_file = NamedUtf8TempFile::new().unwrap();
+        writeln!(temp_file, "{expected_value}").unwrap();
+        temp_file.flush().unwrap();
+
+        let file_path = temp_file.path().to_path_buf();
+
+        temp_env::with_var_unset(var_name, || {
+            let result = get_optional(var_name, Some(&file_path)).unwrap();
+            assert_eq!(result.unwrap().expose_secret(), expected_value);
+        });
+    }
+
+    #[test]
+    fn test_get_optional_env_priority_over_file() {
+        let var_name = "TEST_SECRET_PRIORITY_11111";
+        let env_value = "secret_from_env";
+        let file_value = "secret_from_file";
+
+        // Create temporary file with different secret
+        let mut temp_file = NamedUtf8TempFile::new().unwrap();
+        writeln!(temp_file, "{file_value}").unwrap();
+        temp_file.flush().unwrap();
+
+        // Set environment variable
+        temp_env::with_var(var_name, Some(env_value), || {
+            let file_path = temp_file.path().to_path_buf();
+
+            let result = get_optional(var_name, Some(&file_path)).unwrap();
+            // Environment variable should take priority
+            assert_eq!(result.unwrap().expose_secret(), env_value);
+        });
+    }
+
+    #[test]
+    fn test_get_optional_nonexistent_file() {
+        let var_name = "TEST_SECRET_NONEXISTENT_22222";
+
+        let nonexistent_path = Utf8PathBuf::from("/tmp/this_file_should_not_exist_98765.txt");
+
+        let result = get_optional(var_name, Some(&nonexistent_path));
+        // Should fail when file doesn't exist and no env var is set
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_optional_no_sources() {
+        let var_name = "TEST_SECRET_NO_SOURCES_33333";
+
+        let result = get_optional(var_name, None).unwrap();
+        // Should return `None` when no sources are available
+        assert!(result.is_none());
     }
 }
