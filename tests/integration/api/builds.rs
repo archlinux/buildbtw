@@ -714,7 +714,7 @@ async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx)
 
 #[rstest]
 #[tokio::test]
-async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_upload_build_artifact_pkgname_unexpected(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let pkgname: package::Name = "one".parse()?;
 
     // Create buildspace, iteration, and builds
@@ -747,7 +747,7 @@ async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCt
         .await;
 
     // Check uploaded artifact
-    response.assert_status_not_found();
+    response.assert_status_unprocessable_entity();
 
     Ok(())
 }

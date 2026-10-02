@@ -151,11 +151,10 @@ pub async fn upload_package(
     // Required database metadata has been read, commit transaction to release locks before streaming data.
     tx.commit().await?;
 
-    let filename = build
-        .pkgnames_filenames
-        .0
-        .get(&pkgname)
-        .ok_or_else(|| ResponseError::NotFound(format!("Build package '{pkgname}'")))?;
+    let filename =
+        build.pkgnames_filenames.0.get(&pkgname).ok_or_else(|| {
+            ResponseError::UnprocessableEntity(format!("Build package '{pkgname}'"))
+        })?;
     debug!("Received data stream for build_id {build_id} pkgname {pkgname} filename {filename}",);
 
     // Abort if artifact has already been uploaded
