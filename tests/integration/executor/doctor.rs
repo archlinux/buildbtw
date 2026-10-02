@@ -27,7 +27,7 @@ async fn test_doctor_success(#[future(awt)] ctx: TestCtx) -> Result<()> {
 async fn test_doctor_no_login_token(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Run command
     let mut cmd = ctx.executor_cmd();
-    cmd.env_remove("BUILDBTW_EXECUTOR_TOKEN");
+    cmd.env_remove("BUILDBTW_EXECUTOR_SECRET_TOKEN");
     cmd.arg("doctor");
     let output = run_cmd(&mut cmd).await?;
 
@@ -45,7 +45,7 @@ async fn test_doctor_no_login_token(#[future(awt)] ctx: TestCtx) -> Result<()> {
 async fn test_doctor_invalid_login_token(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // Run command
     let mut cmd = ctx.executor_cmd();
-    cmd.env("BUILDBTW_EXECUTOR_TOKEN", "invalid");
+    cmd.env("BUILDBTW_EXECUTOR_SECRET_TOKEN", "invalid");
     cmd.arg("doctor");
     let output = run_cmd(&mut cmd).await?;
 

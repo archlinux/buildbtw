@@ -78,16 +78,16 @@ pub struct ApiConfig {
     ///
     /// If no value is provided, the produced output artifacts will not be uploaded.
     /// In development, by default the buildbtw backend is available at <https://buildbtw.localhost:8080/>
-    pub api_server_url: Url,
+    pub server_url: Url,
 
-    pub api_token: Secret<String>,
+    pub secret_token: Secret<String>,
 }
 
 impl ApiConfig {
     pub fn build_api_client(&self) -> Result<api_client::ApiClient> {
         api_client::ApiClient::with_token(
-            self.api_server_url.clone(),
-            self.api_token.expose_secret(),
+            self.server_url.clone(),
+            self.secret_token.expose_secret(),
         )
     }
 }

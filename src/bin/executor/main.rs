@@ -73,7 +73,7 @@ pub async fn run(ssh_timeout: u32, run_args: &RunArgs) -> Result<()> {
         RunStage::BuildScript(build_script_args) => {
             run::build_script(
                 ssh_timeout,
-                build_script_args.try_into()?,
+                args::build_script_config(run_args, build_script_args)?,
                 cancellation_token,
             )
             .await?;

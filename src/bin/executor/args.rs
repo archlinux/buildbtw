@@ -65,14 +65,14 @@ impl TryFrom<DoctorArgs> for config::DoctorConfig {
         let api_config = match api_config {
             Some(ApiConfigArgs {
                 server_url,
-                api_token_path,
+                secret_token_path: api_token_path,
             }) => external_secrets::get_optional(
-                "BUILDBTW_EXECUTOR_TOKEN",
+                "BUILDBTW_EXECUTOR_SECRET_TOKEN",
                 api_token_path.as_deref(),
             )?
             .map(|api_token| config::ApiConfig {
-                api_server_url: server_url,
-                api_token,
+                server_url,
+                secret_token: api_token,
             }),
             None => None,
         };
@@ -152,8 +152,12 @@ pub struct ConfigArgs {
     pub ci_project_path_slug: String,
 }
 
-#[derive(Debug, Clone, clap::Args)]
+#[derive(Debug, Clone, clap::Args, PartialEq, Eq)]
 pub struct RunArgs {
+    /// API config for uploading build artifacts and updating status
+    #[clap(flatten)]
+    api_config: Option<ApiConfigArgs>,
+
     /// The path to the script that downloads the sources. Created by GitLab Runner for the Custom executor to run
     pub script_path: Utf8PathBuf,
 
@@ -163,7 +167,7 @@ pub struct RunArgs {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone, clap::Subcommand)]
+#[derive(Debug, Clone, clap::Subcommand, Eq, PartialEq)]
 #[clap(rename_all = "snake_case")]
 pub enum RunStage {
     /// Debug information which machine the Job is running on
@@ -208,7 +212,7 @@ pub enum RunStage {
     CleanupFileVariables,
 }
 
-#[derive(Debug, Clone, clap::Args)]
+#[derive(Debug, Clone, clap::Args, PartialEq, Eq)]
 pub struct GetSourcesArgs {
     /// Directory that stores build artifacts
     #[arg(
@@ -225,12 +229,12 @@ impl From<GetSourcesArgs> for config::RunGetSources {
     }
 }
 
-#[derive(Debug, Clone, clap::Args, PartialEq)]
+#[derive(Debug, Clone, clap::Args, PartialEq, Eq)]
 // Two things of note here:
 // 1. `requires_all` names members that are not part of this struct. They are actually flattened into
 //    here from `api_config`.
 // 2. `args` so that clap is even aware that a `build_id` exists and is expected to be provided.
-#[group(requires_all = ["server_url", "build_id"], args = ["server_url", "api_token_path", "build_id"])]
+#[group(requires_all = ["build_id"], args = ["build_id"])]
 pub struct BuildScriptArgs {
     /// Directory of the project that will be built
     #[arg(long, env = "CUSTOM_ENV_CI_PROJECT_DIR")]
@@ -244,10 +248,6 @@ pub struct BuildScriptArgs {
     #[clap(flatten)]
     pacman_repository: Option<PacmanRepoArgs>,
 
-    /// API config for uploading build artifacts and updating status
-    #[clap(flatten)]
-    api_config: Option<ApiConfigArgs>,
-
     /// Build UUID for API calls
     ///
     /// If set, requires the server URL as well.
@@ -255,7 +255,7 @@ pub struct BuildScriptArgs {
     build_id: Option<Uuid>,
 }
 
-#[derive(Debug, Clone, clap::Args, PartialEq)]
+#[derive(Debug, Clone, clap::Args, PartialEq, Eq)]
 #[group(requires_all = ["buildspace", "iteration", "architecture", "pacman_repository_base_url"])]
 pub struct PacmanRepoArgs {
     /// Buildspace slug
@@ -275,7 +275,7 @@ pub struct PacmanRepoArgs {
     pub pacman_repository_base_url: Url,
 }
 
-#[derive(Debug, Clone, clap::Args, PartialEq)]
+#[derive(Debug, Clone, clap::Args, PartialEq, Eq)]
 pub struct ApiConfigArgs {
     /// Base URL of the buildbtw server that receives build results
     ///
@@ -294,79 +294,79 @@ pub struct ApiConfigArgs {
 
     /// Path to a file containing the API token for authentication
     ///
-    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_TOKEN` environment variable.
+    /// The token can be passed directly using the `BUILDBTW_EXECUTOR_SECRET_TOKEN` environment variable.
     /// If set, requires build ID and server URL as well.
     ///
     /// Precedence:
     ///
-    /// 1. `BUILDBTW_EXECUTOR_TOKEN` env var
+    /// 1. `BUILDBTW_EXECUTOR_SECRET_TOKEN` env var
     /// 2. Contents of file specified by the token path
-    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_TOKEN
+    /// 3. Contents of $XDG_CONFIG_HOME/buildbtw/BUILDBTW_EXECUTOR_SECRET_TOKEN
     //
     // `verbatim_doc_comment` preserves newlines in the doc listing above
-    #[arg(long, env = "BUILDBTW_EXECUTOR_TOKEN_PATH", verbatim_doc_comment)]
-    api_token_path: Option<Utf8PathBuf>,
+    #[arg(
+        long,
+        env = "BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH",
+        verbatim_doc_comment
+    )]
+    secret_token_path: Option<Utf8PathBuf>,
 }
 
-impl TryFrom<BuildScriptArgs> for config::RunBuildScript {
-    type Error = color_eyre::eyre::Error;
+pub fn build_script_config(
+    RunArgs { api_config, .. }: &RunArgs,
+    BuildScriptArgs {
+        ci_project_dir,
+        architecture,
+        pacman_repository,
+        build_id,
+    }: BuildScriptArgs,
+) -> Result<config::RunBuildScript> {
+    let api_config = match (api_config, build_id) {
+        (
+            Some(ApiConfigArgs {
+                server_url,
+                secret_token_path: api_token_path,
+            }),
+            Some(build_id),
+        ) => {
+            let api_token = external_secrets::get_optional(
+                "BUILDBTW_EXECUTOR_SECRET_TOKEN",
+                api_token_path.as_deref(),
+            )?
+            .ok_or_eyre("API endpoint configured but no API token provided")?;
+            Some(config::RunBuildScriptApiConfig {
+                api_server_url: server_url.clone(),
+                api_token,
+                build_id,
+            })
+        }
+        (None, None) => None,
+        _ => bail!("API server URL and build ID must be provided together"),
+    };
 
-    fn try_from(
-        BuildScriptArgs {
-            ci_project_dir,
-            pacman_repository,
-            api_config,
-            build_id,
-            architecture,
-        }: BuildScriptArgs,
-    ) -> Result<Self, Self::Error> {
-        let api_config = match (api_config, build_id) {
-            (
-                Some(ApiConfigArgs {
-                    server_url,
-                    api_token_path,
-                }),
-                Some(build_id),
-            ) => {
-                let api_token = external_secrets::get_optional(
-                    "BUILDBTW_EXECUTOR_TOKEN",
-                    api_token_path.as_deref(),
-                )?
-                .ok_or_eyre("API endpoint configured but no API token provided")?;
-                Some(config::RunBuildScriptApiConfig {
-                    api_server_url: server_url,
-                    api_token,
-                    build_id,
-                })
-            }
-            (None, None) => None,
-            _ => bail!("API server URL and build ID must be provided together"),
-        };
+    let pacman_repository = match pacman_repository {
+        Some(pacman_repository) => {
+            let PacmanRepoArgs {
+                buildspace,
+                iteration,
+                pacman_repository_base_url,
+            } = pacman_repository;
+            Some(config::PacmanRepo {
+                buildspace,
+                iteration,
+                architecture,
+                pacman_repository_base_url,
+            })
+        }
+        None => None,
+    };
 
-        let pacman_repository = match pacman_repository {
-            Some(pacman_repository) => {
-                let PacmanRepoArgs {
-                    buildspace,
-                    iteration,
-                    pacman_repository_base_url,
-                } = pacman_repository;
-                Some(config::PacmanRepo {
-                    buildspace,
-                    iteration,
-                    architecture,
-                    pacman_repository_base_url,
-                })
-            }
-            None => None,
-        };
-
-        Ok(config::RunBuildScript {
-            ci_project_dir,
-            pacman_repository,
-            api_config,
-            architecture,
-        })
-    }
+    Ok(config::RunBuildScript {
+        ci_project_dir,
+        pacman_repository,
+        api_config,
+        architecture,
+    })
 }
 
 impl From<ConfigArgs> for config::BuildConfig {
@@ -422,11 +422,25 @@ mod tests {
                             Gitlab::Run(RunArgs {
                                 script_path: _,
                                 stage: RunStage::BuildScript(build_script),
+                                ..
                             }),
                     }),
                 ..
             } => Ok(build_script),
             args => bail!("expected gitlab build_script, got: {args:#?}"),
+        }
+    }
+
+    fn run_args(args: Args) -> Result<RunArgs> {
+        match args {
+            Args {
+                command:
+                    Commands::Gitlab(GitlabArgs {
+                        command: Gitlab::Run(run_args),
+                    }),
+                ..
+            } => Ok(run_args),
+            args => bail!("expected gitlab run command, got: {args:#?}"),
         }
     }
 
@@ -458,25 +472,30 @@ mod tests {
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
             ("BUILDBTW_SERVER_URL", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
 
         let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
-        let args = build_script_args(args)?;
+        let run_args = run_args(args.clone())?;
+        let build_script_args = build_script_args(args)?;
 
         assert_eq!(
-            args,
-            BuildScriptArgs {
-                ci_project_dir: "/tmp/foo".into(),
-                architecture: BuildArchitecture::X86_64V3,
-                pacman_repository: None,
+            run_args,
+            RunArgs {
                 api_config: None,
-                build_id: None,
+                script_path: "/tmp/foo".into(),
+                stage: RunStage::BuildScript(BuildScriptArgs {
+                    ci_project_dir: "/tmp/foo".into(),
+                    architecture: BuildArchitecture::X86_64V3,
+                    pacman_repository: None,
+                    build_id: None
+                })
             }
         );
 
-        let config: config::RunBuildScript = temp_env::with_vars(env, || args.try_into())?;
+        let config: config::RunBuildScript =
+            temp_env::with_vars(env, || build_script_config(&run_args, build_script_args))?;
 
         assert_eq!(
             config,
@@ -498,6 +517,8 @@ mod tests {
             "buildbtw-executor",
             "gitlab",
             "run",
+            "--server-url=https://localhost",
+            "--secret-token-path=/path/to/token",
             "/tmp/foo",
             "build_script",
             "--ci-project-dir=/tmp/foo",
@@ -505,7 +526,6 @@ mod tests {
             "--buildspace=foospace",
             "--iteration=1",
             "--pacman-repository-base-url=https://10.0.2.2",
-            "--server-url=https://localhost",
             "--build-id",
             &build_id.to_string(),
         ];
@@ -516,16 +536,24 @@ mod tests {
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
             ("BUILDBTW_SERVER_URL", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN", Some("FOOBAR")),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN", Some("FOOBAR")),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
 
         let args: Args = temp_env::with_vars(env, || Args::parse_from(argv));
-        let args = build_script_args(args)?;
+        let run_args = run_args(args.clone())?;
+        let build_script_args = build_script_args(args)?;
+        assert_eq!(
+            run_args.api_config,
+            Some(ApiConfigArgs {
+                server_url: Url::from_str("https://localhost")?,
+                secret_token_path: Some("/path/to/token".into()),
+            })
+        );
 
         assert_eq!(
-            args,
+            build_script_args,
             BuildScriptArgs {
                 ci_project_dir: "/tmp/foo".into(),
                 architecture: BuildArchitecture::X86_64,
@@ -534,16 +562,12 @@ mod tests {
                     iteration: 1u32,
                     pacman_repository_base_url: Url::from_str("https://10.0.2.2")?,
                 }),
-                api_config: Some(ApiConfigArgs {
-                    server_url: Url::from_str("https://localhost")?,
-                    api_token_path: None,
-                }),
                 build_id: Some(build_id),
             }
         );
 
-        let config: config::RunBuildScript = temp_env::with_vars(env, || args.try_into())?;
-
+        let config: config::RunBuildScript =
+            temp_env::with_vars(env, || build_script_config(&run_args, build_script_args))?;
         assert_eq!(
             config,
             executor::config::RunBuildScript {
@@ -575,7 +599,6 @@ mod tests {
             "/tmp/foo",
             "build_script",
             "--ci-project-dir=/tmp/foo",
-            "--server-url=https://localhost",
         ];
         let env = [
             ("CUSTOM_ENV_CI_PROJECT_DIR", None::<&str>),
@@ -584,7 +607,7 @@ mod tests {
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
             ("BUILDBTW_SERVER_URL", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
 
@@ -610,7 +633,7 @@ mod tests {
             ("CUSTOM_ENV_ARCHITECTURE", None::<&str>),
             ("CUSTOM_ENV_PACMAN_REPOSITORY_BASE_URL", None::<&str>),
             ("BUILDBTW_SERVER_URL", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
 
@@ -626,7 +649,7 @@ mod tests {
         let argv = &["buildbtw-executor", "doctor"];
         let env = [
             ("BUILDBTW_SERVER_URL", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
 
@@ -651,8 +674,8 @@ mod tests {
         ];
         let env = [
             ("BUILDBTW_SERVER_URL", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN", Some("FOOBAR")),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN", Some("FOOBAR")),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
 
@@ -664,7 +687,7 @@ mod tests {
             DoctorArgs {
                 api_config: Some(ApiConfigArgs {
                     server_url: Url::try_from("https://10.0.2.2")?,
-                    api_token_path: None,
+                    secret_token_path: None,
                 })
             }
         );
@@ -674,8 +697,8 @@ mod tests {
             config,
             executor::config::DoctorConfig {
                 api_config: Some(executor::config::ApiConfig {
-                    api_server_url: Url::try_from("https://10.0.2.2")?,
-                    api_token: redact::Secret::new("FOOBAR".into()),
+                    server_url: Url::try_from("https://10.0.2.2")?,
+                    secret_token: redact::Secret::new("FOOBAR".into()),
                 })
             }
         );
@@ -693,8 +716,8 @@ mod tests {
         ];
         let env = [
             ("BUILDBTW_SERVER_URL", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN_PATH", None::<&str>),
-            ("BUILDBTW_EXECUTOR_TOKEN", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH", None::<&str>),
+            ("BUILDBTW_EXECUTOR_SECRET_TOKEN", None::<&str>),
             ("XDG_CONFIG_HOME", Some("/tmp/doesnotexist")),
         ];
 
@@ -706,7 +729,7 @@ mod tests {
             DoctorArgs {
                 api_config: Some(ApiConfigArgs {
                     server_url: Url::try_from("https://10.0.2.2")?,
-                    api_token_path: None,
+                    secret_token_path: None,
                 })
             }
         );
