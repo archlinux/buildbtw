@@ -24,7 +24,10 @@ impl ApiClient {
         let auth_token = auth::Token::read(override_state_dir)
             .await?
             .wrap_err("Please log in first.")?;
-        Self::with_token(buildbtw_server_url, auth_token.secret_token.expose_secret())
+        Self::with_token(
+            buildbtw_server_url,
+            auth_token.secret_token.expose_secret().trim(),
+        )
     }
 
     pub fn with_token(buildbtw_server_url: Url, auth_token: &str) -> Result<ApiClient> {
