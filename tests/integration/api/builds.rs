@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use alpm_types::PackageType;
 use buildbtw::api;
 use buildbtw::buildspace;
 use buildbtw::entities;
@@ -533,6 +534,7 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -591,6 +593,7 @@ async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) ->
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -631,6 +634,7 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
         &pkgbase.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Split,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -689,6 +693,7 @@ async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx)
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -729,6 +734,7 @@ async fn test_upload_build_artifact_pkgname_unexpected(#[future(awt)] ctx: TestC
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -769,6 +775,7 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -856,6 +863,7 @@ async fn test_upload_build_artifact_invalid_package_metadata(
         &pkgname.to_string(),
         &pkgname.to_string(),
         &invalid_version.parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -895,6 +903,7 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -1040,6 +1049,7 @@ async fn test_serve_build_file(#[future(awt)] ctx: TestCtx) -> Result<()> {
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -1128,6 +1138,7 @@ async fn test_serve_build_artifact_not_found(#[future(awt)] ctx: TestCtx) -> Res
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -1211,6 +1222,7 @@ async fn test_serve_build_artifact_unknown_iteration(#[future(awt)] ctx: TestCtx
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
