@@ -148,7 +148,7 @@ impl TestCtx {
 
         cmd.env("BUILDBTW_SERVER_URL", self.state.server_url.to_string())
             .env(
-                "BUILDBTW_EXECUTOR_TOKEN",
+                "BUILDBTW_EXECUTOR_SECRET_TOKEN",
                 self.admin_session.secret_token.0.expose_secret(),
             )
             // Reset RUST_LOG to prevent tracing output polluting our snapshots

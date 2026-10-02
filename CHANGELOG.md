@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking Change:** Put executor gitlab commands under gitlab arg ([!229](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/229))
 - **Breaking Change:** Read the server URL from `--server-url`/`BUILDBTW_SERVER_URL` instead of the pipeline-controlled `CUSTOM_ENV_API_SERVER_URL` ([#327](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/327))
+- **Breaking Change:** Rename `BUILDBTW_EXECUTOR_TOKEN_PATH` to `BUILDBTW_EXECUTOR_SECRET_TOKEN_PATH`, `BUILDBTW_EXECUTOR_TOKEN` to `BUILDBTW_EXECUTOR_SECRET_TOKEN` and the corresponding CLI flag to `--secret-token-path`.
 - **Feature:** Don't overwrite log files, ensure log dir exists ([!221](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/221))
 - **Fix:** Make `doctor` exit non-zero if any check fails ([#272](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/272))
 
