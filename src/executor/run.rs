@@ -62,12 +62,14 @@ pub async fn build_script(
             api_config.build_id,
             package::BuildStatus::Building,
         )
-        .await?;
+        .await
+        .wrap_err("Failed to set build status")?;
     }
 
     let output_dir = camino_tempfile::Builder::new()
         .prefix("buildbtw-output-dir-")
-        .tempdir()?;
+        .tempdir()
+        .wrap_err("Failed to create build output dir")?;
 
     let result = build_project_dir(
         output_dir.path(),

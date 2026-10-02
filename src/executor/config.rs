@@ -1,5 +1,5 @@
 use camino::Utf8PathBuf;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::Context};
 use redact::Secret;
 use serde::Serialize;
 use url::Url;
@@ -52,6 +52,7 @@ impl RunBuildScriptApiConfig {
             self.api_server_url.clone(),
             self.api_token.expose_secret(),
         )
+        .wrap_err("Failed to initialize buildbtw API client")
     }
 }
 

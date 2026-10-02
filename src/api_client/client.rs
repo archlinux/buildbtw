@@ -1,5 +1,8 @@
 use camino::Utf8PathBuf;
-use color_eyre::{Result, eyre::ContextCompat};
+use color_eyre::{
+    Result,
+    eyre::{Context, ContextCompat},
+};
 use url::Url;
 
 use crate::api_client::auth;
@@ -27,7 +30,8 @@ impl ApiClient {
     pub fn with_token(buildbtw_server_url: Url, auth_token: &str) -> Result<ApiClient> {
         // Put token into a sensitive header value
         let header_value = format!("Bearer {auth_token}");
-        let mut bearer = reqwest::header::HeaderValue::from_str(&header_value)?;
+        let mut bearer = reqwest::header::HeaderValue::from_str(&header_value)
+            .wrap_err("Invalid Authorization Bearer header")?;
         bearer.set_sensitive(true);
 
         // Create default header map
@@ -37,7 +41,8 @@ impl ApiClient {
         // Return client with default headers
         let reqwest_client = reqwest::Client::builder()
             .default_headers(headers)
-            .build()?;
+            .build()
+            .wrap_err("Failed to initialize reqwest client")?;
 
         Ok(ApiClient {
             reqwest_client,
