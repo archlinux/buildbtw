@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use buildbtw::{
-    api::builds::ListBuildsResponse,
+    api::{self, builds::ListBuildsResponse},
     api_client::{self, ApiClient},
     buildspace,
     package::BuildStatus,
 };
 use color_eyre::{Result, eyre::OptionExt};
 use futures::StreamExt;
+use itertools::Itertools;
 use sea_orm::Iterable;
 use tracing::trace;
 use yansi::Paint;
@@ -52,6 +53,13 @@ pub async fn show(
         println!("The build graph for this iteration is still being calculated.");
     }
 
+    let has_multiple_architectures = responses_by_status
+        .values()
+        .flat_map(|res| res.builds.iter().map(|build| build.architecture).unique())
+        .unique()
+        .count()
+        > 1;
+
     for status in [
         BuildStatus::Building,
         BuildStatus::Built,
@@ -68,12 +76,9 @@ pub async fn show(
 
         println!();
         println!("{status} builds");
+
         for build in &response.builds {
-            println!(
-                "  {} {}",
-                build.status.symbol().paint(build.status.cli_color()),
-                build.pkgbase
-            );
+            print_build(build, has_multiple_architectures, None);
         }
 
         if let Some(max_results) = max_results {
@@ -84,13 +89,18 @@ pub async fn show(
         }
     }
 
-    print_pending_builds(max_results, &responses_by_status)?;
+    print_pending_builds(
+        max_results,
+        has_multiple_architectures,
+        &responses_by_status,
+    )?;
 
     Ok(())
 }
 
 fn print_pending_builds(
     max_results: Option<u64>,
+    has_multiple_architectures: bool,
     responses_by_status: &HashMap<BuildStatus, ListBuildsResponse>,
 ) -> Result<()> {
     let to_be_scheduled_builds = responses_by_status
@@ -109,26 +119,26 @@ fn print_pending_builds(
         println!();
         println!("Pending builds");
         for build in &scheduled_builds.builds {
-            println!(
-                "  {} {} (Waiting for runner)",
-                build.status.symbol().paint(build.status.cli_color()),
-                build.pkgbase
+            print_build(
+                build,
+                has_multiple_architectures,
+                Some("Waiting for runner"),
             );
         }
 
         for build in &to_be_scheduled_builds.builds {
-            println!(
-                "  {} {} (Waiting to be sent to executor)",
-                build.status.symbol().paint(build.status.cli_color()),
-                build.pkgbase
+            print_build(
+                build,
+                has_multiple_architectures,
+                Some("Waiting to be sent to executor"),
             );
         }
 
         for build in &blocked_builds.builds {
-            println!(
-                "  {} {} (Waiting for dependencies to build)",
-                build.status.symbol().paint(build.status.cli_color()),
-                build.pkgbase
+            print_build(
+                build,
+                has_multiple_architectures,
+                Some("Waiting for dependencies to build"),
             );
         }
 
@@ -141,6 +151,23 @@ fn print_pending_builds(
     }
 
     Ok(())
+}
+
+fn print_build(build: &api::Build, print_architecture: bool, extra_status: Option<&str>) {
+    print!(
+        "  {} {}",
+        build.status.symbol().paint(build.status.cli_color()),
+        build.pkgbase
+    );
+
+    if print_architecture {
+        print!(" ({})", build.architecture);
+    }
+    if let Some(inner) = extra_status {
+        print!(" ({inner})");
+    }
+
+    println!();
 }
 
 async fn all_builds_grouped_by_status(

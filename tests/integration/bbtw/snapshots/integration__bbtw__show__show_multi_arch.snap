@@ -1,0 +1,27 @@
+---
+source: tests/integration/bbtw/show.rs
+expression: output.stdout
+---
+Showing builds for iteration #1 of buildspace target
+
+Building builds
+  ✦ build-x86_64-Building (x86_64)
+  ✦ build-x86_64_v3-Building (x86_64_v3)
+
+Built builds
+  ✓ build-x86_64-Built (x86_64)
+  ✓ build-x86_64_v3-Built (x86_64_v3)
+
+Failed builds
+  ✗ build-x86_64-Failed (x86_64)
+  ✗ build-x86_64_v3-Failed (x86_64_v3)
+
+Skipped builds
+  ⌀ build-x86_64-Skipped (x86_64)
+  ⌀ build-x86_64_v3-Skipped (x86_64_v3)
+
+Pending builds
+  ⧗ build-x86_64-Scheduled (x86_64) (Waiting for runner)
+  ⧗ build-x86_64_v3-Scheduled (x86_64_v3) (Waiting for runner)
+  ⧗ build-x86_64-Pending (x86_64) (Waiting to be sent to executor)
+  ⧗ build-x86_64_v3-Pending (x86_64_v3) (Waiting to be sent to executor)
