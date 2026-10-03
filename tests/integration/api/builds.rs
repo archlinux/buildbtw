@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use alpm_types::PackageType;
 use buildbtw::api;
 use buildbtw::buildspace;
 use buildbtw::entities;
@@ -533,6 +534,7 @@ async fn test_upload_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()> {
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -591,6 +593,7 @@ async fn test_upload_build_artifact_unauthorized(#[future(awt)] ctx: TestCtx) ->
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -631,6 +634,7 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
         &pkgbase.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Split,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -674,6 +678,162 @@ async fn test_upload_build_artifact_split_package(#[future(awt)] ctx: TestCtx) -
 
 #[rstest]
 #[tokio::test]
+async fn test_upload_build_artifact_debug_package(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+    let debug_pkgname: package::Name = "one-debug".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Create debug package tarball
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &debug_pkgname.to_string(),
+        &"2.1-1".parse()?,
+        PackageType::Debug,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname: debug_pkgname.clone(),
+        })
+        .bytes(package_bytes.clone().into())
+        .await;
+
+    // Undeclared debug packages must upload like any other artifact
+    response.assert_status_ok();
+
+    // Check uploaded artifact landed next to the regular packages
+    let data_dir = ctx.data_dir.path().to_path_buf();
+    let repo_dir = buildbtw::builds::build_repo_path(
+        &buildspace.name,
+        iteration.sequence,
+        &build.architecture,
+        &Some(data_dir),
+    )?;
+    let dest_bytes = tokio::fs::read(repo_dir.join("one-debug-2.1-1-any.pkg.tar.zst")).await?;
+    assert_eq!(package_bytes, dest_bytes, "uploaded bytes must match");
+
+    // Check the debug package was not added to the pacman database
+    let db_path = repo_dir.join(pacman_repository::pacman_repo_database_filename(
+        &buildspace.name,
+    ));
+    assert!(
+        !db_path.exists(),
+        "debug packages must not be in the repo db"
+    );
+
+    // Check build status update
+    let tx = ctx.state.db.begin().await?;
+    let build = queries::builds::by_id(build.id).one(&tx).await?.unwrap();
+    assert_eq!(
+        package::BuildStatus::Pending,
+        build.status,
+        "build status must not be updated yet"
+    );
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_upload_build_artifact_debug_package_base_not_declared(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+    let debug_pkgname: package::Name = "random-debug".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Create debug package tarball for a package that isn't part of the build
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &debug_pkgname.to_string(),
+        &"2.1-1".parse()?,
+        PackageType::Debug,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname: debug_pkgname.clone(),
+        })
+        .bytes(package_bytes.into())
+        .await;
+
+    // Only debug packages of declared packages may upload
+    response.assert_status_unprocessable_entity();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_upload_build_artifact_debug_package_wrong_pkgtype(
+    #[future(awt)] ctx: TestCtx,
+) -> Result<()> {
+    let pkgname: package::Name = "one".parse()?;
+    let debug_pkgname: package::Name = "one-debug".parse()?;
+
+    // Create buildspace, iteration, and builds
+    let tx = ctx.state.db.begin().await?;
+    let (_, iteration) = factories::buildspace_with_iteration(&tx, "testspace").await?;
+    let build = factories::build(&tx, iteration.id, &pkgname.to_string()).await?;
+    tx.commit().await?;
+
+    // Create package tarball that isn't a debug package despite the name
+    let package = factories::package(
+        &ctx.data_dir,
+        &pkgname.to_string(),
+        &debug_pkgname.to_string(),
+        &"2.1-1".parse()?,
+        PackageType::Package,
+    )
+    .await?;
+    let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
+
+    // Get the artifact upload response
+    let response = ctx
+        .server
+        .typed_post(&api::builds::UploadPackage {})
+        .authorization_bearer(ctx.admin_session.secret_token.expose_secret())
+        .add_query_params(api::builds::UploadPackageQuery {
+            build_id: build.id.into(),
+            pkgname: debug_pkgname.clone(),
+        })
+        .bytes(package_bytes.into())
+        .await;
+
+    // Undeclared uploads must identify as debug packages
+    response.assert_status_unprocessable_entity();
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
 async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let pkgname: package::Name = "one".parse()?;
 
@@ -689,6 +849,7 @@ async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx)
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -714,7 +875,7 @@ async fn test_upload_build_artifact_build_not_found(#[future(awt)] ctx: TestCtx)
 
 #[rstest]
 #[tokio::test]
-async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_upload_build_artifact_pkgname_unexpected(#[future(awt)] ctx: TestCtx) -> Result<()> {
     let pkgname: package::Name = "one".parse()?;
 
     // Create buildspace, iteration, and builds
@@ -729,6 +890,7 @@ async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCt
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -747,7 +909,7 @@ async fn test_upload_build_artifact_pkgname_not_found(#[future(awt)] ctx: TestCt
         .await;
 
     // Check uploaded artifact
-    response.assert_status_not_found();
+    response.assert_status_unprocessable_entity();
 
     Ok(())
 }
@@ -769,6 +931,7 @@ async fn test_upload_build_artifact_already_exists(#[future(awt)] ctx: TestCtx) 
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -856,6 +1019,7 @@ async fn test_upload_build_artifact_invalid_package_metadata(
         &pkgname.to_string(),
         &pkgname.to_string(),
         &invalid_version.parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -895,6 +1059,7 @@ async fn test_download_build_artifact(#[future(awt)] ctx: TestCtx) -> Result<()>
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -1040,6 +1205,7 @@ async fn test_serve_build_file(#[future(awt)] ctx: TestCtx) -> Result<()> {
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -1128,6 +1294,7 @@ async fn test_serve_build_artifact_not_found(#[future(awt)] ctx: TestCtx) -> Res
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;
@@ -1211,6 +1378,7 @@ async fn test_serve_build_artifact_unknown_iteration(#[future(awt)] ctx: TestCtx
         &pkgname.to_string(),
         &pkgname.to_string(),
         &"2.1-1".parse()?,
+        PackageType::Package,
     )
     .await?;
     let package_bytes = tokio::fs::read(package.to_path_buf()).await?;

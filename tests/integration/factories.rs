@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alpm_types::FullVersion;
+use alpm_types::{FullVersion, PackageType};
 use buildbtw::{
     buildspace,
     db_fields::TxtUuid,
@@ -259,11 +259,13 @@ pub async fn build_with_split_package(
     Ok(builds.into_iter().next().unwrap())
 }
 
+/// Create a package file with the given pkgtype
 pub async fn package(
     data_dir: &Utf8TempDir,
     pkgbase: &str,
     pkgname: &str,
     pkgver: &FullVersion,
+    pkgtype: PackageType,
 ) -> Result<alpm_package::Package> {
     let tmp_storage = buildbtw::storage::data_tmp_dir(&Some(data_dir.path().to_path_buf()))?;
     tokio::fs::create_dir_all(&tmp_storage).await?;
@@ -305,7 +307,7 @@ pkgver = {pkgver}
             r"
 pkgname = {pkgname}
 pkgbase = {pkgbase}
-xdata = pkgtype=pkg
+xdata = pkgtype={pkgtype}
 pkgver = {pkgver}
 pkgdesc = A project that returns true
 url = https://example.org/
