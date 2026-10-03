@@ -1,4 +1,4 @@
-use buildbtw::{buildspace, entities, queries};
+use buildbtw::{buildspace, entities, package, queries};
 use color_eyre::Result;
 use insta::assert_snapshot;
 use rstest::rstest;
@@ -21,6 +21,59 @@ async fn test_show(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // go over the default limit of 5
     for i in 0..6 {
         factories::build(&tx, iteration.id, &i.to_string()).await?;
+    }
+    tx.commit().await?;
+
+    // Run show command with demo data
+    let mut cmd = ctx.bbtw_cmd();
+    cmd.arg("show").arg(buildspace.name.as_ref());
+    let output = run_cmd(&mut cmd).await?;
+
+    // Snapshot output
+    insta::assert_snapshot!(output.stdout);
+    assert!(output.stderr.is_empty());
+
+    // Check that it succeeded
+    assert!(output.status.success());
+
+    Ok(())
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_show_multi_arch(#[future(awt)] ctx: TestCtx) -> Result<()> {
+    // Create buildspace, iteration and builds
+    let tx = ctx.state.db.begin().await?;
+
+    let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "target").await?;
+    // go over the default limit of 5
+    for status in [
+        package::BuildStatus::Pending,
+        package::BuildStatus::Scheduled,
+        package::BuildStatus::Building,
+        package::BuildStatus::Skipped,
+        package::BuildStatus::Built,
+        package::BuildStatus::Failed,
+    ] {
+        for architecture in [
+            package::BuildArchitecture::X86_64,
+            package::BuildArchitecture::X86_64V3,
+        ] {
+            let build = factories::build_with_architecture(
+                &tx,
+                iteration.id,
+                &format!("build-{architecture}-{status}"),
+                architecture,
+            )
+            .await?;
+            queries::builds::update_build_status_and_dispatch(
+                build.id,
+                status,
+                Some(entities::builds::DispatchedTo::Local),
+            )
+            .exec(&tx)
+            .await?;
+        }
     }
     tx.commit().await?;
 
