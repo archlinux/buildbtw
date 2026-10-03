@@ -1,5 +1,0 @@
----
-source: tests/integration/bbtw/new.rs
-expression: output.stdout
----
-Created buildspace buildspace

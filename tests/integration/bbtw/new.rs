@@ -1,4 +1,4 @@
-use buildbtw::{buildspace, entities, git, queries};
+use buildbtw::{buildspace, entities, git, queries, utils::slugify};
 use color_eyre::Result;
 use insta::assert_snapshot;
 use rstest::rstest;
@@ -46,7 +46,8 @@ async fn test_new(
 
     // Check output
     assert!(output.status.success(), "stderr: {}", output.stderr);
-    assert_snapshot!(format!("{name:?}"), output.stdout);
+    // Slugified so the snapshot filename is free of undesirable characters like "
+    assert_snapshot!(slugify(format!("{name:?}")), output.stdout);
     assert!(output.stderr.is_empty());
 
     // Check that buildspace was created
