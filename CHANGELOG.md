@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+## [0.0.7] - 2026-10-03
+
 ### backend
 
 - **Breaking Change:** Remove the `--gitlab-ssh-host-key` CLI option. For deploying the backend using the container image, the `BUILDBTW_GITLAB_SSH_HOST_KEY` environment variable will now write its value to `/etc/ssh/known_hosts` inside the container on startup. ([!268](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/268))
@@ -102,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Just a placeholder for now :)
 
 <!-- next-url -->
-[Unreleased]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.6...HEAD
+[Unreleased]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.7...HEAD
+[0.0.7]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.archlinux.org/archlinux/buildbtw/-/compare/v0.0.3...v0.0.4
