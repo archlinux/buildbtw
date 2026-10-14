@@ -54,9 +54,9 @@ As such, we have some reservations towards AI tool usage:
 
 ## Writing Tests
 
-Non-trivial tests should have a doc comment (and above all `#[attributes]`) explaining the intention.
-
-Keep tests as simple and short as possible. Add helpers if it helps test readability.
+- **Keep tests as simple and short as possible.** Add helpers if it helps test readability.
+- **Draw attention to the relevant details of the test.** Make sure that whatever it is that you're testing specifically and that the reader is supposed to pay attention to stands out against the test scaffolding.
+- Non-trivial tests should have a doc comment (and above all `#[attributes]`) explaining the intention.
 
 When writing tests for HTTP endpoints, make sure to include the following edge cases:
 
