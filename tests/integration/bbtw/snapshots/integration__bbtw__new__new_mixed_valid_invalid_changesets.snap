@@ -3,9 +3,15 @@ source: tests/integration/bbtw/new.rs
 expression: output.stderr
 ---
 error: invalid value 'lib#bar' for '<CHANGESETS>...': Failed to parse pkgbase: Parser failed with the following error:
-lib#bar
-   ^
-invalid character in package name
-expected ASCII alphanumeric character, `_`, `@`, `+`, `-`, `.`
+error: invalid character in package name
+ | 
+ | lib#bar
+ |    ^ expected one of: ASCII alphanumeric character, `_`, `@`, `+`, `-`, `.`
+ | 
+ = while parsing:
+   alpm-package-name: (#bar)
+   → invalid character in package name
+   → expected one of: ASCII alphanumeric character, `_`, `@`, `+`, `-`, `.`
+
 
 For more information, try '--help'.
