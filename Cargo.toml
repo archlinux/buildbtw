@@ -73,7 +73,7 @@ alpm-mtree = "0.3.3"
 alpm-package = "0.4.2"
 alpm-pkginfo = "0.6.2"
 alpm-srcinfo = "0.6.3"
-alpm-types = "0.11.2"
+alpm-types = "0.12.0"
 asynk-strim = "0.1.5"
 clap = { version = "4.6.0", features = ["cargo", "derive", "env", "wrap_help"] }
 color-eyre = "0.6"
