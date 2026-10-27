@@ -12,12 +12,12 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Config {
-    dispatch_target: DispatchTargetConfig,
-    max_parallel_builds: u64,
+    pub dispatch_target: DispatchTargetConfig,
+    pub max_parallel_builds: u64,
 }
 
 #[derive(Debug)]
-enum DispatchTargetConfig {
+pub enum DispatchTargetConfig {
     Gitlab(gitlab_api::Config),
     Local,
 }

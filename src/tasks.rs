@@ -97,8 +97,10 @@ fn spawn_schedule_builds(
                         error!(?e, "Failed to schedule builds");
                     }
 
-                    if let Err(e) = run_all_local_builds(&state, token.clone()).await {
-                        error!(?e, "Failed to run builds");
+                    if matches!(dispatch_config.dispatch_target, schedule_builds::DispatchTargetConfig::Local) {
+                        if let Err(e) = run_all_local_builds(&state, token.clone()).await {
+                            error!(?e, "Failed to run builds");
+                        }
                     }
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
