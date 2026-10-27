@@ -16,8 +16,8 @@ use axum_server::{Handle, tls_rustls::RustlsConfig};
 #[cfg(debug_assertions)]
 use buildbtw::authelia;
 use buildbtw::{
-    db, graceful_shutdown::shutdown_signal, router, schedule_builds, server_state, storage, tasks,
-    templates, utils::remove_file_if_exists,
+    db, graceful_shutdown::shutdown_signal, router, server_state, storage, tasks, templates,
+    utils::remove_file_if_exists,
 };
 use clap::Parser;
 use color_eyre::{
@@ -231,11 +231,7 @@ async fn run_server(db: DatabaseConnection, config: Config) -> Result<()> {
         config.gitlab.clone(),
         config.update_source_repos,
         config.auto_create_iterations,
-        schedule_builds::Config::new(
-            config.dispatch_builds_to,
-            config.gitlab,
-            config.max_parallel_builds,
-        )?,
+        config.schedule_builds,
         db.clone(),
     )?;
 
