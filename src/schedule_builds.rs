@@ -79,7 +79,7 @@ pub async fn schedule_pending_builds(
 
     let builds_to_schedule = queries::builds::pending(available_build_slots, &tx).await?;
 
-    // Commit the read transaction before dispatching. The Local
+    // Commit the transaction before dispatching. The Local
     // dispatch path opens its own IMMEDIATE transaction below, which would
     // deadlock with SQLite if this one were still open.
     tx.commit().await?;
