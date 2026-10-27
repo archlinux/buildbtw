@@ -5,9 +5,11 @@
 version = 2
 yanked = "deny"
 ignore = [
-    #"RUSTSEC-0000-0000",
     # https://github.com/ramosbugs/openidconnect-rs/issues/140
     "RUSTSEC-2023-0071",
+    # Waiting for this fix to be released
+    # https://github.com/ramosbugs/openidconnect-rs/issues/251
+    "RUSTSEC-2026-0387",
 ]
 
 # This section is considered when running `cargo deny check licenses`
