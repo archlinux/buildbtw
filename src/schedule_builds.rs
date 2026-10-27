@@ -63,8 +63,6 @@ pub async fn schedule_pending_builds(
     server_base_url: &Url,
 ) -> Result<()> {
     let tx = db.begin().await?;
-    // Move builds that can now be built to `Pending` status
-    queries::builds::unblock_builds().exec(&tx).await?;
 
     // Check how many builds we can dispatch
     let running_build_count = queries::builds::running().count(&tx).await?;

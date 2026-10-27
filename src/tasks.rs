@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use color_eyre::Result;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, DatabaseTransaction, PaginatorTrait, QueryFilter,
-    TransactionTrait,
+    TransactionSession, TransactionTrait,
 };
 use time::Duration;
 use tokio::task::JoinSet;
@@ -21,8 +21,8 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::entities::{self, user_roles};
+use crate::{db, executor, gitlab_api};
 use crate::{db_fields::TxtUuid, queries, server_state::ServerState};
-use crate::{executor, gitlab_api};
 use crate::{iteration_creator, schedule_builds, storage};
 
 /// Starts background tasks.
@@ -68,7 +68,7 @@ pub fn initialize(
 
     debug!(?dispatch_builds);
     if let Some(dispatch_config) = dispatch_builds {
-        spawn_schedule_builds(state.clone(), token.clone(), dispatch_config);
+        spawn_process_builds(state.clone(), token.clone(), dispatch_config);
     }
 
     spawn_invalidate_old_sessions(state.clone(), token.clone());
@@ -81,7 +81,10 @@ pub fn initialize(
     Ok(())
 }
 
-fn spawn_schedule_builds(
+/// 1. Unblock builds whose dependencies have successfully finished
+/// 2. Schedule builds either on gitlab or the local runner
+/// 3. Run local builds if configured
+fn spawn_process_builds(
     state: ServerState,
     token: CancellationToken,
     dispatch_config: schedule_builds::Config,
@@ -93,15 +96,19 @@ fn spawn_schedule_builds(
         loop {
             tokio::select! {
                 _ = every_10_seconds.tick() => {
+                    // Move builds that can now be built to `Pending` status
+                    if let Err(e) = unblock_builds(&state.db).await {
+                        error!(?e, "Failed to unblock builds");
+                    }
+
                     if let Err(e) = schedule_builds::schedule_pending_builds(&dispatch_config, &state.db, &state.server_url).await {
                         error!(?e, "Failed to schedule builds");
                     }
 
-                    if matches!(dispatch_config.dispatch_target, schedule_builds::DispatchTargetConfig::Local) {
-                        if let Err(e) = run_all_local_builds(&state, token.clone()).await {
+                    if matches!(dispatch_config.dispatch_target, schedule_builds::DispatchTargetConfig::Local)
+                        && let Err(e) = run_all_local_builds(&state, token.clone()).await {
                             error!(?e, "Failed to run builds");
                         }
-                    }
                 }
                 // Stop gracefully when the provided [`CancellationToken`] is cancelled
                 () = token.cancelled() => {
@@ -110,6 +117,14 @@ fn spawn_schedule_builds(
             }
         }
     });
+}
+
+pub async fn unblock_builds(db: &DatabaseConnection) -> Result<()> {
+    let tx = db::begin_immediate(db).await?;
+    queries::builds::unblock_builds().exec(&tx).await?;
+    tx.commit().await?;
+
+    Ok(())
 }
 
 async fn run_all_local_builds(state: &ServerState, token: CancellationToken) -> Result<()> {

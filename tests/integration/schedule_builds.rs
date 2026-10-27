@@ -5,12 +5,10 @@ use buildbtw::{
 };
 use color_eyre::{Result, eyre::OptionExt};
 use redact::Secret;
-use rstest::rstest;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
+use sea_orm::{EntityTrait, TransactionTrait};
 use url::Url;
 
 use crate::factories;
-use crate::test_ctx::{TestCtx, ctx};
 
 // This test needs authenticated access to a live GitLab instance, so we don't run it as part of
 // the normal test suite. This is not great but better than testing it manually.
@@ -101,63 +99,6 @@ async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
     assert!(
         pipeline.web_url.contains(&build.pkgbase.to_string()),
         "Pipeline web_url should point to the pkgbase we created the pipeline for"
-    );
-
-    Ok(())
-}
-
-#[rstest]
-#[tokio::test]
-async fn test_schedule_pending_builds_unblocks_dependent_builds(
-    #[future(awt)] ctx: TestCtx,
-) -> Result<()> {
-    let tx = ctx.state.db.begin().await?;
-
-    let (_, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
-
-    // Create a build graph: root -> dep_a (dep_a depends on root)
-    factories::build_graph(&tx, iteration.id, &[("root", "dep_a")]).await?;
-
-    // Simulate root completing successfully
-    let root_build = builds::Entity::find()
-        .filter(builds::COLUMN.pkgbase.eq("root"))
-        .require_one(&tx)
-        .await?;
-    queries::builds::update_build_status_and_dispatch(
-        root_build.id,
-        package::BuildStatus::Built,
-        Some(builds::DispatchedTo::Local),
-    )
-    .exec(&tx)
-    .await?;
-
-    tx.commit().await?;
-
-    // Verify dep_a starts as Blocked
-    let dep_a_build = builds::Entity::find()
-        .filter(builds::COLUMN.pkgbase.eq("dep_a"))
-        .require_one(&ctx.state.db)
-        .await?;
-    assert_eq!(dep_a_build.status, package::BuildStatus::Blocked);
-
-    // schedule_pending_builds should unblock dep_a and then schedule it
-    let config = schedule_builds::Config::new(
-        Some(schedule_builds::DispatchBuildsTo::LocalExecutor),
-        None,
-        1,
-    )?
-    .expect("Created invalid config for scheduling builds");
-    schedule_builds::schedule_pending_builds(&config, &ctx.state.db, &ctx.state.server_url).await?;
-
-    // dep_a should now be Scheduled: unblocked from Blocked -> Pending, then scheduled
-    let dep_a_build = builds::Entity::find()
-        .filter(builds::COLUMN.pkgbase.eq("dep_a"))
-        .require_one(&ctx.state.db)
-        .await?;
-    assert_eq!(
-        dep_a_build.status,
-        package::BuildStatus::Scheduled,
-        "Blocked build should have been unblocked and then scheduled"
     );
 
     Ok(())
