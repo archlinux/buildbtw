@@ -151,7 +151,7 @@ impl IterationCreator {
             delete_archived,
         } = &self.config.repo_update
         {
-            let gitlab_client = gitlab_api::client(gitlab_config).await?;
+            let gitlab_client = gitlab_api::client_try_once(gitlab_config).await?;
 
             self.update_repos(&gitlab_client, gitlab_config.clone(), *delete_archived)
                 .await?;
