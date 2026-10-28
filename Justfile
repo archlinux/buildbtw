@@ -149,6 +149,11 @@ update-test-snapshots:
 watch-test *args: (ensure-command "geckodriver")
     watchexec -r -- just test {{ args }}
 
+[doc("Fetch third-party web assets into assets/vendor")]
+[group("dev")]
+vendor-assets:
+    scripts/vendor-assets.sh
+
 [doc("Clean up build artifacts, caches, and temporary files")]
 [group("dev")]
 clean:
