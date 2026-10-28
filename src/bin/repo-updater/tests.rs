@@ -15,7 +15,7 @@ async fn test_flaky_update_source_repos() -> Result<()> {
         packages_group: env::var("BUILDBTW_GITLAB_PACKAGES_GROUP")?,
     };
 
-    let gitlab_client = gitlab_api::client(&gitlab_config).await?;
+    let gitlab_client = gitlab_api::client_try_once(&gitlab_config).await?;
 
     // Create target dir if it doesn't exist.
     tokio::fs::create_dir_all(&source_repo_dir).await?;

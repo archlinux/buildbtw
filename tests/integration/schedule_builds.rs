@@ -39,7 +39,7 @@ async fn test_flaky_schedule_build_gitlab_pipeline() -> Result<()> {
         domain,
         packages_group,
     };
-    let client = gitlab_api::client(&gitlab_config).await?;
+    let client = gitlab_api::client_try_once(&gitlab_config).await?;
 
     // Set up test data
     let db = db::connect_and_migrate(db::SQLiteLocation::Memory).await?;

@@ -69,7 +69,7 @@ pub async fn schedule_pending_builds(
             tx.commit().await?;
         }
         Config::Gitlab(gitlab_api_config) => {
-            let client = gitlab_api::client(gitlab_api_config).await?;
+            let client = gitlab_api::client_try_once(gitlab_api_config).await?;
             for build in &pending {
                 if let Err(e) = create_and_persist_gitlab_pipeline(
                     &client,

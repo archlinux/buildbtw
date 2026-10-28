@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 
 use color_eyre::Result;
+use gitlab::AsyncGitlab;
 use sea_orm::{
     ColumnTrait, DatabaseConnection, DatabaseTransaction, PaginatorTrait, QueryFilter,
     TransactionSession, TransactionTrait,
@@ -177,13 +178,26 @@ fn spawn_sync_gitlab_pipeline_statuses(
     token: CancellationToken,
 ) {
     tokio::spawn(async move {
+        let client = match gitlab_api::client_retry(&gitlab_config, None).await {
+            Ok(client) => client,
+            // This should never happen since client_retry should retry indefinitely until it works, but since we get a result, we need to handle it.
+            // We handle it by not syncing pipeline statuses at all.
+            e => {
+                error!(
+                    ?e,
+                    "Failed to initialize gitlab client for syncing pipeline statuses"
+                );
+                return;
+            }
+        };
+
         let mut every_10_seconds = interval(std::time::Duration::from_secs(10));
         every_10_seconds.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         loop {
             tokio::select! {
                 _ = every_10_seconds.tick() => {
-                    if let Err(e) = sync_gitlab_pipeline_statuses(&db, &gitlab_config).await {
+                    if let Err(e) = sync_gitlab_pipeline_statuses(&db, &client).await {
                         error!(?e, "Failed to sync gitlab pipeline statuses");
                     }
                 }
@@ -200,10 +214,8 @@ fn spawn_sync_gitlab_pipeline_statuses(
 #[instrument(skip_all)]
 async fn sync_gitlab_pipeline_statuses(
     db: &DatabaseConnection,
-    gitlab_config: &gitlab_api::Config,
+    client: &AsyncGitlab,
 ) -> Result<()> {
-    let client = gitlab_api::client(gitlab_config).await?;
-
     let pipelines = queries::gitlab_pipelines::running().all(db).await?;
 
     let pipeline_count = pipelines.len();
@@ -217,7 +229,7 @@ async fn sync_gitlab_pipeline_statuses(
         // TODO: This awaits pipelines sequentially and might be slow for many pipelines.
         // TODO: If it becomes a performance issue, consider batching all pipelines and awaiting them together.
         let pipeline_status =
-            match gitlab_api::pipelines::get(&client, pipeline.project_id, pipeline.pipeline_id)
+            match gitlab_api::pipelines::get(client, pipeline.project_id, pipeline.pipeline_id)
                 .await
             {
                 Ok(response) => response.status,

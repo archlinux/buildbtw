@@ -6,6 +6,8 @@ mod state;
 #[cfg(test)]
 mod tests;
 
+use std::time::Duration;
+
 use buildbtw::{gitlab_api, repo_updater};
 use clap::Parser;
 use color_eyre::Result;
@@ -26,7 +28,8 @@ async fn main() -> Result<()> {
 
     match args.command {
         Command::PrintChanged(print_args) => {
-            let gitlab_client = gitlab_api::client(&gitlab_config).await?;
+            let gitlab_client =
+                gitlab_api::client_retry(&gitlab_config, Some(Duration::from_mins(1))).await?;
             // Query changed projects
             let projects = gitlab_api::projects::changed_since(
                 &gitlab_client,
@@ -42,7 +45,8 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Command::Update(update_args) => {
-            let gitlab_client = gitlab_api::client(&gitlab_config).await?;
+            let gitlab_client =
+                gitlab_api::client_retry(&gitlab_config, Some(Duration::from_mins(1))).await?;
 
             // Create target dir if it doesn't exist.
             tokio::fs::create_dir_all(&update_args.target_dir).await?;

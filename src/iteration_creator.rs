@@ -144,7 +144,7 @@ impl IterationCreator {
     #[instrument(skip(self))]
     pub async fn tick(&mut self) -> Result<()> {
         if let RepoUpdateConfig::DoUpdate(gitlab_config) = &self.config.repo_update {
-            let gitlab_client = gitlab_api::client(gitlab_config).await?;
+            let gitlab_client = gitlab_api::client_try_once(gitlab_config).await?;
 
             self.update_repos(&gitlab_client, gitlab_config.clone())
                 .await?;
