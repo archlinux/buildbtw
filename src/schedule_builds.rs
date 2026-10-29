@@ -1,7 +1,7 @@
 use color_eyre::{Result, eyre::OptionExt};
 use derive_more::Display;
 use gitlab::AsyncGitlab;
-use sea_orm::{DatabaseConnection, TransactionSession};
+use sea_orm::{DatabaseConnection, PaginatorTrait, TransactionSession, TransactionTrait};
 use tracing::error;
 use url::Url;
 
@@ -11,7 +11,13 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub enum Config {
+pub struct Config {
+    pub dispatch_target: DispatchTargetConfig,
+    pub max_parallel_builds: u64,
+}
+
+#[derive(Debug)]
+pub enum DispatchTargetConfig {
     Gitlab(gitlab_api::Config),
     Local,
 }
@@ -28,17 +34,23 @@ impl Config {
     pub fn new(
         dispatch_builds_to: Option<DispatchBuildsTo>,
         maybe_gitlab: Option<gitlab_api::Config>,
+        max_parallel_builds: u64,
     ) -> Result<Option<Config>> {
-        match dispatch_builds_to {
+        let dispatch_target = match dispatch_builds_to {
             Some(DispatchBuildsTo::GitlabPipelines) => {
                 let config = maybe_gitlab.ok_or_eyre(
                     "Gitlab config must be set for dispatching builds to gitlab pipelines",
                 )?;
-                Ok(Some(Config::Gitlab(config)))
+                DispatchTargetConfig::Gitlab(config)
             }
-            Some(DispatchBuildsTo::LocalExecutor) => Ok(Some(Config::Local)),
-            None => Ok(None),
-        }
+            Some(DispatchBuildsTo::LocalExecutor) => DispatchTargetConfig::Local,
+            None => return Ok(None),
+        };
+
+        Ok(Some(Config {
+            dispatch_target,
+            max_parallel_builds,
+        }))
     }
 }
 
@@ -50,17 +62,30 @@ pub async fn schedule_pending_builds(
     db: &DatabaseConnection,
     server_base_url: &Url,
 ) -> Result<()> {
-    // Move builds that can now be built to `Pending` status
-    queries::builds::unblock_builds().exec(db).await?;
+    let tx = db.begin().await?;
 
-    let pending = queries::builds::with_iteration_and_buildspace(queries::builds::pending(None))
-        .all(db)
-        .await?;
+    // Check how many builds we can dispatch
+    let running_build_count = queries::builds::running().count(&tx).await?;
+    let available_build_slots = config
+        .max_parallel_builds
+        .saturating_sub(running_build_count);
 
-    match config {
-        Config::Local => {
+    if available_build_slots == 0 {
+        // Nothing to do
+        return Ok(());
+    }
+
+    let builds_to_schedule = queries::builds::pending(available_build_slots, &tx).await?;
+
+    // Commit the transaction before dispatching. The Local
+    // dispatch path opens its own IMMEDIATE transaction below, which would
+    // deadlock with SQLite if this one were still open.
+    tx.commit().await?;
+
+    match &config.dispatch_target {
+        DispatchTargetConfig::Local => {
             let tx = db::begin_immediate(db).await?;
-            for build in &pending {
+            for build in &builds_to_schedule {
                 // Mark the build as `Scheduled` so we won't pick it up the next
                 // time this runs, but don't set it as dispatched since the
                 // build VM has not started running yet.
@@ -68,9 +93,9 @@ pub async fn schedule_pending_builds(
             }
             tx.commit().await?;
         }
-        Config::Gitlab(gitlab_api_config) => {
+        DispatchTargetConfig::Gitlab(gitlab_api_config) => {
             let client = gitlab_api::client(gitlab_api_config).await?;
-            for build in &pending {
+            for build in &builds_to_schedule {
                 if let Err(e) = create_and_persist_gitlab_pipeline(
                     &client,
                     gitlab_api_config,

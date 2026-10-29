@@ -1,16 +1,15 @@
-use color_eyre::Result;
-use redact::Secret;
-use rstest::rstest;
-use sea_orm::{ActiveValue::Set, EntityTrait, SelectExt};
-use time::{Duration, OffsetDateTime};
-use uuid::Uuid;
-
 use buildbtw::{
     db_fields::{RedactedString, TxtUuid},
     entities::sessions::{self, ClientType},
     queries,
     tasks::invalidate_old_sessions,
 };
+use color_eyre::Result;
+use redact::Secret;
+use rstest::rstest;
+use sea_orm::{ActiveValue::Set, EntityTrait, SelectExt};
+use time::{Duration, OffsetDateTime};
+use uuid::Uuid;
 
 use crate::factories;
 use crate::test_ctx::{TestCtx, ctx};

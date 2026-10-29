@@ -16,8 +16,8 @@ pub struct Config {
     #[debug("{rustls:?}")]
     pub rustls: Option<RustlsConfig>,
     // Prevent option from always taking three (!) lines
-    #[debug("{dispatch_builds_to:?}")]
-    pub dispatch_builds_to: Option<schedule_builds::DispatchBuildsTo>,
+    #[debug("{schedule_builds:?}")]
+    pub schedule_builds: Option<schedule_builds::Config>,
     pub data_dir: Option<Utf8PathBuf>,
     pub cookie_encryption_key: redact::Secret<axum_extra::extract::cookie::Key>,
     pub listen: TcpSocketOrUnixSocket,
@@ -61,11 +61,17 @@ impl Config {
             args.cookie_encryption_key_path.as_deref(),
         )?;
 
+        let dispatch_builds = schedule_builds::Config::new(
+            dispatch_builds_to,
+            gitlab.clone(),
+            args.max_parallel_builds,
+        )?;
+
         Ok(Config {
             oidc_state,
             gitlab,
             rustls,
-            dispatch_builds_to,
+            schedule_builds: dispatch_builds,
             data_dir: args.data_dir,
             cookie_encryption_key,
             listen: args.listen,
