@@ -5,9 +5,6 @@ variables:
   # Enable timestamps in Gitlab's job logs.
   FF_TIMESTAMPS: true
 
-  # We use submodules
-  GIT_SUBMODULE_STRATEGY: recursive
-
   # Force cargo colors
   CARGO_TERM_COLOR: always
 

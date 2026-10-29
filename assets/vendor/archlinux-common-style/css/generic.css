@@ -1,0 +1,28 @@
+:root {
+    --archlinux-blue: #08c;
+    --archlinux-blue-h: 200;
+    --archlinux-blue-s: 100%;
+    --archlinux-blue-l: 40%;
+
+    --archlinux-blue-light1: #f6f9fc;
+    --archlinux-blue-light2: #ecf2f5;
+    --archlinux-blue-bright: #0ae;
+    --archlinux-blue-dark1: #2a2e33;
+    --archlinux-blue-dark2: #191b1e;
+
+    --primary: var(--archlinux-blue-light1);
+    --link: var(--archlinux-blue);
+    --link-hover: #363636;
+
+    --scheme-main: var(--scheme-main);
+    --body-background-color: var(--primary);
+
+    --footer-background-color: var(--primary);
+    --footer-padding: 1rem 1.5rem 1rem;
+
+    --archlinux-color-green: rgb(0, 128, 0);
+    --archlinux-color-red: rgb(207, 0, 0);
+    --archlinux-color-orange: rgb(255, 164, 5);
+
+    --archlinux-gray-900: rgba(0, 0, 0, 0.9);
+}

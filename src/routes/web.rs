@@ -15,7 +15,7 @@ pub mod index;
 mod oidc;
 
 pub fn router(root: &Utf8Path) -> Router<ServerState> {
-    // Set no-cache for the assets to browser will check cache validity themselves with a cheap header request.
+    // Set no-cache for the assets to browser will check cache validity themselves with a cheap conditional request.
     // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#no-cache_2
     let no_cache = SetResponseHeaderLayer::overriding(
         header::CACHE_CONTROL,
