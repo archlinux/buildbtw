@@ -6,7 +6,7 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::{
-    db,
+    csp, db,
     db_fields::TxtUuid,
     entities::sessions,
     from_request::{self},
@@ -20,10 +20,13 @@ pub async fn overview(
     _: web::account::Overview,
     session: from_request::AuthUser,
     cookie_jar: PrivateCookieJar,
+    nonce: csp::Nonce,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     Ok((
         cookie_jar,
-        Html(templates::account::render_account_overview(&session)?),
+        Html(templates::account::render_account_overview(
+            &session, &nonce,
+        )?),
     ))
 }
 
@@ -57,6 +60,7 @@ pub async fn session_list(
     session: from_request::AuthUser,
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
+    nonce: csp::Nonce,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     let sessions: Vec<sessions::Model> = queries::sessions::by_user_id(session.user.id)
         .all(&tx)
@@ -67,6 +71,7 @@ pub async fn session_list(
         Html(templates::account::render_session_list_page(
             &session.user,
             &sessions,
+            &nonce,
         )?),
     ))
 }
@@ -119,12 +124,14 @@ pub async fn cli_session_landing(
     _: web::account::CliSessionLanding,
     session: from_request::AuthUser,
     cookie_jar: PrivateCookieJar,
+    nonce: csp::Nonce,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     Ok((
         cookie_jar,
         Html(templates::account::render_create_cli_session_page(
             &session.user,
             None,
+            &nonce,
         )?),
     ))
 }
@@ -135,6 +142,7 @@ pub async fn cli_session_create(
     session: from_request::AuthUser,
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
+    nonce: csp::Nonce,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     let session_model = queries::sessions::insert(session.user.id.0, sessions::ClientType::Cli)
         .exec_with_returning(&tx)
@@ -149,6 +157,7 @@ pub async fn cli_session_create(
         Html(templates::account::render_create_cli_session_page(
             &session.user,
             Some(&secret_token),
+            &nonce,
         )?),
     ))
 }

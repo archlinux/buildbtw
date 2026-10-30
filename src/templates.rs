@@ -43,10 +43,15 @@ fn format_datetime(value: tera::Value, _: Kwargs, _: &State) -> tera::TeraResult
 }
 
 /// Helper to access the pre-compiled static Tera cell and render the passed template.
-fn render(template_name: &str, mut context: tera::Context) -> Result<String> {
+fn render(
+    template_name: &str,
+    mut context: tera::Context,
+    nonce: &crate::csp::Nonce,
+) -> Result<String> {
     let tera = TERA
         .get()
         .ok_or_eyre("Template engine is not initialized")?;
+    context.insert("csp_nonce", nonce.as_str());
     context.insert("index_url", &crate::web::index::Index {}.to_string());
     context.insert("login_url", &crate::web::oidc::StartLogin {}.to_string());
     context.insert("logout_url", &crate::web::account::Logout {}.to_string());

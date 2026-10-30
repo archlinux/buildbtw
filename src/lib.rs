@@ -5,6 +5,7 @@ pub mod api_client;
 pub mod authelia;
 pub mod builds;
 pub mod buildspace;
+pub mod csp;
 pub mod db;
 pub mod db_fields;
 pub mod dependency_graph;
