@@ -48,7 +48,6 @@ rustup default stable
 ### First Steps
 
 - Copy `.env.example` to `.env` and edit it to your liking. It's the configuration for all buildbtw components.
-- Run `git submodule update --init` to initialize submodules on disk.
 - Optional: For running the buildbtw server using TLS, generate a development certificate and install its CA into your local trust chain. This CA is not injected into vmexec VMs, so skip this step if you want to run builds locally.
 ```sh
 just gen-dev-cert

@@ -25,7 +25,6 @@ path = [
     "**.yml",
     ".env*",
     ".gitignore",
-    ".gitmodules",
     ".gitlab/**",
     "**/Justfile",
     "tests/**/*.snap",
@@ -38,6 +37,32 @@ path = ["**.md", "notes/**", "docs/**.svg"]
 precedence = "aggregate"
 
 [[annotations]]
-SPDX-FileCopyrightText = "common-style Contributors"
+SPDX-FileCopyrightText = "archlinux-common-style Contributors"
 SPDX-License-Identifier = "MIT"
-path = ["common-style/**"]
+path = [
+    "assets/vendor/archlinux-common-style/**",
+    "assets/css/archlinux-common-style",
+    "assets/img/archlogo.svg",
+    "assets/img/favicon.svg",
+    "templates/partials/navbar.html",
+]
+
+[[annotations]]
+SPDX-FileCopyrightText = "Star Federation"
+SPDX-License-Identifier = "MIT"
+path = ["assets/vendor/datastar/**"]
+
+[[annotations]]
+SPDX-FileCopyrightText = "2023 Jeremy Thomas"
+SPDX-License-Identifier = "MIT"
+path = ["assets/vendor/bulma/**"]
+
+[[annotations]]
+SPDX-FileCopyrightText = "2026 Fonticons, Inc."
+SPDX-License-Identifier = "MIT"
+path = ["assets/vendor/fontawesome/css/**"]
+
+[[annotations]]
+SPDX-FileCopyrightText = "2026 Fonticons, Inc."
+SPDX-License-Identifier = "OFL-1.1"
+path = ["assets/vendor/fontawesome/webfonts/**"]

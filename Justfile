@@ -100,7 +100,7 @@ ci-dev:
 [doc("Check whether all files have a license")]
 [group("check")]
 licenses: (ensure-command "reuse")
-    reuse --include-submodules lint
+    reuse lint
 
 [doc("Check lints and formatting")]
 [group("check")]
@@ -148,6 +148,11 @@ update-test-snapshots:
 [group("test")]
 watch-test *args: (ensure-command "geckodriver")
     watchexec -r -- just test {{ args }}
+
+[doc("Fetch third-party web assets into assets/vendor")]
+[group("dev")]
+vendor-assets:
+    scripts/vendor-assets.sh
 
 [doc("Clean up build artifacts, caches, and temporary files")]
 [group("dev")]

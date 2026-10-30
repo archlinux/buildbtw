@@ -1,9 +1,11 @@
 //! Browser UI: used by humans through the browser
 
 use axum::Router;
+use axum::http::{HeaderValue, header};
 use axum_extra::routing::RouterExt;
 use camino::Utf8Path;
 use tower_http::services::ServeDir;
+use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::server_state::ServerState;
 
@@ -13,10 +15,17 @@ pub mod index;
 mod oidc;
 
 pub fn router(root: &Utf8Path) -> Router<ServerState> {
+    // Set no-cache for the assets to browser will check cache validity themselves with a cheap conditional request.
+    // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control#no-cache_2
+    let no_cache = SetResponseHeaderLayer::overriding(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("no-cache"),
+    );
     let static_files = ServeDir::new(format!("{root}/assets"));
 
     Router::new()
         .nest_service("/assets", static_files)
+        .layer(no_cache)
         .typed_get(index::index)
         .typed_get(oidc::start_login)
         .typed_get(oidc::authorized)

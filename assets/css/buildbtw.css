@@ -1,8 +1,9 @@
 @layer component, common-style, buildbtw;
 
-@import url("https://cdn.jsdelivr.net/npm/bulma@1.0.4/css/bulma.min.css") layer(component);
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css") layer(component);
-@import url("common-style/archlinux.css") layer(common-style);
+@import url("/assets/vendor/bulma/bulma.min.css") layer(component);
+/* this will load webfonts using something like url(../webfonts/<font>) */
+@import url("/assets/vendor/fontawesome/css/all.min.css") layer(component);
+@import url("archlinux-common-style/archlinux.css") layer(common-style);
 
 @layer buildbtw {
     #archnavbar {

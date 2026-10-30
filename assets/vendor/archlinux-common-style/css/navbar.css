@@ -1,0 +1,71 @@
+@import "generic.css";
+
+#archnavbar {
+    --archnavbar-logo: url("archlogo.svg");
+    --archnavbar-logo-width: 190px;
+    --archnavbar-logo-height: 40px;
+
+    --archnavbar-font-color: #999;
+    --archnavbar-font-color-hover: white;
+    --archnavbar-font-size: 14px;
+    --archnavbar-font-family: sans-serif;
+
+    --archnavbar-background-color: #333;
+    --archnavbar-border: 5px solid var(--archlinux-blue);
+
+    background: var(--archnavbar-background-color) none repeat scroll 0 0 !important;
+    border-bottom: var(--archnavbar-border) !important;
+    min-height: var(--archnavbar-logo-height) !important;
+    padding: 10px 15px !important;
+    box-sizing: unset;
+
+    #logo {
+        background: rgba(0, 0, 0, 0) var(--archnavbar-logo) no-repeat scroll 0 0 !important;
+        background-size: 100% !important;
+        height: var(--archnavbar-logo-height) !important;
+        width: var(--archnavbar-logo-width) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        float: left !important;
+
+        & a {
+            display: block !important;
+            height: var(--archnavbar-logo-height) !important;
+            width: var(--archnavbar-logo-width) !important;
+            text-indent: -9999px !important;
+        }
+    }
+
+    & #archnavbarlist li a {
+        color: var(--archnavbar-font-color);
+        font-weight: bold;
+        text-decoration: none;
+    }
+
+    & ul {
+        display: block;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        text-align: right;
+        font-size: 0;
+        letter-spacing: 0;
+
+        & li {
+            display: inline-block;
+            font-size: var(--archnavbar-font-size);
+            font-family: var(--archnavbar-font-family) !important;
+            line-height: 1.4;
+            letter-spacing: 0;
+            padding-top: 14px;
+            padding-right: 15px;
+            padding-left: 15px;
+            margin: 0;
+
+            & a:hover {
+                color: var(--archnavbar-font-color-hover) !important;
+                text-decoration: underline !important;
+            }
+        }
+    }
+}
