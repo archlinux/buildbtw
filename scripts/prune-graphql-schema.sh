@@ -7,7 +7,7 @@
 # Will replace the file passed as input with the pruned version.
 set -euo pipefail
 
-INPUT="${1:-src/gitlab/graphql_schema.json}"
+INPUT="${1}"
 OUTPUT="${INPUT}"
 
 echo "Pruning GraphQL schema"
@@ -19,7 +19,7 @@ jq '
   .data.__schema.types |= map(
     if .name == "Project" then
       # Keep only fields used in changed_projects.graphql
-      .fields |= map(select(.name | test("^(path|updatedAt|lastActivityAt)$")))
+      .fields |= map(select(.name | test("^(path|updatedAt|lastActivityAt|archived)$")))
     elif .name == "PageInfo" then
       # Keep only pagination fields we use
       .fields |= map(select(.name | test("^(endCursor|hasNextPage)$")))

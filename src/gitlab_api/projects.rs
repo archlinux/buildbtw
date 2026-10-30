@@ -19,6 +19,9 @@ pub struct Project {
 
     /// Last time the project has seen some kind of activity.
     pub last_activity_at: Option<OffsetDateTime>,
+
+    /// Whether the project is archived or not.
+    pub archived: Option<bool>,
 }
 
 /// Get all projects that changed since the given timestamp, ordered by most
@@ -71,6 +74,7 @@ pub async fn changed_since(
             results.push(Project {
                 repo_slug: package::RepositorySlug::try_from(project.path)?,
                 last_activity_at: project.last_activity_at.map(OffsetDateTime::from),
+                archived: project.archived,
             });
         }
 
@@ -170,8 +174,8 @@ mod tests {
         let archived_projects = ["ack", "abcmidi"];
         for archived_project_name in archived_projects {
             assert!(
-                !project_names.contains(archived_project_name),
-                "Project {archived_project_name} is archived but was included in the changed projects queried from gitlab"
+                project_names.contains(archived_project_name),
+                "Archived project {archived_project_name} was not included in the changed projects queried from gitlab"
             );
         }
 

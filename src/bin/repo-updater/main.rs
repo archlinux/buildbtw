@@ -54,6 +54,7 @@ async fn main() -> Result<()> {
 
             let last_updated = repo_updater::update_all_source_repos(
                 update_args.target_dir.clone(),
+                update_args.delete_archived,
                 &gitlab_client,
                 last_updated,
                 gitlab_config,

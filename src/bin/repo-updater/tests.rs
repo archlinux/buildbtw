@@ -25,6 +25,7 @@ async fn test_flaky_update_source_repos() -> Result<()> {
 
     let last_updated = repo_updater::update_all_source_repos(
         source_repo_dir.clone(),
+        true,
         &gitlab_client,
         last_updated,
         gitlab_config,
