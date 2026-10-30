@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Feature:** Prioritize builds for changesets before any builds for dependents ([!321](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/321))
 - **Feature:** Vendor all assets so the backend now serves everything without external resources ([!326](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/326))
+- **Feature:** Serve a strict Content-Security-Policy on all responses ([!328](https://gitlab.archlinux.org/archlinux/buildbtw/-/merge_requests/328))
 
 ### repo-updater
 

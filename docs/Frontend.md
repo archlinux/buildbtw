@@ -12,6 +12,9 @@ This document outlines our chosen technology and development style for making bu
 
 These kinds of tools (htmx, unpoly, hotwired, ...) are easily interchangeable, so it's not very important what we pick
 
+Needs a Content-Security-Policy nonce. The way we do this is that we generate a random nonce with every request and inject it into our templates.
+See also [the Datastar docs](https://data-star.dev/reference/security#csp-mode).
+
 ## Tera template engine
 
 Doesn't need a full recompilation which is essential when doing iterative work.

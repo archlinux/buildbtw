@@ -45,5 +45,8 @@ pub fn new(root: &Utf8Path, trusted_origins: &[Origin]) -> Result<Router<ServerS
             // whole. This allows for streamed endpoints that run f.e. as long as a build runs.
             // The timeout defines how long an upload may stall before it is aborted.
             RequestBodyTimeoutLayer::new(Duration::from_mins(10)),
-        ))
+        )
+        // Give every response a Content-Security-Policy with a fresh nonce. Needs to be last so that
+        // every route gets it.
+        .layer(axum::middleware::from_fn(crate::csp::middleware)))
 }
