@@ -103,7 +103,7 @@ tokio = { version = "1.54.1", features = [
 ] }
 tokio-util = "0.7.20"
 tokio-stream = "0.1.19"
-toml = "1.1.8"
+toml = "1.2.1"
 time = { version = "0.3.55", features = ["formatting", "macros", "parsing", "serde"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["time"] }
@@ -145,18 +145,18 @@ axum-extra = { version = "0.12.6", features = [
     "typed-header",
     "cookie-private",
 ] }
-uuid = { version = "1.29.0", features = ["v4", "serde"] }
+uuid = { version = "1.29.2", features = ["v4", "serde"] }
 nutype = { version = "0.8.0", features = [
     "derive_unchecked",
     "serde",
     "regex",
 ] }
 regex = "1.13.1"
-rust-embed = { version = "8.13.0", features = [
+rust-embed = { version = "8.14.0", features = [
     "deterministic-timestamps",
     "include-exclude",
 ] }
-openidconnect = { version = "4.0.1", features = [
+openidconnect = { version = "4.1.0", features = [
     "timing-resistant-secret-traits",
 ] }
 garde = { version = "0.23", features = ["derive"] }
@@ -173,11 +173,11 @@ git2 = { version = "0.21", default-features = false, features = ["ssh"] }
 petgraph = "0.8.3"
 camino-tempfile = "1.4.1"
 colored = "3.1.1"
-webbrowser = { version = "1.2.5", features = ["hardened", "disable-wsl"] }
+webbrowser = { version = "1.2.7", features = ["hardened", "disable-wsl"] }
 tracing-error = "0.2.1"
 named-lock = "0.4.1"
 port_check = "0.3.0"
-axum-server = { version = "0.8.0", features = ["tls-rustls"] }
+axum-server = { version = "0.9.2", features = ["tls-rustls"] }
 rustls = { version = "0.23.46", features = ["aws-lc-rs"] }
 serde_with = "3.24.0"
 yansi = { version = "1.0.1", features = ["detect-env", "detect-tty"] }
