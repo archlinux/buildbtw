@@ -87,6 +87,15 @@ There are a bunch of commands you can run at this level. Run `just` to view all 
 - `just gen-dev-cert` to generate a locally valid TLS dev certificate for the aforementined trust store
 - `just seed-database` to seed the database with sample data (add `--reset` to drop and recreate the database if it already contains data)
 
+### Benchmarking
+
+The dependency graph benchmark measures both warm `BuildGraphs::calculate` wall time (via Criterion) and the wakeup latency of an unrelated Tokio heartbeat while graph calculations run on a multi-thread runtime.
+
+- `just bench` runs the benchmark and prints the heartbeat percentile summary.
+- `just bench -- --save-baseline before` records the wall times under the `before` baseline. After a change, compare with `just bench -- --baseline before`.
+- `BUILDBTW_BENCH_LABEL=before just bench` also saves the heartbeat summary as `target/criterion/heartbeat-before.txt` (the default label is `latest`).
+- Workload size can be adjusted with `BUILDBTW_BENCH_PACKAGES`, `BUILDBTW_BENCH_WORKERS`, `BUILDBTW_BENCH_CONCURRENCY`, `BUILDBTW_BENCH_HEARTBEAT_INTERVAL_MS`, and `BUILDBTW_BENCH_HEARTBEAT_MS`.
+
 ## Running end-to-end tests
 
 Once you've installed the dependencies listed in the development setup section, running `just test` should work. There's a lot going on behind the scenes, though:

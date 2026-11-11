@@ -52,8 +52,8 @@ run-executor *args:
 
 [doc("Run performance benchmarks")]
 [group("run")]
-bench:
-    cargo bench
+bench *args:
+    cargo bench {{ args }}
 
 [doc("Build in debug mode")]
 [group("build")]
