@@ -14,7 +14,7 @@ use alpm_srcinfo::SourceInfoV1;
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::{
     Section,
-    eyre::{Context, Result},
+    eyre::{Context, OptionExt, Result},
 };
 use tokio::task::spawn_blocking;
 use tracing::debug;
@@ -53,21 +53,24 @@ impl SourceRepoCache {
         // List all repository names and add them as keys to the cache,
         // so we can easily iterate over all source repo names later on.
         let mut source_repos = HashMap::new();
-        let listed_files = Utf8PathBuf::from(source_repo_dir)
-            .read_dir_utf8()
+        let mut listed_files = tokio::fs::read_dir(source_repo_dir)
+            .await
             .wrap_err(format!("Failed to list files in {source_repo_dir}"))?;
-        for file in listed_files {
-            let dir = file?;
-            if !dir.file_type()?.is_dir() {
+        while let Some(dir) = listed_files.next_entry().await? {
+            if !dir.file_type().await?.is_dir() {
                 // Allow arbitrary files that are not git repos
                 // inside the source_repos dir, such as
                 // CACHEDIR.TAG (https://bford.info/cachedir/)
                 continue;
             }
-            let dir_name = dir.file_name().to_string();
+            let dir_name = dir
+                .file_name()
+                .to_str()
+                .ok_or_eyre("Directory name is not valid unicode")?
+                .to_string();
             let source_repo = SourceRepo {
                 source_infos: HashMap::new(),
-                path: dir.into_path(),
+                path: Utf8PathBuf::try_from(dir.path())?,
             };
             source_repos.insert(dir_name, source_repo);
         }
