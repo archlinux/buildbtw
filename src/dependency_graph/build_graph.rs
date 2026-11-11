@@ -98,27 +98,34 @@ impl BuildGraphs {
         let packages_metadata = BuildspaceSourceInfoIndex::build(changesets.clone(), source_repos)
             .await
             .wrap_err("Error mapping pkgbases to srcinfos")?;
-        let global_graphs = build_global_dependency_graphs(&packages_metadata);
 
-        trace!("Walking dependents for each architecture");
+        let changesets_cloned = changesets.clone();
+        let (graphs, jobs_per_architecture) = tokio::task::spawn_blocking(move || -> Result<_> {
+            let global_graphs = build_global_dependency_graphs(&packages_metadata);
 
-        let mut graphs = HashMap::new();
-        let mut jobs_per_architecture = HashMap::new();
-        for (architecture, graph) in global_graphs {
-            let packages_to_build = calculate_build_graph_for_architecture(
-                changesets,
-                &graph,
-                architecture,
-                &packages_metadata,
-            )?;
+            trace!("Walking dependents for each architecture");
 
-            // Skip architectures with empty build graphs
-            if packages_to_build.node_count() > 0 {
-                jobs_per_architecture.insert(architecture, packages_to_build.node_count());
+            let mut graphs = HashMap::new();
+            let mut jobs_per_architecture = HashMap::new();
+            for (architecture, graph) in global_graphs {
+                let packages_to_build = calculate_build_graph_for_architecture(
+                    &changesets_cloned,
+                    &graph,
+                    architecture,
+                    &packages_metadata,
+                )?;
 
-                graphs.insert(architecture, packages_to_build);
+                // Skip architectures with empty build graphs
+                if packages_to_build.node_count() > 0 {
+                    jobs_per_architecture.insert(architecture, packages_to_build.node_count());
+
+                    graphs.insert(architecture, packages_to_build);
+                }
             }
-        }
+
+            Ok((graphs, jobs_per_architecture))
+        })
+        .await??;
 
         let elapsed_ms = start_time.elapsed().as_millis();
         debug!(
@@ -166,7 +173,7 @@ fn calculate_build_graph_for_architecture(
     changesets: &git::Changesets,
     global_graph: &GlobalDependencies,
     architecture: package::BuildArchitecture,
-    packages_metadata: &BuildspaceSourceInfoIndex<'_>,
+    packages_metadata: &BuildspaceSourceInfoIndex,
 ) -> Result<BuildGraph> {
     // TODO: use a topological visitor for this (issue: https://gitlab.archlinux.org/archlinux/buildbtw/-/issues/224)
 

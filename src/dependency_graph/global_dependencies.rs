@@ -59,7 +59,7 @@ impl GlobalDependencies {
 /// Only looks at normal dependencies at the moment.
 /// soname-, make-, and optional dependencies are ignored.
 pub fn build_global_dependency_graphs(
-    source_info_index: &BuildspaceSourceInfoIndex<'_>,
+    source_info_index: &BuildspaceSourceInfoIndex,
 ) -> HashMap<package::BuildArchitecture, GlobalDependencies> {
     trace!("Building global dependency graph");
     let mut graphs = HashMap::new();
