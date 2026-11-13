@@ -7,9 +7,8 @@ yanked = "deny"
 ignore = [
     # https://github.com/ramosbugs/openidconnect-rs/issues/140
     "RUSTSEC-2023-0071",
-    # Waiting for this fix to be released
-    # https://github.com/ramosbugs/openidconnect-rs/issues/251
-    "RUSTSEC-2026-0387",
+    # Wait for sqlx-sqlite to update to >= 0.39.0
+    "RUSTSEC-2026-0459",
 ]
 
 # This section is considered when running `cargo deny check licenses`
