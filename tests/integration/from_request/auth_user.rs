@@ -1,11 +1,10 @@
 use axum::http::Method;
 use axum_extra::routing::TypedPath;
+use buildbtw::db_fields::RedactedString;
+use buildbtw::{api, from_request, web};
 use color_eyre::Result;
 use rstest::rstest;
 use uuid::Uuid;
-
-use buildbtw::db_fields::RedactedString;
-use buildbtw::{api, from_request, web};
 
 use crate::test_ctx::{CookieJarExt, TestCtx, ctx};
 
@@ -28,6 +27,7 @@ async fn test_unauthorized_routes(
     response.assert_text_contains("Unauthorized");
 }
 
+/// Web endpoints accept a session cookie for authentication.
 #[rstest]
 #[tokio::test]
 async fn test_authenticate_with_cookie(#[future(awt)] ctx: TestCtx) -> Result<()> {
@@ -41,17 +41,17 @@ async fn test_authenticate_with_cookie(#[future(awt)] ctx: TestCtx) -> Result<()
     // Request with the cookie attached.
     let response = ctx
         .server
-        .typed_get(&api::users::AuthenticatedUser {})
+        .typed_get(&web::account::Overview {})
         .add_cookies(cookies)
         .await;
 
     response.assert_status_ok();
-    let user: api::users::User = response.json();
-    assert_eq!(user.username, "admin");
+    response.assert_text_contains("admin");
 
     Ok(())
 }
 
+/// Web endpoints accept a bearer token header for authentication.
 #[rstest]
 #[tokio::test]
 async fn test_authenticate_with_bearer_token(#[future(awt)] ctx: TestCtx) -> Result<()> {
@@ -60,13 +60,12 @@ async fn test_authenticate_with_bearer_token(#[future(awt)] ctx: TestCtx) -> Res
     // Request with the authorization header set.
     let response = ctx
         .server
-        .typed_get(&api::users::AuthenticatedUser {})
+        .typed_get(&web::account::Overview {})
         .authorization_bearer(secret_token)
         .await;
 
     response.assert_status_ok();
-    let user: api::users::User = response.json();
-    assert_eq!(user.username, "admin");
+    response.assert_text_contains("admin");
 
     Ok(())
 }
@@ -85,7 +84,7 @@ async fn test_cookie_is_preferred(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // token is invalid.
     let response = ctx
         .server
-        .typed_get(&api::users::AuthenticatedUser {})
+        .typed_get(&web::account::Overview {})
         .add_cookies(cookies)
         .authorization_bearer("this won't be used")
         .await;
@@ -93,8 +92,7 @@ async fn test_cookie_is_preferred(#[future(awt)] ctx: TestCtx) -> Result<()> {
     // This works because the cookie had a valid secret token and it's preferred over the
     // authorization header.
     response.assert_status_ok();
-    let user: api::users::User = response.json();
-    assert_eq!(user.username, "admin");
+    response.assert_text_contains("admin");
 
     Ok(())
 }
@@ -126,7 +124,7 @@ async fn test_cookie_and_bearer_token_invalid(#[future(awt)] ctx: TestCtx) -> Re
     // This request has both, the cookie and the authorization header set and both are invalid.
     let response = ctx
         .server
-        .typed_get(&api::users::AuthenticatedUser {})
+        .typed_get(&web::account::Overview {})
         .add_cookies(cookies)
         .authorization_bearer(invalid_secret_token.expose_secret())
         .await;
