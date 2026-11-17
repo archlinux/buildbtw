@@ -4,7 +4,7 @@ use color_eyre::eyre::Context;
 use uuid::Uuid;
 
 use crate::{
-    db,
+    csp, db,
     entities::sessions,
     from_request, input,
     permissions::{self},
@@ -19,6 +19,7 @@ pub async fn bot_list(
     session: from_request::AuthUser,
     cookie_jar: PrivateCookieJar,
     db::Tx(tx): db::Tx,
+    nonce: csp::Nonce,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     permissions::check(permissions::can_manage_bots(&session))?;
 
@@ -29,6 +30,7 @@ pub async fn bot_list(
         Html(templates::admin::render_bot_list_page(
             &session.user,
             &bots,
+            &nonce,
         )?),
     ))
 }
@@ -39,6 +41,7 @@ pub async fn bot_create(
     session: from_request::AuthUser,
     cookie_jar: PrivateCookieJar,
     db::TxImmediate(tx): db::TxImmediate,
+    nonce: csp::Nonce,
     Form(body): Form<input::users::CreateBot>,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     permissions::check(permissions::can_manage_bots(&session))?;
@@ -72,6 +75,7 @@ pub async fn bot_create(
             &session.user,
             &bot,
             bot_session.secret_token.expose_secret(),
+            &nonce,
         )?),
     ))
 }
@@ -82,6 +86,7 @@ pub async fn bot_token_regenerate(
     session: from_request::AuthUser,
     cookie_jar: PrivateCookieJar,
     db::TxImmediate(tx): db::TxImmediate,
+    nonce: csp::Nonce,
 ) -> ResponseResult<(PrivateCookieJar, Html<String>)> {
     permissions::check(permissions::can_manage_bots(&session))?;
 
@@ -113,6 +118,7 @@ pub async fn bot_token_regenerate(
             &session.user,
             &bot,
             bot_session.secret_token.expose_secret(),
+            &nonce,
         )?),
     ))
 }
