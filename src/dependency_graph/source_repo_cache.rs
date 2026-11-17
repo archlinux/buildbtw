@@ -8,7 +8,7 @@
 //! for every build buildspace. To speed this up, we cache the contents
 //! of .SRCINFO files in this module.
 
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use alpm_srcinfo::SourceInfoV1;
 use camino::{Utf8Path, Utf8PathBuf};
@@ -30,7 +30,7 @@ pub struct SourceRepoCache {
 #[derive(Debug)]
 /// Source infos and commit hashes for a repo, retrievable by branch name.
 pub struct SourceRepo {
-    source_infos: HashMap<git::BranchName, BranchInfo>,
+    source_infos: HashMap<git::BranchName, Arc<BranchInfo>>,
     path: Utf8PathBuf,
 }
 
@@ -85,7 +85,7 @@ impl SourceRepoCache {
                 if let Ok(branch_info) = branch_info {
                     source_repo
                         .source_infos
-                        .insert(main_branch_name.clone(), branch_info);
+                        .insert(main_branch_name.clone(), Arc::new(branch_info));
                 }
             }
             Ok(source_repos)
@@ -111,13 +111,16 @@ impl SourceRepo {
     /// Get a `SourceInfo` struct for the given pkgbase and branch name.
     /// if it does not exist, read it from its git repository instead
     /// and insert it into the cache.
-    pub async fn get_branch_info(&mut self, branch_name: git::BranchName) -> Result<&BranchInfo> {
+    pub async fn get_branch_info(
+        &mut self,
+        branch_name: git::BranchName,
+    ) -> Result<Arc<BranchInfo>> {
         let path = self.path.clone();
 
         // Source info was already read from repo, return it
         match self.source_infos.entry(branch_name.clone()) {
             std::collections::hash_map::Entry::Occupied(occupied_entry) => {
-                Ok(occupied_entry.into_mut())
+                Ok(occupied_entry.get().clone())
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
                 // Entry doesn't exist yet: read it and insert it into the cache
@@ -125,8 +128,8 @@ impl SourceRepo {
                     spawn_blocking(move || read_branch_info_from_disk(&path, &branch_name))
                         .await
                         .wrap_err("Failed to spawn source info read task")??;
-                let branch_info = vacant_entry.insert(branch_info);
-                Ok(branch_info)
+                let branch_info = vacant_entry.insert(Arc::new(branch_info));
+                Ok(branch_info.clone())
             }
         }
     }

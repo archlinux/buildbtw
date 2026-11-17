@@ -5,7 +5,10 @@
 //! one instance of this for all architectures, and architecture-specific
 //! information is encapsulated within each [`alpm_srcinfo::SourceInfoV1`] struct.
 
-use std::collections::{HashMap, hash_map::Values};
+use std::{
+    collections::{HashMap, hash_map::Values},
+    sync::Arc,
+};
 
 use color_eyre::{Result, eyre::bail};
 use tracing::trace;
@@ -18,28 +21,28 @@ use crate::{
 
 /// Metadata like the source info & commit hash, retrievable by pkgname and pkgbase.
 #[derive(Debug)]
-pub struct BuildspaceSourceInfoIndex<'b> {
+pub struct BuildspaceSourceInfoIndex {
     pkgname_to_pkgbase: HashMap<package::Name, package::BaseName>,
-    pkgbase_to_metadata: HashMap<package::BaseName, PackageMetadata<'b>>,
+    pkgbase_to_metadata: HashMap<package::BaseName, PackageMetadata>,
 }
 
 /// Branch name, source info and commit hash for a specific repo in this buildspace.
 #[derive(Debug)]
-pub struct PackageMetadata<'b> {
+pub struct PackageMetadata {
     /// Branch name, either the one specified by the user in the buildspace, or "main".
     pub branch_name: git::BranchName,
     /// Source info and commit hash.
-    pub branch_info: &'b BranchInfo,
+    pub branch_info: Arc<BranchInfo>,
 }
 
-impl BuildspaceSourceInfoIndex<'_> {
+impl BuildspaceSourceInfoIndex {
     /// Given a set of repo & branch names (`changesets`), index all source infos we know by their pkgbase and pkgname.
     /// For repos in `changesets`, source infos are read from the specified branch.
     /// For other repos, they are read from "main".
     pub async fn build(
         changesets: git::Changesets,
         source_repos: &mut SourceRepoCache,
-    ) -> Result<BuildspaceSourceInfoIndex<'_>> {
+    ) -> Result<BuildspaceSourceInfoIndex> {
         trace!("Gathering metadata from .SRCINFO files");
         let mut pkgname_to_pkgbase = HashMap::new();
         let mut pkgbase_to_metadata = HashMap::new();
@@ -102,7 +105,7 @@ impl BuildspaceSourceInfoIndex<'_> {
     pub fn by_pkgname(
         &self,
         pkgname: &package::Name,
-    ) -> Option<(&package::BaseName, &PackageMetadata<'_>)> {
+    ) -> Option<(&package::BaseName, &PackageMetadata)> {
         let pkgbase = self.pkgname_to_pkgbase.get(pkgname)?;
         self.pkgbase_to_metadata
             .get(pkgbase)
@@ -111,13 +114,13 @@ impl BuildspaceSourceInfoIndex<'_> {
 
     /// Look up a source repo by base name.
     #[must_use]
-    pub fn by_pkgbase(&self, pkgbase: &package::BaseName) -> Option<&PackageMetadata<'_>> {
+    pub fn by_pkgbase(&self, pkgbase: &package::BaseName) -> Option<&PackageMetadata> {
         self.pkgbase_to_metadata.get(pkgbase)
     }
 
     /// Iterate over all source repos in this buildspace.
     #[must_use]
-    pub fn all_packages(&self) -> Values<'_, package::BaseName, PackageMetadata<'_>> {
+    pub fn all_packages(&self) -> Values<'_, package::BaseName, PackageMetadata> {
         self.pkgbase_to_metadata.values()
     }
 }
@@ -138,11 +141,11 @@ enum IndexError {
 /// Add metadata for this repository to the source info index.
 ///
 /// If the repo is part of the changesets, takes the branch from there, otherwise uses "main".
-async fn index_repo<'a>(
-    repo: &'a mut SourceRepo,
+async fn index_repo(
+    repo: &mut SourceRepo,
     changesets: &git::Changesets,
     pkgname_to_pkgbase: &mut HashMap<package::Name, package::BaseName>,
-    pkgbase_to_metadata: &mut HashMap<package::BaseName, PackageMetadata<'a>>,
+    pkgbase_to_metadata: &mut HashMap<package::BaseName, PackageMetadata>,
 ) -> Result<(), IndexError> {
     let branch_name = relevant_branch_name(repo, changesets).await?;
     let branch_info = repo.get_branch_info(branch_name.clone()).await?;
