@@ -63,7 +63,7 @@ build *args:
 [doc("Build in release mode")]
 [group("build")]
 build-release *args:
-    RUSTFLAGS="-D warnings" cargo build --locked --release {{args}}
+    RUSTFLAGS="-D warnings" CARGO_BUILD_WARNINGS="deny" cargo build --locked --release {{args}}
 
 [doc("Build release container image")]
 [group("build")]

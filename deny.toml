@@ -9,6 +9,10 @@ ignore = [
     "RUSTSEC-2023-0071",
     # Wait for sqlx-sqlite to update to >= 0.39.0
     "RUSTSEC-2026-0459",
+    # humantime is unmaintained but console-subscriber uses it so what can you do
+    "RUSTSEC-2026-0542",
+    # chrono is unmaintained but it's used by half the ecosystem :/
+    "RUSTSEC-2026-0543",
 ]
 
 # This section is considered when running `cargo deny check licenses`
@@ -19,6 +23,7 @@ version = 2
 allow = [
     "Apache-2.0",
     "bzip2-1.0.6",
+    "BSD-2-Clause",
     "BSD-3-Clause",
     "CDLA-Permissive-2.0",
     "GPL-3.0-or-later",
