@@ -8,7 +8,6 @@ authors = [
     "Sven-Hendrik Haase <svenstaro@archlinux.org>",
 ]
 edition = "2024"
-homepage = "https://gitlab.archlinux.org/archlinux/buildbtw"
 keywords = ["arch", "linux", "packaging", "archlinux", "ci"]
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -74,12 +73,10 @@ alpm-package = "0.4.4"
 alpm-pkginfo = "0.7.0"
 alpm-srcinfo = "0.7.0"
 alpm-types = "0.13.0"
-asynk-strim = "0.1.5"
 clap = { version = "4.6.7", features = ["cargo", "derive", "env", "wrap_help"] }
 color-eyre = "0.6"
 console = "0.16.6"
 console-subscriber = "0.5.0"
-datastar = { version = "0.4.1", features = ["axum", "tracing"] }
 directories = "6.0.0"
 gitlab = "0.1905.0"
 indicatif = "0.18.6"
@@ -182,17 +179,13 @@ rustls = { version = "0.23.46", features = ["aws-lc-rs"] }
 serde_with = "3.24.0"
 yansi = { version = "1.0.1", features = ["detect-env", "detect-tty"] }
 futures = "0.3.34"
-ssh-key = { version = "0.6.7", default-features = false, features = [
-    "ecdsa",
-    "std",
-] }
-insta = "1.49.0"
 nix = { version = "0.31.3", features = ["signal"] }
 async-trait = "0.1.92"
 itertools = "0.15.0"
 tokio-retry = "0.3.2"
 
 [dev-dependencies]
+insta = "1.49.0"
 axum-test = { version = "21.1.0", features = ["typed-routing"] }
 thirtyfour = { version = "0.38.1", features = [
     "rustls",
