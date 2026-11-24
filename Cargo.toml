@@ -67,6 +67,7 @@ assert_is_empty = "allow"
 sea-orm-debug-print = ["sea-orm/debug-print"]
 
 [dependencies]
+alpm-buildinfo = "0.6.0"
 alpm-compress = "0.1.5"
 alpm-mtree = "0.4.0"
 alpm-package = "0.4.4"

@@ -1,9 +1,10 @@
 #!/usr/bin/bash
-set -o nounset -o pipefail -o xtrace -o errexit
+set -o nounset -o pipefail -o errexit
 
-ARCHITECTURE=${1:-}
-REPO_NAME=${2:-}
-REPO_URL=${3:-}
+BUILDBTW_ENVIRONMENT=${1:-}
+ARCHITECTURE=${2:-}
+REPO_NAME=${3:-}
+REPO_URL=${4:-}
 
 echo "Installing devtools..."
 pacman --noconfirm -Syu devtools
@@ -38,7 +39,22 @@ export PACKAGER="${hostname} <${hostname}@buildbtw>"
 # to reach the caller.
 export PKGDEST="/mnt/output/"
 
+# Taint development/staging build artifacts
+# https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/366
+echo "Configured buildbtw environment: ${BUILDBTW_ENVIRONMENT}"
+if [[ $BUILDBTW_ENVIRONMENT != production ]]; then
+    printf '\n# %s\n' "$(openssl rand -hex 24)" >> PKGBUILD
+fi
+
 # Run build and preserve environment variables that need to be set
 # in the guest process.
 sudo --preserve-env="PKGDEST,PACKAGER" -u builder -- \
     pkgctl build --arch "${ARCHITECTURE}"
+
+# Undo PKGBUILD tainting as the build artifacts are already tained after
+# building and we may want to store the final PKGBUILD without exposing
+# the taint secret.
+if [[ $BUILDBTW_ENVIRONMENT != production ]]; then
+    # 48 hex chars + 2 comment + 2 newlines
+    truncate -s -52 -- PKGBUILD
+fi

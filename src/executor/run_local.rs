@@ -74,6 +74,7 @@ pub async fn try_build(
         config::RunBuildScript {
             ci_project_dir: build_dir.path().to_path_buf(),
             architecture: build.architecture,
+            environment: config::BuildEnvironment::Development,
             pacman_repository: Some(PacmanRepo {
                 buildspace: build.iteration.buildspace.name.clone(),
                 iteration: build.iteration.sequence,

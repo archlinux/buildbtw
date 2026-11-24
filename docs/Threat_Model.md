@@ -166,7 +166,7 @@ Boundaries:
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | LOG-1  | It must be guaranteed that no secrets are printed by the executor during execution as they are displayed in GitLab pipelines logs and otherwise cross a privilege boundary. This includes stdout as well as stderr.     | [Open](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/376) |
 | LOG-1a | Log output including debug level logs of the executor must always mark sensitive data in a way that guarantees they are redacted in case they are printed, like args.                                                   | [Open](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/376) |
-| LOG-1b | While the deployment artifacts safeguard for buildbtw production and staging environments is in place which adds a secret random string to `PKGBUILD`, that random string must not be printed f.e. via bash trace mode. | [Open](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/366) |
+| LOG-1b | While the deployment artifacts safeguard for buildbtw production and staging environments is in place which adds a secret random string to `PKGBUILD`, that random string must not be printed f.e. via bash trace mode. | [Implemented](https://gitlab.archlinux.org/archlinux/buildbtw/-/work_items/366) |
 
 ### Executor artifacts
 

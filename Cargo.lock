@@ -882,6 +882,7 @@ dependencies = [
 name = "buildbtw"
 version = "0.0.7"
 dependencies = [
+ "alpm-buildinfo",
  "alpm-compress",
  "alpm-mtree",
  "alpm-package",

@@ -1,7 +1,7 @@
 use camino::Utf8PathBuf;
 use color_eyre::{Result, eyre::Context};
 use redact::Secret;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 use uuid::Uuid;
 
@@ -22,6 +22,9 @@ pub struct RunBuildScript {
     /// Architecture to build for
     pub architecture: BuildArchitecture,
 
+    /// buildbtw environment kind
+    pub environment: BuildEnvironment,
+
     /// Pacman repository that should be injected
     ///
     /// The host should be reachable at 10.0.2.2 since we're using user mode networking.
@@ -30,6 +33,18 @@ pub struct RunBuildScript {
 
     /// API config for uploading build artifacts and updating status
     pub api_config: Option<RunBuildScriptApiConfig>,
+}
+
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, strum::EnumString, strum::Display,
+)]
+#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum BuildEnvironment {
+    #[default]
+    Development,
+    Staging,
+    Production,
 }
 
 #[derive(Debug, Clone, PartialEq)]

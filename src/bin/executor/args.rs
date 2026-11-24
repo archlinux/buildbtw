@@ -1,4 +1,9 @@
-use buildbtw::{buildspace, executor::config, external_secrets, package::BuildArchitecture};
+use buildbtw::{
+    buildspace,
+    executor::config::{self, BuildEnvironment},
+    external_secrets,
+    package::BuildArchitecture,
+};
 use camino::Utf8PathBuf;
 use color_eyre::{
     Result,
@@ -244,6 +249,10 @@ pub struct BuildScriptArgs {
     #[arg(long, env = "CUSTOM_ENV_ARCHITECTURE")]
     pub architecture: BuildArchitecture,
 
+    /// buildbtw environment kind.
+    #[arg(long, env = "BUILDBTW_ENVIRONMENT", default_value = "development")]
+    pub environment: BuildEnvironment,
+
     /// Base URL of the pacman repository that should be injected
     #[clap(flatten)]
     pacman_repository: Option<PacmanRepoArgs>,
@@ -317,6 +326,7 @@ pub fn build_script_config(
     BuildScriptArgs {
         ci_project_dir,
         architecture,
+        environment,
         pacman_repository,
         build_id,
     }: BuildScriptArgs,
@@ -363,6 +373,7 @@ pub fn build_script_config(
 
     Ok(config::RunBuildScript {
         ci_project_dir,
+        environment,
         pacman_repository,
         api_config,
         architecture,
@@ -487,6 +498,7 @@ mod tests {
                 script_path: "/tmp/foo".into(),
                 stage: RunStage::BuildScript(BuildScriptArgs {
                     ci_project_dir: "/tmp/foo".into(),
+                    environment: BuildEnvironment::default(),
                     architecture: BuildArchitecture::X86_64V3,
                     pacman_repository: None,
                     build_id: None
@@ -501,6 +513,7 @@ mod tests {
             config,
             executor::config::RunBuildScript {
                 ci_project_dir: "/tmp/foo".into(),
+                environment: BuildEnvironment::default(),
                 architecture: BuildArchitecture::X86_64V3,
                 pacman_repository: None,
                 api_config: None,
@@ -557,6 +570,7 @@ mod tests {
             BuildScriptArgs {
                 ci_project_dir: "/tmp/foo".into(),
                 architecture: BuildArchitecture::X86_64,
+                environment: BuildEnvironment::default(),
                 pacman_repository: Some(PacmanRepoArgs {
                     buildspace: buildspace::Slug::try_from("foospace".to_string())?,
                     iteration: 1u32,
@@ -573,6 +587,7 @@ mod tests {
             executor::config::RunBuildScript {
                 ci_project_dir: "/tmp/foo".into(),
                 architecture: BuildArchitecture::X86_64,
+                environment: BuildEnvironment::default(),
                 pacman_repository: Some(executor::config::PacmanRepo {
                     buildspace: buildspace::Slug::try_from("foospace".to_string())?,
                     iteration: 1u32,

@@ -1,10 +1,15 @@
 use std::{collections::HashMap, fs, process::Stdio};
 
-use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME};
+use alpm_buildinfo::BuildInfo;
+use alpm_package::Package;
+use alpm_types::{PKGBUILD_FILE_NAME, SRCINFO_FILE_NAME, Sha256Checksum};
 use buildbtw::{
     builds, db,
     entities::builds::DispatchedTo,
-    executor::{self, config},
+    executor::{
+        self,
+        config::{self, BuildEnvironment},
+    },
     git,
     package::{self, BuildArchitecture},
     pacman_repository, queries, storage,
@@ -47,8 +52,14 @@ pkgname = buildbtw-rocks
 ";
 
 #[rstest]
+#[case::development(BuildEnvironment::Development, false)]
+#[case::production(BuildEnvironment::Production, true)]
 #[tokio::test]
-async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCtx) -> Result<()> {
+async fn test_flaky_gitlab_executor_build_project_dir(
+    #[future(awt)] ctx: TestCtx,
+    #[case] environment: BuildEnvironment,
+    #[case] expect_same_hash: bool,
+) -> Result<()> {
     let tx = ctx.state.db.begin().await?;
     let (buildspace, iteration) = factories::buildspace_with_iteration(&tx, "buildspace").await?;
     let build = factories::build_with_status(
@@ -75,7 +86,10 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
         .tempdir()?;
 
     let pkgbuild_path = test_project_dir.path().join(PKGBUILD_FILE_NAME);
-    tokio::fs::write(pkgbuild_path, PKGBUILD).await?;
+    tokio::fs::write(&pkgbuild_path, PKGBUILD).await?;
+
+    // Record original hash to check for package tainting
+    let original_hash = Sha256Checksum::calculate_from(PKGBUILD);
 
     let srcinfo_path = test_project_dir.path().join(SRCINFO_FILE_NAME);
     tokio::fs::write(srcinfo_path, SRCINFO).await?;
@@ -85,6 +99,7 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
         config::RunBuildScript {
             ci_project_dir: test_project_dir.path().to_path_buf(),
             architecture: BuildArchitecture::X86_64,
+            environment,
             pacman_repository: None,
             api_config: Some(config::RunBuildScriptApiConfig {
                 api_server_url,
@@ -117,6 +132,25 @@ async fn test_flaky_gitlab_executor_build_project_dir(#[future(awt)] ctx: TestCt
         tokio::fs::try_exists(repo_dir.join(package_filename)).await?,
         "Expected artifact not found at {repo_dir}/{package_filename}"
     );
+
+    // Read the recorded PKGBUILD checksum inside the uploaded build artifact
+    let package = Package::try_from(repo_dir.join(package_filename).as_std_path())?;
+    let BuildInfo::V2(buildinfo) = package.read_buildinfo()? else {
+        bail!("BUILDINFO version is not supported, expected v2");
+    };
+    let recorded_hash = buildinfo.pkgbuild_sha256sum;
+    // Check if the build artifact is tainted or not based on the environment
+    if expect_same_hash {
+        assert_eq!(
+            recorded_hash, original_hash,
+            "Recorded PKGBUILD hash is expected to be the same as the original hash"
+        );
+    } else {
+        assert_ne!(
+            recorded_hash, original_hash,
+            "Recoded PKGBUILD hash is expected to be tained compared to the original"
+        );
+    }
 
     // Check that build logs where copied into server data dir.
     let log_path = builds::build_log_path(&updated, &ctx.state.data_dir)?;
@@ -183,6 +217,7 @@ arch=(any)
             config::RunBuildScript {
                 ci_project_dir: test_project_dir.path().to_path_buf(),
                 architecture: BuildArchitecture::X86_64,
+                environment: BuildEnvironment::default(),
                 pacman_repository: None,
                 api_config: Some(config::RunBuildScriptApiConfig {
                     api_server_url,
@@ -239,6 +274,7 @@ async fn test_flaky_gitlab_executor_build_from_pkgctl_repo_clone() -> Result<()>
                 .as_path()
                 .to_path_buf(),
             architecture: BuildArchitecture::X86_64,
+            environment: BuildEnvironment::default(),
             api_config: None,
             pacman_repository: None,
         },
